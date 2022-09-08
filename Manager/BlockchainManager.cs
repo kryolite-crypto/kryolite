@@ -6,17 +6,25 @@ namespace Marccacoin;
 
 public class BlockchainManager : IBlockchainManager
 {
-    private BigInteger TotalWork { get; set; } = new BigInteger(0);
-    private Difficulty CurrentDifficulty { get; set; } = new Difficulty { Value = 0 };
-    private List<Block> Blocks = new List<Block>();
+    private BigInteger TotalWork { get; set; } = new BigInteger(0); // TODO: This needs to be persisted??
+    private Difficulty CurrentDifficulty { get; set; } = new Difficulty { Value = 0 }; // TODO: Feels weird to track these in manager. Move to service instead?
+
     private readonly IDiscoveryManager discoveryManager;
+    private readonly IBlockchainRepository blockchainRepository;
     private readonly ILogger<BlockchainManager> logger;
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
-    public BlockchainManager(IDiscoveryManager discoveryManager, ILogger<BlockchainManager> logger)
+    public BlockchainManager(IDiscoveryManager discoveryManager, IBlockchainRepository blockchainRepository, ILogger<BlockchainManager> logger)
     {
         this.discoveryManager = discoveryManager ?? throw new ArgumentNullException(nameof(discoveryManager));
+        this.blockchainRepository = blockchainRepository ?? throw new ArgumentNullException(nameof(blockchainRepository));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        var lastBlock = blockchainRepository.Last();
+
+        if (lastBlock != null) {
+            CurrentDifficulty = lastBlock.Header.Difficulty;
+        }
     }
 
     public bool AddBlock(Block block)
@@ -27,13 +35,13 @@ public class BlockchainManager : IBlockchainManager
             return false;
         }
 
-        Blocks.Add(block);
+        blockchainRepository.Add(block);
 
         TotalWork += block.Header.Difficulty.ToWork();
 
         logger.LogInformation($"Added block {block.Header.Id} (chain TotalWork={TotalWork.ToString()})");
 
-        if (block.Header.Id % (ulong)Constant.EPOCH_LENGTH_BLOCKS == 0) {
+        if (block.Header.Id % Constant.EPOCH_LENGTH_BLOCKS == 0) {
             NextEpoch();
         }
         
@@ -46,26 +54,27 @@ public class BlockchainManager : IBlockchainManager
         return CurrentDifficulty;
     }
 
-    public ulong GetCurrentHeight()
+    public long GetCurrentHeight()
     {
         using var _ = rwlock.EnterReadLockEx();
-        return (ulong)Blocks.Count;
+        return blockchainRepository.Count();
     }
 
     public SHA256Hash GetLastBlockhash()
     {    
         using var _ = rwlock.EnterReadLockEx();
-        return Blocks.Last().Header.GetHash();
+        return blockchainRepository.Last().Header.GetHash();
     }
 
     private bool VerifyBlock(Block block)
     {
+        var blockCount = blockchainRepository.Count();
         if (block.Header.Difficulty != CurrentDifficulty) {
             Console.WriteLine("diff");
             return false;
         }
 
-        if (block.Header.Id != (ulong)Blocks.Count) {
+        if (block.Header.Id != blockchainRepository.Count()) {
             Console.WriteLine("id");
             return false;
         }
@@ -75,16 +84,16 @@ public class BlockchainManager : IBlockchainManager
             return false;
         }
 
-        if (Blocks.Count > 0) {
-            var lastBlock = Blocks.Last();
+        if (blockCount > 0) {
+            var lastBlock = blockchainRepository.Last();
 
             if (block.Header.ParentHash != lastBlock.Header.GetHash()) {
                 return false;
             }
 
             // Get median of last 11 blocks
-            var median = Blocks.Skip(Math.Max(0, Blocks.Count() - 11))
-                .ElementAt(Math.Min(Blocks.Count / 2, 5));
+            var median = blockchainRepository.Tail(11)
+                .ElementAt((int)(Math.Min(blockCount / 2, 5)));
 
             if (block.Header.Timestamp < median.Header.Timestamp) {
                 return false;
@@ -103,20 +112,15 @@ public class BlockchainManager : IBlockchainManager
 
     private void NextEpoch()
     {
-        if (Blocks.Count == 1) {
+        var blockCount = blockchainRepository.Count();
+        if (blockCount == 1) {
             // Starting difficulty
-            CurrentDifficulty = new Difficulty {
-                b0 = 20,
-                b1 = 0,
-                b2 = 0,
-                b3 = 0
-            };
-
+            CurrentDifficulty = new Difficulty { b0 = Constant.STARTING_DIFFICULTY };
             return;
         }
 
-        var epochStart = Blocks.ElementAt(new Index(Constant.EPOCH_LENGTH_BLOCKS, true)); // TODO: instead get last 100 blocks from db
-        var epochEnd = Blocks.Last();
+        var epochEnd = blockchainRepository.Last();
+        var epochStart = blockchainRepository.Get(Math.Max(1, epochEnd.Header.Id - Constant.EPOCH_LENGTH_BLOCKS));
 
         var elapsed = epochEnd.Header.Timestamp - epochStart.Header.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;

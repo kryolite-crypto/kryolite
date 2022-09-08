@@ -1,4 +1,6 @@
 ﻿using System.Security.Cryptography;
+using LiteDB;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -25,16 +27,19 @@ internal class Program
                                          ");
         Console.ForegroundColor = ConsoleColor.Gray;
 
+        BsonMapper.Global.RegisterType<Difficulty>
+        (
+            serialize: (diff) => diff.Value.ToString(),
+            deserialize: (bson) => new Difficulty { Value = (uint)bson.AsInt32 }
+        );
+
         var service = await Host.CreateDefaultBuilder(args)
             .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())
-            .ConfigureServices(services => services
-                .AddSingleton<IBlockchainManager, BlockchainManager>()
-                .AddSingleton<IDiscoveryManager, DiscoveryManager>()
-                .AddHostedService<DiscoveryService>()
-                .AddHostedService<BlockchainService>()
-                .AddHostedService<MempoolService>()
-                .AddHostedService<SampoService>())
+            .ConfigureWebHost(configure => configure
+                .UseStartup<Startup>()
+                .UseKestrel())
             .StartAsync();
+
         var blockchainManager = service.Services.GetService<IBlockchainManager>();
 
         if (blockchainManager is null) {

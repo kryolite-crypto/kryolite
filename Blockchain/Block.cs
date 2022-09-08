@@ -42,7 +42,7 @@ public struct Concat
 
 public class BlockHeader
 {
-    public ulong Id { get; set; }
+    public long Id { get; set; }
     public SHA256Hash ParentHash { get; set; }
     public SHA256Hash RootHash { get; set; }
     public long Timestamp { get; set; }
