@@ -1,6 +1,8 @@
 ﻿using System.Security.Cryptography;
 using LiteDB;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -33,14 +35,18 @@ internal class Program
             deserialize: (bson) => new Difficulty { Value = (uint)bson.AsInt32 }
         );
 
-        var service = await Host.CreateDefaultBuilder(args)
-            .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())
-            .ConfigureWebHost(configure => configure
-                .UseStartup<Startup>()
-                .UseKestrel())
-            .StartAsync();
+        var configuration = new ConfigurationBuilder()
+            .AddCommandLine(args)
+            .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
+            .Build();
 
-        var blockchainManager = service.Services.GetService<IBlockchainManager>();
+         await WebHost.CreateDefaultBuilder()
+            .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())
+            .UseStartup<Startup>()
+            .Build()
+            .RunAsync();
+/*
+        var blockchainManager = WebHost .Services.GetService<IBlockchainManager>();
 
         if (blockchainManager is null) {
             throw new ArgumentNullException("blockchainManager");
@@ -58,8 +64,7 @@ internal class Program
             }
         };
 
-        var miner = Task.Run(() => {
-            try {
+        try {
             while(true) {
 
                 using var sha256 = SHA256.Create();
@@ -117,12 +122,9 @@ internal class Program
                     };
                 }
             }
-            } catch (Exception ex) {
-                Console.WriteLine(ex);
-            }
-        });
-
-        await service.WaitForShutdownAsync();
+        } catch (Exception ex) {
+            Console.WriteLine(ex);
+        }
     }
 
     private static bool checkLeadingZeroBits2(byte[] hash, int challengeSize) {
@@ -134,6 +136,6 @@ internal class Program
             if (hash[i] != 0) return false;
         }
 
-        return hash[challengeBytes] <= remainingValue;
+        return hash[challengeBytes] <= remainingValue;*/
     }
 }
