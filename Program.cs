@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography;
+﻿using System.Numerics;
+using System.Security.Cryptography;
 using LiteDB;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
@@ -33,6 +34,12 @@ internal class Program
         (
             serialize: (diff) => diff.Value.ToString(),
             deserialize: (bson) => new Difficulty { Value = (uint)bson.AsInt32 }
+        );
+
+        BsonMapper.Global.RegisterType<BigInteger>
+        (
+            serialize: (bigint) => bigint.ToByteArray(),
+            deserialize: (bson) => new BigInteger(bson.AsBinary, true)
         );
 
         var configuration = new ConfigurationBuilder()

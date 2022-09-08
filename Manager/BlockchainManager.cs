@@ -6,9 +6,6 @@ namespace Marccacoin;
 
 public class BlockchainManager : IBlockchainManager
 {
-    private BigInteger TotalWork { get; set; } = new BigInteger(0); // TODO: This needs to be persisted??
-    private Difficulty CurrentDifficulty { get; set; } = new Difficulty { Value = 0 }; // TODO: Feels weird to track these in manager. Move to service instead?
-
     private readonly IDiscoveryManager discoveryManager;
     private readonly IBlockchainRepository blockchainRepository;
     private readonly ILogger<BlockchainManager> logger;
@@ -19,12 +16,6 @@ public class BlockchainManager : IBlockchainManager
         this.discoveryManager = discoveryManager ?? throw new ArgumentNullException(nameof(discoveryManager));
         this.blockchainRepository = blockchainRepository ?? throw new ArgumentNullException(nameof(blockchainRepository));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-        var lastBlock = blockchainRepository.Last();
-
-        if (lastBlock != null) {
-            CurrentDifficulty = lastBlock.Header.Difficulty;
-        }
     }
 
     public bool AddBlock(Block block)
@@ -35,15 +26,18 @@ public class BlockchainManager : IBlockchainManager
             return false;
         }
 
-        blockchainRepository.Add(block);
+        var chainState = blockchainRepository.GetChainState();
 
-        TotalWork += block.Header.Difficulty.ToWork();
+        chainState.Height = block.Header.Id;
+        chainState.TotalWork += block.Header.Difficulty.ToWork();
 
-        logger.LogInformation($"Added block {block.Header.Id} (chain TotalWork={TotalWork.ToString()})");
+        logger.LogInformation($"Added block {block.Header.Id} (TotalWork={chainState.TotalWork.ToString()})");
 
         if (block.Header.Id % Constant.EPOCH_LENGTH_BLOCKS == 0) {
-            NextEpoch();
+            NextEpoch(chainState);
         }
+
+        blockchainRepository.Add(block, chainState);
         
         return true;
     }
@@ -51,7 +45,8 @@ public class BlockchainManager : IBlockchainManager
     public Difficulty GetCurrentDifficulty()
     {
         using var _ = rwlock.EnterReadLockEx();
-        return CurrentDifficulty;
+        var chainState = blockchainRepository.GetChainState();
+        return chainState.CurrentDifficulty;
     }
 
     public long GetCurrentHeight()
@@ -69,7 +64,9 @@ public class BlockchainManager : IBlockchainManager
     private bool VerifyBlock(Block block)
     {
         var blockCount = blockchainRepository.Count();
-        if (block.Header.Difficulty != CurrentDifficulty) {
+        var chainState = blockchainRepository.GetChainState();
+
+        if (block.Header.Difficulty != chainState.CurrentDifficulty) {
             Console.WriteLine("diff");
             return false;
         }
@@ -110,23 +107,23 @@ public class BlockchainManager : IBlockchainManager
         return true;
     }
 
-    private void NextEpoch()
+    private void NextEpoch(ChainState chainState)
     {
         var blockCount = blockchainRepository.Count();
-        if (blockCount == 1) {
+        if (blockCount == 0) {
             // Starting difficulty
-            CurrentDifficulty = new Difficulty { b0 = Constant.STARTING_DIFFICULTY };
+            chainState.CurrentDifficulty = new Difficulty { b0 = Constant.STARTING_DIFFICULTY };
             return;
         }
 
         var epochEnd = blockchainRepository.Last();
-        var epochStart = blockchainRepository.Get(Math.Max(1, epochEnd.Header.Id - Constant.EPOCH_LENGTH_BLOCKS));
+        var epochStart = blockchainRepository.GetBlock(Math.Max(1, epochEnd.Header.Id - Constant.EPOCH_LENGTH_BLOCKS));
 
         var elapsed = epochEnd.Header.Timestamp - epochStart.Header.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
 
-        var newDiff = BigRational.Multiply(CurrentDifficulty.ToWork(), new BigRational(expected / (decimal)elapsed)).WholePart;
-        CurrentDifficulty = newDiff.ToDifficulty();
+        var newDiff = BigRational.Multiply(chainState.CurrentDifficulty.ToWork(), new BigRational(expected / (decimal)elapsed)).WholePart;
+        chainState.CurrentDifficulty = newDiff.ToDifficulty();
 
         logger.LogInformation($"Epoch {epochEnd.Header.Id / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");
     }

@@ -87,5 +87,6 @@ public class BlockHeader
 
 public class Block
 {
+    public long _id;
     public BlockHeader Header { get; set; } = new();
 }

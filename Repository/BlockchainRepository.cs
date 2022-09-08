@@ -1,3 +1,4 @@
+using System.Diagnostics.Contracts;
 using LiteDB;
 using Tenray.ZoneTree;
 using Tenray.ZoneTree.Comparers;
@@ -7,13 +8,13 @@ namespace Marccacoin;
 
 public class BlockchainRepository : IBlockchainRepository
 {
-    private readonly string DATA_PATH = "data/data.db";
+    private readonly string DATA_PATH = "data/blockchain.dat";
 
     public BlockchainRepository()
     {
-        using var db = new LiteDatabase(DATA_PATH);
-        db.GetCollection<Block>()
-            .EnsureIndex<long>(x => x.Header.Id);
+        /*using var db = new LiteDatabase(DATA_PATH);
+        db.GetCollection<Block>().;
+        db.GetCollection<ChainState>();*/
     }
 
     public long Count()
@@ -22,16 +23,27 @@ public class BlockchainRepository : IBlockchainRepository
         return db.GetCollection<Block>().LongCount();
     }
 
-    public void Add(Block block)
+    public void Add(Block block, ChainState chainState)
     {
+        Contract.Equals(0, chainState._id);
+
         using var db = new LiteDatabase(DATA_PATH);
-        db.GetCollection<Block>().Insert(block.Header.Id, block);
+        db.BeginTrans();
+        db.GetCollection<Block>().Insert(block);
+        db.GetCollection<ChainState>().Upsert(chainState);
+        db.Commit();
     }
 
-    public Block Get(long id)
+    public Block GetBlock(long id)
     {
         using var db = new LiteDatabase(DATA_PATH);
         return db.GetCollection<Block>().FindById(id);
+    }
+
+    public ChainState GetChainState()
+    {
+        using var db = new LiteDatabase(DATA_PATH);
+        return db.GetCollection<ChainState>().FindById(0) ?? new ChainState();
     }
 
     public List<Block> Tail(int count)
@@ -42,7 +54,7 @@ public class BlockchainRepository : IBlockchainRepository
 
         var results = db.GetCollection<Block>()
             .Query()
-            .OrderByDescending<long>(x => x.Header.Id)
+            .OrderByDescending<long>(x => x._id)
             .Limit(count)
             .ToList();
 
@@ -57,7 +69,7 @@ public class BlockchainRepository : IBlockchainRepository
 
         return db.GetCollection<Block>()
             .Query()
-            .OrderByDescending<long>(x => x.Header.Id)
+            .OrderByDescending<long>(x => x._id)
             .FirstOrDefault();
     }
 }
