@@ -1,5 +1,7 @@
 ﻿using System.Numerics;
 using System.Security.Cryptography;
+using System.Text;
+using Crypto.RIPEMD;
 using LiteDB;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
@@ -8,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
+using NSec.Cryptography;
 
 namespace Marccacoin;
 
@@ -52,6 +55,47 @@ internal class Program
             .UseStartup<Startup>()
             .Build()
             .RunAsync();
+
+            var algorithm = SignatureAlgorithm.Ed25519;
+
+            using var key = NSec.Cryptography.Key.Create(algorithm, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextArchiving });
+            var privKey = key.Export(KeyBlobFormat.RawPrivateKey);
+            var pubKey = key.Export(KeyBlobFormat.RawPublicKey);
+
+            Console.WriteLine(pubKey.Length);
+            Console.WriteLine(privKey.Length);
+
+            Console.WriteLine("Private Key:");
+            Console.WriteLine(BitConverter.ToString(privKey).Replace("-", ""));
+
+            Console.WriteLine("Public Key:");
+            Console.WriteLine(BitConverter.ToString(pubKey).Replace("-", ""));
+
+            using var sha256 = SHA256.Create();
+            var shaHash = sha256.ComputeHash(pubKey);
+
+            using var ripemd = new RIPEMD160Managed();
+            var ripemdHash = ripemd.ComputeHash(shaHash);
+
+            var addressBytes = ripemdHash.ToList();
+            addressBytes.Insert(0, (byte)Network.MAIN); // network (161 mainnet, 177 testnet)
+            addressBytes.Insert(1, 1); // version
+
+            var ripemdBytes = new List<byte>(addressBytes);
+            ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes("FIM"));
+
+            var h1 = sha256.ComputeHash(ripemdBytes.ToArray());
+            var h2 = sha256.ComputeHash(h1);
+
+            addressBytes.InsertRange(addressBytes.Count, h2.Take(4)); // checksum
+
+            Console.WriteLine("Wallet Address:");
+            Console.WriteLine("FIM0x" + BitConverter.ToString(addressBytes.ToArray()).Replace("-", ""));
+            Console.WriteLine("Wallet Length " + addressBytes.Count);
+
+            var signature = new Signature();
+            algorithm.Sign(key, BitConverter.GetBytes(42), signature);
+            Console.WriteLine(algorithm.Verify(NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, pubKey.AsSpan(), KeyBlobFormat.RawPublicKey), BitConverter.GetBytes(42), signature));
 /*
         var blockchainManager = WebHost .Services.GetService<IBlockchainManager>();
 
