@@ -1,3 +1,5 @@
+using Marccacoin.Shared;
+
 namespace Marccacoin;
 
 public interface IBlockchainRepository

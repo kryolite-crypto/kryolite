@@ -1,5 +1,7 @@
 using System.Numerics;
+using System.Security.Cryptography;
 using ExtendedNumerics;
+using Marccacoin.Shared;
 using Microsoft.Extensions.Logging;
 
 namespace Marccacoin;
@@ -28,18 +30,73 @@ public class BlockchainManager : IBlockchainManager
 
         var chainState = blockchainRepository.GetChainState();
 
-        chainState.Height = block.Header.Id;
+        chainState.Height = block.Id;
         chainState.TotalWork += block.Header.Difficulty.ToWork();
 
-        logger.LogInformation($"Added block {block.Header.Id} (TotalWork={chainState.TotalWork.ToString()})");
+        logger.LogInformation($"Added block {block.Id} (TotalWork={chainState.TotalWork.ToString()})");
 
-        if (block.Header.Id % Constant.EPOCH_LENGTH_BLOCKS == 0) {
+        if (block.Id % Constant.EPOCH_LENGTH_BLOCKS == 0) {
             NextEpoch(chainState);
         }
 
         blockchainRepository.Add(block, chainState);
         
         return true;
+    }
+
+    public Blocktemplate GetBlocktemplate(Address wallet)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        
+        var chainState = blockchainRepository.GetChainState();
+        var lastBlock = blockchainRepository.Last();
+
+        var transactions = new List<Transaction>();
+
+        var rand = new Random();
+
+        transactions.Add(new Transaction {
+            TransactionType = TransactionType.MINER_FEE,
+            To = wallet,
+            Value = (ulong)(10000000000000000000 * Constant.MINER_FEE),
+            Nonce = rand.Next(int.MinValue, int.MaxValue)
+        });
+
+        transactions.Add(new Transaction {
+            TransactionType = TransactionType.VALIDATOR_FEE,
+            To = wallet,
+            Value = (ulong)(10000000000000000000 * Constant.VALIDATOR_FEE),
+            Nonce = rand.Next(int.MinValue, int.MaxValue)
+        });
+
+        transactions.Add(new Transaction {
+            TransactionType = TransactionType.DEV_FEE,
+            To = wallet,
+            Value = (ulong)(10000000000000000000 * Constant.DEV_FEE),
+            Nonce = rand.Next(int.MinValue, int.MaxValue)
+        });
+
+        var timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+
+        var block = new Block {
+            Id = chainState.Height + 1,
+            Header = new BlockHeader {
+                ParentHash = lastBlock.GetHash(),
+                Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
+                Difficulty = chainState.CurrentDifficulty
+            },
+            Transactions = transactions
+        };
+
+        return new Blocktemplate
+        {
+            Id = block.Id,
+            Difficulty = chainState.CurrentDifficulty,
+            ParentHash = block.Header.ParentHash,
+            Nonce = block.GetHash(),
+            Timestamp = timestamp,
+            Transactions = transactions
+        };
     }
 
     public Difficulty GetCurrentDifficulty()
@@ -58,7 +115,7 @@ public class BlockchainManager : IBlockchainManager
     public SHA256Hash GetLastBlockhash()
     {    
         using var _ = rwlock.EnterReadLockEx();
-        return blockchainRepository.Last().Header.GetHash();
+        return blockchainRepository.Last().GetHash();
     }
 
     private bool VerifyBlock(Block block)
@@ -71,12 +128,7 @@ public class BlockchainManager : IBlockchainManager
             return false;
         }
 
-        if (block.Header.Id != blockchainRepository.Count()) {
-            Console.WriteLine("id");
-            return false;
-        }
-
-        if (!block.Header.VerifyNonce()) {
+        if (!block.VerifyNonce()) {
             Console.WriteLine("nonce");
             return false;
         }
@@ -84,7 +136,13 @@ public class BlockchainManager : IBlockchainManager
         if (blockCount > 0) {
             var lastBlock = blockchainRepository.Last();
 
-            if (block.Header.ParentHash != lastBlock.Header.GetHash()) {
+            if (block.Id != lastBlock.Id + 1) {
+                Console.WriteLine("id");
+                return false;
+            }
+
+            if (!Enumerable.SequenceEqual((byte[])block.Header.ParentHash, (byte[])lastBlock.GetHash())) {
+                Console.WriteLine("last_hash");
                 return false;
             }
 
@@ -93,11 +151,13 @@ public class BlockchainManager : IBlockchainManager
                 .ElementAt((int)(Math.Min(blockCount / 2, 5)));
 
             if (block.Header.Timestamp < median.Header.Timestamp) {
+                Console.WriteLine("too old");
                 return false;
             }
 
             // Timestamp must be within 2 hours of average network time
             if (block.Header.Timestamp > discoveryManager.GetNetworkTime().AddHours(2).ToUnixTimeSeconds()) {
+                Console.WriteLine("in future");
                 return false;
             }
 
@@ -117,7 +177,7 @@ public class BlockchainManager : IBlockchainManager
         }
 
         var epochEnd = blockchainRepository.Last();
-        var epochStart = blockchainRepository.GetBlock(Math.Max(1, epochEnd.Header.Id - Constant.EPOCH_LENGTH_BLOCKS));
+        var epochStart = blockchainRepository.GetBlock(Math.Max(1, epochEnd.Id - Constant.EPOCH_LENGTH_BLOCKS));
 
         var elapsed = epochEnd.Header.Timestamp - epochStart.Header.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
@@ -125,6 +185,6 @@ public class BlockchainManager : IBlockchainManager
         var newDiff = BigRational.Multiply(chainState.CurrentDifficulty.ToWork(), new BigRational(expected / (decimal)elapsed)).WholePart;
         chainState.CurrentDifficulty = newDiff.ToDifficulty();
 
-        logger.LogInformation($"Epoch {epochEnd.Header.Id / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");
+        logger.LogInformation($"Epoch {epochEnd.Id / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");
     }
 }

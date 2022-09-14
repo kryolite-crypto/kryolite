@@ -1,6 +1,6 @@
 using System.Runtime.InteropServices;
 
-namespace Marccacoin;
+namespace Marccacoin.Shared;
 
 public struct PrivateKey
 {
@@ -9,7 +9,7 @@ public struct PrivateKey
 
     public static implicit operator byte[] (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PrivateKey privateKey) => privateKey.Buffer;
-    public static explicit operator PrivateKey(byte[] buffer) => new PrivateKey { Buffer = buffer };
+    public static implicit operator PrivateKey(byte[] buffer) => new PrivateKey { Buffer = buffer };
 }
 
 public struct PublicKey
@@ -19,5 +19,5 @@ public struct PublicKey
 
     public static implicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PublicKey publicKey) => publicKey.Buffer;
-    public static explicit operator PublicKey(byte[] buffer) => new PublicKey { Buffer = buffer };
+    public static implicit operator PublicKey(byte[] buffer) => new PublicKey { Buffer = buffer };
 }

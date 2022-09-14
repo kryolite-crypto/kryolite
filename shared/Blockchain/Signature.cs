@@ -1,5 +1,7 @@
 using System.Runtime.InteropServices;
 
+namespace Marccacoin.Shared;
+
 public struct Signature
 {
     [MarshalAs(UnmanagedType.ByValArray, SizeConst=64)] 
@@ -13,5 +15,5 @@ public struct Signature
     public static implicit operator byte[] (Signature signature) => signature.Buffer;
     public static implicit operator Span<byte> (Signature signature) => signature.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Signature signature) => signature.Buffer;
-    public static explicit operator Signature(byte[] buffer) => new Signature { Buffer = buffer };
+    public static implicit operator Signature(byte[] buffer) => new Signature { Buffer = buffer };
 }

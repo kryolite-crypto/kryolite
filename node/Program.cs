@@ -3,10 +3,10 @@ using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
 using LiteDB;
+using Marccacoin.Shared;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
@@ -35,8 +35,38 @@ internal class Program
 
         BsonMapper.Global.RegisterType<Difficulty>
         (
-            serialize: (diff) => diff.Value.ToString(),
-            deserialize: (bson) => new Difficulty { Value = (uint)bson.AsInt32 }
+            serialize: (diff) => BitConverter.GetBytes(diff.Value),
+            deserialize: (bson) => new Difficulty { Value = BitConverter.ToUInt32(bson.AsBinary) }
+        );
+
+        BsonMapper.Global.RegisterType<SHA256Hash>
+        (
+            serialize: (hash) => hash.Buffer,
+            deserialize: (bson) => bson.AsBinary
+        );
+
+        BsonMapper.Global.RegisterType<Signature>
+        (
+            serialize: (hash) => hash.Buffer,
+            deserialize: (bson) => bson.AsBinary
+        );
+
+        BsonMapper.Global.RegisterType<Address>
+        (
+            serialize: (hash) => hash.Buffer,
+            deserialize: (bson) => bson.AsBinary
+        );
+
+        BsonMapper.Global.RegisterType<Shared.PublicKey>
+        (
+            serialize: (hash) => hash.Buffer,
+            deserialize: (bson) => bson.AsBinary
+        );
+
+        BsonMapper.Global.RegisterType<Shared.PrivateKey>
+        (
+            serialize: (hash) => hash.Buffer,
+            deserialize: (bson) => bson.AsBinary
         );
 
         BsonMapper.Global.RegisterType<BigInteger>
@@ -44,6 +74,8 @@ internal class Program
             serialize: (bigint) => bigint.ToByteArray(),
             deserialize: (bson) => new BigInteger(bson.AsBinary, true)
         );
+
+        Directory.CreateDirectory("data");
 
         var configuration = new ConfigurationBuilder()
             .AddCommandLine(args)
@@ -82,7 +114,7 @@ internal class Program
             addressBytes.Insert(1, 1); // version
 
             var ripemdBytes = new List<byte>(addressBytes);
-            ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes("FIM"));
+            ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes("FIM0x"));
 
             var h1 = sha256.ComputeHash(ripemdBytes.ToArray());
             var h2 = sha256.ComputeHash(h1);
@@ -92,6 +124,10 @@ internal class Program
             Console.WriteLine("Wallet Address:");
             Console.WriteLine("FIM0x" + BitConverter.ToString(addressBytes.ToArray()).Replace("-", ""));
             Console.WriteLine("Wallet Length " + addressBytes.Count);
+            Console.WriteLine("Addr Length " + addressBytes.Count);
+
+            Console.WriteLine("Valid " + Address.IsValid("FIMx" + BitConverter.ToString(addressBytes.ToArray()).Replace("-", "")));
+
 
             var signature = new Signature();
             algorithm.Sign(key, BitConverter.GetBytes(42), signature);

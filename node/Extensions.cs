@@ -1,79 +1,11 @@
 using System.Collections;
 using System.Globalization;
 using System.Numerics;
-using ExtendedNumerics;
 
 namespace Marccacoin;
     
-    internal static class Extensions
+    static class Extensions
     {
-        public readonly static BigInteger TARGET_MAX = new BigInteger(new byte[32] {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}, true, true);
-        readonly static BigInteger TARGET_MIN = BigInteger.Parse("000000000FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF", NumberStyles.HexNumber);
-
-        public static BigInteger ToWork(this Difficulty difficulty)
-        {
-            return BigRational.Divide(Extensions.TARGET_MAX, difficulty.ToTarget()).WholePart;
-        }
-
-        public static BigInteger ToWork(this Difficulty difficulty, BigInteger target)
-        {
-            return BigRational.Divide(Extensions.TARGET_MAX, target).WholePart;
-        }
-
-        public static BigInteger ToTarget(this Difficulty difficulty)
-        {
-            var exponent = difficulty.b0;
-            var bytes = (TARGET_MAX >> exponent).ToByteArray();
-
-            // work with big endian order
-            if (BitConverter.IsLittleEndian) {
-                Array.Reverse(bytes);
-            }
-
-            var fractionBytes = new byte[] {difficulty.b1, difficulty.b2, difficulty.b3, 0};
-
-            if (BitConverter.IsLittleEndian) {
-                Array.Reverse(fractionBytes);
-            }
-
-            var fraction = BitConverter.ToUInt32(fractionBytes) / (double)uint.MaxValue;
-
-            fractionBytes = BitConverter.GetBytes(fraction);
-
-            if (BitConverter.IsLittleEndian) {
-                Array.Reverse(fractionBytes);
-            }
-
-            var offset = 1;
-            for (int i = 0; i < 4; i++) {
-                bytes[offset + i] = (byte)(bytes[offset + i] - fractionBytes[i]);
-            }
-
-            return new BigInteger(bytes, true, true);
-        }
-
-        public static BigInteger ToBigInteger(this SHA256Hash sha256)
-        {
-            return new BigInteger(sha256.Buffer, true, true);
-        }
-
-        public static Difficulty ToDifficulty(this BigInteger target)
-{
-            var bytes = target.ToByteArray();
-            Array.Resize(ref bytes, 4);
-
-            if (BitConverter.IsLittleEndian) {
-                Array.Reverse(bytes);
-            }
-
-            return new Difficulty {
-                b0 = (byte)BigInteger.Log(target, 2),
-                b1 = bytes[1],
-                b2 = bytes[2],
-                b3 = bytes[3]
-            };
-        }
-
         internal const string DefaultForegroundColor = "\x1B[39m\x1B[22m"; // reset to default foreground color
         internal const string DefaultBackgroundColor = "\x1B[49m"; // reset to the background color
 

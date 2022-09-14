@@ -1,8 +1,6 @@
 using System.Diagnostics.Contracts;
 using LiteDB;
-using Tenray.ZoneTree;
-using Tenray.ZoneTree.Comparers;
-using Tenray.ZoneTree.Serializers;
+using Marccacoin.Shared;
 
 namespace Marccacoin;
 
@@ -12,9 +10,7 @@ public class BlockchainRepository : IBlockchainRepository
 
     public BlockchainRepository()
     {
-        /*using var db = new LiteDatabase(DATA_PATH);
-        db.GetCollection<Block>().;
-        db.GetCollection<ChainState>();*/
+
     }
 
     public long Count()
@@ -25,7 +21,7 @@ public class BlockchainRepository : IBlockchainRepository
 
     public void Add(Block block, ChainState chainState)
     {
-        Contract.Equals(0, chainState._id);
+        Contract.Equals(0, chainState.Id);
 
         using var db = new LiteDatabase(DATA_PATH);
         db.BeginTrans();
@@ -37,7 +33,7 @@ public class BlockchainRepository : IBlockchainRepository
     public Block GetBlock(long id)
     {
         using var db = new LiteDatabase(DATA_PATH);
-        return db.GetCollection<Block>().FindById(id);
+        return db.GetCollection<Block>().FindById(id); // TODO: id might not work
     }
 
     public ChainState GetChainState()
@@ -54,7 +50,7 @@ public class BlockchainRepository : IBlockchainRepository
 
         var results = db.GetCollection<Block>()
             .Query()
-            .OrderByDescending<long>(x => x._id)
+            .OrderByDescending<long>(x => x.Id)
             .Limit(count)
             .ToList();
 
@@ -69,7 +65,7 @@ public class BlockchainRepository : IBlockchainRepository
 
         return db.GetCollection<Block>()
             .Query()
-            .OrderByDescending<long>(x => x._id)
+            .OrderByDescending<long>(x => x.Id)
             .FirstOrDefault();
     }
 }

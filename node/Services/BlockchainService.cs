@@ -1,3 +1,4 @@
+using Marccacoin.Shared;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -26,10 +27,9 @@ public class BlockchainService : BackgroundService
     private void InitializeGenesisBlock()
     {
         var genesis = new Block {
+            Id = 0,
             Header = new BlockHeader {
-                Id = 0,
                 ParentHash = new SHA256Hash(),
-                RootHash = new SHA256Hash(),
                 Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
                 Nonce = new Nonce { Buffer = new byte[32] },
                 Difficulty = new Difficulty { Value = 0 }
