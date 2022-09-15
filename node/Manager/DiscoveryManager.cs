@@ -1,3 +1,4 @@
+using Marccacoin.Shared;
 using Microsoft.Extensions.Logging;
 
 namespace Marccacoin;

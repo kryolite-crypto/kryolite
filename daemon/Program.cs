@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using NSec.Cryptography;
 
-namespace Marccacoin;
+namespace Marccacoin.Daemon;
 
 internal class Program
 {

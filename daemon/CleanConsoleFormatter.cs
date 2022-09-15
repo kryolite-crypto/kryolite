@@ -4,9 +4,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 
-namespace Marccacoin;
+namespace Marccacoin.Daemon;
 
-public sealed class CleanConsoleFormatter : ConsoleFormatter, IDisposable
+public class CleanConsoleFormatter : ConsoleFormatter, IDisposable
 {
     private readonly IDisposable _optionsReloadToken;
     private SimpleConsoleFormatterOptions FormatterOptions;

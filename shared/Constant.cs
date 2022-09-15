@@ -1,4 +1,4 @@
-namespace Marccacoin;
+namespace Marccacoin.Shared;
 
 public static class Constant
 {

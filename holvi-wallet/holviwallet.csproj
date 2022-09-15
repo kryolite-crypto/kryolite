@@ -9,6 +9,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\shared\shared.csproj" />
+    <ProjectReference Include="..\node\node.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="BlazorDesktop" Version="1.1.0" />
     <PackageReference Include="Radzen.Blazor" Version="3.20.12" />
   </ItemGroup>
