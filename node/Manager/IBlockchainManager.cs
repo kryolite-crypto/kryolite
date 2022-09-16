@@ -9,5 +9,7 @@ public interface IBlockchainManager
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     SHA256Hash GetLastBlockhash();
-
+    ulong GetBalance(Address address);
+    List<Transaction> GetTransactions(Address address, int count);
+    Block GetBlock(long Id);
 }

@@ -1,25 +1,46 @@
-﻿using holviwallet;
-using holviwallet.Data;
-using BlazorDesktop.Hosting;
-using Microsoft.AspNetCore.Components.Web;
+﻿using Avalonia;
+using System;
+using Microsoft.Extensions.DependencyInjection;
 using Marccacoin;
+using Marccacoin.Shared;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore;
+using Microsoft.AspNetCore.Hosting;
+using System.Threading;
 
-var builder = BlazorDesktopHostBuilder.CreateDefault(args);
-builder.RootComponents.Add<App>("#app");
-builder.RootComponents.Add<HeadOutlet>("head::after");
-builder.Window.UseTitle("Holvi Wallet");
-
-builder.Services.AddSingleton<IBlockchainRepository, BlockchainRepository>()
-                .AddSingleton<IBlockchainManager, BlockchainManager>()
-                .AddSingleton<IDiscoveryManager, DiscoveryManager>()
-                .AddHostedService<DiscoveryService>()
-                .AddHostedService<BlockchainService>()
-                .AddHostedService<MempoolService>()
-                .AddHostedService<SampoService>();
-
-if (builder.HostEnvironment.IsDevelopment())
+namespace holvi_wallet
 {
-    builder.UseDeveloperTools();
-}
+    class Program
+    {
+        public static readonly IServiceProvider ServiceCollection;
 
-await builder.Build().RunAsync();
+        private static IWebHost Host;
+
+        static Program()
+        {
+            var configuration = new ConfigurationBuilder()
+                .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
+                .Build();
+
+            Host = WebHost.CreateDefaultBuilder()
+                .UseStartup<Startup>()
+                .Build();
+
+            ServiceCollection = Host.Services;
+
+            Host.Start();
+        }
+
+        [STAThread]
+        public static void Main(string[] args) {
+            BuildAvaloniaAppWithServices().StartWithClassicDesktopLifetime(args);
+        }
+
+        // Avalonia configuration, don't remove; also used by visual designer.
+        public static AppBuilder BuildAvaloniaAppWithServices()
+            => AppBuilder.Configure(() => new App())
+                .UsePlatformDetect()
+                .LogToTrace();
+    }
+}

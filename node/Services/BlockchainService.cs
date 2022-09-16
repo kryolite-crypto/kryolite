@@ -31,7 +31,7 @@ public class BlockchainService : BackgroundService
             Header = new BlockHeader {
                 ParentHash = new SHA256Hash(),
                 Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
-                Nonce = new Nonce { Buffer = new byte[32] },
+                Nonce = new Nonce { Buffer = new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }},
                 Difficulty = new Difficulty { Value = 0 }
             }
         };

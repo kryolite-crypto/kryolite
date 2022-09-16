@@ -20,6 +20,12 @@ public class BlockchainManager : IBlockchainManager
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    public Block GetBlock(long id)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return blockchainRepository.GetBlock(id);
+    }
+
     public bool AddBlock(Block block)
     {
         using var _ = rwlock.EnterWriteLockEx();
@@ -58,21 +64,21 @@ public class BlockchainManager : IBlockchainManager
         transactions.Add(new Transaction {
             TransactionType = TransactionType.MINER_FEE,
             To = wallet,
-            Value = (ulong)(10000000000000000000 * Constant.MINER_FEE),
+            Value = (ulong)(1000000000 * Constant.MINER_FEE),
             Nonce = rand.Next(int.MinValue, int.MaxValue)
         });
 
         transactions.Add(new Transaction {
             TransactionType = TransactionType.VALIDATOR_FEE,
             To = wallet,
-            Value = (ulong)(10000000000000000000 * Constant.VALIDATOR_FEE),
+            Value = (ulong)(1000000000 * Constant.VALIDATOR_FEE),
             Nonce = rand.Next(int.MinValue, int.MaxValue)
         });
 
         transactions.Add(new Transaction {
             TransactionType = TransactionType.DEV_FEE,
             To = wallet,
-            Value = (ulong)(10000000000000000000 * Constant.DEV_FEE),
+            Value = (ulong)(1000000000 * Constant.DEV_FEE),
             Nonce = rand.Next(int.MinValue, int.MaxValue)
         });
 
@@ -116,6 +122,18 @@ public class BlockchainManager : IBlockchainManager
     {    
         using var _ = rwlock.EnterReadLockEx();
         return blockchainRepository.Last().GetHash();
+    }
+
+    public ulong GetBalance(Address address)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return blockchainRepository.GetBalance(address);
+    }
+
+    public List<Transaction> GetTransactions(Address address, int count)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return blockchainRepository.GetTransactions(address, count);
     }
 
     private bool VerifyBlock(Block block)

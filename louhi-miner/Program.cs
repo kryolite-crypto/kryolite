@@ -67,7 +67,7 @@ while (true) {
                 solution.Solution = bytes;
 
                 var json = JsonConvert.SerializeObject(blocktemplate);
-
+ 
                 using var content = new StringContent(json, Encoding.UTF8, "application/json");
                 await httpClient.PostAsync($"{configuration["url"]}/solution", content);
 

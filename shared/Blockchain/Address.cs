@@ -10,6 +10,7 @@ public struct Address
     public byte[] Buffer;
 
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
+    public static implicit operator byte[] (Address address) => address.Buffer;
     public static implicit operator Address(byte[] buffer) => new Address { Buffer = buffer };
     public static implicit operator Address(string address) => IsValid(address) ? new Address { Buffer = address.Split('x').Last().ToByteArray() } : throw new Exception($"invalid address {address}");
 

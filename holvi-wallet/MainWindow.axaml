@@ -1,0 +1,76 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:holvi_wallet"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="400"
+		x:DataType="vm:MainWindowViewModel"
+        x:Class="holvi_wallet.MainWindow"
+        Title="Holvi Wallet">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+  <Window.Resources>
+    <vm:CurrencyConverter x:Key="currencyConverter"/>
+  </Window.Resources>
+
+    <StackPanel>
+        <Menu>
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open..."/>
+                <Separator/>
+                <MenuItem Header="_Exit"/>
+            </MenuItem>
+            <MenuItem Header="_Settings">
+                <MenuItem Header="Copy"/>
+                <MenuItem Header="Paste"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="About"/>
+            </MenuItem>
+        </Menu>
+        <TabControl>
+            <TabItem Header="Overview" VerticalContentAlignment="Center">
+                <StackPanel Spacing="20" Margin="20" Width="400">
+                    <Border Background="White"
+                            BorderBrush="Gray"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="4"
+                            BoxShadow="2 2 1 -1 Gray">
+                        <StackPanel Margin="10">
+                            <TextBlock>Balance</TextBlock>
+                            <TextBlock FontWeight="Bold" Text="{Binding Balance, Converter={StaticResource currencyConverter}}" />
+                            <TextBlock Margin="0, 20, 0, 0">Pending</TextBlock>
+                            <TextBlock FontWeight="Bold" Text="{Binding Pending, Converter={StaticResource currencyConverter}}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Background="White"
+                            BorderBrush="Gray"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="4"
+                            BoxShadow="2 2 1 -1 Gray">
+                        <StackPanel Margin="10" Spacing="10">
+                            <TextBlock FontWeight="Bold">Recent Transactions</TextBlock>
+                            <DataGrid Name="DataGrid" Items="{Binding Transactions}" AutoGenerateColumns="False" HeadersVisibility="None" >
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="Date"  Binding="{Binding ExecutionTime}" IsReadOnly="True"/>
+                                    <DataGridTextColumn Header="Amount" Binding="{Binding Value, Converter={StaticResource currencyConverter}}" IsReadOnly="True" />
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="Send" VerticalContentAlignment="Center">
+                <TextBlock Text="wat !" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            </TabItem>
+            <TabItem Header="Receive" VerticalContentAlignment="Center">
+                <TextBlock Text="wat !" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+            </TabItem>
+        </TabControl>
+    </StackPanel>
+</Window>

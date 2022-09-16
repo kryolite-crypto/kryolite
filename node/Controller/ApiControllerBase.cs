@@ -1,15 +1,17 @@
 using System.ComponentModel.DataAnnotations;
+using Marccacoin;
 using Marccacoin.Shared;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
 namespace Marccacoin;
 
-public class ApiController : Controller
+[ApiController]
+public class ApiControllerBase : Controller
 {
     private readonly IBlockchainManager blockchainManager;
 
-    public ApiController(IBlockchainManager blockchainManager)
+    public ApiControllerBase(IBlockchainManager blockchainManager)
     {
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
     }
@@ -26,6 +28,26 @@ public class ApiController : Controller
         }
 
         return blockchainManager.GetBlocktemplate(wallet);
+    }
+
+    [HttpGet("balance")]
+    public ulong GetBalance([BindRequired, FromQuery] string wallet)
+    {
+        if (!ModelState.IsValid) {
+            throw new Exception("invalid parameter (address)");
+        }
+
+        return blockchainManager.GetBalance(wallet);
+    }
+
+    [HttpGet("block")]
+    public Block GetBlock([BindRequired, FromQuery] long id)
+    {
+        if (!ModelState.IsValid) {
+            throw new Exception("invalid parameter (address)");
+        }
+
+        return blockchainManager.GetBlock(id);
     }
 
     [HttpPost("solution")]

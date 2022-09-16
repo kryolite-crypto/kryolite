@@ -9,4 +9,5 @@ public record struct Nonce
 
     public static implicit operator byte[] (Nonce nonce) => nonce.Buffer;
     public static implicit operator Nonce (SHA256Hash hash) => new Nonce { Buffer = hash.Buffer };
+    public static implicit operator Nonce (byte[] nonce) => new Nonce { Buffer = nonce };
 }

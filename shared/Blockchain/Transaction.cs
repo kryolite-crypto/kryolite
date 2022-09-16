@@ -1,24 +1,22 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using LiteDB;
 using NSec.Cryptography;
 
 namespace Marccacoin.Shared;
 
 public class Transaction : IComparable<Transaction>
 {
-    public TransactionType TransactionType;
-    public PublicKey PublicKey;
-    public Address To;
-    public ulong Value;
-    public ulong MaxFee;
-    public byte[]? Data;
-    public int Nonce;
-    public Signature Signature;
-
-    public Transaction()
-    {
-
-    }
+    public long Id { get; set; }
+    public TransactionType TransactionType { get; set; }
+    public PublicKey? PublicKey { get; set; }
+    public Address To { get; set; }
+    public ulong Value { get; set; }
+    public ulong MaxFee { get; set; }
+    public byte[]? Data { get; set; }
+    public int Nonce { get; set; }
+    public Signature? Signature { get; set; }
+    public DateTime ExecutionTime { get; set; }
 
     public void Sign(PrivateKey privateKey)
     {
@@ -28,7 +26,7 @@ public class Transaction : IComparable<Transaction>
         using var stream = new MemoryStream();
 
         stream.Write(BitConverter.GetBytes(((byte)TransactionType)));
-        stream.Write(PublicKey);
+        stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
         stream.Write(To);
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(BitConverter.GetBytes(MaxFee));
@@ -37,7 +35,8 @@ public class Transaction : IComparable<Transaction>
 
         stream.Flush();
 
-        algorithm.Sign(key, stream.ToArray(), Signature);
+        Signature = new Signature { Buffer = new byte[32] };
+        algorithm.Sign(key, stream.ToArray(), Signature.Value);
     }
 
     public SHA256Hash CalculateHash()
@@ -48,7 +47,7 @@ public class Transaction : IComparable<Transaction>
         stream.Write(CalculateContentHash());
 
         if (TransactionType == TransactionType.PAYMENT) {
-            stream.Write(Signature);
+            stream.Write(Signature ?? throw new Exception("signature required when hashing payment"));
         }
 
         stream.Flush();
@@ -63,8 +62,7 @@ public class Transaction : IComparable<Transaction>
         using var stream = new MemoryStream();
 
         if (TransactionType == TransactionType.PAYMENT) {
-            
-            stream.Write(PublicKey);
+            stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
         }
 
         stream.Write(To);

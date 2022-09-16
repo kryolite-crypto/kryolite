@@ -22,6 +22,8 @@ public struct Concat
 
 public class BlockHeader
 {
+    [BsonId(false)]
+    public long Id { get; set; }
     public SHA256Hash ParentHash { get; set; }
     public long Timestamp { get; set; }
     public Nonce Nonce { get; set; }
@@ -33,7 +35,7 @@ public class Block
     [BsonId(false)]
     public long Id { get; set; }
     public BlockHeader Header { get; set; } = new();
-    public IList<Transaction> Transactions { get; set; } = new List<Transaction>();
+    public List<Transaction> Transactions { get; set; } = new List<Transaction>();
 
     public SHA256Hash GetHash()
     {

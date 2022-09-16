@@ -10,4 +10,6 @@ public interface IBlockchainRepository
     public ChainState GetChainState();
     public List<Block> Tail(int count);
     public Block Last();
+    public ulong GetBalance(Address address);
+    List<Transaction> GetTransactions(Address address, int count);
 }
