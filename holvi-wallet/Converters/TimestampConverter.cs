@@ -1,34 +1,27 @@
 using System;
 using System.Globalization;
-using System.Linq;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
-using Marccacoin.Shared;
 
 namespace holvi_wallet;
 
-public class CurrencyConverter : IValueConverter
+public class TimestampConverter : IValueConverter
 {
-    public static readonly CurrencyConverter Instance = new();
+    public static readonly TimestampConverter Instance = new();
 
     public object? Convert( object? value, Type targetType, object? parameter, CultureInfo culture )
     {
-        if (value is ulong uval)
+        if (value is long)
         {
-            return String.Format(CultureInfo.InvariantCulture, "{0:0.######} FIMC", uval / 1000000.0);
+            return new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
+                .AddSeconds((long)value).ToLocalTime().ToString();
         }
-
-        if (value is long val)
-        {
-            return String.Format(CultureInfo.InvariantCulture, "{0:0.######} FIMC", val / 1000000.0);
-        }
-
         // converter used for the wrong type
         return new BindingNotification(new InvalidCastException(), BindingErrorType.Error);
     }
 
     public object ConvertBack( object? value, Type targetType, object? parameter, CultureInfo culture )
     {
-        return value!;
+        throw new NotImplementedException();
     }
 }

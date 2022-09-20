@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 using LiteDB;
 using NSec.Cryptography;
 
@@ -16,7 +17,6 @@ public class Transaction : IComparable<Transaction>
     public byte[]? Data { get; set; }
     public int Nonce { get; set; }
     public Signature? Signature { get; set; }
-    public DateTime ExecutionTime { get; set; }
 
     public void Sign(PrivateKey privateKey)
     {
@@ -37,6 +37,26 @@ public class Transaction : IComparable<Transaction>
 
         Signature = new Signature { Buffer = new byte[32] };
         algorithm.Sign(key, stream.ToArray(), Signature.Value);
+    }
+
+    public bool Verify()
+    {
+        var algorithm = SignatureAlgorithm.Ed25519;
+
+        using var stream = new MemoryStream();
+
+        stream.Write(BitConverter.GetBytes(((byte)TransactionType)));
+        stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
+        stream.Write(To);
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(BitConverter.GetBytes(MaxFee));
+        stream.Write(Data);
+        stream.Write(BitConverter.GetBytes(Nonce));
+
+        stream.Flush();
+
+        var key = NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, PublicKey.Value, KeyBlobFormat.RawPublicKey);
+        return algorithm.Verify(key, BitConverter.GetBytes(42), Signature ?? throw new Exception("trying to verify null signature"));
     }
 
     public SHA256Hash CalculateHash()

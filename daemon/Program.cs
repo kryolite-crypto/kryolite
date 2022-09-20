@@ -48,10 +48,7 @@ internal class Program
 
             using var key = NSec.Cryptography.Key.Create(algorithm, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextArchiving });
             var privKey = key.Export(KeyBlobFormat.RawPrivateKey);
-            var pubKey = key.Export(KeyBlobFormat.RawPublicKey);
-
-            Console.WriteLine(pubKey.Length);
-            Console.WriteLine(privKey.Length);
+            Shared.PublicKey pubKey = key.Export(KeyBlobFormat.RawPublicKey);
 
             Console.WriteLine("Private Key:");
             Console.WriteLine(BitConverter.ToString(privKey).Replace("-", ""));
@@ -59,35 +56,15 @@ internal class Program
             Console.WriteLine("Public Key:");
             Console.WriteLine(BitConverter.ToString(pubKey).Replace("-", ""));
 
-            using var sha256 = SHA256.Create();
-            var shaHash = sha256.ComputeHash(pubKey);
-
-            using var ripemd = new RIPEMD160Managed();
-            var ripemdHash = ripemd.ComputeHash(shaHash);
-
-            var addressBytes = ripemdHash.ToList();
-            addressBytes.Insert(0, (byte)Network.MAIN); // network (161 mainnet, 177 testnet)
-            addressBytes.Insert(1, 1); // version
-
-            var ripemdBytes = new List<byte>(addressBytes);
-            ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes("FIM0x"));
-
-            var h1 = sha256.ComputeHash(ripemdBytes.ToArray());
-            var h2 = sha256.ComputeHash(h1);
-
-            addressBytes.InsertRange(addressBytes.Count, h2.Take(4)); // checksum
+            var address = pubKey.ToAddress();
 
             Console.WriteLine("Wallet Address:");
-            Console.WriteLine("FIM0x" + BitConverter.ToString(addressBytes.ToArray()).Replace("-", ""));
-            Console.WriteLine("Wallet Length " + addressBytes.Count);
-            Console.WriteLine("Addr Length " + addressBytes.Count);
-
-            Console.WriteLine("Valid " + Address.IsValid("FIMx" + BitConverter.ToString(addressBytes.ToArray()).Replace("-", "")));
-
+            Console.WriteLine("FIM0x" + BitConverter.ToString(address).Replace("-", ""));
+            Console.WriteLine("Valid " + Address.IsValid("FIMx" + BitConverter.ToString(address).Replace("-", "")));
 
             var signature = new Signature();
             algorithm.Sign(key, BitConverter.GetBytes(42), signature);
-            Console.WriteLine(algorithm.Verify(NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, pubKey.AsSpan(), KeyBlobFormat.RawPublicKey), BitConverter.GetBytes(42), signature));
+            Console.WriteLine(algorithm.Verify(NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, pubKey, KeyBlobFormat.RawPublicKey), BitConverter.GetBytes(42), signature));
 /*
         var blockchainManager = WebHost .Services.GetService<IBlockchainManager>();
 

@@ -3,7 +3,9 @@
         xmlns:vm="using:holvi_wallet"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="500" d:DesignHeight="400"
+        mc:Ignorable="d"
+        Width="900" 
+        Height="600"
 		x:DataType="vm:MainWindowViewModel"
         x:Class="holvi_wallet.MainWindow"
         Title="Holvi Wallet">
@@ -14,63 +16,83 @@
 
   <Window.Resources>
     <vm:CurrencyConverter x:Key="currencyConverter"/>
+    <vm:TimestampConverter x:Key="timestampConverter"/>
   </Window.Resources>
 
-    <StackPanel>
-        <Menu>
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open..."/>
-                <Separator/>
                 <MenuItem Header="_Exit"/>
             </MenuItem>
             <MenuItem Header="_Settings">
-                <MenuItem Header="Copy"/>
-                <MenuItem Header="Paste"/>
+                <MenuItem Header="_Preferences"/>
             </MenuItem>
             <MenuItem Header="_Help">
-                <MenuItem Header="About"/>
+                <MenuItem Header="_About"/>
             </MenuItem>
         </Menu>
-        <TabControl>
+        <TabControl DockPanel.Dock="Top">
             <TabItem Header="Overview" VerticalContentAlignment="Center">
-                <StackPanel Spacing="20" Margin="20" Width="400">
-                    <Border Background="White"
-                            BorderBrush="Gray"
-                            BorderThickness="1"
-                            CornerRadius="3"
-                            Padding="4"
-                            BoxShadow="2 2 1 -1 Gray">
-                        <StackPanel Margin="10">
-                            <TextBlock>Balance</TextBlock>
-                            <TextBlock FontWeight="Bold" Text="{Binding Balance, Converter={StaticResource currencyConverter}}" />
-                            <TextBlock Margin="0, 20, 0, 0">Pending</TextBlock>
-                            <TextBlock FontWeight="Bold" Text="{Binding Pending, Converter={StaticResource currencyConverter}}" />
-                        </StackPanel>
-                    </Border>
-                    <Border Background="White"
-                            BorderBrush="Gray"
-                            BorderThickness="1"
-                            CornerRadius="3"
-                            Padding="4"
-                            BoxShadow="2 2 1 -1 Gray">
-                        <StackPanel Margin="10" Spacing="10">
-                            <TextBlock FontWeight="Bold">Recent Transactions</TextBlock>
-                            <DataGrid Name="DataGrid" Items="{Binding Transactions}" AutoGenerateColumns="False" HeadersVisibility="None" >
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Date"  Binding="{Binding ExecutionTime}" IsReadOnly="True"/>
-                                    <DataGridTextColumn Header="Amount" Binding="{Binding Value, Converter={StaticResource currencyConverter}}" IsReadOnly="True" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </StackPanel>
-                    </Border>
-                </StackPanel>
+                <DockPanel Margin="20">
+                    <StackPanel DockPanel.Dock="Left">
+                        <Border Background="White"
+                                BorderBrush="LightGray"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Padding="4"
+                                BoxShadow="2 2 1 -1 LightGray">
+                            <StackPanel Margin="10" Width="250">
+                                <TextBlock FontWeight="Bold">Balance</TextBlock>
+                                <TextBlock Margin="0, 20, 0, 0">Available</TextBlock>
+                                <TextBlock FontWeight="Bold" Text="{Binding Balance, Converter={StaticResource currencyConverter}}" />
+                                <TextBlock Margin="0, 20, 0, 0">Pending</TextBlock>
+                                <TextBlock FontWeight="Bold" Text="{Binding Pending, Converter={StaticResource currencyConverter}}" />
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                    <StackPanel DockPanel.Dock="Right">
+                        <Border Background="White"
+                                BorderBrush="LightGray"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Padding="4"
+                                BoxShadow="2 2 1 -1 LightGray"
+                                HorizontalAlignment="Right">
+                            <StackPanel Margin="10" Spacing="10" MinWidth="450">
+                                <TextBlock FontWeight="Bold" Margin="11, 0, 0, 0">Recent Transactions</TextBlock>
+                                <ListBox Background="White" Items="{Binding Transactions}">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto,Auto">
+                                                <TextBlock Text="{Binding Timestamp, Converter={StaticResource timestampConverter}}" Grid.Row="0" Grid.Column="0"/>
+                                                <TextBlock Text="{Binding Value, Converter={StaticResource currencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
+                                                <TextBlock Text="{Binding Recipient}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Addresses" VerticalContentAlignment="Center">
+                <DockPanel Margin="20">
+                    <StackPanel Margin="0, 20, 0, 0" Orientation="Horizontal" DockPanel.Dock="Bottom">
+                        <Button Command="{Binding OnNewAddressCommand}">New Address</Button>
+                    </StackPanel>
+                    <DataGrid Name="WalletsGrid" Items="{Binding Wallets}" AutoGenerateColumns="False" DockPanel.Dock="Top">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Description"  Binding="{Binding Description}"/>
+                            <DataGridTextColumn Header="Address" Binding="{Binding Address}" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Balance" Binding="{Binding Balance, Converter={StaticResource currencyConverter}}" IsReadOnly="True"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
             </TabItem>
             <TabItem Header="Send" VerticalContentAlignment="Center">
-                <TextBlock Text="wat !" HorizontalAlignment="Left" VerticalAlignment="Center"/>
-            </TabItem>
-            <TabItem Header="Receive" VerticalContentAlignment="Center">
-                <TextBlock Text="wat !" HorizontalAlignment="Left" VerticalAlignment="Center"/>
+
             </TabItem>
         </TabControl>
-    </StackPanel>
+    </DockPanel>
 </Window>
