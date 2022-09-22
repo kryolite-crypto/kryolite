@@ -12,6 +12,11 @@ IConfiguration configuration = new ConfigurationBuilder()
 Blocktemplate current = new Blocktemplate();
 var tokenSource = new CancellationTokenSource();
 
+var d = new Dictionary<int, int>();
+d[5] =+ 10;
+d[5] =+ 1;
+Console.WriteLine(d[5]);
+
 while (true) {
     var httpClient = new HttpClient();
 

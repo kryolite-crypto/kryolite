@@ -16,6 +16,8 @@ public interface IBlockchainManager
     Wallet CreateWallet();
     List<Wallet> GetWallets();
     void UpdateWallet(Wallet wal);
+    void AddTransactionsToQueue(List<Transaction> transactions);
+    void AddTransactionsToQueue(Transaction transaction);
 
     IDisposable OnBlockAdded(ActionBlock<Block> action);
     IDisposable OnWalletUpdated(ActionBlock<Wallet> action);

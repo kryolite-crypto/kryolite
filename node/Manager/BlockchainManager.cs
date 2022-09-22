@@ -58,7 +58,7 @@ public class BlockchainManager : IBlockchainManager
             Timestamp = block.Header.Timestamp
         };
 
-        var executor = Executor.Create<Transaction, TransactionContext, GlobalContext>(context)
+        var executor = Executor.Create<Transaction, GlobalContext>(context)
             .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
             .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
             .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
@@ -72,13 +72,13 @@ public class BlockchainManager : IBlockchainManager
             .Link<AddBalanceToRecipient>()
             .Link<UpdateRecipientWallet>();
 
-        if (!executor.Execute(block.Transactions, out var result)) {
+        if (!executor.ExecuteBatch(block.Transactions, out var result)) {
             logger.LogError(context.Ex, $"AddBlock failed with: {result}");
             return false;
         }
 
-        walletRepository.UpdateWallets(context.UpdatedWallets);
-        ledgerRepository.UpdateWallets(context.UpdatedLedgerWallets);
+        walletRepository.UpdateWallets(context.Wallets.Select(x => x.Value).Where(x => x.Updated));
+        ledgerRepository.UpdateWallets(context.LedgerWalletCache.Select(x => x.Value));
 
         logger.LogInformation($"Added block {block.Id} (TotalWork={chainState.TotalWork})");
 
@@ -96,7 +96,7 @@ public class BlockchainManager : IBlockchainManager
 
         BlockBroadcast.Post(block);
 
-        foreach (var wallet in context.UpdatedWallets) {
+        foreach (var wallet in context.Wallets.Select(x => x.Value).Where(x => x.Updated)) {
             WalletBroadcast.Post(wallet);
         }
 
@@ -236,6 +236,31 @@ public class BlockchainManager : IBlockchainManager
         walletRepository.Update(wallet);
     }
 
+    public void AddTransactionsToQueue(List<Transaction> transactions)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var ledgerRepository = new LedgerRepository();
+
+        var context = new GlobalContext(ledgerRepository, mempoolManager);
+
+        var executor = Executor.Create<Transaction, GlobalContext>(context)
+            .Link<NotReward>()
+            .Link<CheckMinFee>()
+            .Link<VerifySignature>()
+            // TODO: Check for duplicate tx
+            .Link<FetchSenderWallet>()
+            .Link<HasFunds>();
+
+        var newTransactions = transactions.Where(tx => !mempoolManager.HasTransaction(tx));
+        var valid = executor.Execute(newTransactions);
+
+        mempoolManager.AddTransactions(valid);
+    }
+
+    public void AddTransactionsToQueue(Transaction transaction) {
+        AddTransactionsToQueue(new List<Transaction>() { transaction });
+    }
+
     private bool VerifyBlock(BlockRepository blockchainRepository, Block block)
     {
         var blockCount = blockchainRepository.Count();
@@ -308,11 +333,11 @@ public class BlockchainManager : IBlockchainManager
 
     public IDisposable OnBlockAdded(ActionBlock<Block> action)
     {
-        return BlockBroadcast.LinkTo(action, new DataflowLinkOptions { Append = true });
+        return BlockBroadcast.LinkTo(action);
     }
 
     public IDisposable OnWalletUpdated(ActionBlock<Wallet> action)
     {
-        return WalletBroadcast.LinkTo(action, new DataflowLinkOptions { Append = true });
+        return WalletBroadcast.LinkTo(action);
     }
 }

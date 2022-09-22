@@ -76,7 +76,7 @@ public partial class MainWindow : Window
 
             transaction.Sign(Model.SelectedWallet.PrivateKey);
 
-            MempoolManager.AddTransaction(transaction);
+            BlockchainManager.AddTransactionsToQueue(transaction);
 
             Model.Recipient = "";
             Model.Amount = "";
