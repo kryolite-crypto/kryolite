@@ -85,6 +85,7 @@ public class Startup
     {
         services.AddSingleton<IBlockchainManager, BlockchainManager>()
                 .AddSingleton<IDiscoveryManager, DiscoveryManager>()
+                .AddSingleton<IMempoolManager, MempoolManager>()
                 .AddHostedService<DiscoveryService>()
                 .AddHostedService<BlockchainService>()
                 .AddHostedService<MempoolService>()

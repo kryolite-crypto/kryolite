@@ -12,6 +12,7 @@ public class Wallet
     public PublicKey PublicKey { get; set; }
     public PrivateKey PrivateKey { get; set; }
     public ulong Balance { get; set; }
+
     public List<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
 
     public Wallet()

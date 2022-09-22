@@ -11,15 +11,17 @@ namespace Marccacoin;
 public class BlockchainManager : IBlockchainManager
 {
     private readonly IDiscoveryManager discoveryManager;
+    private readonly IMempoolManager mempoolManager;
     private readonly ILogger<BlockchainManager> logger;
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
     private BroadcastBlock<Block> BlockBroadcast = new BroadcastBlock<Block>(i => i);
     private BroadcastBlock<Wallet> WalletBroadcast = new BroadcastBlock<Wallet>(i => i);
 
-    public BlockchainManager(IDiscoveryManager discoveryManager, ILogger<BlockchainManager> logger)
+    public BlockchainManager(IDiscoveryManager discoveryManager, IMempoolManager mempoolManager, ILogger<BlockchainManager> logger)
     {
         this.discoveryManager = discoveryManager ?? throw new ArgumentNullException(nameof(discoveryManager));
+        this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -48,80 +50,35 @@ public class BlockchainManager : IBlockchainManager
         chainState.TotalWork += block.Header.Difficulty.ToWork();
 
         var wallets = walletRepository.GetWallets();
-        var updated = new HashSet<Wallet>();
 
-        foreach (var tx in block.Transactions) {
-            if (tx.TransactionType == TransactionType.PAYMENT) {
-                var from = tx.PublicKey ?? throw new Exception("invalid public key");
+        var context = new GlobalContext(ledgerRepository, wallets)
+        {
+            Fee = block.Transactions.DefaultIfEmpty().Min(x => x?.MaxFee ?? 0),
+            FeeTotal = (ulong)block.Transactions.DefaultIfEmpty().Sum(x => (long)(x?.MaxFee ?? 0)),
+            Timestamp = block.Header.Timestamp
+        };
 
-               if(!tx.Verify()) {
-                throw new Exception("tx signature verification failed");
-               }
+        var executor = Executor.Create<Transaction, TransactionContext, GlobalContext>(context)
+            .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
+            .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
+            .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
+            .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT)
+            // TODO: Check for duplicate tx
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
+            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT)
+            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
+            .Link<FetchRecipientWallet>()
+            .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
+            .Link<AddBalanceToRecipient>()
+            .Link<UpdateRecipientWallet>();
 
-               // todo verify that transaction has not been executed yet
-
-                var fromWallet = ledgerRepository.GetWallet(from.ToAddress()) ?? throw new Exception("invalid sender, wallet not found");
-                var toWallet = ledgerRepository.GetWallet(tx.To) ?? new LedgerWallet(tx.To);
-
-                if (fromWallet.Balance < tx.Value) {
-                    throw new Exception("too low balance");
-                }
-
-                fromWallet.Balance = checked(fromWallet.Balance - tx.Value);
-                toWallet.Balance = checked(toWallet.Balance + tx.Value);
-
-                ledgerRepository.UpdateWallet(fromWallet);
-                ledgerRepository.UpdateWallet(toWallet);
-
-                if (wallets.TryGetValue(fromWallet.Address.ToString(), out var outWallet)) {
-                    outWallet.Balance = fromWallet.Balance;
-                    outWallet.WalletTransactions.Add(new WalletTransaction
-                    {
-                        Recipient = tx.To,
-                        Value = (long)tx.Value * -1,
-                        Timestamp = DateTimeOffset.Now.ToUnixTimeSeconds()
-                    });
-
-                    walletRepository.Update(outWallet);
-                    updated.Add(outWallet);
-                }
-
-                if (wallets.TryGetValue(toWallet.Address.ToString(), out var inWallet)) {
-                    inWallet.Balance = toWallet.Balance;
-                    inWallet.WalletTransactions.Add(new WalletTransaction
-                    {
-                        Recipient = tx.To,
-                        Value = (long)tx.Value,
-                        Timestamp = DateTimeOffset.Now.ToUnixTimeSeconds()
-                    });
-
-                    walletRepository.Update(inWallet);
-                    updated.Add(inWallet);
-                }
-
-                // TODO: create walletRepository to store balance for current addresses and transactions?
-            } else {
-                // TODO: Add verifications to block rewards
-
-                var toWallet = ledgerRepository.GetWallet(tx.To) ?? new LedgerWallet(tx.To);
-                toWallet.Balance = checked(toWallet.Balance + tx.Value);
-                ledgerRepository.UpdateWallet(toWallet);
-
-                if (wallets.TryGetValue(toWallet.Address.ToString(), out var inWallet)) {
-                    inWallet.Balance = toWallet.Balance;
-                    inWallet.WalletTransactions.Add(new WalletTransaction
-                    {
-                        BlockId = block.Id,
-                        Recipient = tx.To,
-                        Value = (long)tx.Value,
-                        Timestamp = block.Header.Timestamp
-                    });
-
-                    walletRepository.Update(inWallet);
-                    updated.Add(inWallet);
-                }
-            }
+        if (!executor.Execute(block.Transactions, out var result)) {
+            logger.LogError(context.Ex, $"AddBlock failed with: {result}");
+            return false;
         }
+
+        walletRepository.UpdateWallets(context.UpdatedWallets);
+        ledgerRepository.UpdateWallets(context.UpdatedLedgerWallets);
 
         logger.LogInformation($"Added block {block.Id} (TotalWork={chainState.TotalWork})");
 
@@ -135,9 +92,11 @@ public class BlockchainManager : IBlockchainManager
         blockchainRepository.Commit();
         walletRepository.Commit();
 
+        mempoolManager.RemoveTransactions(block.Transactions);
+
         BlockBroadcast.Post(block);
 
-        foreach (var wallet in updated) {
+        foreach (var wallet in context.UpdatedWallets) {
             WalletBroadcast.Post(wallet);
         }
 
@@ -176,6 +135,8 @@ public class BlockchainManager : IBlockchainManager
             Value = (ulong)(1000000000 * Constant.DEV_FEE),
             Nonce = rand.Next(int.MinValue, int.MaxValue)
         });
+
+        transactions.AddRange(mempoolManager.GetTransactions());
 
         var timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
 

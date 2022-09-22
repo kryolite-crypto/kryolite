@@ -1,11 +1,17 @@
 using System.Collections;
 using System.Globalization;
 using System.Numerics;
+using System.Reflection;
 
 namespace Marccacoin.Shared;
     
 public static class Extensions
 {
+    public static IEnumerable<TElement> PeekTail<TElement, TPriority>(this PriorityQueue<TElement, TPriority> queue, int count) 
+    {
+        return queue.UnorderedItems.OrderByDescending(x => x.Priority).Take(count).Select(x => x.Element).ToList();
+    }
+
     public static IDisposable EnterReadLockEx(this ReaderWriterLockSlim rwlock)
     {
         return new ReadLock(rwlock);

@@ -35,7 +35,7 @@ public class Transaction : IComparable<Transaction>
 
         stream.Flush();
 
-        Signature = new Signature { Buffer = new byte[32] };
+        Signature = new Signature { Buffer = new byte[64] };
         algorithm.Sign(key, stream.ToArray(), Signature.Value);
     }
 
@@ -56,7 +56,7 @@ public class Transaction : IComparable<Transaction>
         stream.Flush();
 
         var key = NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, PublicKey.Value, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, BitConverter.GetBytes(42), Signature ?? throw new Exception("trying to verify null signature"));
+        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
     }
 
     public SHA256Hash CalculateHash()

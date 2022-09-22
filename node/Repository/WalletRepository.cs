@@ -37,6 +37,17 @@ public class WalletRepository : TransactionalRepository
             .Update(wallet);
     }
 
+    public void UpdateWallets(IEnumerable<Wallet> wallets)
+    {
+        foreach (var wallet in wallets) {
+            Database.GetCollection<WalletTransaction>()
+                .Upsert(wallet.WalletTransactions);
+        }
+
+        Database.GetCollection<Wallet>()
+            .Update(wallets);
+    }
+
     public Dictionary<string, Wallet> GetWallets()
     {
         return Database.GetCollection<Wallet>()

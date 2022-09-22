@@ -11,24 +11,37 @@ using System.Threading.Tasks.Dataflow;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
+using Avalonia;
 
 namespace holvi_wallet;
 
 public partial class MainWindow : Window
 {
     private IBlockchainManager BlockchainManager;
+    private IMempoolManager MempoolManager;
+
     private MainWindowViewModel Model = new MainWindowViewModel();
 
     public MainWindow()
     {
         BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+        MempoolManager = Program.ServiceCollection.GetService<IMempoolManager>() ?? throw new ArgumentNullException(nameof(IMempoolManager));
 
         InitializeComponent();
 
         DataContext = Model;
 
-        var wallets = BlockchainManager.GetWallets();
-        Model.Wallets = new ObservableCollection<Wallet>(wallets);
+        var wallets = BlockchainManager.GetWallets()
+            .Select(wallet => new WalletModel {
+                Description = wallet.Description,
+                Address = wallet.Address,
+                PublicKey = wallet.PublicKey,
+                PrivateKey = wallet.PrivateKey,
+                Balance = wallet.Balance,
+                WalletTransactions = wallet.WalletTransactions
+            });
+
+        Model.Wallets = new ObservableCollection<WalletModel>(wallets);
 
         var walletGrid = this.FindControl<DataGrid>("WalletsGrid");
 
@@ -44,6 +57,29 @@ public partial class MainWindow : Window
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.SetWallet(wallet);
             });
+        };
+
+        Model.CopyAddressClicked += async (object? sender, EventArgs args) => {
+            var wallet = (WalletModel)walletGrid.SelectedItem;
+            await Application.Current!.Clipboard!.SetTextAsync(wallet.Address ?? "");
+        };
+
+        Model.SendTransactionClicked += (object? sender, EventArgs args) => {
+            var transaction = new Transaction {
+                TransactionType = TransactionType.PAYMENT,
+                PublicKey = Model.SelectedWallet!.PublicKey,
+                To = Model.Recipient!,
+                Value = (ulong)(decimal.Parse(Model.Amount!) * 1000000),
+                MaxFee = 1,
+                Nonce = (new Random()).Next()
+            };
+
+            transaction.Sign(Model.SelectedWallet.PrivateKey);
+
+            MempoolManager.AddTransaction(transaction);
+
+            Model.Recipient = "";
+            Model.Amount = "";
         };
 
         BlockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(async wallet => {

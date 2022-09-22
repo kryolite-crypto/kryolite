@@ -24,4 +24,10 @@ public class LedgerRepository : TransactionalRepository
         Database.GetCollection<LedgerWallet>()
             .Upsert(wallet);
     }
+
+    public void UpdateWallets(IEnumerable<LedgerWallet> wallets)
+    {
+        Database.GetCollection<LedgerWallet>()
+            .Upsert(wallets);
+    }
 }

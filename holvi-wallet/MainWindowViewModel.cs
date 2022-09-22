@@ -5,6 +5,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Collections.ObjectModel;
+using Avalonia.Data;
+using Avalonia;
+using System.Threading.Tasks;
 
 namespace holvi_wallet;
 
@@ -12,6 +15,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? NewAddressClicked;
+    public event EventHandler? SendTransactionClicked;
+    public event EventHandler? CopyAddressClicked;
 
     private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
     {
@@ -72,9 +77,71 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
     }
 
-    private ObservableCollection<Wallet> _Wallets = new ObservableCollection<Wallet>();
+    private WalletModel? _SelectedWallet;
 
-    public ObservableCollection<Wallet> Wallets
+    public WalletModel? SelectedWallet
+    {
+        get 
+        {
+            return _SelectedWallet; 
+        }
+        set
+        {
+            if (_SelectedWallet != value)
+            {
+                _SelectedWallet = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    private string? _Recipient;
+
+    public string? Recipient
+    {
+        get 
+        {
+            return _Recipient; 
+        }
+        set
+        {
+            if (_Recipient != value)
+            {
+                if (!string.IsNullOrEmpty(value) && !Address.IsValid(value)) {
+                    throw new DataValidationException("Invalid address");
+                }
+
+                _Recipient = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    private string? _Amount;
+
+    public string? Amount
+    {
+        get 
+        {
+            return _Amount;
+        }
+        set
+        {
+            if (_Amount != value)
+            {
+                if (!string.IsNullOrEmpty(value) && !decimal.TryParse(value, out _)) {
+                    throw new DataValidationException("Invalid decimal value");
+                }
+
+                _Amount = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    private ObservableCollection<WalletModel> _Wallets = new ObservableCollection<WalletModel>();
+
+    public ObservableCollection<WalletModel> Wallets
     {
         get 
         {
@@ -85,7 +152,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             if (!Enumerable.SequenceEqual(_Wallets, value))
             {
                 _Wallets = value;
-                Balance = _Wallets.Sum(x => (long)x.Balance);
+                Balance = _Wallets.Sum(x => (long)(x.Balance ?? 0));
                 Transactions = _Wallets.SelectMany(wallet => wallet.WalletTransactions)
                     .OrderByDescending(tx => tx.Timestamp)
                     .Take(5)
@@ -103,12 +170,21 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 .FirstOrDefault();
 
         if (existing == null) {
-            _Wallets.Insert(_Wallets.Count, wallet);
+            _Wallets.Insert(_Wallets.Count, new WalletModel {
+                Description = wallet.Description,
+                Address = wallet.Address,
+                PublicKey = wallet.PublicKey,
+                PrivateKey = wallet.PrivateKey,
+                Balance = wallet.Balance,
+                WalletTransactions = wallet.WalletTransactions
+            });
         } else {
-            Wallets[Wallets.IndexOf(existing)] = wallet;
+            Wallets[Wallets.IndexOf(existing)].Balance = wallet.Balance;
+            Wallets[Wallets.IndexOf(existing)].WalletTransactions = wallet.WalletTransactions;
         }
 
-        Balance = Wallets.Sum(x => (long)x.Balance);
+        Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
+
         Transactions = Wallets.SelectMany(wallet => wallet.WalletTransactions)
             .OrderByDescending(tx => tx.Timestamp)
             .Take(5)
@@ -118,5 +194,15 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public void OnNewAddressCommand()
     {
         NewAddressClicked?.Invoke(this, null!);
+    }
+
+    public void OnSendTransactionCommand()
+    {
+        SendTransactionClicked?.Invoke(this, null!);
+    }
+
+    public void OnCopyAddress()
+    {
+        CopyAddressClicked?.Invoke(this, null!);
     }
 }

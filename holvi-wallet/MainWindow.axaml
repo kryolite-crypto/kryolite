@@ -14,10 +14,11 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-  <Window.Resources>
-    <vm:CurrencyConverter x:Key="currencyConverter"/>
-    <vm:TimestampConverter x:Key="timestampConverter"/>
-  </Window.Resources>
+    <Window.Resources>
+        <vm:CurrencyConverter x:Key="CurrencyConverter"/>
+        <vm:TimestampConverter x:Key="TimestampConverter"/>
+        <vm:NotNullConverter x:Key="NotNullConverter"/>
+    </Window.Resources>
 
     <DockPanel>
         <Menu DockPanel.Dock="Top">
@@ -44,9 +45,9 @@
                             <StackPanel Margin="10" Width="250">
                                 <TextBlock FontWeight="Bold">Balance</TextBlock>
                                 <TextBlock Margin="0, 20, 0, 0">Available</TextBlock>
-                                <TextBlock FontWeight="Bold" Text="{Binding Balance, Converter={StaticResource currencyConverter}}" />
+                                <TextBlock FontWeight="Bold" Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" />
                                 <TextBlock Margin="0, 20, 0, 0">Pending</TextBlock>
-                                <TextBlock FontWeight="Bold" Text="{Binding Pending, Converter={StaticResource currencyConverter}}" />
+                                <TextBlock FontWeight="Bold" Text="{Binding Pending, Converter={StaticResource CurrencyConverter}}" />
                             </StackPanel>
                         </Border>
                     </StackPanel>
@@ -63,9 +64,9 @@
                                 <ListBox Background="White" Items="{Binding Transactions}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
-                                            <Grid ColumnDefinitions="*, Auto" RowDefinitions="Auto,Auto">
-                                                <TextBlock Text="{Binding Timestamp, Converter={StaticResource timestampConverter}}" Grid.Row="0" Grid.Column="0"/>
-                                                <TextBlock Text="{Binding Value, Converter={StaticResource currencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
+                                            <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
+                                                <TextBlock Text="{Binding Timestamp, Converter={StaticResource TimestampConverter}}" Grid.Row="0" Grid.Column="0"/>
+                                                <TextBlock Text="{Binding Value, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
                                                 <TextBlock Text="{Binding Recipient}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
                                             </Grid>
                                         </DataTemplate>
@@ -82,16 +83,68 @@
                         <Button Command="{Binding OnNewAddressCommand}">New Address</Button>
                     </StackPanel>
                     <DataGrid Name="WalletsGrid" Items="{Binding Wallets}" AutoGenerateColumns="False" DockPanel.Dock="Top">
+                        <DataGrid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="Copy Address" Command="{Binding OnCopyAddress}" />
+                            </ContextMenu>
+                        </DataGrid.ContextMenu>
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Description"  Binding="{Binding Description}"/>
                             <DataGridTextColumn Header="Address" Binding="{Binding Address}" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Balance" Binding="{Binding Balance, Converter={StaticResource currencyConverter}}" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Balance" Binding="{Binding Balance, Converter={StaticResource CurrencyConverter}}" IsReadOnly="True"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </DockPanel>
             </TabItem>
             <TabItem Header="Send" VerticalContentAlignment="Center">
+                <DockPanel Margin="20">
+                    <StackPanel Spacing="20">
+                      <StackPanel.Styles>
+                            <Style Selector="TextBox.floating">
+                                <Setter Property="Margin" Value="0, -18, 0, 0"/>
+                            </Style>
+                            <Style Selector="TextBox.floating ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Margin" Value="0, 18, 0, 0"/>
+                            </Style>
+                            <Style Selector="TextBox.floating TextBlock#PART_FloatingWatermark">
+                                <Setter Property="Margin" Value="0, -18, 0, 0"/>
+                                <Setter Property="Padding" Value="5, 0, 5, 0"/>
+                                <Setter Property="Background" Value="White"/>
+                                <Setter Property="HorizontalAlignment" Value="Left"/>
+                            </Style>
+                            <Style Selector="TextBox.floating ContentControl#InlineDataValidationContentControl > ContentPresenter">
+                                <Setter Property="Margin" Value="0, 0, 0, 0"/>
+                            </Style>
+                        </StackPanel.Styles>
+                        <ComboBox Width="550" Items="{Binding Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
+                                        <TextBlock Text="{Binding Description}" Grid.Row="0" Grid.Column="0"/>
+                                        <TextBlock Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
+                                        <TextBlock Text="{Binding Address}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <TextBox Classes="floating" Width="550" Text="{Binding Recipient}" Watermark="Recipient address" UseFloatingWatermark="True" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10">
+                            <TextBox Classes="floating" Width="200" Text="{Binding Amount}" Watermark="Amount to send" UseFloatingWatermark="True" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
+                            <StackPanel>
+                                <TextBlock VerticalAlignment="Center">Available</TextBlock>
+                                <TextBlock VerticalAlignment="Center" Text="{Binding Path=SelectedWallet.Balance, Converter={StaticResource CurrencyConverter}}"/>
+                            </StackPanel>
+                        </StackPanel>
+                        <StackPanel Orientation="Horizontal">
+                            <Button IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" Command="{Binding OnSendTransactionCommand}">Send</Button>
+                        </StackPanel>
+                    </StackPanel>
+                    <DataGrid Name="PendingGrid" AutoGenerateColumns="False" DockPanel.Dock="Bottom">
+                        <DataGrid.Columns>
 
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </DockPanel>
             </TabItem>
         </TabControl>
     </DockPanel>
