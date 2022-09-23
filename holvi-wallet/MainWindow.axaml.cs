@@ -44,6 +44,7 @@ public partial class MainWindow : Window
         Model.Wallets = new ObservableCollection<WalletModel>(wallets);
 
         var walletGrid = this.FindControl<DataGrid>("WalletsGrid");
+        var buffer = new BufferBlock<Transaction>();
 
         walletGrid.CellEditEnded += (object? sender, DataGridCellEditEndedEventArgs args) => {
             if (args.Row.DataContext is Wallet wallet) {
@@ -83,9 +84,38 @@ public partial class MainWindow : Window
         };
 
         BlockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(async wallet => {
+            var pending = 0UL;
+
+            foreach (var w in Model.Wallets) {
+                pending += MempoolManager.GetPending(w.Address!);
+            }
+
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.SetWallet(wallet);
+                Model.Pending = pending;
             });
         }));
+
+        Task.Run(async () => {
+            var wallets = Model.Wallets.Select(x => x.Address).ToHashSet();
+
+            while(true) {
+                await buffer.OutputAvailableAsync();
+
+                if(buffer.TryReceive(tx => wallets.Contains(tx.PublicKey!.Value.ToAddress().ToString()), out var _)) {
+                    var pending = 0UL;
+
+                    foreach (var w in Model.Wallets) {
+                        pending += MempoolManager.GetPending(w.Address!);
+                    }
+
+                    await Dispatcher.UIThread.InvokeAsync(() => {
+                        Model.Pending = pending;
+                    });
+                }
+            }
+        });
+
+        MempoolManager.OnTransactionAdded(buffer);
     }
 }

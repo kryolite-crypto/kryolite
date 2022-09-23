@@ -1,3 +1,4 @@
+using System.Threading.Tasks.Dataflow;
 using Marccacoin.Shared;
 
 namespace Marccacoin;
@@ -5,9 +6,10 @@ namespace Marccacoin;
 public interface IMempoolManager
 {
     void AddTransaction(Transaction transaction);
-    void AddTransactions(List<Transaction> transaction);
+    void AddTransactions(IEnumerable<Transaction> transaction);
     List<Transaction> GetTransactions();
-    void RemoveTransactions(List<Transaction> transactions);
-    public bool HasTransaction(Transaction transaction);
-    public ulong GetPending(Address address);
+    void RemoveTransactions(IEnumerable<Transaction> transactions);
+    bool HasTransaction(Transaction transaction);
+    ulong GetPending(Address address);
+    IDisposable OnTransactionAdded(ITargetBlock<Transaction> action);
 }

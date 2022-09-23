@@ -8,7 +8,7 @@ public class MempoolManager : IMempoolManager
 {
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly ILogger<MempoolManager> logger;
-    private readonly BufferBlock<Transaction> TransactionBroadcast = new BufferBlock<Transaction>();
+    private readonly BroadcastBlock<Transaction> TransactionBroadcast = new BroadcastBlock<Transaction>(x => x);
 
     private PriorityQueue<Transaction, ulong> MempoolQueue = new PriorityQueue<Transaction, ulong>();
     private Dictionary<string, ulong> PendingAmount = new Dictionary<string, ulong>();
@@ -25,7 +25,7 @@ public class MempoolManager : IMempoolManager
         Add(transaction);
     }
 
-    public void AddTransactions(List<Transaction> transactions)
+    public void AddTransactions(IEnumerable<Transaction> transactions)
     {
         using var _ = rwlock.EnterWriteLockEx();
         foreach (var transaction in transactions) {
@@ -49,7 +49,7 @@ public class MempoolManager : IMempoolManager
         return MempoolQueue.PeekTail(Constant.MAX_BLOCK_TX - 3).ToList();
     }
 
-    public void RemoveTransactions(List<Transaction> transactions)
+    public void RemoveTransactions(IEnumerable<Transaction> transactions)
     {
         // TODO: Not efficient
         var hashes = transactions.Select(tx => BitConverter.ToString(tx.CalculateHash().Buffer)).ToHashSet();
@@ -58,6 +58,20 @@ public class MempoolManager : IMempoolManager
         var queue = MempoolQueue.UnorderedItems.Where(x => !hashes.Contains(BitConverter.ToString(x.Element.CalculateHash().Buffer)));
 
         MempoolQueue = new PriorityQueue<Transaction, ulong>(queue);
+
+        foreach (var transaction in transactions) {
+            PendingHashes.Remove(BitConverter.ToString(transaction.CalculateHash()));
+
+            var address = transaction.PublicKey!.Value.ToAddress().ToString();
+            if(PendingAmount.ContainsKey(address)) {
+                PendingAmount.Remove(address);
+            }
+        }
+    }
+
+    public IDisposable OnTransactionAdded(ITargetBlock<Transaction> action)
+    {
+        return TransactionBroadcast.LinkTo(action);
     }
 
     private void Add(Transaction transaction)
@@ -86,5 +100,7 @@ public class MempoolManager : IMempoolManager
         }
 
         PendingHashes.Add(BitConverter.ToString(transaction.CalculateHash()));
+
+        TransactionBroadcast.Post(transaction);
     }
 }

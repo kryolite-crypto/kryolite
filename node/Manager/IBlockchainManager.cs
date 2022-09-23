@@ -19,6 +19,6 @@ public interface IBlockchainManager
     void AddTransactionsToQueue(List<Transaction> transactions);
     void AddTransactionsToQueue(Transaction transaction);
 
-    IDisposable OnBlockAdded(ActionBlock<Block> action);
-    IDisposable OnWalletUpdated(ActionBlock<Wallet> action);
+    IDisposable OnBlockAdded(ITargetBlock<Block> action);
+    IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
 }

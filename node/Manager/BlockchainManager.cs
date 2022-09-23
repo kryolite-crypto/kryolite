@@ -53,8 +53,8 @@ public class BlockchainManager : IBlockchainManager
 
         var context = new GlobalContext(ledgerRepository, wallets)
         {
-            Fee = block.Transactions.DefaultIfEmpty().Min(x => x?.MaxFee ?? 0),
-            FeeTotal = (ulong)block.Transactions.DefaultIfEmpty().Sum(x => (long)(x?.MaxFee ?? 0)),
+            Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
+            FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
             Timestamp = block.Header.Timestamp
         };
 
@@ -92,7 +92,7 @@ public class BlockchainManager : IBlockchainManager
         blockchainRepository.Commit();
         walletRepository.Commit();
 
-        mempoolManager.RemoveTransactions(block.Transactions);
+        mempoolManager.RemoveTransactions(block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT));
 
         BlockBroadcast.Post(block);
 
@@ -331,12 +331,12 @@ public class BlockchainManager : IBlockchainManager
         logger.LogInformation($"Epoch {epochEnd.Id / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");
     }
 
-    public IDisposable OnBlockAdded(ActionBlock<Block> action)
+    public IDisposable OnBlockAdded(ITargetBlock<Block> action)
     {
         return BlockBroadcast.LinkTo(action);
     }
 
-    public IDisposable OnWalletUpdated(ActionBlock<Wallet> action)
+    public IDisposable OnWalletUpdated(ITargetBlock<Wallet> action)
     {
         return WalletBroadcast.LinkTo(action);
     }

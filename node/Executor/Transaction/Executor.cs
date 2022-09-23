@@ -107,7 +107,8 @@ public enum TransactionResult
     INVALID_BLOCK_REWARD,
     INVALID_VALIDATOR_REWARD,
     INVALID_DEV_FEE,
-    LOW_FEE
+    LOW_FEE,
+    EXTRA_FEE
 }
 
 public class GlobalContext : IContext
@@ -164,6 +165,10 @@ public class VerifyBlockReward : BaseStep<Transaction, GlobalContext>
         if (item.Value != 750000000) {
             throw new ExecutionException(TransactionResult.INVALID_BLOCK_REWARD);
         }
+
+        if (item.MaxFee > 0) {
+            throw new ExecutionException(TransactionResult.EXTRA_FEE);
+        }
     }
 }
 
@@ -174,6 +179,10 @@ public class VerifyValidatorReward : BaseStep<Transaction, GlobalContext>
         if (item.Value != 200000000) {
             throw new ExecutionException(TransactionResult.INVALID_BLOCK_REWARD);
         }
+
+        if (item.MaxFee > 0) {
+            throw new ExecutionException(TransactionResult.EXTRA_FEE);
+        }
     }
 }
 
@@ -183,6 +192,10 @@ public class VerifyDevFee : BaseStep<Transaction, GlobalContext>
     {
         if (item.Value != 50000000) {
             throw new ExecutionException(TransactionResult.INVALID_BLOCK_REWARD);
+        }
+
+        if (item.MaxFee > 0) {
+            throw new ExecutionException(TransactionResult.EXTRA_FEE);
         }
     }
 }
@@ -315,7 +328,7 @@ public class UpdateSenderWallet : BaseStep<Transaction, GlobalContext>
         wallet.Balance = ledgerWallet.Balance;
         wallet.WalletTransactions.Add(new WalletTransaction
         {
-            Recipient = item.To,
+            Recipient = item.PublicKey!.Value.ToAddress(),
             Value = (long)item.Value * -1,
             Timestamp = ctx.Timestamp
         });
@@ -338,7 +351,7 @@ public class UpdateRecipientWallet : BaseStep<Transaction, GlobalContext>
         wallet.Balance = ledgerWallet.Balance;
         wallet.WalletTransactions.Add(new WalletTransaction
         {
-            Recipient = item.PublicKey?.ToAddress() ?? item.To,
+            Recipient = item.To,
             Value = (long)item.Value,
             Timestamp = ctx.Timestamp
         });
