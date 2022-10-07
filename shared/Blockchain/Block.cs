@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using LiteDB;
 using Marccacoin.Shared;
+using MessagePack;
 
 namespace Marccacoin.Shared;
 
@@ -20,21 +21,31 @@ public struct Concat
     public static bool operator !=(Concat x, Concat y) => !(x.Buffer.SequenceEqual(y.Buffer));
 }
 
+[MessagePackObject]
 public class BlockHeader
 {
+    [Key(0)]
     [BsonId(false)]
     public long Id { get; set; }
+    [Key(1)]
     public SHA256Hash ParentHash { get; set; }
+    [Key(2)]
     public long Timestamp { get; set; }
+    [Key(3)]
     public Nonce Nonce { get; set; }
+    [Key(4)]
     public Difficulty Difficulty { get; set; }
 }
 
+[MessagePackObject]
 public class Block
 {
+    [Key(0)]
     [BsonId(false)]
     public long Id { get; set; }
+    [Key(1)]
     public BlockHeader Header { get; set; } = new();
+    [Key(2)]
     public List<Transaction> Transactions { get; set; } = new List<Transaction>();
 
     public SHA256Hash GetHash()

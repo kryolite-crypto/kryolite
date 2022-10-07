@@ -1,11 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using MessagePack;
 
 namespace Marccacoin.Shared;
 
+[MessagePackObject]
 public struct SHA256Hash
 {
+    [Key(0)]
     [MarshalAs(UnmanagedType.ByValArray, SizeConst=32)]
     public byte[] Buffer;
 

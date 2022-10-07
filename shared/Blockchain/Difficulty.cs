@@ -1,20 +1,27 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using ExtendedNumerics;
+using MessagePack;
 
 namespace Marccacoin.Shared;
 
+[MessagePackObject]
 [StructLayout(LayoutKind.Explicit)]
 public record struct Difficulty
 {
+    [Key(0)]
     [FieldOffset(0)]
     public uint Value;
+    [IgnoreMemberAttribute]
     [FieldOffset(0)]
     public byte b0;
+    [IgnoreMemberAttribute]
     [FieldOffset(1)]
     public byte b1;
+    [IgnoreMemberAttribute]
     [FieldOffset(2)]
     public byte b2;
+    [IgnoreMemberAttribute]
     [FieldOffset(3)]
     public byte b3;
 

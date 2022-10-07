@@ -1,9 +1,9 @@
-using static Marccacoin.DiscoveryManager;
+using static Marccacoin.NetworkManager;
 
 namespace Marccacoin;
 
 public interface IDiscoveryManager
 {
-    void AddHost(Host host);
+    void AddHost(NodeHost host);
     DateTimeOffset GetNetworkTime();
 }

@@ -1,9 +1,12 @@
 using System.Runtime.InteropServices;
+using MessagePack;
 
 namespace Marccacoin.Shared;
 
+[MessagePackObject]
 public record struct Nonce
 {
+    [Key(0)]
     [MarshalAs(UnmanagedType.ByValArray, SizeConst=32)] 
     public byte[] Buffer;
 

@@ -36,12 +36,23 @@ public class BlockRepository : TransactionalRepository
         Database.GetCollection<ChainState>().Upsert(chainState);
     }
 
-    public Block GetBlock(long id)
+    public void SaveState(ChainState chainState)
+    {
+        Database.GetCollection<ChainState>().Upsert(chainState);
+    }
+
+    public Block? GetBlock(long id)
     {
         return Database.GetCollection<Block>()
             .Include(x => x.Header)
             .IncludeCollection(x => x.Transactions)
             .FindById(id);
+    }
+
+    public void Delete(long id)
+    {
+        Database.GetCollection<Block>()
+            .Delete(id);
     }
 
     public ChainState GetChainState()
@@ -67,6 +78,25 @@ public class BlockRepository : TransactionalRepository
         return results;
     }
 
+    public List<Block> Tail(long start, int count)
+    {
+        var blocks = Database.GetCollection<Block>().LongCount();
+        var startId = blocks - count;
+
+        var results = Database.GetCollection<Block>()
+            .Include(x => x.Header)
+            .IncludeCollection(x => x.Transactions)
+            .Query()
+            .Where(x => x.Id < start)
+            .OrderByDescending<long>(x => x.Id)
+            .Limit(count)
+            .ToList();
+
+        results.Reverse();
+
+        return results;
+    }
+
     public Block Last()
     {
         return Database.GetCollection<Block>()
@@ -75,5 +105,15 @@ public class BlockRepository : TransactionalRepository
             .Query()
             .OrderByDescending<long>(x => x.Id)
             .FirstOrDefault();
+    }
+
+    public List<Block> GetFrom(long id)
+    {
+        return Database.GetCollection<Block>()
+            .Include(x => x.Header)
+            .IncludeCollection(x => x.Transactions)
+            .Query()
+            .Where(x => x.Id > id)
+            .ToList();
     }
 }

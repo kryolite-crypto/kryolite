@@ -25,9 +25,9 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
         return this;
     }
 
-    public bool Execute(TItem item, out TransactionResult result)
+    public bool Execute(TItem item, out ExecutionResult result)
     {
-        result = TransactionResult.UNKNOWN;
+        result = ExecutionResult.UNKNOWN;
 
         foreach (var step in Steps.Where(step => step.Item2?.Invoke(item) ?? true)) {
             if (!step.Item1.TryExecute(item, Context, out result)) {
@@ -38,9 +38,9 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
         return true;
     }
 
-    public bool ExecuteBatch(IEnumerable<TItem> items, out TransactionResult result)
+    public bool ExecuteBatch(IEnumerable<TItem> items, out ExecutionResult result)
     {
-        result = TransactionResult.UNKNOWN;
+        result = ExecutionResult.UNKNOWN;
 
         foreach (var item in items) {
             if(!Execute(item, out result)) {
@@ -71,7 +71,7 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
 public abstract class BaseStep<TItem, TContext> where TContext : IContext
 {
     protected abstract void Execute(TItem item, TContext ctx);
-    public bool TryExecute(TItem item, TContext ctx, out TransactionResult result)
+    public bool TryExecute(TItem item, TContext ctx, out ExecutionResult result)
     {
         try {
             Execute(item, ctx);
@@ -80,12 +80,12 @@ public abstract class BaseStep<TItem, TContext> where TContext : IContext
             ctx.Fail(ex);
             return false;
         } catch (Exception ex) {
-            result = TransactionResult.FAILURE;
+            result = ExecutionResult.FAILURE;
             ctx.Fail(ex);
             return false;
         }
 
-        result = TransactionResult.OK;
+        result = ExecutionResult.OK;
         return true;
     }
 }
@@ -95,7 +95,7 @@ public interface IContext
     void Fail(Exception ex);
 }
 
-public enum TransactionResult
+public enum ExecutionResult
 {
     OK,
     FAILURE,
@@ -108,10 +108,16 @@ public enum TransactionResult
     INVALID_VALIDATOR_REWARD,
     INVALID_DEV_FEE,
     LOW_FEE,
-    EXTRA_FEE
+    EXTRA_FEE,
+    INVALID_DIFFICULTY,
+    INVALID_NONCE,
+    INVALID_ID,
+    INVALID_PARENT_HASH,
+    TIMESTAMP_TOO_OLD,
+    TIMESTAMP_IN_FUTURE
 }
 
-public class GlobalContext : IContext
+public class TransactionContext : IContext
 {
     public ulong Fee;
     public ulong FeeTotal;
@@ -123,14 +129,14 @@ public class GlobalContext : IContext
 
     public Exception? Ex { get; private set; }
 
-    public GlobalContext(LedgerRepository ledgerRepository, IMempoolManager mempoolManager)
+    public TransactionContext(LedgerRepository ledgerRepository, IMempoolManager mempoolManager)
     {
         LedgerRepository = ledgerRepository ?? throw new ArgumentNullException(nameof(ledgerRepository));
         MempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         Wallets = null!;
     }
 
-    public GlobalContext(LedgerRepository ledgerRepository, Dictionary<string, Wallet> wallets)
+    public TransactionContext(LedgerRepository ledgerRepository, Dictionary<string, Wallet> wallets)
     {
         LedgerRepository = ledgerRepository ?? throw new ArgumentNullException(nameof(ledgerRepository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
@@ -143,181 +149,175 @@ public class GlobalContext : IContext
     }
 }
 
-public class TransactionContext
-{
-    public LedgerWallet? From;
-    public LedgerWallet? To;
-}
-
 public class ExecutionException : Exception
 {
-    public TransactionResult Result { get; }
-    public ExecutionException(TransactionResult result)
+    public ExecutionResult Result { get; }
+    public ExecutionException(ExecutionResult result)
     {
         Result = result;
     }
 }
 
-public class VerifyBlockReward : BaseStep<Transaction, GlobalContext>
+public class VerifyBlockReward : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx)
     {
         if (item.Value != 750000000) {
-            throw new ExecutionException(TransactionResult.INVALID_BLOCK_REWARD);
+            throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
         }
 
         if (item.MaxFee > 0) {
-            throw new ExecutionException(TransactionResult.EXTRA_FEE);
+            throw new ExecutionException(ExecutionResult.EXTRA_FEE);
         }
     }
 }
 
-public class VerifyValidatorReward : BaseStep<Transaction, GlobalContext>
+public class VerifyValidatorReward : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx)
     {
         if (item.Value != 200000000) {
-            throw new ExecutionException(TransactionResult.INVALID_BLOCK_REWARD);
+            throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
         }
 
         if (item.MaxFee > 0) {
-            throw new ExecutionException(TransactionResult.EXTRA_FEE);
+            throw new ExecutionException(ExecutionResult.EXTRA_FEE);
         }
     }
 }
 
-public class VerifyDevFee : BaseStep<Transaction, GlobalContext>
+public class VerifyDevFee : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx)
     {
         if (item.Value != 50000000) {
-            throw new ExecutionException(TransactionResult.INVALID_BLOCK_REWARD);
+            throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
         }
 
         if (item.MaxFee > 0) {
-            throw new ExecutionException(TransactionResult.EXTRA_FEE);
+            throw new ExecutionException(ExecutionResult.EXTRA_FEE);
         }
     }
 }
 
-public class NotReward : BaseStep<Transaction, GlobalContext>
+public class NotReward : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx)
     {
         if(item.TransactionType != TransactionType.PAYMENT) {
-            throw new ExecutionException(TransactionResult.FAILURE);
+            throw new ExecutionException(ExecutionResult.FAILURE);
         }
     }
 }
 
-public class CheckMinFee : BaseStep<Transaction, GlobalContext>
+public class CheckMinFee : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx)
     {
         if(item.MaxFee <= 0) {
-            throw new ExecutionException(TransactionResult.LOW_FEE);
+            throw new ExecutionException(ExecutionResult.LOW_FEE);
         }
     }
 }
 
-public class VerifySignature : BaseStep<Transaction, GlobalContext>
+public class VerifySignature : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx)
     {
         if(!item.Verify()) {
-            throw new ExecutionException(TransactionResult.SIGNATURE_VERIFICATION_FAILED);
+            throw new ExecutionException(ExecutionResult.SIGNATURE_VERIFICATION_FAILED);
         }
     }
 }
 
-public class FetchSenderWallet : BaseStep<Transaction, GlobalContext>
+public class FetchSenderWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
-        var from = item.PublicKey ?? throw new ExecutionException(TransactionResult.INVALID_PUBLIC_KEY);
-        var wallet = ctx.LedgerRepository.GetWallet(from.ToAddress()) ?? throw new ExecutionException(TransactionResult.INVALID_SENDER);
+        var from = item.PublicKey ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
+        var wallet = ctx.LedgerRepository.GetWallet(from.ToAddress()) ?? throw new ExecutionException(ExecutionResult.INVALID_SENDER);
 
         ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
     }
 }
 
-public class FetchRecipientWallet : BaseStep<Transaction, GlobalContext>
+public class FetchRecipientWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
         var wallet = ctx.LedgerRepository.GetWallet(item.To) ?? new LedgerWallet(item.To);
         ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
     }
 }
 
-public class TakeBalanceFromSender : BaseStep<Transaction, GlobalContext>
+public class TakeBalanceFromSender : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
-        var address = item.PublicKey?.ToAddress() ?? throw new ExecutionException(TransactionResult.INVALID_PUBLIC_KEY);
+        var address = item.PublicKey?.ToAddress() ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
         
         if(!ctx.LedgerWalletCache.TryGetValue(address.ToString(), out var wallet)) {
-            throw new ExecutionException(TransactionResult.INVALID_SENDER);
+            throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
         if (wallet.Balance < checked(item.Value + ctx.Fee)) {
-            throw new ExecutionException(TransactionResult.TOO_LOW_BALANCE);
+            throw new ExecutionException(ExecutionResult.TOO_LOW_BALANCE);
         }
 
         wallet.Balance = checked(wallet.Balance - (item.Value + ctx.Fee));
     }
 }
 
-public class HasFunds : BaseStep<Transaction, GlobalContext>
+public class HasFunds : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
-        var address = item.PublicKey?.ToAddress() ?? throw new ExecutionException(TransactionResult.INVALID_PUBLIC_KEY);
+        var address = item.PublicKey?.ToAddress() ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
         
         if(!ctx.LedgerWalletCache.TryGetValue(address.ToString(), out var wallet)) {
-            throw new ExecutionException(TransactionResult.INVALID_SENDER);
+            throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
         var pending = ctx.MempoolManager.GetPending(address);
 
         if (wallet.Balance < checked(item.Value + item.MaxFee + pending)) {
-            throw new ExecutionException(TransactionResult.TOO_LOW_BALANCE);
+            throw new ExecutionException(ExecutionResult.TOO_LOW_BALANCE);
         }
     }
 }
 
-public class AddBalanceToRecipient : BaseStep<Transaction, GlobalContext>
+public class AddBalanceToRecipient : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
         if(!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var wallet)) {
-            throw new ExecutionException(TransactionResult.INVALID_SENDER);
+            throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
         wallet.Balance = checked(wallet.Balance + item.Value);
     }
 }
 
-public class AddBlockRewardToRecipient : BaseStep<Transaction, GlobalContext>
+public class AddBlockRewardToRecipient : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
         if(!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var wallet)) {
-            throw new ExecutionException(TransactionResult.INVALID_SENDER);
+            throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
         wallet.Balance = checked(wallet.Balance + ctx.FeeTotal);
     }
 }
 
-public class UpdateSenderWallet : BaseStep<Transaction, GlobalContext>
+public class UpdateSenderWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
-        var address = item.PublicKey ?? throw new ExecutionException(TransactionResult.INVALID_PUBLIC_KEY);
+        var address = item.PublicKey ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
         
         if(!ctx.LedgerWalletCache.TryGetValue(address.ToAddress().ToString(), out var ledgerWallet)) {
-            throw new ExecutionException(TransactionResult.INVALID_SENDER);
+            throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
         if (!ctx.Wallets.TryGetValue(ledgerWallet.Address.ToString(), out var wallet)) {
@@ -335,12 +335,12 @@ public class UpdateSenderWallet : BaseStep<Transaction, GlobalContext>
     }
 }
 
-public class UpdateRecipientWallet : BaseStep<Transaction, GlobalContext>
+public class UpdateRecipientWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, GlobalContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx)
     {
         if(!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var ledgerWallet)) {
-            throw new ExecutionException(TransactionResult.INVALID_SENDER);
+            throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
         if (!ctx.Wallets.TryGetValue(ledgerWallet.Address.ToString(), out var wallet)) {
@@ -355,5 +355,97 @@ public class UpdateRecipientWallet : BaseStep<Transaction, GlobalContext>
             Value = (long)item.Value,
             Timestamp = ctx.Timestamp
         });
+    }
+}
+
+public class BlockchainContext : IContext
+{
+    public List<Block> LastBlocks { get; init; } = new List<Block>();
+    public DateTimeOffset NetworkTime { get; init; }
+    public Difficulty CurrentDifficulty { get; init; }
+
+    public Exception? Ex { get; private set; }
+
+    public void Fail(Exception ex)
+    {
+        Ex = ex;
+    }
+}
+
+public class VerifyDifficulty : BaseStep<Block, BlockchainContext>
+{
+    protected override void Execute(Block block, BlockchainContext ctx)
+    {
+        if (block.Header.Difficulty != ctx.CurrentDifficulty) 
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_DIFFICULTY);
+        }
+    }
+}
+
+public class VerifyNonce : BaseStep<Block, BlockchainContext>
+{
+    protected override void Execute(Block block, BlockchainContext ctx)
+    {
+        if (!block.VerifyNonce()) 
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_NONCE);
+        }
+    }
+}
+
+public class VerifyId : BaseStep<Block, BlockchainContext>
+{
+    protected override void Execute(Block block, BlockchainContext ctx)
+    {
+        var lastBlock = ctx.LastBlocks.Last();
+
+        if (block.Id != lastBlock.Id + 1) 
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_ID);
+        }
+    }
+}
+
+public class VerifyParentHash : BaseStep<Block, BlockchainContext>
+{
+    protected override void Execute(Block block, BlockchainContext ctx)
+    {
+        var lastBlock = ctx.LastBlocks.Last();
+
+        if (!Enumerable.SequenceEqual((byte[])block.Header.ParentHash, (byte[])lastBlock.GetHash()))
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_PARENT_HASH);
+        }
+    }
+}
+
+public class VerifyTimestampPast : BaseStep<Block, BlockchainContext>
+{
+    protected override void Execute(Block block, BlockchainContext ctx)
+    {
+        // Get median of last 11 blocks
+        var median = ctx.LastBlocks.TakeLast(11)
+            .ElementAt((int)(Math.Min(ctx.LastBlocks.Count / 2, 5)));
+
+        if (block.Header.Timestamp < median.Header.Timestamp)
+        {
+            throw new ExecutionException(ExecutionResult.TIMESTAMP_TOO_OLD);
+        }
+    }
+}
+
+public class VerifyTimestampFuture : BaseStep<Block, BlockchainContext>
+{
+    protected override void Execute(Block block, BlockchainContext ctx)
+    {
+        // Get median of last 11 blocks
+        var median = ctx.LastBlocks.TakeLast(11)
+            .ElementAt((int)(Math.Min(ctx.LastBlocks.Count / 2, 5)));
+
+        if (block.Header.Timestamp > ctx.NetworkTime.AddHours(2).ToUnixTimeSeconds())
+        {
+            throw new ExecutionException(ExecutionResult.TIMESTAMP_IN_FUTURE);
+        }
     }
 }

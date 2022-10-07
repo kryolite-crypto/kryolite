@@ -1,9 +1,12 @@
 using System.Runtime.InteropServices;
+using MessagePack;
 
 namespace Marccacoin.Shared;
 
+[MessagePackObject]
 public struct Signature
 {
+    [Key(0)]
     [MarshalAs(UnmanagedType.ByValArray, SizeConst=64)] 
     public byte[] Buffer;
 

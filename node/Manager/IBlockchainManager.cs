@@ -1,3 +1,4 @@
+using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Marccacoin.Shared;
 
@@ -10,14 +11,20 @@ public interface IBlockchainManager
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     SHA256Hash GetLastBlockhash();
+    BigInteger GetTotalWork();
     ulong GetBalance(Address address);
     List<WalletTransaction> GetTransactions(int count);
-    Block GetBlock(long Id);
+    Block? GetBlock(long Id);
     Wallet CreateWallet();
     List<Wallet> GetWallets();
     void UpdateWallet(Wallet wal);
     void AddTransactionsToQueue(List<Transaction> transactions);
     void AddTransactionsToQueue(Transaction transaction);
+    ChainState GetChainState();
+    List<Block> GetLastBlocks(int count);
+    List<Block> GetLastBlocks(long start, int count);
+    void SetChain(List<Block> blocks);
+    List<Block> GetFrom(long id);
 
     IDisposable OnBlockAdded(ITargetBlock<Block> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);

@@ -1,11 +1,14 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using MessagePack;
 
 namespace Marccacoin.Shared;
 
+[MessagePackObject]
 public struct Address
 {
+    [Key(0)]
     [MarshalAs(UnmanagedType.ByValArray, SizeConst=26)] 
     public byte[] Buffer;
 

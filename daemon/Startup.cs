@@ -78,9 +78,10 @@ public class Startup
     public void ConfigureServices(IServiceCollection services)
     {
         services.AddSingleton<IBlockchainManager, BlockchainManager>()
-                .AddSingleton<IDiscoveryManager, DiscoveryManager>()
+                .AddSingleton<Lazy<IBlockchainManager>>(c => new Lazy<IBlockchainManager>(c.GetService<IBlockchainManager>()!))
+                .AddSingleton<IDiscoveryManager, NetworkManager>()
                 .AddSingleton<IMempoolManager, MempoolManager>()
-                .AddHostedService<DiscoveryService>()
+                .AddHostedService<NetworkService>()
                 .AddHostedService<BlockchainService>()
                 .AddHostedService<MempoolService>()
                 .AddHostedService<SampoService>()

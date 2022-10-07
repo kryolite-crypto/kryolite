@@ -1,0 +1,64 @@
+using System.Net;
+using System.Numerics;
+using Marccacoin.Shared;
+using MessagePack;
+using Microsoft.Extensions.Logging;
+
+namespace Marccacoin;
+
+public class NetworkManager : IDiscoveryManager
+{
+    private List<NodeHost> Hosts = new List<NodeHost>();
+    private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+    private readonly ILogger<IDiscoveryManager> logger;
+
+    public NetworkManager(ILogger<IDiscoveryManager> logger)
+    {
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    public void AddHost(NodeHost host)
+    {
+        using (var _ = rwlock.EnterWriteLockEx()) {
+            Hosts.Add(host);
+        }
+    }
+
+    public DateTimeOffset GetNetworkTime()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+
+        var maxAge = DateTime.Now.AddHours(-1);
+
+        var timestamps = Hosts.Where(x => x.LastSeen > maxAge)
+            .Take(100)
+            .OrderBy(arg => Guid.NewGuid())
+            .Take(10)
+            .Select(x => new DateTimeOffset(x.NodeInfo!.CurrentTime + (DateTime.UtcNow - x.LastSeen)).ToUnixTimeSeconds())
+            .ToList();
+
+        timestamps.Add(DateTimeOffset.Now.ToUnixTimeSeconds());
+
+        return DateTimeOffset.FromUnixTimeSeconds((long)timestamps.Average());
+    }
+
+    public class NodeHost
+    {
+        public Node? Connection { get; init; }
+        public NodeInfo? NodeInfo { get; init; }
+        public DateTime LastSeen { get; init; }
+    }
+
+    [MessagePackObject]
+    public class NodeInfo
+    {
+        [Key(0)]
+        public DateTime CurrentTime { get; init; }
+        [Key(1)]
+        public long Height { get; init; }
+        [Key(2)]
+        public BigInteger TotalWork { get; init; }
+        [Key(3)]
+        public SHA256Hash LastHash { get; init; }
+    }
+}

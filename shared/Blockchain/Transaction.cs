@@ -2,20 +2,31 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 using LiteDB;
+using MessagePack;
 using NSec.Cryptography;
 
 namespace Marccacoin.Shared;
 
+[MessagePackObject]
 public class Transaction : IComparable<Transaction>
 {
+    [Key(0)]
     public long Id { get; set; }
+    [Key(1)]
     public TransactionType TransactionType { get; set; }
+    [Key(2)]
     public PublicKey? PublicKey { get; set; }
+    [Key(3)]
     public Address To { get; set; }
+    [Key(4)]
     public ulong Value { get; set; }
+    [Key(5)]
     public ulong MaxFee { get; set; }
+    [Key(6)]
     public byte[]? Data { get; set; }
+    [Key(7)]
     public int Nonce { get; set; }
+    [Key(8)]
     public Signature? Signature { get; set; }
 
     public void Sign(PrivateKey privateKey)

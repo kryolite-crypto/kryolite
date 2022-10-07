@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
+using MessagePack;
 
 namespace Marccacoin.Shared;
 
@@ -15,8 +16,10 @@ public struct PrivateKey
     public static implicit operator PrivateKey(byte[] buffer) => new PrivateKey { Buffer = buffer };
 }
 
+[MessagePackObject]
 public struct PublicKey
 {
+    [Key(0)]
     [MarshalAs(UnmanagedType.ByValArray, SizeConst=32)]
     public byte[] Buffer;
 
