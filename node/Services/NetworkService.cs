@@ -15,7 +15,7 @@ public class NetworkService : BackgroundService
     private readonly IConfiguration configuration;
     private readonly IDiscoveryManager networkManager;
     private readonly IBlockchainManager blockchainManager;
-    private readonly BufferBlock<List<Block>> SyncBuffer = new BufferBlock<List<Block>>();
+    private readonly BufferBlock<Node> SyncBuffer = new BufferBlock<Node>();
 
     public NetworkService(IConfiguration configuration, ILogger<NetworkService> logger, IDiscoveryManager networkManager, IBlockchainManager blockchainManager)
     {
@@ -80,9 +80,15 @@ public class NetworkService : BackgroundService
                     }
                     break;
                 case Blockchain blockchain:
+                    if (sender is not Node node2) {
+                        Logger.LogError("Blockchain received from unknown source");
+                        return;
+                    }
+
                     Logger.LogInformation("Received blockchain");
                     if (blockchain.Blocks != null) {
-                        SyncBuffer.Post<List<Block>>(blockchain.Blocks);
+                        node2.Blockchain = blockchain.Blocks;
+                        SyncBuffer.Post<Node>(node2);
                     }
                     break;
                 case Block block:
@@ -206,7 +212,7 @@ public class Blockchain
     public List<Block>? Blocks { get; set; }
 }
 
-public class ChainObserver : IObserver<List<Block>>
+public class ChainObserver : IObserver<Node>
 {
     private readonly IBlockchainManager blockchainManager;
 
@@ -225,9 +231,9 @@ public class ChainObserver : IObserver<List<Block>>
         throw new Exception("ChainObserver failed", error);
     }
 
-    public void OnNext(List<Block> blocks)
+    public void OnNext(Node node)
     {
-        var sortedBlocks = blocks.OrderBy(x => x.Id).ToList();
+        var sortedBlocks = node.Blockchain.OrderBy(x => x.Id).ToList();
 
         var min = sortedBlocks.Min(x => x.Id);
 
@@ -261,6 +267,16 @@ public class ChainObserver : IObserver<List<Block>>
 
         if (totalWork > blockchainManager.GetTotalWork()) {
             blockchainManager.SetChain(blockchainContext.LastBlocks);
+
+            var msg = new Message
+            {
+                Payload = new Query 
+                {
+                    QueryType = QueryType.NODE_INFO
+                }
+            };
+
+            node.SendAsync(msg).RunSynchronously();
         }
     }
 }
