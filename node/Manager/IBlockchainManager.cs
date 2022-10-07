@@ -23,7 +23,7 @@ public interface IBlockchainManager
     ChainState GetChainState();
     List<Block> GetLastBlocks(int count);
     List<Block> GetLastBlocks(long start, int count);
-    void SetChain(List<Block> blocks);
+    bool SetChain(List<Block> blocks);
     List<Block> GetFrom(long id);
 
     IDisposable OnBlockAdded(ITargetBlock<Block> action);

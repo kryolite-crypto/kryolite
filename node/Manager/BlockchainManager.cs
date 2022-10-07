@@ -386,7 +386,7 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.Tail(start, count);
     }
 
-    public void SetChain(List<Block> blocks)
+    public bool SetChain(List<Block> blocks)
     {
         var sortedBlocks = blocks.Where(x => x.Id > 0)
             .OrderBy(x => x.Id)
@@ -433,7 +433,11 @@ public class BlockchainManager : IBlockchainManager
 
                         if (!wallets.ContainsKey(senderAddr.ToString()))
                         {
-                            wallets.Add(senderAddr.ToString(), walletRepository.Get(senderAddr));
+                            var senderWallet = walletRepository.Get(senderAddr);
+
+                            if (senderWallet != null) {
+                                wallets.Add(senderAddr.ToString(), walletRepository.Get(senderAddr));
+                            }
                         }
 
                         var from = wallets[senderAddr.ToString()];
@@ -453,7 +457,11 @@ public class BlockchainManager : IBlockchainManager
 
                     if (!wallets.ContainsKey(tx.To.ToString()))
                     {
-                        wallets.Add(tx.To.ToString(), walletRepository.Get(tx.To));
+                        var toWallet = walletRepository.Get(tx.To);
+
+                        if (toWallet != null) {
+                            wallets.Add(tx.To.ToString(), toWallet);
+                        }
                     }
 
                     var to = ledgerWallets[tx.To.ToString()];
@@ -470,7 +478,10 @@ public class BlockchainManager : IBlockchainManager
                 }
 
                 ledgerRepository.UpdateWallets(ledgerWallets.Values);
-                walletRepository.UpdateWallets2(wallets.Values);
+
+                if (wallets.Values.Count > 0) {
+                    walletRepository.UpdateWallets2(wallets.Values);
+                }
 
                 blockchainRepository.Delete(cBlock.Id);
 
@@ -481,7 +492,7 @@ public class BlockchainManager : IBlockchainManager
                     NextEpoch(blockchainRepository, chainState);
                 }
             }
-
+ 
             blockchainRepository.SaveState(chainState);            
 
             blockchainRepository.Commit();
@@ -494,13 +505,12 @@ public class BlockchainManager : IBlockchainManager
             if(!AddBlock(block))
             {
                 logger.LogError($"Set chain failed at {block.Id}");
-                return;
+                return false;
             }
         }
 
-        // TODO: send query  
-
         logger.LogInformation("Chain synchronization completed");
+        return true;
     }
 
     public List<Block> GetFrom(long id)

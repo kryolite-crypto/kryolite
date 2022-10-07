@@ -62,22 +62,31 @@ public class NetworkService : BackgroundService
 
                     networkManager.AddHost(nodeHost);
 
+                    var msg = new Message
+                    {
+                        Payload = new Query {
+                            QueryType = QueryType.CHAIN_SYNC,
+                            Params = new ChainSyncParams
+                            {
+                                StartBlock = blockchainManager.GetCurrentHeight(),
+                                StartHash = blockchainManager.GetLastBlockhash()
+                            }
+                        }
+                    };
+
                     if (nodeInfo.TotalWork > blockchainManager.GetTotalWork())
                     {
-                        var msg = new Message
-                        {
-                            Payload = new Query {
-                                QueryType = QueryType.CHAIN_SYNC,
-                                Params = new ChainSyncParams
-                                {
-                                    StartBlock = blockchainManager.GetCurrentHeight(),
-                                    StartHash = blockchainManager.GetLastBlockhash()
-                                }
-                            }
-                        };
-
                         await node.SendAsync(msg);
+                        goto sync;
                     }
+
+                    if (!Enumerable.SequenceEqual((byte[])nodeInfo.LastHash, (byte[])blockchainManager.GetLastBlockhash())) {
+                        goto sync;
+                    }
+
+                    return;
+sync:
+                    await node.SendAsync(msg);
                     break;
                 case Blockchain blockchain:
                     if (sender is not Node node2) {
@@ -109,17 +118,9 @@ public class NetworkService : BackgroundService
 
         await Parallel.ForEachAsync(peers, async (peer, token) => {
             Logger.LogInformation($"Connecting to {peer}");
-            var node = NodeNetwork.AddNode("127.0.0.1", 6000, false);
+            NodeNetwork.AddNode("127.0.0.1", 6000, false);
 
-            var msg = new Message
-            {
-                Payload = new Query 
-                {
-                    QueryType = QueryType.NODE_INFO
-                }
-            };
-
-            await node.SendAsync(msg);
+            await Task.CompletedTask;
         });
 
         blockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {
@@ -153,6 +154,7 @@ public class NetworkService : BackgroundService
                     {
                         Height = blockchainManager.GetCurrentHeight(),
                         TotalWork = blockchainManager.GetTotalWork(),
+                        LastHash = blockchainManager.GetLastBlockhash(),
                         CurrentTime = DateTime.UtcNow
                     }
                 };
@@ -170,25 +172,19 @@ public class NetworkService : BackgroundService
                 var chain = new Blockchain();
 
                 if (block == null) {
-                    // send full chain
-                    Logger.LogInformation("Send full chain");
                     chain.Blocks = blockchainManager.GetFrom(0);
                     goto answer;
                 }
 
                 if (!Enumerable.SequenceEqual(block.GetHash().Buffer, syncParams.StartHash!)) {
-                    // send full chain
-                    Logger.LogInformation("Send full chain");
                     chain.Blocks = blockchainManager.GetFrom(0);
                     goto answer;
                 }
 
                 if (syncParams.StartBlock == blockchainManager.GetCurrentHeight()) {
-                    // Chains equals, do nothing
                     return;
                 }
 
-                Logger.LogInformation("Send partial chain");
                 chain.Blocks = blockchainManager.GetFrom(syncParams.StartBlock);
 answer:
                 var answer = new Message()
@@ -228,10 +224,11 @@ public class ChainObserver : IObserver<Node>
 
     public void OnError(Exception error)
     {
+        // TODO: log error
         throw new Exception("ChainObserver failed", error);
     }
 
-    public void OnNext(Node node)
+    public async void OnNext(Node node)
     {
         var sortedBlocks = node.Blockchain.OrderBy(x => x.Id).ToList();
 
@@ -276,7 +273,7 @@ public class ChainObserver : IObserver<Node>
                 }
             };
 
-            node.SendAsync(msg).RunSynchronously();
+            await node.SendAsync(msg);
         }
     }
 }

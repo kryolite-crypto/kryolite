@@ -29,6 +29,20 @@ public class Node
             MessageReceived?.Invoke(this, args);
         };
 
+        wsClient.ServerConnected += async (object? sender, EventArgs e) => {
+            LastSeen = DateTime.UtcNow;
+
+            var msg = new Message
+            {
+                Payload = new Query 
+                {
+                    QueryType = QueryType.NODE_INFO
+                }
+            };
+
+            await SendAsync(msg);
+        };
+
         wsClient.Start();
     }
 
