@@ -44,7 +44,6 @@ public class NetworkManager : INetworkManager
 
     public class NodeHost
     {
-        public Node? Connection { get; init; }
         public NodeInfo? NodeInfo { get; init; }
         public DateTime LastSeen { get; init; }
     }

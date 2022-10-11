@@ -12,13 +12,12 @@ public class Network
 
     public event EventHandler<ClientConnectedEventArgs>? ClientConnected;
     public event EventHandler<ClientDisconnectedEventArgs>? ClientDisconnected;
-    public event EventHandler<ClientDisconnectedEventArgs>? ClientDropped;
+    public event EventHandler? ClientDropped;
     public event EventHandler<MessageEventArgs>? MessageReceived;
 
     private Guid ServerId = Guid.NewGuid();
     private WatsonWsServer wsServer;
 
-    private ConcurrentDictionary<Guid, string> Clients = new ConcurrentDictionary<Guid, string>();
     private ConcurrentDictionary<string, Node> Peers = new ConcurrentDictionary<string, Node>();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
 
@@ -28,16 +27,14 @@ public class Network
         Port = port;
 
         wsServer.ClientConnected += (object? sender, ClientConnectedEventArgs args) => {
-            Clients.AddOrUpdate(Guid.Parse(args.HttpRequest.Headers["ClientID"]!), args.IpPort, (x, y) => y);
             ClientConnected?.Invoke(sender, args);
+
+            var peer = new Client(wsServer, args.IpPort, ServerId);
+            Peers.TryAdd(args.IpPort, peer);
         };
 
         wsServer.ClientDisconnected += (object? sender, ClientDisconnectedEventArgs args) => {
-            foreach (var peer in Clients) {
-                if (peer.Value == args.IpPort) {
-                    Clients.TryRemove(peer);
-                }
-            }
+            Peers.TryRemove(args.IpPort, out var _);
 
             ClientDisconnected?.Invoke(sender, args);
         };
@@ -53,7 +50,10 @@ public class Network
 
             cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
             
-            MessageReceived?.Invoke(sender, eventArgs);
+            if (Peers.TryGetValue(args.IpPort, out var peer))
+            {
+                MessageReceived?.Invoke(peer, eventArgs);
+            }
             
             if (eventArgs.Rebroadcast) {
                 await BroadcastAsync(eventArgs.Message);
@@ -71,37 +71,12 @@ public class Network
 
         var bytes = MessagePackSerializer.Serialize(msg);
 
-        var tClients = Parallel.ForEachAsync(Clients, async (client, token) => {
-            if (client.Key != ServerId || client.Key == msg.NodeId) {
-                await wsServer.SendAsync(client.Value, bytes);
-            }
-        });
-
-        var tPeers = Parallel.ForEachAsync(Peers, async (peer, token) => {
+        await Parallel.ForEachAsync(Peers, async (peer, token) => {
             await peer.Value.SendAsync(msg);
         });
-
-        await Task.WhenAll(tClients, tPeers);
     }
 
-    public async Task SendAsync(Guid id, Message msg)
-    {
-        var bytes = MessagePackSerializer.Serialize(msg);
-
-        if (!Clients.TryGetValue(id, out var ip)) 
-        {
-            return;
-        }
-
-        await wsServer.SendAsync(ip, bytes);
-
-        if (Clients.Count > (Constant.MAX_PEERS + 5))
-        {
-            wsServer.DisconnectClient(ip);
-        }
-    }
-
-    public bool AddNode(string hostname, int port, bool ssl)
+    public async Task<bool> AddNode(string hostname, int port, bool ssl)
     {
         string ipAndPort = $"{hostname}:{port}";
 
@@ -114,9 +89,9 @@ public class Network
             return false;
         }
 
-        var node = new Node(hostname, port, ssl, ServerId, Port);
+        var peer = new Peer(hostname, port, ssl, ServerId, Port);
 
-        node.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
+        peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
             var eventArgs = new MessageEventArgs(args.Data);
 
             if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
@@ -132,13 +107,20 @@ public class Network
             }
         };
 
-        node.Dropped += (object? sender, EventArgs args) => {
+        peer.Dropped += (object? sender, EventArgs args) => {
             Peers.TryRemove(ipAndPort, out var _);
-            ClientDropped?.Invoke(sender, null!);
+            ClientDropped?.Invoke(sender, EventArgs.Empty);
         };
 
-        Peers.TryAdd(ipAndPort, node);
+        for (int i = 1; i <= 10; i++)
+        {
+            Console.WriteLine($"{i}/{10}: Connecting to {ipAndPort}");
+            if(await peer.StartWithTimeoutAsync()) {
+                Peers.TryAdd(ipAndPort, peer);
+                return true;
+            }
+        }
 
-        return true;
+        return false;
     }
 }

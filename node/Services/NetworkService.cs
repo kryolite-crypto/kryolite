@@ -34,6 +34,18 @@ public class NetworkService : BackgroundService
     {
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager));
 
+        NodeNetwork.ClientDropped += async (object? sender, EventArgs args) => {
+            // try to reconnect
+            if (sender is not Node node) {
+                return;
+            }
+
+            if(!await NodeNetwork.AddNode(node.Hostname, node.Port, false)) {
+                // TODO: get new host
+            }
+
+        };
+
         NodeNetwork.MessageReceived += async (object? sender, MessageEventArgs args) =>
         {
             if (args.Message.Payload is null) 
@@ -42,15 +54,16 @@ public class NetworkService : BackgroundService
                 return;
             }
 
+            if (sender is not Node node) 
+            {
+                Logger.LogError("Packet received from unknown source");
+                return;
+            }
+
             switch (args.Message.Payload) 
             {
                 case NodeInfo nodeInfo:
                     Logger.LogInformation("Received NodeInfo");
-
-                    if (sender is not Node node) {
-                        Logger.LogError("NodeInfo received from unknown source");
-                        return;
-                    }
 
                     var nodeHost = new NodeHost
                     {
@@ -83,24 +96,40 @@ sync:
                     await node.SendAsync(msg);
                     break;
                 case Blockchain blockchain:
-                    if (sender is not Node node2) {
-                        Logger.LogError("Blockchain received from unknown source");
-                        return;
+                    Logger.LogInformation("Received blockchain");
+
+                    if (blockchain.Blocks != null) 
+                    {
+                        node.Blockchain = blockchain.Blocks;
+                        SyncBuffer.Post<Node>(node);
                     }
 
-                    Logger.LogInformation("Received blockchain");
-                    if (blockchain.Blocks != null) {
-                        node2.Blockchain = blockchain.Blocks;
-                        SyncBuffer.Post<Node>(node2);
-                    }
                     break;
                 case Block newBlock:
                     Logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
+                    var height = blockchainManager.GetCurrentHeight();
 
-                    // TODO: if behind, request sync
-                    // TODO: if ahead, do not add block, instead send notify of rest of the chain
+                    if (height > newBlock.Id)
+                    {
+                        return;
+                    }
 
-                    if (blockchainManager.AddBlock(newBlock, false)) {
+                    if (height < (newBlock.Id - 1))
+                    {
+                        var msg2 = new Message
+                        {
+                            Payload = new RequestChainSync
+                            {
+                                StartBlock = blockchainManager.GetCurrentHeight(),
+                                StartHash = blockchainManager.GetLastBlockhash()
+                            }
+                        };
+
+                        await node.SendAsync(msg2);
+                    }
+
+                    if (blockchainManager.AddBlock(newBlock, false)) 
+                    {
                         args.Rebroadcast = true;
                     }
 
@@ -120,9 +149,9 @@ sync:
                         }
                     };
 
-                    await NodeNetwork.SendAsync(args.Message.NodeId!.Value, response);
+                    await node.SendAsync(response);
 
-                    NodeNetwork.AddNode(args.Hostname, queryNodeInfo.Port, false);
+                    await NodeNetwork.AddNode(args.Hostname, queryNodeInfo.Port, false);
 
                     break;
                 case RequestChainSync syncParams:
@@ -151,7 +180,7 @@ sync:
                         Payload = chain
                     };
 
-                    await NodeNetwork.SendAsync(args.Message.NodeId!.Value, answer);
+                    await node.SendAsync(answer);
                     break;
                 default:
                     Logger.LogError($"Invalid payload type: {args.Message.Payload.GetType()}");
@@ -165,9 +194,7 @@ sync:
             var uri = new Uri(peer);
 
             Logger.LogInformation($"Connecting to {uri}");
-            NodeNetwork.AddNode(uri.Host, uri.Port, false);
-
-            await Task.CompletedTask;
+            await NodeNetwork.AddNode(uri.Host, uri.Port, false);
         });
 
         blockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {
