@@ -6,19 +6,25 @@ namespace Marccacoin;
 
 public class Node
 {
-    //public Uri NodeUri { get; set; }
+    public string Hostname { get; }
+    public int Port { get; }
+
     public DateTime LastSeen { get; set; }
     public List<Block> Blockchain { get; set; } = new List<Block>();
 
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
+    public event EventHandler<EventArgs>? Dropped;
 
     private WatsonWsClient wsClient;
     private Guid ServerId;
 
-    public Node(string ip, int port, bool ssl, Guid serverId)
+    public Node(string hostname, int port, bool ssl, Guid serverId, int serverPort)
     {
+        Hostname = hostname;
+        Port = port;
+
         ServerId = serverId;
-        wsClient = new WatsonWsClient(ip, port, ssl);
+        wsClient = new WatsonWsClient(hostname, port, ssl);
 
         wsClient.ConfigureOptions(opts => {
             opts.SetRequestHeader("ClientId", serverId.ToString());
@@ -30,17 +36,34 @@ public class Node
         };
 
         wsClient.ServerConnected += async (object? sender, EventArgs e) => {
+            // TODO: Logger
+            Console.WriteLine($"Connected to {hostname}:{port}");
+
             LastSeen = DateTime.UtcNow;
 
             var msg = new Message
             {
-                Payload = new Query 
+                Payload = new QueryNodeInfo 
                 {
-                    QueryType = QueryType.NODE_INFO
+                    Port = serverPort
                 }
             };
 
             await SendAsync(msg);
+        };
+
+        wsClient.ServerDisconnected += async (object? sender, EventArgs e) => {
+            for (int i = 1; i <= 10; i++) {
+                // TODO: Logger
+                Console.WriteLine($"Reconnecting to {hostname}:{port} ({i} / {10})");
+
+                if (await wsClient.StartWithTimeoutAsync()) {
+                    break;
+                }
+            }
+
+            Dropped?.Invoke(this, EventArgs.Empty);
+            wsClient.Dispose();
         };
 
         wsClient.Start();

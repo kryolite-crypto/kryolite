@@ -5,23 +5,14 @@ using MessagePack.Formatters;
 namespace Marccacoin;
 
 [MessagePackObject]
-public class Query
+public class QueryNodeInfo
 {
     [Key(0)]
-    public QueryType QueryType { get; init; }
-    [Key(1)]
-    [MessagePackFormatter(typeof(TypelessFormatter))]
-    public object? Params { get; set; }
-}
-
-public enum QueryType
-{
-    NODE_INFO,
-    CHAIN_SYNC
+    public int Port { get; set; }
 }
 
 [MessagePackObject]
-public class ChainSyncParams
+public class RequestChainSync
 {
     [Key(0)]
     public long StartBlock { get; init; }

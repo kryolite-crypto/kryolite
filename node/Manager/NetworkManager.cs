@@ -6,13 +6,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Marccacoin;
 
-public class NetworkManager : IDiscoveryManager
+public class NetworkManager : INetworkManager
 {
     private List<NodeHost> Hosts = new List<NodeHost>();
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
-    private readonly ILogger<IDiscoveryManager> logger;
+    private readonly ILogger<INetworkManager> logger;
 
-    public NetworkManager(ILogger<IDiscoveryManager> logger)
+    public NetworkManager(ILogger<INetworkManager> logger)
     {
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }

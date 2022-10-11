@@ -7,7 +7,7 @@ namespace Marccacoin;
 
 public class BlockRepository : TransactionalRepository
 {
-    public BlockRepository(bool transactional = false) : base("data/blocks.dat", transactional)
+    public BlockRepository(bool transactional = false) : base("Filename=data/blocks.dat;Connection=shared", transactional)
     {
         BsonMapper.Global.Entity<Block>()
             .DbRef(x => x.Header, typeof(BlockHeader).Name)
@@ -52,6 +52,18 @@ public class BlockRepository : TransactionalRepository
     public void Delete(long id)
     {
         Database.GetCollection<Block>()
+            .Delete(id);
+    }
+
+    public void DeleteHeader(long id)
+    {
+        Database.GetCollection<BlockHeader>()
+            .Delete(id);
+    }
+
+    public void DeleteTransaction(long id)
+    {
+        Database.GetCollection<Transaction>()
             .Delete(id);
     }
 

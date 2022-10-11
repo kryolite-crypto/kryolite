@@ -10,7 +10,7 @@ namespace Marccacoin;
 
 public class BlockchainManager : IBlockchainManager
 {
-    private readonly IDiscoveryManager discoveryManager;
+    private readonly INetworkManager discoveryManager;
     private readonly IMempoolManager mempoolManager;
     private readonly ILogger<BlockchainManager> logger;
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
@@ -18,7 +18,7 @@ public class BlockchainManager : IBlockchainManager
     private BroadcastBlock<Block> BlockBroadcast = new BroadcastBlock<Block>(i => i);
     private BroadcastBlock<Wallet> WalletBroadcast = new BroadcastBlock<Wallet>(i => i);
 
-    public BlockchainManager(IDiscoveryManager discoveryManager, IMempoolManager mempoolManager, ILogger<BlockchainManager> logger)
+    public BlockchainManager(INetworkManager discoveryManager, IMempoolManager mempoolManager, ILogger<BlockchainManager> logger)
     {
         this.discoveryManager = discoveryManager ?? throw new ArgumentNullException(nameof(discoveryManager));
         this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
@@ -33,7 +33,7 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetBlock(id);
     }
 
-    public bool AddBlock(Block block)
+    public bool AddBlock(Block block, bool broadcastBlock = true)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockRepository(true);
@@ -104,13 +104,15 @@ public class BlockchainManager : IBlockchainManager
 
         blockchainRepository.Add(block, chainState);
 
-        ledgerRepository.Commit();
         blockchainRepository.Commit();
+        ledgerRepository.Commit();
         walletRepository.Commit();
 
         mempoolManager.RemoveTransactions(block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT));
 
-        BlockBroadcast.Post(block);
+        if (broadcastBlock) {
+            BlockBroadcast.Post(block);
+        }
 
         foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated)) {
             WalletBroadcast.Post(wallet);
@@ -336,7 +338,7 @@ public class BlockchainManager : IBlockchainManager
         }
 
         var epochEnd = blockchainRepository.Last();
-        var epochStart = blockchainRepository.GetBlock(Math.Max(1, epochEnd.Id - Constant.EPOCH_LENGTH_BLOCKS));
+        var epochStart = blockchainRepository.GetBlock(Math.Max(1, epochEnd!.Id - Constant.EPOCH_LENGTH_BLOCKS));
 
         var elapsed = epochEnd.Header.Timestamp - epochStart!.Header.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
@@ -392,12 +394,12 @@ public class BlockchainManager : IBlockchainManager
             .OrderBy(x => x.Id)
             .ToList();
 
-        using var _ = rwlock.EnterWriteLockEx();
+        var _ = rwlock.EnterWriteLockEx();
+    
+        using (var blockchainRepository = new BlockRepository(true))
+        using (var ledgerRepository = new LedgerRepository(true))
+        using (var walletRepository = new WalletRepository(true))
         {
-            using var blockchainRepository = new BlockRepository(true);
-            using var ledgerRepository = new LedgerRepository(true);
-            using var walletRepository = new WalletRepository(true);
-
             var chainState = blockchainRepository.GetChainState();
 
             var min = sortedBlocks.Min(x => x.Id);
@@ -428,8 +430,11 @@ public class BlockchainManager : IBlockchainManager
 
                         var sender = ledgerWallets[senderAddr.ToString()];
 
-                        sender.Balance += tx.Value;
-                        sender.Balance += fee;
+                        checked
+                        {
+                            sender.Balance += tx.Value;
+                            sender.Balance += fee;
+                        }
 
                         if (!wallets.ContainsKey(senderAddr.ToString()))
                         {
@@ -442,8 +447,11 @@ public class BlockchainManager : IBlockchainManager
 
                         var from = wallets[senderAddr.ToString()];
 
-                        from.Balance += tx.Value;
-                        from.Balance += fee;
+                        checked
+                        {
+                            from.Balance += tx.Value;
+                            from.Balance += fee;
+                        }
                     }
 
                     var recipientAddr = tx.To.ToString();
@@ -453,7 +461,13 @@ public class BlockchainManager : IBlockchainManager
                     }
 
                     var recipient = ledgerWallets[recipientAddr];
-                    recipient.Balance -= tx.Value;
+
+                    recipient.Balance = checked(recipient.Balance - tx.Value);
+
+                    if (tx.TransactionType == TransactionType.MINER_FEE)
+                    {
+                        recipient.Balance = checked(recipient.Balance - (fee * (ulong)cBlock.Transactions.LongCount()));
+                    }
 
                     if (!wallets.ContainsKey(tx.To.ToString()))
                     {
@@ -464,17 +478,18 @@ public class BlockchainManager : IBlockchainManager
                         }
                     }
 
-                    var to = ledgerWallets[tx.To.ToString()];
-                    to.Balance -= tx.Value;
-
-                    if (tx.TransactionType == TransactionType.MINER_FEE)
+                    if(wallets.TryGetValue(tx.To.ToString(), out var to))
                     {
-                        recipient.Balance -= (fee * (ulong)cBlock.Transactions.LongCount());
-                        to.Balance -= (fee * (ulong)cBlock.Transactions.LongCount());
+                        to.Balance = checked(to.Balance - tx.Value);
+
+                        if (tx.TransactionType == TransactionType.MINER_FEE)
+                        {
+                            to.Balance = checked(to.Balance - (fee * (ulong)cBlock.Transactions.LongCount()));
+                        }
                     }
 
-
                     walletRepository.DeleteTransaction(cBlock.Id);
+                    blockchainRepository.DeleteTransaction(tx.Id);
                 }
 
                 ledgerRepository.UpdateWallets(ledgerWallets.Values);
@@ -484,13 +499,11 @@ public class BlockchainManager : IBlockchainManager
                 }
 
                 blockchainRepository.Delete(cBlock.Id);
+                blockchainRepository.DeleteHeader(cBlock.Header.Id);
 
                 chainState.Height--;
                 chainState.TotalWork -= cBlock.Header.Difficulty.ToWork();
-
-                if (cBlock.Id % Constant.EPOCH_LENGTH_BLOCKS == 0) {
-                    NextEpoch(blockchainRepository, chainState);
-                }
+                chainState.CurrentDifficulty = cBlock.Header.Difficulty;
             }
  
             blockchainRepository.SaveState(chainState);            
@@ -500,9 +513,11 @@ public class BlockchainManager : IBlockchainManager
             walletRepository.Commit();
         }
 
+        var last = sortedBlocks.Last();
+
         foreach (var block in sortedBlocks)
         {
-            if(!AddBlock(block))
+            if(!AddBlock(block, block == last))
             {
                 logger.LogError($"Set chain failed at {block.Id}");
                 return false;

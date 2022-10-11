@@ -13,11 +13,11 @@ namespace Marccacoin;
 public class NetworkService : BackgroundService
 {
     private readonly IConfiguration configuration;
-    private readonly IDiscoveryManager networkManager;
+    private readonly INetworkManager networkManager;
     private readonly IBlockchainManager blockchainManager;
     private readonly BufferBlock<Node> SyncBuffer = new BufferBlock<Node>();
 
-    public NetworkService(IConfiguration configuration, ILogger<NetworkService> logger, IDiscoveryManager networkManager, IBlockchainManager blockchainManager)
+    public NetworkService(IConfiguration configuration, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager)
     {
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -32,7 +32,7 @@ public class NetworkService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        SyncBuffer.AsObservable().Subscribe(new ChainObserver(blockchainManager));
+        SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager));
 
         NodeNetwork.MessageReceived += async (object? sender, MessageEventArgs args) =>
         {
@@ -44,9 +44,6 @@ public class NetworkService : BackgroundService
 
             switch (args.Message.Payload) 
             {
-                case Query query:
-                    await HandleQuery(query, args.Message.NodeId);
-                    break;
                 case NodeInfo nodeInfo:
                     Logger.LogInformation("Received NodeInfo");
 
@@ -64,13 +61,10 @@ public class NetworkService : BackgroundService
 
                     var msg = new Message
                     {
-                        Payload = new Query {
-                            QueryType = QueryType.CHAIN_SYNC,
-                            Params = new ChainSyncParams
-                            {
-                                StartBlock = blockchainManager.GetCurrentHeight(),
-                                StartHash = blockchainManager.GetLastBlockhash()
-                            }
+                        Payload = new RequestChainSync
+                        {
+                            StartBlock = blockchainManager.GetCurrentHeight(),
+                            StartHash = blockchainManager.GetLastBlockhash()
                         }
                     };
 
@@ -100,13 +94,64 @@ sync:
                         SyncBuffer.Post<Node>(node2);
                     }
                     break;
-                case Block block:
-                    Logger.LogInformation($"Received block {block.Id} from {args.Message.NodeId}");
+                case Block newBlock:
+                    Logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
 
-                    if (blockchainManager.AddBlock(block)) {
+                    // TODO: if behind, request sync
+                    // TODO: if ahead, do not add block, instead send notify of rest of the chain
+
+                    if (blockchainManager.AddBlock(newBlock, false)) {
                         args.Rebroadcast = true;
                     }
 
+                    break;
+                case QueryNodeInfo queryNodeInfo:
+                    var chainState = blockchainManager.GetChainState();
+                    // TODO: send list of peers
+
+                    var response = new Message
+                    {
+                        Payload = new NodeInfo
+                        {
+                            Height = chainState.Height,
+                            TotalWork = chainState.TotalWork,
+                            LastHash = blockchainManager.GetLastBlockhash(),
+                            CurrentTime = DateTime.UtcNow
+                        }
+                    };
+
+                    await NodeNetwork.SendAsync(args.Message.NodeId!.Value, response);
+
+                    NodeNetwork.AddNode(args.Hostname, queryNodeInfo.Port, false);
+
+                    break;
+                case RequestChainSync syncParams:
+                    var block = blockchainManager.GetBlock(syncParams.StartBlock);
+
+                    var chain = new Blockchain();
+
+                    if (block == null) {
+                        chain.Blocks = blockchainManager.GetFrom(0);
+                        goto answer;
+                    }
+
+                    if (!Enumerable.SequenceEqual(block.GetHash().Buffer, syncParams.StartHash!)) {
+                        chain.Blocks = blockchainManager.GetFrom(0);
+                        goto answer;
+                    }
+
+                    if (syncParams.StartBlock == blockchainManager.GetCurrentHeight()) {
+                        return;
+                    }
+
+                    chain.Blocks = blockchainManager.GetFrom(syncParams.StartBlock);
+    answer:
+                    var answer = new Message()
+                    {
+                        Payload = chain
+                    };
+
+                    await NodeNetwork.SendAsync(args.Message.NodeId!.Value, answer);
                     break;
                 default:
                     Logger.LogError($"Invalid payload type: {args.Message.Payload.GetType()}");
@@ -117,8 +162,10 @@ sync:
         var peers = configuration.GetSection("Peers").Get<string[]>() ?? new string[0];
 
         await Parallel.ForEachAsync(peers, async (peer, token) => {
-            Logger.LogInformation($"Connecting to {peer}");
-            NodeNetwork.AddNode("127.0.0.1", 6000, false);
+            var uri = new Uri(peer);
+
+            Logger.LogInformation($"Connecting to {uri}");
+            NodeNetwork.AddNode(uri.Host, uri.Port, false);
 
             await Task.CompletedTask;
         });
@@ -134,71 +181,6 @@ sync:
 
         Logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
     }
-
-    private async Task HandleQuery(Query query, Guid? senderGuid)
-    {
-        Logger.LogInformation($"Received Query: {query.QueryType}");
-
-        if (senderGuid == null) 
-        {
-            Logger.LogError($"Invalid senderid {senderGuid}");
-            return;
-        }
-
-        switch (query.QueryType)
-        {
-            case QueryType.NODE_INFO:
-                var msg = new Message
-                {
-                    Payload = new NodeInfo
-                    {
-                        Height = blockchainManager.GetCurrentHeight(),
-                        TotalWork = blockchainManager.GetTotalWork(),
-                        LastHash = blockchainManager.GetLastBlockhash(),
-                        CurrentTime = DateTime.UtcNow
-                    }
-                };
-
-                await NodeNetwork.SendAsync(senderGuid.Value, msg);
-                break;
-            case QueryType.CHAIN_SYNC:
-                if (query.Params is not ChainSyncParams syncParams) {
-                    Logger.LogError($"Invalid chain sync params");
-                    return;
-                }
-
-                var block = blockchainManager.GetBlock(syncParams.StartBlock);
-
-                var chain = new Blockchain();
-
-                if (block == null) {
-                    chain.Blocks = blockchainManager.GetFrom(0);
-                    goto answer;
-                }
-
-                if (!Enumerable.SequenceEqual(block.GetHash().Buffer, syncParams.StartHash!)) {
-                    chain.Blocks = blockchainManager.GetFrom(0);
-                    goto answer;
-                }
-
-                if (syncParams.StartBlock == blockchainManager.GetCurrentHeight()) {
-                    return;
-                }
-
-                chain.Blocks = blockchainManager.GetFrom(syncParams.StartBlock);
-answer:
-                var answer = new Message()
-                {
-                    Payload = chain
-                };
-
-                await NodeNetwork.SendAsync(senderGuid.Value, answer);
-                break;
-            default:
-                Logger.LogError($"Invalid query received: {query}");
-                break;
-        }
-    }
 }
 
 [MessagePackObject]
@@ -210,10 +192,12 @@ public class Blockchain
 
 public class ChainObserver : IObserver<Node>
 {
+    private readonly Network nodeNetwork;
     private readonly IBlockchainManager blockchainManager;
 
-    public ChainObserver(IBlockchainManager blockchainManager)
+    public ChainObserver(Network nodeNetwork, IBlockchainManager blockchainManager)
     {
+        this.nodeNetwork = nodeNetwork ?? throw new ArgumentNullException(nameof(nodeNetwork));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
     }
     
@@ -230,6 +214,10 @@ public class ChainObserver : IObserver<Node>
 
     public async void OnNext(Node node)
     {
+        if (node.Blockchain == null || node.Blockchain.Count == 0) {
+            return;
+        }
+
         var sortedBlocks = node.Blockchain.OrderBy(x => x.Id).ToList();
 
         var min = sortedBlocks.Min(x => x.Id);
@@ -267,9 +255,9 @@ public class ChainObserver : IObserver<Node>
 
             var msg = new Message
             {
-                Payload = new Query 
+                Payload = new QueryNodeInfo
                 {
-                    QueryType = QueryType.NODE_INFO
+                    Port = nodeNetwork.Port
                 }
             };
 

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Marccacoin.Shared;
 using MessagePack;
 using Microsoft.Extensions.Caching.Memory;
 using WatsonWebsocket;
@@ -7,20 +8,24 @@ namespace Marccacoin;
 
 public class Network
 {
+    public int Port { get; init; }
+
     public event EventHandler<ClientConnectedEventArgs>? ClientConnected;
     public event EventHandler<ClientDisconnectedEventArgs>? ClientDisconnected;
+    public event EventHandler<ClientDisconnectedEventArgs>? ClientDropped;
     public event EventHandler<MessageEventArgs>? MessageReceived;
 
     private Guid ServerId = Guid.NewGuid();
     private WatsonWsServer wsServer;
 
     private ConcurrentDictionary<Guid, string> Clients = new ConcurrentDictionary<Guid, string>();
-    private List<Node> Peers = new List<Node>();
+    private ConcurrentDictionary<string, Node> Peers = new ConcurrentDictionary<string, Node>();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
 
     public Network(string ip, int port, bool ssl)
     {
         wsServer = new WatsonWsServer(ip, port, ssl);
+        Port = port;
 
         wsServer.ClientConnected += (object? sender, ClientConnectedEventArgs args) => {
             Clients.AddOrUpdate(Guid.Parse(args.HttpRequest.Headers["ClientID"]!), args.IpPort, (x, y) => y);
@@ -39,6 +44,8 @@ public class Network
 
         wsServer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
             var eventArgs = new MessageEventArgs(args.Data);
+
+            eventArgs.Hostname = args.IpPort.Split(":").First();
 
             if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
                 return;
@@ -71,7 +78,7 @@ public class Network
         });
 
         var tPeers = Parallel.ForEachAsync(Peers, async (peer, token) => {
-            await peer.SendAsync(msg);
+            await peer.Value.SendAsync(msg);
         });
 
         await Task.WhenAll(tClients, tPeers);
@@ -81,14 +88,33 @@ public class Network
     {
         var bytes = MessagePackSerializer.Serialize(msg);
 
-        if (Clients.TryGetValue(id, out var ip)) {
-            await wsServer.SendAsync(ip, bytes);
+        if (!Clients.TryGetValue(id, out var ip)) 
+        {
+            return;
+        }
+
+        await wsServer.SendAsync(ip, bytes);
+
+        if (Clients.Count > (Constant.MAX_PEERS + 5))
+        {
+            wsServer.DisconnectClient(ip);
         }
     }
 
-    public Node AddNode(string ip, int port, bool ssl)
+    public bool AddNode(string hostname, int port, bool ssl)
     {
-        var node = new Node(ip, port, ssl, ServerId);
+        string ipAndPort = $"{hostname}:{port}";
+
+        if (Peers.Count == Constant.MAX_PEERS) {
+            return false;
+        }
+
+        if (Peers.ContainsKey(ipAndPort)) 
+        {
+            return false;
+        }
+
+        var node = new Node(hostname, port, ssl, ServerId, Port);
 
         node.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
             var eventArgs = new MessageEventArgs(args.Data);
@@ -106,8 +132,13 @@ public class Network
             }
         };
 
-        Peers.Add(node);
+        node.Dropped += (object? sender, EventArgs args) => {
+            Peers.TryRemove(ipAndPort, out var _);
+            ClientDropped?.Invoke(sender, null!);
+        };
 
-        return node;
+        Peers.TryAdd(ipAndPort, node);
+
+        return true;
     }
 }

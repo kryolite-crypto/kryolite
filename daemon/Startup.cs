@@ -79,7 +79,7 @@ public class Startup
     {
         services.AddSingleton<IBlockchainManager, BlockchainManager>()
                 .AddSingleton<Lazy<IBlockchainManager>>(c => new Lazy<IBlockchainManager>(c.GetService<IBlockchainManager>()!))
-                .AddSingleton<IDiscoveryManager, NetworkManager>()
+                .AddSingleton<INetworkManager, NetworkManager>()
                 .AddSingleton<IMempoolManager, MempoolManager>()
                 .AddHostedService<NetworkService>()
                 .AddHostedService<BlockchainService>()

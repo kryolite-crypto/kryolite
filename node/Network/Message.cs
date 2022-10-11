@@ -7,7 +7,7 @@ namespace Marccacoin;
 public class Message
 {
     [Key(0)]
-    public Guid Id { get; set; }  = Guid.NewGuid();
+    public Guid Id { get; set; } = Guid.NewGuid();
     [Key(1)]
     public Guid? NodeId { get; set; }
     [Key(2)]

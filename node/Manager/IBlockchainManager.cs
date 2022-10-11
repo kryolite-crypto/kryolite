@@ -6,7 +6,7 @@ namespace Marccacoin;
 
 public interface IBlockchainManager
 {
-    bool AddBlock(Block block);
+    bool AddBlock(Block block, bool broadcastBlock = true);
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();

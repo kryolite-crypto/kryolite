@@ -5,7 +5,7 @@ namespace Marccacoin;
 
 public class LedgerRepository : TransactionalRepository
 {
-    public LedgerRepository(bool transactional = false) : base("data/ledger.dat", transactional)
+    public LedgerRepository(bool transactional = false) : base("Filename=data/ledger.dat;Connection=shared", transactional)
     {
         Database.GetCollection<LedgerWallet>()
             .EnsureIndex(x => x.Address, true);

@@ -13,4 +13,5 @@ public static class Constant
     public const string ADDR_PREFIX = "FIM0x";
     public const int MAX_MEMPOOL_TX = 100000;
     public const int MAX_BLOCK_TX = 20000;
+    public const int MAX_PEERS = 20;
 }
