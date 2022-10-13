@@ -254,7 +254,7 @@ public class BlockchainManager : IBlockchainManager
         walletRepository.Update(wallet);
     }
 
-    public void AddTransactionsToQueue(List<Transaction> transactions)
+    public List<Transaction> AddTransactionsToQueue(List<Transaction> transactions, bool broadcast = true)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var ledgerRepository = new LedgerRepository();
@@ -272,7 +272,8 @@ public class BlockchainManager : IBlockchainManager
         var newTransactions = transactions.Where(tx => !mempoolManager.HasTransaction(tx));
         var valid = executor.Execute(newTransactions);
 
-        mempoolManager.AddTransactions(valid);
+        mempoolManager.AddTransactions(valid, broadcast);
+        return valid;
     }
 
     public void AddTransactionsToQueue(Transaction transaction) {

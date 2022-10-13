@@ -18,7 +18,7 @@ public interface IBlockchainManager
     Wallet CreateWallet();
     List<Wallet> GetWallets();
     void UpdateWallet(Wallet wal);
-    void AddTransactionsToQueue(List<Transaction> transactions);
+    List<Transaction> AddTransactionsToQueue(List<Transaction> transactions, bool broadcast = true);
     void AddTransactionsToQueue(Transaction transaction);
     ChainState GetChainState();
     List<Block> GetLastBlocks(int count);

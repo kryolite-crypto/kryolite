@@ -12,6 +12,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Linq;
 using Avalonia;
+using System.Collections.Generic;
 
 namespace holvi_wallet;
 
@@ -44,7 +45,7 @@ public partial class MainWindow : Window
         Model.Wallets = new ObservableCollection<WalletModel>(wallets);
 
         var walletGrid = this.FindControl<DataGrid>("WalletsGrid");
-        var buffer = new BufferBlock<Transaction>();
+        var buffer = new BufferBlock<List<Transaction>>();
 
         walletGrid.CellEditEnded += (object? sender, DataGridCellEditEndedEventArgs args) => {
             if (args.Row.DataContext is Wallet wallet) {
@@ -102,7 +103,7 @@ public partial class MainWindow : Window
             while(true) {
                 await buffer.OutputAvailableAsync();
 
-                if(buffer.TryReceive(tx => wallets.Contains(tx.PublicKey!.Value.ToAddress().ToString()), out var _)) {
+                if(buffer.TryReceive(txs => txs.Any(tx => wallets.Contains(tx.PublicKey!.Value.ToAddress().ToString())), out var _)) {
                     var pending = 0UL;
 
                     foreach (var w in Model.Wallets) {

@@ -20,6 +20,7 @@ public class Network
 
     private ConcurrentDictionary<string, Node> Peers = new ConcurrentDictionary<string, Node>();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
+    private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
     public Network(string ip, int port, bool ssl)
     {
@@ -27,10 +28,11 @@ public class Network
         Port = port;
 
         wsServer.ClientConnected += (object? sender, ClientConnectedEventArgs args) => {
-            ClientConnected?.Invoke(sender, args);
-
+            // TODO: Check clientid against serverid
             var peer = new Client(wsServer, args.IpPort, ServerId);
             Peers.TryAdd(args.IpPort, peer);
+
+            ClientConnected?.Invoke(sender, args);
         };
 
         wsServer.ClientDisconnected += (object? sender, ClientDisconnectedEventArgs args) => {
@@ -44,11 +46,14 @@ public class Network
 
             eventArgs.Hostname = args.IpPort.Split(":").First();
 
-            if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
-                return;
-            }
+            using(var _ = rwlock.EnterWriteLockEx())
+            {
+                if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
+                    return;
+                }
 
-            cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+                cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+            }
             
             if (Peers.TryGetValue(args.IpPort, out var peer))
             {
@@ -76,6 +81,12 @@ public class Network
         });
     }
 
+    public async Task<bool> AddNode(string hostname, bool ssl)
+    {
+        var uri = new Uri(hostname);
+        return await AddNode(uri.Host, uri.Port, ssl);
+    }
+
     public async Task<bool> AddNode(string hostname, int port, bool ssl)
     {
         string ipAndPort = $"{hostname}:{port}";
@@ -94,11 +105,14 @@ public class Network
         peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
             var eventArgs = new MessageEventArgs(args.Data);
 
-            if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
-                return;
-            }
+            using(var _ = rwlock.EnterWriteLockEx())
+            {
+                if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
+                    return;
+                }
 
-            cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+                cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+            }
             
             MessageReceived?.Invoke(sender, eventArgs);
             
@@ -112,15 +126,22 @@ public class Network
             ClientDropped?.Invoke(sender, EventArgs.Empty);
         };
 
-        for (int i = 1; i <= 10; i++)
+        /*for (int i = 1; i <= 10; i++)
         {
             Console.WriteLine($"{i}/{10}: Connecting to {ipAndPort}");
             if(await peer.StartWithTimeoutAsync()) {
                 Peers.TryAdd(ipAndPort, peer);
                 return true;
             }
-        }
+        }*/
 
         return false;
+    }
+
+    public List<string> GetPeers()
+    {
+        return Peers.Values
+            .Where(x => x is Peer).Select(x => $"http://{x.Hostname}:{x.Port}")
+            .ToList();
     }
 }

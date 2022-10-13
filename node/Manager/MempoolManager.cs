@@ -8,7 +8,7 @@ public class MempoolManager : IMempoolManager
 {
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly ILogger<MempoolManager> logger;
-    private readonly BroadcastBlock<Transaction> TransactionBroadcast = new BroadcastBlock<Transaction>(x => x);
+    private readonly BroadcastBlock<List<Transaction>> TransactionBroadcast = new BroadcastBlock<List<Transaction>>(x => x);
 
     private PriorityQueue<Transaction, ulong> MempoolQueue = new PriorityQueue<Transaction, ulong>();
     private Dictionary<string, ulong> PendingAmount = new Dictionary<string, ulong>();
@@ -23,13 +23,22 @@ public class MempoolManager : IMempoolManager
     {
         using var _ = rwlock.EnterWriteLockEx();
         Add(transaction);
+        TransactionBroadcast.Post(new List<Transaction>() { transaction });
     }
 
-    public void AddTransactions(IEnumerable<Transaction> transactions)
+    public void AddTransactions(List<Transaction> transactions, bool broadcast)
     {
+        if (transactions.Count == 0) {
+            return;
+        }
+
         using var _ = rwlock.EnterWriteLockEx();
         foreach (var transaction in transactions) {
             Add(transaction);
+        }
+        
+        if (broadcast) {
+            TransactionBroadcast.Post(transactions);
         }
     }
 
@@ -69,7 +78,7 @@ public class MempoolManager : IMempoolManager
         }
     }
 
-    public IDisposable OnTransactionAdded(ITargetBlock<Transaction> action)
+    public IDisposable OnTransactionAdded(ITargetBlock<List<Transaction>> action)
     {
         return TransactionBroadcast.LinkTo(action);
     }
@@ -100,7 +109,5 @@ public class MempoolManager : IMempoolManager
         }
 
         PendingHashes.Add(BitConverter.ToString(transaction.CalculateHash()));
-
-        TransactionBroadcast.Post(transaction);
     }
 }

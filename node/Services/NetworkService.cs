@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Marccacoin.Shared;
 using MessagePack;
-using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -15,19 +14,21 @@ public class NetworkService : BackgroundService
     private readonly IConfiguration configuration;
     private readonly INetworkManager networkManager;
     private readonly IBlockchainManager blockchainManager;
+    private readonly IMempoolManager mempoolManager;
+    private readonly ILogger<NetworkService> logger;
     private readonly BufferBlock<Node> SyncBuffer = new BufferBlock<Node>();
 
-    public NetworkService(IConfiguration configuration, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager)
+    public NetworkService(IConfiguration configuration, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager)
     {
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
+        this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
 
         NodeNetwork = new Network(configuration.GetValue<string>("NodeIp"), configuration.GetValue<int>("NodePort"), false);
     }
 
-    private ILogger<NetworkService> Logger { get; }
     private Network NodeNetwork;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -35,11 +36,11 @@ public class NetworkService : BackgroundService
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager));
 
         NodeNetwork.ClientDropped += async (object? sender, EventArgs args) => {
-            // try to reconnect
             if (sender is not Node node) {
                 return;
             }
 
+            // try to reconnect by re-adding same node
             if(!await NodeNetwork.AddNode(node.Hostname, node.Port, false)) {
                 // TODO: get new host
             }
@@ -50,20 +51,20 @@ public class NetworkService : BackgroundService
         {
             if (args.Message.Payload is null) 
             {
-                Logger.LogError("Empty payload received");
+                logger.LogError("Empty payload received");
                 return;
             }
 
             if (sender is not Node node) 
             {
-                Logger.LogError("Packet received from unknown source");
+                logger.LogError("Message received from unknown source");
                 return;
             }
 
             switch (args.Message.Payload) 
             {
                 case NodeInfo nodeInfo:
-                    Logger.LogInformation("Received NodeInfo");
+                    logger.LogInformation("Received NodeInfo");
 
                     var nodeHost = new NodeHost
                     {
@@ -71,6 +72,16 @@ public class NetworkService : BackgroundService
                     };
 
                     networkManager.AddHost(nodeHost);
+
+                    Random rnd = new Random();
+
+                    foreach (var peer in nodeInfo.Peers.OrderBy(x => rnd.Next()))
+                    {
+                        if(await NodeNetwork.AddNode(peer, false))
+                        {
+                            logger.LogInformation($"Discovered node {peer} from {args.Message.NodeId}");
+                        }
+                    }
 
                     var msg = new Message
                     {
@@ -96,7 +107,7 @@ sync:
                     await node.SendAsync(msg);
                     break;
                 case Blockchain blockchain:
-                    Logger.LogInformation("Received blockchain");
+                    logger.LogInformation($"Received blockchain from {args.Message.NodeId}");
 
                     if (blockchain.Blocks != null) 
                     {
@@ -106,7 +117,7 @@ sync:
 
                     break;
                 case Block newBlock:
-                    Logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
+                    logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
                     var height = blockchainManager.GetCurrentHeight();
 
                     if (height > newBlock.Id)
@@ -136,7 +147,6 @@ sync:
                     break;
                 case QueryNodeInfo queryNodeInfo:
                     var chainState = blockchainManager.GetChainState();
-                    // TODO: send list of peers
 
                     var response = new Message
                     {
@@ -145,12 +155,12 @@ sync:
                             Height = chainState.Height,
                             TotalWork = chainState.TotalWork,
                             LastHash = blockchainManager.GetLastBlockhash(),
-                            CurrentTime = DateTime.UtcNow
+                            CurrentTime = DateTime.UtcNow,
+                            Peers = NodeNetwork.GetPeers()
                         }
                     };
 
                     await node.SendAsync(response);
-
                     await NodeNetwork.AddNode(args.Hostname, queryNodeInfo.Port, false);
 
                     break;
@@ -182,8 +192,26 @@ sync:
 
                     await node.SendAsync(answer);
                     break;
+                case TransactionData transactionData:
+                    if (transactionData.Transactions.Count == 0) {
+                        return;
+                    }
+
+                    logger.LogInformation($"Received {transactionData.Transactions.Count} transactions from {args.Message.NodeId}");
+
+                    var valid = blockchainManager.AddTransactionsToQueue(transactionData.Transactions);
+
+                    args.Message.Payload = new TransactionData
+                    {
+                        Transactions = valid
+                    };
+
+                    if (valid.Count > 0) {
+                        args.Rebroadcast = true;
+                    }
+                    break;
                 default:
-                    Logger.LogError($"Invalid payload type: {args.Message.Payload.GetType()}");
+                    logger.LogError($"Invalid payload type: {args.Message.Payload.GetType()}");
                     break;
             }
         };
@@ -193,7 +221,7 @@ sync:
         await Parallel.ForEachAsync(peers, async (peer, token) => {
             var uri = new Uri(peer);
 
-            Logger.LogInformation($"Connecting to {uri}");
+            logger.LogInformation($"Connecting to {uri}");
             await NodeNetwork.AddNode(uri.Host, uri.Port, false);
         });
 
@@ -206,7 +234,19 @@ sync:
             await NodeNetwork.BroadcastAsync(msg);
         }));
 
-        Logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+        mempoolManager.OnTransactionAdded(new ActionBlock<List<Transaction>>(async txs => {
+            var msg = new Message
+            {
+                Payload = new TransactionData
+                {
+                    Transactions = txs
+                }
+            };
+
+            await NodeNetwork.BroadcastAsync(msg);
+        }));
+
+        logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
     }
 }
 
@@ -215,6 +255,13 @@ public class Blockchain
 {
     [Key(0)]
     public List<Block>? Blocks { get; set; }
+}
+
+[MessagePackObject]
+public class TransactionData
+{
+    [Key(0)]
+    public List<Transaction> Transactions { get; set; } = new List<Transaction>();
 }
 
 public class ChainObserver : IObserver<Node>

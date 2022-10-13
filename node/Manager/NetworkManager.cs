@@ -59,5 +59,7 @@ public class NetworkManager : INetworkManager
         public BigInteger TotalWork { get; init; }
         [Key(3)]
         public SHA256Hash LastHash { get; init; }
+        [Key(4)]
+        public List<string> Peers { get; init; } = new List<string>();
     }
 }
