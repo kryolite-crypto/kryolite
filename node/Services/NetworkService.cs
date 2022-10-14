@@ -12,27 +12,31 @@ namespace Marccacoin;
 public class NetworkService : BackgroundService
 {
     private readonly IConfiguration configuration;
+    private readonly StartupSequence startup;
     private readonly INetworkManager networkManager;
     private readonly IBlockchainManager blockchainManager;
     private readonly IMempoolManager mempoolManager;
     private readonly ILogger<NetworkService> logger;
     private readonly BufferBlock<Node> SyncBuffer = new BufferBlock<Node>();
 
-    public NetworkService(IConfiguration configuration, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager)
+    public NetworkService(IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager)
     {
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
-
-        NodeNetwork = new Network(configuration.GetValue<string>("NodeIp"), configuration.GetValue<int>("NodePort"), false);
     }
 
     private Network NodeNetwork;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.Run(() => startup.Blockchain.WaitOne());
+        await Task.Run(() => startup.Mempool.WaitOne());
+
+        NodeNetwork = new Network(configuration.GetValue<string>("NodeIp"), configuration.GetValue<int>("NodePort"), false);
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager));
 
         NodeNetwork.ClientDropped += async (object? sender, EventArgs args) => {
@@ -40,11 +44,14 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            // try to reconnect by re-adding same node
-            if(!await NodeNetwork.AddNode(node.Hostname, node.Port, false)) {
-                // TODO: get new host
+            for (int i = 1; i <= 10; i++)
+            {
+                Console.WriteLine($"{i}/{10}: Connecting to {node.Hostname}:{node.Port}");
+                if(await NodeNetwork.AddNode(node.Hostname, node.Port, false)) 
+                {
+                    break;
+                }
             }
-
         };
 
         NodeNetwork.MessageReceived += async (object? sender, MessageEventArgs args) =>
@@ -147,6 +154,7 @@ sync:
                     break;
                 case QueryNodeInfo queryNodeInfo:
                     var chainState = blockchainManager.GetChainState();
+                    var hostname = $"http://{node.Hostname}:{queryNodeInfo.Port}";
 
                     var response = new Message
                     {
@@ -157,6 +165,8 @@ sync:
                             LastHash = blockchainManager.GetLastBlockhash(),
                             CurrentTime = DateTime.UtcNow,
                             Peers = NodeNetwork.GetPeers()
+                                .Where(x => x != hostname)
+                                .ToList()
                         }
                     };
 
@@ -247,6 +257,7 @@ sync:
         }));
 
         logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+        startup.Network.Set();
     }
 }
 

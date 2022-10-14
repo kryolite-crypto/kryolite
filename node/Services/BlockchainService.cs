@@ -6,8 +6,11 @@ namespace Marccacoin;
 
 public class BlockchainService : BackgroundService
 {
-    public BlockchainService(IBlockchainManager blockchainManager, ILogger<BlockchainService> logger) {
+    private readonly StartupSequence startup;
+
+    public BlockchainService(IBlockchainManager blockchainManager, StartupSequence startup, ILogger<BlockchainService> logger) {
         BlockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
+        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -21,6 +24,7 @@ public class BlockchainService : BackgroundService
         }
 
         Logger.LogInformation("Blockchain \t\x1B[1m\x1B[32m[UP][TESTNET]\x1B[39m\x1B[22m");
+        startup.Blockchain.Set();
         await Task.CompletedTask;
     }
 

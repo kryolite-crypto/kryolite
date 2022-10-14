@@ -91,6 +91,7 @@ public class Startup
                 .AddHostedService<BlockchainService>()
                 .AddHostedService<MempoolService>()
                 .AddHostedService<SampoService>()
+                .AddSingleton<StartupSequence>()
                 .AddRouting()
                 .AddControllers()
                 .AddNewtonsoftJson();

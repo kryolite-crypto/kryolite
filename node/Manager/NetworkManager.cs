@@ -47,19 +47,20 @@ public class NetworkManager : INetworkManager
         public NodeInfo? NodeInfo { get; init; }
         public DateTime LastSeen { get; init; }
     }
-
-    [MessagePackObject]
-    public class NodeInfo
-    {
-        [Key(0)]
-        public DateTime CurrentTime { get; init; }
-        [Key(1)]
-        public long Height { get; init; }
-        [Key(2)]
-        public BigInteger TotalWork { get; init; }
-        [Key(3)]
-        public SHA256Hash LastHash { get; init; }
-        [Key(4)]
-        public List<string> Peers { get; init; } = new List<string>();
-    }
 }
+
+[MessagePackObject]
+public class NodeInfo
+{
+    [Key(0)]
+    public DateTime CurrentTime { get; init; }
+    [Key(1)]
+    public long Height { get; init; }
+    [Key(2)]
+    public BigInteger TotalWork { get; init; }
+    [Key(3)]
+    public SHA256Hash LastHash { get; init; }
+    [Key(4)]
+    public List<string> Peers { get; init; } = new List<string>();
+}
+

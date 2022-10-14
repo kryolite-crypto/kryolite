@@ -126,14 +126,11 @@ public class Network
             ClientDropped?.Invoke(sender, EventArgs.Empty);
         };
 
-        /*for (int i = 1; i <= 10; i++)
+        if (await peer.StartWithTimeoutAsync())
         {
-            Console.WriteLine($"{i}/{10}: Connecting to {ipAndPort}");
-            if(await peer.StartWithTimeoutAsync()) {
-                Peers.TryAdd(ipAndPort, peer);
-                return true;
-            }
-        }*/
+            Peers.TryAdd(ipAndPort, peer);
+            return true;
+        }
 
         return false;
     }
