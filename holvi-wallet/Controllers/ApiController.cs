@@ -1,6 +1,6 @@
 using Marccacoin;
 
-namespace volvi_wallet;
+namespace holvi_wallet;
 
 public class ApiController : ApiControllerBase
 {

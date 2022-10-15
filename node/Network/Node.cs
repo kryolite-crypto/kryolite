@@ -105,6 +105,6 @@ public class Peer : Node
         msg.NodeId = ServerId;
 
         var bytes = MessagePackSerializer.Serialize(msg);
-        await wsClient.SendAsync(bytes);
+        var res = await wsClient.SendAsync(bytes);
     }
 }

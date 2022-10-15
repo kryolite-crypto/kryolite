@@ -24,6 +24,7 @@ namespace holvi_wallet
                 .Build();
 
             Host = WebHost.CreateDefaultBuilder()
+                .ConfigureLogging(logging => logging.AddProvider(new InMemoryLoggerProvider()))
                 .UseStartup<Startup>()
                 .Build();
 

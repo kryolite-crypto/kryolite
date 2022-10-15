@@ -84,6 +84,11 @@ public partial class MainWindow : Window
             Model.Amount = "";
         };
 
+        Model.ViewLogClicked += async (object? sender, EventArgs args) => {
+            var dialog = new LogViewerDialog();
+            dialog.Show(this);
+        };
+
         BlockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(async wallet => {
             var pending = 0UL;
 

@@ -17,6 +17,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public event EventHandler? NewAddressClicked;
     public event EventHandler? SendTransactionClicked;
     public event EventHandler? CopyAddressClicked;
+    public event EventHandler? ViewLogClicked;
 
     private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
     {
@@ -204,5 +205,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
     public void OnCopyAddress()
     {
         CopyAddressClicked?.Invoke(this, null!);
+    }
+
+    public void ViewLogCommand()
+    {
+        ViewLogClicked?.Invoke(this, null!);
     }
 }

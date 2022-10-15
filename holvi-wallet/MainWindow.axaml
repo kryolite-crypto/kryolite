@@ -3,6 +3,7 @@
         xmlns:vm="using:holvi_wallet"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d"
         Width="900" 
         Height="600"
@@ -29,9 +30,17 @@
                 <MenuItem Header="_Preferences"/>
             </MenuItem>
             <MenuItem Header="_Help">
+                <MenuItem Header="_View Log" Command="{Binding ViewLogCommand}"/>
                 <MenuItem Header="_About"/>
             </MenuItem>
         </Menu>
+        <DockPanel DockPanel.Dock="Bottom">
+            <TextBlock Text="4" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
+            <avalonia:MaterialIcon Margin="5,0,0,0" Kind="Lan" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
+            <TextBlock Text="1612" Margin="0,0,5,0" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
+            <avalonia:MaterialIcon Margin="5,0,0,0" Kind="LinkVariant" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
+            <ProgressBar ShowProgressText="True" Minimum="0" Maximum="100" Value="42" DockPanel.Dock="Left"/>
+        </DockPanel>
         <TabControl DockPanel.Dock="Top">
             <TabItem Header="Overview" VerticalContentAlignment="Center">
                 <DockPanel Margin="20">

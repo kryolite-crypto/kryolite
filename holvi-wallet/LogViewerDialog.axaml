@@ -1,0 +1,16 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:holvi_wallet"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        mc:Ignorable="d"
+        Width="600" 
+        Height="400"
+		x:DataType="vm:LogViewerDialogViewModel"
+        x:Class="holvi_wallet.LogViewerDialog"
+        Title="Log Viewer - Holvi Wallet">
+    <DockPanel>
+        <TextBox Name="LogBox" AcceptsReturn="True" IsReadOnly="true" FontFamily="Andale Mono" FontSize="12"/>
+    </DockPanel>
+</Window>
