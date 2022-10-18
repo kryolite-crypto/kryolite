@@ -395,126 +395,132 @@ public class BlockchainManager : IBlockchainManager
             .OrderBy(x => x.Id)
             .ToList();
 
-        var _ = rwlock.EnterWriteLockEx();
-    
-        using (var blockchainRepository = new BlockRepository(true))
-        using (var ledgerRepository = new LedgerRepository(true))
-        using (var walletRepository = new WalletRepository(true))
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockRepository(true);
+        using var ledgerRepository = new LedgerRepository(true);
+        using var walletRepository = new WalletRepository(true);
+
+        var chainState = blockchainRepository.GetChainState();
+
+        var min = sortedBlocks.Min(x => x.Id);
+        var max = chainState.Height;
+
+        var ledgerWallets = new Dictionary<string, LedgerWallet>();
+        var wallets = walletRepository.GetWallets();
+
+        long progress = 0;
+        ChainObserver.ReportProgress(progress, sortedBlocks.Count);
+
+        for (long i = max; i >= min; i--)
         {
-            var chainState = blockchainRepository.GetChainState();
+            var cBlock = blockchainRepository.GetBlock(i);
 
-            var min = sortedBlocks.Min(x => x.Id);
-            var max = chainState.Height;
-
-            var ledgerWallets = new Dictionary<string, LedgerWallet>();
-            var wallets = walletRepository.GetWallets();
-
-            for (long i = max; i >= min; i--)
+            if (cBlock == null)
             {
-                var cBlock = blockchainRepository.GetBlock(i);
+                continue;
+            }
 
-                if (cBlock == null)
-                {
-                    continue;
+            var fee = cBlock.Transactions.DefaultIfEmpty().Select(x => x?.MaxFee ?? 0UL).Min();
+
+            foreach (var tx in cBlock.Transactions) 
+            {
+                if(tx.PublicKey != null) {
+                    var senderAddr = tx.PublicKey.Value.ToAddress();
+                    if (!ledgerWallets.ContainsKey(senderAddr.ToString())) 
+                    {
+                        ledgerWallets.Add(senderAddr.ToString(), ledgerRepository.GetWallet(senderAddr));
+                    }
+
+                    var sender = ledgerWallets[senderAddr.ToString()];
+
+                    checked
+                    {
+                        sender.Balance += tx.Value;
+                        sender.Balance += fee;
+                    }
+
+                    if (!wallets.ContainsKey(senderAddr.ToString()))
+                    {
+                        var senderWallet = walletRepository.Get(senderAddr);
+
+                        if (senderWallet != null) {
+                            wallets.Add(senderAddr.ToString(), walletRepository.Get(senderAddr));
+                        }
+                    }
+
+                    var from = wallets[senderAddr.ToString()];
+
+                    checked
+                    {
+                        from.Balance += tx.Value;
+                        from.Balance += fee;
+                    }
                 }
 
-                var fee = cBlock.Transactions.DefaultIfEmpty().Select(x => x?.MaxFee ?? 0UL).Min();
-
-                foreach (var tx in cBlock.Transactions) 
+                var recipientAddr = tx.To.ToString();
+                if (!ledgerWallets.ContainsKey(recipientAddr)) 
                 {
-                    if(tx.PublicKey != null) {
-                        var senderAddr = tx.PublicKey.Value.ToAddress();
-                        if (!ledgerWallets.ContainsKey(senderAddr.ToString())) 
-                        {
-                            ledgerWallets.Add(senderAddr.ToString(), ledgerRepository.GetWallet(senderAddr));
-                        }
+                    ledgerWallets.Add(recipientAddr, ledgerRepository.GetWallet(tx.To));
+                }
 
-                        var sender = ledgerWallets[senderAddr.ToString()];
+                var recipient = ledgerWallets[recipientAddr];
 
-                        checked
-                        {
-                            sender.Balance += tx.Value;
-                            sender.Balance += fee;
-                        }
+                recipient.Balance = checked(recipient.Balance - tx.Value);
 
-                        if (!wallets.ContainsKey(senderAddr.ToString()))
-                        {
-                            var senderWallet = walletRepository.Get(senderAddr);
+                if (tx.TransactionType == TransactionType.MINER_FEE)
+                {
+                    recipient.Balance = checked(recipient.Balance - (fee * (ulong)cBlock.Transactions.LongCount()));
+                }
 
-                            if (senderWallet != null) {
-                                wallets.Add(senderAddr.ToString(), walletRepository.Get(senderAddr));
-                            }
-                        }
+                if (!wallets.ContainsKey(tx.To.ToString()))
+                {
+                    var toWallet = walletRepository.Get(tx.To);
 
-                        var from = wallets[senderAddr.ToString()];
-
-                        checked
-                        {
-                            from.Balance += tx.Value;
-                            from.Balance += fee;
-                        }
+                    if (toWallet != null) {
+                        wallets.Add(tx.To.ToString(), toWallet);
                     }
+                }
 
-                    var recipientAddr = tx.To.ToString();
-                    if (!ledgerWallets.ContainsKey(recipientAddr)) 
-                    {
-                        ledgerWallets.Add(recipientAddr, ledgerRepository.GetWallet(tx.To));
-                    }
-
-                    var recipient = ledgerWallets[recipientAddr];
-
-                    recipient.Balance = checked(recipient.Balance - tx.Value);
+                if(wallets.TryGetValue(tx.To.ToString(), out var to))
+                {
+                    to.Balance = checked(to.Balance - tx.Value);
 
                     if (tx.TransactionType == TransactionType.MINER_FEE)
                     {
-                        recipient.Balance = checked(recipient.Balance - (fee * (ulong)cBlock.Transactions.LongCount()));
+                        to.Balance = checked(to.Balance - (fee * (ulong)cBlock.Transactions.LongCount()));
                     }
-
-                    if (!wallets.ContainsKey(tx.To.ToString()))
-                    {
-                        var toWallet = walletRepository.Get(tx.To);
-
-                        if (toWallet != null) {
-                            wallets.Add(tx.To.ToString(), toWallet);
-                        }
-                    }
-
-                    if(wallets.TryGetValue(tx.To.ToString(), out var to))
-                    {
-                        to.Balance = checked(to.Balance - tx.Value);
-
-                        if (tx.TransactionType == TransactionType.MINER_FEE)
-                        {
-                            to.Balance = checked(to.Balance - (fee * (ulong)cBlock.Transactions.LongCount()));
-                        }
-                    }
-
-                    walletRepository.DeleteTransaction(cBlock.Id);
-                    blockchainRepository.DeleteTransaction(tx.Id);
                 }
 
-                ledgerRepository.UpdateWallets(ledgerWallets.Values);
-
-                if (wallets.Values.Count > 0) {
-                    walletRepository.UpdateWallets2(wallets.Values);
-                }
-
-                blockchainRepository.Delete(cBlock.Id);
-                blockchainRepository.DeleteHeader(cBlock.Header.Id);
-
-                chainState.Height--;
-                chainState.TotalWork -= cBlock.Header.Difficulty.ToWork();
-                chainState.CurrentDifficulty = cBlock.Header.Difficulty;
+                walletRepository.DeleteTransaction(cBlock.Id);
+                blockchainRepository.DeleteTransaction(tx.Id);
             }
- 
-            blockchainRepository.SaveState(chainState);            
 
-            blockchainRepository.Commit();
-            ledgerRepository.Commit();
-            walletRepository.Commit();
+            ledgerRepository.UpdateWallets(ledgerWallets.Values);
+
+            if (wallets.Values.Count > 0) {
+                walletRepository.UpdateWallets2(wallets.Values);
+            }
+
+            blockchainRepository.Delete(cBlock.Id);
+            blockchainRepository.DeleteHeader(cBlock.Header.Id);
+
+            chainState.Height--;
+            chainState.TotalWork -= cBlock.Header.Difficulty.ToWork();
+            chainState.CurrentDifficulty = cBlock.Header.Difficulty;
+
+            ChainObserver.ReportProgress(++progress, sortedBlocks.Count);
         }
 
+        blockchainRepository.SaveState(chainState);
+
+        blockchainRepository.Commit();
+        ledgerRepository.Commit();
+        walletRepository.Commit();
+
         var last = sortedBlocks.Last();
+
+        progress = 0;
+        ChainObserver.ReportProgress(progress, sortedBlocks.Count);
 
         foreach (var block in sortedBlocks)
         {
@@ -523,6 +529,8 @@ public class BlockchainManager : IBlockchainManager
                 logger.LogError($"Set chain failed at {block.Id}");
                 return false;
             }
+
+            ChainObserver.ReportProgress(++progress, sortedBlocks.Count);
         }
 
         logger.LogInformation("Chain synchronization completed");

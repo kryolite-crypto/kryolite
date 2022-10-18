@@ -20,6 +20,7 @@ public partial class MainWindow : Window
 {
     private IBlockchainManager BlockchainManager;
     private IMempoolManager MempoolManager;
+    private INetworkManager NetworkManager;
 
     private MainWindowViewModel Model = new MainWindowViewModel();
 
@@ -27,23 +28,34 @@ public partial class MainWindow : Window
     {
         BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
         MempoolManager = Program.ServiceCollection.GetService<IMempoolManager>() ?? throw new ArgumentNullException(nameof(IMempoolManager));
+        NetworkManager = Program.ServiceCollection.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
 
         InitializeComponent();
 
         DataContext = Model;
 
-        var wallets = BlockchainManager.GetWallets()
-            .Select(wallet => new WalletModel {
-                Description = wallet.Description,
-                Address = wallet.Address,
-                PublicKey = wallet.PublicKey,
-                PrivateKey = wallet.PrivateKey,
-                Balance = wallet.Balance,
-                WalletTransactions = wallet.WalletTransactions
+        this.Activated += (object? sender, EventArgs args) => {
+            Task.Run(async () => {
+                var wallets = BlockchainManager.GetWallets()
+                    .Select(wallet => new WalletModel {
+                        Description = wallet.Description,
+                        Address = wallet.Address,
+                        PublicKey = wallet.PublicKey,
+                        PrivateKey = wallet.PrivateKey,
+                        Balance = wallet.Balance,
+                        WalletTransactions = wallet.WalletTransactions
+                    });
+
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    Model.Wallets = new ObservableCollection<WalletModel>(wallets);
+                    Model.Blocks = BlockchainManager.GetCurrentHeight();
+                });                    
             });
 
-        Model.Wallets = new ObservableCollection<WalletModel>(wallets);
+            Model.ConnectedPeers = NetworkManager.GetHostCount();
+        };
 
+        var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
         var walletGrid = this.FindControl<DataGrid>("WalletsGrid");
         var buffer = new BufferBlock<List<Transaction>>();
 
@@ -84,9 +96,46 @@ public partial class MainWindow : Window
             Model.Amount = "";
         };
 
-        Model.ViewLogClicked += async (object? sender, EventArgs args) => {
+        Model.ViewLogClicked += (object? sender, EventArgs args) => {
             var dialog = new LogViewerDialog();
             dialog.Show(this);
+        };
+
+        Marccacoin.Network.ConnectedChanged += async (object? sender, int count) => {
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                Model.ConnectedPeers = count;
+            });
+        };
+
+        ChainObserver.BeginSync += async (object? sender, long total) => {
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                syncProgress.Value = 0;
+                syncProgress.Minimum = 0;
+                syncProgress.Maximum = 100;
+                syncProgress.IsEnabled = true;
+                syncProgress.IsVisible = true;
+            });
+        };
+
+        ChainObserver.SyncProgress += async (object? sender, double progress) => {
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                syncProgress.Value = progress;
+                syncProgress.Minimum = 0;
+                syncProgress.Maximum = 100;
+
+                if (!syncProgress.IsEnabled) {
+                    syncProgress.IsEnabled = true;
+                    syncProgress.IsVisible = true;
+                }
+            });
+        };
+
+        ChainObserver.EndSync += async (object? sender, EventArgs args) => {
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                syncProgress.Value = 0;
+                syncProgress.IsEnabled = false;
+                syncProgress.IsVisible = false;
+            });
         };
 
         BlockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(async wallet => {
@@ -99,6 +148,12 @@ public partial class MainWindow : Window
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.SetWallet(wallet);
                 Model.Pending = pending;
+            });
+        }));
+
+        BlockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                Model.Blocks = block.Id;
             });
         }));
 

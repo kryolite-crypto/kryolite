@@ -24,6 +24,7 @@ public partial class LogViewerDialog : Window
         var logBox = this.FindControl<TextBox>("LogBox");
 
         logBox.Text = String.Join(Environment.NewLine, InMemoryLogger.Messages.ToArray()) + Environment.NewLine;
+        logBox.CaretIndex = logBox.Text.Length;
 
         EventHandler<string> MessageHandler = delegate(object? sender, string message)
         {

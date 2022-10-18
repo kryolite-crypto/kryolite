@@ -24,6 +24,41 @@ public class MainWindowViewModel : INotifyPropertyChanged
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
+    private long _Blocks;
+
+    public long Blocks
+    {
+       get 
+        {
+            return _Blocks; 
+        }
+        set
+        {
+            if (_Blocks != value)
+            {
+                _Blocks = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    private int _ConnectedPeers;
+    public int ConnectedPeers
+    {
+       get 
+        {
+            return _ConnectedPeers; 
+        }
+        set
+        {
+            if (_ConnectedPeers != value)
+            {
+                _ConnectedPeers = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
     private long _Balance;
 
     public long Balance

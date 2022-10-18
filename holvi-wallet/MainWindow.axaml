@@ -35,11 +35,11 @@
             </MenuItem>
         </Menu>
         <DockPanel DockPanel.Dock="Bottom">
-            <TextBlock Text="4" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
+            <TextBlock Text="{Binding ConnectedPeers}" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
             <avalonia:MaterialIcon Margin="5,0,0,0" Kind="Lan" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
-            <TextBlock Text="1612" Margin="0,0,5,0" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
+            <TextBlock Text="{Binding Blocks}" Margin="0,0,5,0" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
             <avalonia:MaterialIcon Margin="5,0,0,0" Kind="LinkVariant" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
-            <ProgressBar ShowProgressText="True" Minimum="0" Maximum="100" Value="42" DockPanel.Dock="Left"/>
+            <ProgressBar Name="SyncProgress" IsEnabled="False" IsVisible="False" Minimum="0" Maximum="100" ShowProgressText="True" DockPanel.Dock="Left"/>
         </DockPanel>
         <TabControl DockPanel.Dock="Top">
             <TabItem Header="Overview" VerticalContentAlignment="Center">

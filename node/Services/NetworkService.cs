@@ -46,7 +46,7 @@ public class NetworkService : BackgroundService
 
             for (int i = 1; i <= 10; i++)
             {
-                Console.WriteLine($"{i}/{10}: Connecting to {node.Hostname}:{node.Port}");
+                logger.LogInformation($"{i}/{10}: Connecting to {node.Hostname}:{node.Port}");
                 if(await NodeNetwork.AddNode(node.Hostname, node.Port, false)) 
                 {
                     break;
@@ -71,7 +71,7 @@ public class NetworkService : BackgroundService
             switch (args.Message.Payload) 
             {
                 case NodeInfo nodeInfo:
-                    logger.LogInformation("Received NodeInfo");
+                    logger.LogInformation($"Received NodeInfo from {args.Message.NodeId}");
 
                     var nodeHost = new NodeHost
                     {
@@ -280,10 +280,20 @@ public class ChainObserver : IObserver<Node>
     private readonly Network nodeNetwork;
     private readonly IBlockchainManager blockchainManager;
 
+    // TODO: quick hack, create proper events
+    public static event EventHandler<long>? BeginSync;
+    public static event EventHandler<double>? SyncProgress;
+    public static event EventHandler<EventArgs>? EndSync;
+
     public ChainObserver(Network nodeNetwork, IBlockchainManager blockchainManager)
     {
         this.nodeNetwork = nodeNetwork ?? throw new ArgumentNullException(nameof(nodeNetwork));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
+    }
+
+    public static void ReportProgress(double progress, double total)
+    {
+        SyncProgress?.Invoke(null, progress / total * 100d);
     }
     
     public void OnCompleted()
@@ -303,6 +313,8 @@ public class ChainObserver : IObserver<Node>
             return;
         }
 
+        BeginSync?.Invoke(this, node.Blockchain.Count);
+
         var sortedBlocks = node.Blockchain.OrderBy(x => x.Id).ToList();
 
         var min = sortedBlocks.Min(x => x.Id);
@@ -321,6 +333,9 @@ public class ChainObserver : IObserver<Node>
             .Link<VerifyId>(x => x.Id > 0)
             .Link<VerifyParentHash>(x => x.Id > 0);
 
+        long progress = 0;
+        ReportProgress(progress, sortedBlocks.Count);
+
         foreach (var block in sortedBlocks)
         {
             if(!blockExecutor.Execute(block, out var result)) {
@@ -333,6 +348,8 @@ public class ChainObserver : IObserver<Node>
             totalWork += block.Header.Difficulty.ToWork();
 
             blockchainContext.LastBlocks.Add(block);
+
+            ReportProgress(++progress, sortedBlocks.Count);
         }
 
         if (totalWork > blockchainManager.GetTotalWork()) {
@@ -348,5 +365,7 @@ public class ChainObserver : IObserver<Node>
 
             await node.SendAsync(msg);
         }
+
+        EndSync?.Invoke(this, EventArgs.Empty);
     }
 }

@@ -14,6 +14,10 @@ public class Network
     public event EventHandler<ClientDisconnectedEventArgs>? ClientDisconnected;
     public event EventHandler? ClientDropped;
     public event EventHandler<MessageEventArgs>? MessageReceived;
+    
+    // TODO: better implementation
+    public static event EventHandler<int>? ConnectedChanged;
+
 
     private Guid ServerId = Guid.NewGuid();
     private WatsonWsServer wsServer;
@@ -33,12 +37,14 @@ public class Network
             Peers.TryAdd(args.IpPort, peer);
 
             ClientConnected?.Invoke(sender, args);
+            ConnectedChanged?.Invoke(this, Peers.Count);
         };
 
         wsServer.ClientDisconnected += (object? sender, ClientDisconnectedEventArgs args) => {
             Peers.TryRemove(args.IpPort, out var _);
 
             ClientDisconnected?.Invoke(sender, args);
+            ConnectedChanged?.Invoke(this, Peers.Count);
         };
 
         wsServer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
@@ -123,12 +129,15 @@ public class Network
 
         peer.Dropped += (object? sender, EventArgs args) => {
             Peers.TryRemove(ipAndPort, out var _);
+
             ClientDropped?.Invoke(sender, EventArgs.Empty);
+            ConnectedChanged?.Invoke(this, Peers.Count);
         };
 
         if (await peer.StartWithTimeoutAsync())
         {
             Peers.TryAdd(ipAndPort, peer);
+            ConnectedChanged?.Invoke(this, Peers.Count);
             return true;
         }
 

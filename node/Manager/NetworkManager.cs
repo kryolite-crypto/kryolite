@@ -19,9 +19,8 @@ public class NetworkManager : INetworkManager
 
     public void AddHost(NodeHost host)
     {
-        using (var _ = rwlock.EnterWriteLockEx()) {
-            Hosts.Add(host);
-        }
+        using var _ = rwlock.EnterWriteLockEx();
+        Hosts.Add(host);
     }
 
     public DateTimeOffset GetNetworkTime()
@@ -40,6 +39,12 @@ public class NetworkManager : INetworkManager
         timestamps.Add(DateTimeOffset.Now.ToUnixTimeSeconds());
 
         return DateTimeOffset.FromUnixTimeSeconds((long)timestamps.Average());
+    }
+
+    public int GetHostCount()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Hosts.Count;
     }
 
     public class NodeHost
