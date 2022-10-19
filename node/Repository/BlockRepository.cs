@@ -15,6 +15,9 @@ public class BlockRepository : TransactionalRepository
 
         Database.GetCollection<Transaction>()
             .EnsureIndex(x => x.To, false);
+
+        Database.GetCollection<LedgerWallet>()
+            .EnsureIndex(x => x.Address, true);
     }
 
     public long Count()
@@ -127,5 +130,25 @@ public class BlockRepository : TransactionalRepository
             .Query()
             .Where(x => x.Id > id)
             .ToList();
+    }
+
+    public LedgerWallet GetWallet(Address address)
+    {
+        return Database.GetCollection<LedgerWallet>()
+            .Query()
+            .Where("$.Address = @0", new BsonValue(address))
+            .FirstOrDefault();
+    }
+
+    public void UpdateWallet(LedgerWallet wallet)
+    {
+        Database.GetCollection<LedgerWallet>()
+            .Upsert(wallet);
+    }
+
+    public void UpdateWallets(IEnumerable<LedgerWallet> wallets)
+    {
+        Database.GetCollection<LedgerWallet>()
+            .Upsert(wallets);
     }
 }

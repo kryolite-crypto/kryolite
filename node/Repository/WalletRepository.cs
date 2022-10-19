@@ -48,8 +48,11 @@ public class WalletRepository : TransactionalRepository
             .Update(wallets);
     }
 
-    public void UpdateWallets2(IEnumerable<Wallet> wallets)
+    public void RollbackWallets(IEnumerable<Wallet> wallets, long blockId)
     {
+        Database.GetCollection<WalletTransaction>()
+            .DeleteMany(x => x.BlockId >= blockId);
+
         Database.GetCollection<Wallet>()
             .Update(wallets);
     }
@@ -69,11 +72,5 @@ public class WalletRepository : TransactionalRepository
             .OrderByDescending(x => x.Timestamp)
             .Limit(count)
             .ToList();
-    }
-
-    public void DeleteTransaction(long blockId)
-    {
-        Database.GetCollection<WalletTransaction>()
-            .DeleteMany(x => x.BlockId == blockId);
     }
 }

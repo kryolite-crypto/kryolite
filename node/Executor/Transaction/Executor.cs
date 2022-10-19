@@ -123,22 +123,22 @@ public class TransactionContext : IContext
     public ulong FeeTotal;
     public long Timestamp;
     public Dictionary<string, Wallet> Wallets;
-    public LedgerRepository LedgerRepository;
+    public BlockRepository BlockRepository;
     public IMempoolManager MempoolManager;
     public Dictionary<string, LedgerWallet> LedgerWalletCache = new Dictionary<string, LedgerWallet>();
 
     public Exception? Ex { get; private set; }
 
-    public TransactionContext(LedgerRepository ledgerRepository, IMempoolManager mempoolManager)
+    public TransactionContext(BlockRepository blockRepository, IMempoolManager mempoolManager)
     {
-        LedgerRepository = ledgerRepository ?? throw new ArgumentNullException(nameof(ledgerRepository));
+        BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         MempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         Wallets = null!;
     }
 
-    public TransactionContext(LedgerRepository ledgerRepository, Dictionary<string, Wallet> wallets)
+    public TransactionContext(BlockRepository blockRepository, Dictionary<string, Wallet> wallets)
     {
-        LedgerRepository = ledgerRepository ?? throw new ArgumentNullException(nameof(ledgerRepository));
+        BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
         MempoolManager = null!;
     }
@@ -235,7 +235,7 @@ public class FetchSenderWallet : BaseStep<Transaction, TransactionContext>
     protected override void Execute(Transaction item, TransactionContext ctx)
     {
         var from = item.PublicKey ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
-        var wallet = ctx.LedgerRepository.GetWallet(from.ToAddress()) ?? throw new ExecutionException(ExecutionResult.INVALID_SENDER);
+        var wallet = ctx.BlockRepository.GetWallet(from.ToAddress()) ?? throw new ExecutionException(ExecutionResult.INVALID_SENDER);
 
         ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
     }
@@ -245,7 +245,7 @@ public class FetchRecipientWallet : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext ctx)
     {
-        var wallet = ctx.LedgerRepository.GetWallet(item.To) ?? new LedgerWallet(item.To);
+        var wallet = ctx.BlockRepository.GetWallet(item.To) ?? new LedgerWallet(item.To);
         ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
     }
 }

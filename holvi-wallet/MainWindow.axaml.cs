@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private IBlockchainManager BlockchainManager;
     private IMempoolManager MempoolManager;
     private INetworkManager NetworkManager;
+    private IWalletManager WalletManager;
 
     private MainWindowViewModel Model = new MainWindowViewModel();
 
@@ -29,6 +30,7 @@ public partial class MainWindow : Window
         BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
         MempoolManager = Program.ServiceCollection.GetService<IMempoolManager>() ?? throw new ArgumentNullException(nameof(IMempoolManager));
         NetworkManager = Program.ServiceCollection.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
+        WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
 
         InitializeComponent();
 
@@ -36,7 +38,7 @@ public partial class MainWindow : Window
 
         this.Activated += (object? sender, EventArgs args) => {
             Task.Run(async () => {
-                var wallets = BlockchainManager.GetWallets()
+                var wallets = WalletManager.GetWallets().Values
                     .Select(wallet => new WalletModel {
                         Description = wallet.Description,
                         Address = wallet.Address,
@@ -48,8 +50,15 @@ public partial class MainWindow : Window
 
                 await Dispatcher.UIThread.InvokeAsync(() => {
                     Model.Wallets = new ObservableCollection<WalletModel>(wallets);
-                    Model.Blocks = BlockchainManager.GetCurrentHeight();
                 });                    
+            });
+
+            Task.Run(async () => {
+                var blocks = BlockchainManager.GetCurrentHeight();
+
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    Model.Blocks = blocks;
+                });
             });
 
             Model.ConnectedPeers = NetworkManager.GetHostCount();
@@ -61,12 +70,12 @@ public partial class MainWindow : Window
 
         walletGrid.CellEditEnded += (object? sender, DataGridCellEditEndedEventArgs args) => {
             if (args.Row.DataContext is Wallet wallet) {
-                BlockchainManager.UpdateWallet(wallet);
+                WalletManager.UpdateWallet(wallet);
             }
         };
 
         Model.NewAddressClicked += async (object? sender, EventArgs args) => {
-            var wallet = BlockchainManager.CreateWallet();
+            var wallet = WalletManager.CreateWallet();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.SetWallet(wallet);
@@ -138,6 +147,7 @@ public partial class MainWindow : Window
             });
         };
 
+        // TODO: Move to WalletManager
         BlockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(async wallet => {
             var pending = 0UL;
 

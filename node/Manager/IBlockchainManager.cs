@@ -13,11 +13,7 @@ public interface IBlockchainManager
     SHA256Hash GetLastBlockhash();
     BigInteger GetTotalWork();
     ulong GetBalance(Address address);
-    List<WalletTransaction> GetTransactions(int count);
     Block? GetBlock(long Id);
-    Wallet CreateWallet();
-    List<Wallet> GetWallets();
-    void UpdateWallet(Wallet wal);
     List<Transaction> AddTransactionsToQueue(List<Transaction> transactions, bool broadcast = true);
     void AddTransactionsToQueue(Transaction transaction);
     ChainState GetChainState();
