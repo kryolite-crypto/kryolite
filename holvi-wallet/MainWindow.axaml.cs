@@ -45,7 +45,8 @@ public partial class MainWindow : Window
                         PublicKey = wallet.PublicKey,
                         PrivateKey = wallet.PrivateKey,
                         Balance = wallet.Balance,
-                        WalletTransactions = wallet.WalletTransactions
+                        WalletTransactions = wallet.WalletTransactions,
+                        Wallet = wallet
                     });
 
                 await Dispatcher.UIThread.InvokeAsync(() => {
@@ -69,8 +70,9 @@ public partial class MainWindow : Window
         var buffer = new BufferBlock<List<Transaction>>();
 
         walletGrid.CellEditEnded += (object? sender, DataGridCellEditEndedEventArgs args) => {
-            if (args.Row.DataContext is Wallet wallet) {
-                WalletManager.UpdateWallet(wallet);
+            if (args.Row.DataContext is WalletModel walletModel) {
+                walletModel.Wallet.Description = walletModel.Description;
+                WalletManager.UpdateWallet(walletModel.Wallet);
             }
         };
 

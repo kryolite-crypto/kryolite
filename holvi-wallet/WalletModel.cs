@@ -36,6 +36,7 @@ public class WalletModel : INotifyPropertyChanged
         }
     }
 
+    public Wallet Wallet { get; set; }
 
     public List<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
 

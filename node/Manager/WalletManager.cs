@@ -17,7 +17,7 @@ public class WalletManager : IWalletManager
     public List<WalletTransaction> GetTransactions(int count)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var walletRepository = new WalletRepository(false);
+        using var walletRepository = new WalletRepository();
 
         return walletRepository.GetLastTransactions(count);
     }
@@ -40,7 +40,7 @@ public class WalletManager : IWalletManager
     public void UpdateWallet(Wallet wal)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository(false);
+        using var walletRepository = new WalletRepository();
 
         var wallet = walletRepository.Get(wal.Address);
         wallet.Description = wal.Description;
