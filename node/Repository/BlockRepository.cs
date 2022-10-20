@@ -39,6 +39,21 @@ public class BlockRepository : TransactionalRepository
         Database.GetCollection<ChainState>().Upsert(chainState);
     }
 
+    public void Add(List<Block> blocks, ChainState chainState)
+    {
+        Contract.Equals(0, chainState.Id);
+        Contract.Equals(true, Transactional);
+
+        foreach (var block in blocks) {
+            block.Header.Id = block.Id;
+        }
+
+        Database.GetCollection<BlockHeader>().InsertBulk(blocks.Select(x => x.Header));
+        Database.GetCollection<Transaction>().InsertBulk(blocks.SelectMany(x => x.Transactions));
+        Database.GetCollection<Block>().InsertBulk(blocks);
+        Database.GetCollection<ChainState>().Upsert(chainState);
+    }
+
     public void SaveState(ChainState chainState)
     {
         Database.GetCollection<ChainState>().Upsert(chainState);
@@ -72,7 +87,7 @@ public class BlockRepository : TransactionalRepository
 
     public ChainState GetChainState()
     {
-        return Database.GetCollection<ChainState>().FindById(0) ?? new ChainState();
+        return Database.GetCollection<ChainState>().FindById(0) ?? new ChainState { Height = 0 };
     }
 
     public List<Block> Tail(int count)

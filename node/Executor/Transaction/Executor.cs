@@ -362,7 +362,7 @@ public class BlockchainContext : IContext
 {
     public List<Block> LastBlocks { get; init; } = new List<Block>();
     public DateTimeOffset NetworkTime { get; init; }
-    public Difficulty CurrentDifficulty { get; init; }
+    public Difficulty CurrentDifficulty { get; set; }
 
     public Exception? Ex { get; private set; }
 

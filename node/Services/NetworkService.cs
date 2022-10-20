@@ -127,6 +127,7 @@ sync:
                     logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
                     var height = blockchainManager.GetCurrentHeight();
 
+                    // TODO: Use total work instead
                     if (height > newBlock.Id)
                     {
                         return;
@@ -353,7 +354,10 @@ public class ChainObserver : IObserver<Node>
         }
 
         if (totalWork > blockchainManager.GetTotalWork()) {
-            blockchainManager.SetChain(blockchainContext.LastBlocks);
+            if(!blockchainManager.SetChain(blockchainContext.LastBlocks)) {
+                EndSync?.Invoke(this, EventArgs.Empty);
+                return;
+            }
 
             var msg = new Message
             {
