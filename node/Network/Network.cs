@@ -22,7 +22,9 @@ public class Network
     private Guid ServerId = Guid.NewGuid();
     private WatsonWsServer wsServer;
 
-    private ConcurrentDictionary<string, Node> Peers = new ConcurrentDictionary<string, Node>();
+    private ConcurrentDictionary<string, Node> Peers = new();
+    //private ConcurrentDictionary<Guid, Node> Peers = new();
+
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 

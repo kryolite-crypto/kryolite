@@ -68,6 +68,7 @@ public class NetworkService : BackgroundService
                 return;
             }
 
+            // TODO: Use messagepack to deserialize
             switch (args.Message.Payload) 
             {
                 case NodeInfo nodeInfo:

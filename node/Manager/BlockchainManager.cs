@@ -160,7 +160,9 @@ public class BlockchainManager : IBlockchainManager
             .Link<UpdateRecipientWallet>();
 
         var epochStart = blockchainRepository.GetBlock(chainState.Height - (chainState.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
+        Console.WriteLine(chainState.Height - (chainState.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
 
+        int progress = 0;
         foreach (var block in blocks)
         {
             if (!blockExecutor.Execute(block, out var result)) {
@@ -184,7 +186,7 @@ public class BlockchainManager : IBlockchainManager
                 blockchainContext.CurrentDifficulty = chainState.CurrentDifficulty;
             }
 
-            if (block.Id % Constant.EPOCH_LENGTH_BLOCKS + 1 == 0) {
+            if (block.Id % Constant.EPOCH_LENGTH_BLOCKS == 1) {
                 epochStart = block;
             }
 
@@ -192,6 +194,8 @@ public class BlockchainManager : IBlockchainManager
             chainState.TotalWork += block.Header.Difficulty.ToWork();
 
             blockchainContext.LastBlocks.Add(block);
+
+            ChainObserver.ReportProgress(++progress, blocks.Count);
         }
 
         walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
@@ -539,16 +543,10 @@ public class BlockchainManager : IBlockchainManager
         progress = 0;
         ChainObserver.ReportProgress(progress, sortedBlocks.Count);
 
-        foreach (var block in sortedBlocks)
+        if(!AddBlocks(sortedBlocks))
         {
-            // TODO: batch add blocks
-            if(!AddBlock(block, block == last))
-            {
-                logger.LogError($"Set chain failed at {block.Id}");
-                return false;
-            }
-
-            ChainObserver.ReportProgress(++progress, sortedBlocks.Count);
+            logger.LogError($"Set chain failed");
+            return false;
         }
 
         logger.LogInformation("Chain synchronization completed");

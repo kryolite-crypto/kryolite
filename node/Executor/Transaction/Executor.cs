@@ -235,9 +235,11 @@ public class FetchSenderWallet : BaseStep<Transaction, TransactionContext>
     protected override void Execute(Transaction item, TransactionContext ctx)
     {
         var from = item.PublicKey ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
-        var wallet = ctx.BlockRepository.GetWallet(from.ToAddress()) ?? throw new ExecutionException(ExecutionResult.INVALID_SENDER);
 
-        ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
+        if (!ctx.LedgerWalletCache.TryGetValue(from.ToAddress().ToString(), out var _)) {
+            var wallet = ctx.BlockRepository.GetWallet(from.ToAddress()) ?? throw new ExecutionException(ExecutionResult.INVALID_SENDER);
+            ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
+        }
     }
 }
 
@@ -245,8 +247,10 @@ public class FetchRecipientWallet : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext ctx)
     {
-        var wallet = ctx.BlockRepository.GetWallet(item.To) ?? new LedgerWallet(item.To);
-        ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
+        if (!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var wallet)) {
+            wallet = ctx.BlockRepository.GetWallet(item.To) ?? new LedgerWallet(item.To);
+            ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
+        }
     }
 }
 
