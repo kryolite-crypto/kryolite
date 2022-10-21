@@ -47,7 +47,7 @@ public class NetworkService : BackgroundService
             for (int i = 1; i <= 10; i++)
             {
                 logger.LogInformation($"{i}/{10}: Connecting to {node.Hostname}:{node.Port}");
-                if(await NodeNetwork.AddNode(node.Hostname, node.Port, false)) 
+                if(await NodeNetwork.AddNode(node.Hostname, node.Port, false, node.ClientId)) 
                 {
                     break;
                 }
@@ -85,9 +85,9 @@ public class NetworkService : BackgroundService
 
                     foreach (var peer in nodeInfo.Peers.OrderBy(x => rnd.Next()))
                     {
-                        if(await NodeNetwork.AddNode(peer, false))
+                        if(await NodeNetwork.AddNode(peer.Key, false, peer.Value))
                         {
-                            logger.LogInformation($"Discovered node {peer} from {args.Message.NodeId}");
+                            logger.LogInformation($"Discovered node {peer.Key} from {args.Message.NodeId}");
                         }
                     }
 
@@ -167,13 +167,13 @@ sync:
                             LastHash = blockchainManager.GetLastBlockhash(),
                             CurrentTime = DateTime.UtcNow,
                             Peers = NodeNetwork.GetPeers()
-                                .Where(x => x != hostname)
-                                .ToList()
+                                .Where(x => x.Key != hostname)
+                                .ToDictionary(x => x.Key, x => x.Value)
                         }
                     };
 
                     await node.SendAsync(response);
-                    await NodeNetwork.AddNode(args.Hostname, queryNodeInfo.Port, false);
+                    await NodeNetwork.AddNode(args.Hostname, queryNodeInfo.Port, false, Guid.Empty);
 
                     break;
                 case RequestChainSync syncParams:
@@ -234,7 +234,7 @@ sync:
             var uri = new Uri(peer);
 
             logger.LogInformation($"Connecting to {uri}");
-            await NodeNetwork.AddNode(uri.Host, uri.Port, false);
+            await NodeNetwork.AddNode(uri.Host, uri.Port, false, Guid.Empty);
         });
 
         blockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {

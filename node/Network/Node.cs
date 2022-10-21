@@ -6,10 +6,11 @@ namespace Marccacoin;
 
 public abstract class Node
 {
-    public string Hostname { get; protected set; }
+    public string? Hostname { get; protected set; }
     public int Port { get; protected set; }
     public DateTime LastSeen { get; set; }
     public List<Block> Blockchain { get; set; } = new List<Block>();
+    public Guid ClientId;
 
     public abstract Task SendAsync(Message msg);
 }
@@ -52,21 +53,23 @@ public class Peer : Node
     public event EventHandler<EventArgs>? Dropped;
 
     private WatsonWsClient wsClient;
-    private Guid ServerId;
 
-    public Peer(string hostname, int port, bool ssl, Guid serverId, int serverPort)
+    public Peer(string hostname, int port, bool ssl, int serverPort)
     {
         Hostname = hostname;
         Port = port;
 
-        ServerId = serverId;
         wsClient = new WatsonWsClient(hostname, port, ssl);
 
         wsClient.ConfigureOptions(opts => {
-            opts.SetRequestHeader("ClientId", serverId.ToString());
+            opts.SetRequestHeader("ClientId", Network.ServerId.ToString());
         });
 
         wsClient.MessageReceived += (object? sender, MessageReceivedEventArgs args) => {
+            if (ClientId == null) {
+                ClientId = MessagePackSerializer.Deserialize<Message>(args.Data).NodeId;
+            }
+
             LastSeen = DateTime.UtcNow;
             MessageReceived?.Invoke(this, args);
         };
@@ -88,8 +91,10 @@ public class Peer : Node
             await SendAsync(msg);
         };
 
-        wsClient.ServerDisconnected += async (object? sender, EventArgs e) => {
+        wsClient.ServerDisconnected += (object? sender, EventArgs e) => {
+            // TODO: Logger
             Console.WriteLine($"Disconnected from {hostname}:{port}");
+
             Dropped?.Invoke(this, EventArgs.Empty);
             wsClient.Dispose();
         };
@@ -102,7 +107,7 @@ public class Peer : Node
 
     public override async Task SendAsync(Message msg)
     {
-        msg.NodeId = ServerId;
+        msg.NodeId = Network.ServerId;
 
         var bytes = MessagePackSerializer.Serialize(msg);
         var res = await wsClient.SendAsync(bytes);
