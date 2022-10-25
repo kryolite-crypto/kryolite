@@ -492,6 +492,7 @@ public class BlockchainManager : IBlockchainManager
                     {
                         sWallet.Balance = sender.Balance;
                         sWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Id);
+                        sWallet.Updated = true;
                     }
                 }
 
@@ -514,17 +515,13 @@ public class BlockchainManager : IBlockchainManager
                 {
                     rWallet.Balance = recipient.Balance;
                     rWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Id);
+                    rWallet.Updated = true;
                 }
 
                 blockchainRepository.DeleteTransaction(tx.Id);
             }
 
             blockchainRepository.UpdateWallets(ledgerWallets.Values);
-
-            if (wallets.Values.Count > 0) {
-                walletManager.RollbackWallets(wallets.Values.ToList(), min);
-            }
-
             blockchainRepository.Delete(cBlock.Id);
             blockchainRepository.DeleteHeader(cBlock.Header.Id);
 
@@ -533,6 +530,10 @@ public class BlockchainManager : IBlockchainManager
             chainState.CurrentDifficulty = cBlock.Header.Difficulty;
 
             ChainObserver.ReportProgress(++progress, sortedBlocks.Count);
+        }
+
+        if (wallets.Values.Count > 0) {
+            walletManager.RollbackWallets(wallets.Values.ToList(), min);
         }
 
         blockchainRepository.SaveState(chainState);
@@ -547,6 +548,12 @@ public class BlockchainManager : IBlockchainManager
         {
             logger.LogError($"Set chain failed");
             return false;
+        }
+
+        BlockBroadcast.Post(sortedBlocks.Last());
+
+        foreach (var wallet in wallets.Select(x => x.Value).Where(x => x.Updated)) {
+            WalletBroadcast.Post(wallet);
         }
 
         logger.LogInformation("Chain synchronization completed");

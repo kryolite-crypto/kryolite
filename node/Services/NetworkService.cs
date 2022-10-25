@@ -68,7 +68,6 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            // TODO: Use messagepack to deserialize
             switch (args.Message.Payload) 
             {
                 case NodeInfo nodeInfo:
@@ -128,7 +127,6 @@ sync:
                     logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
                     var height = blockchainManager.GetCurrentHeight();
 
-                    // TODO: Use total work instead
                     if (height > newBlock.Id)
                     {
                         return;

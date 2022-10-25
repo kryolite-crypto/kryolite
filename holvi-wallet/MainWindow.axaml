@@ -9,7 +9,10 @@
         Height="600"
 		x:DataType="vm:MainWindowViewModel"
         x:Class="holvi_wallet.MainWindow"
-        Title="Holvi Wallet">
+        Title="Holvi Wallet"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True">
 
     <Design.DataContext>
         <vm:MainWindowViewModel/>
@@ -21,8 +24,20 @@
         <vm:NotNullConverter x:Key="NotNullConverter"/>
     </Window.Resources>
 
+<Panel>
+        <ExperimentalAcrylicBorder IsHitTestVisible="False">
+        <ExperimentalAcrylicBorder.Material>
+            <ExperimentalAcrylicMaterial
+                 BackgroundSource="Digger"
+                 TintColor="Black"
+                 TintOpacity="1"
+                 MaterialOpacity="0.65" />
+        </ExperimentalAcrylicBorder.Material>
+     </ExperimentalAcrylicBorder>
+
     <DockPanel>
-        <Menu DockPanel.Dock="Top">
+        <StackPanel HorizontalAlignment="Left" DockPanel.Dock="Top">
+        <Menu Width="180">
             <MenuItem Header="_File">
                 <MenuItem Header="_Exit"/>
             </MenuItem>
@@ -34,6 +49,7 @@
                 <MenuItem Header="_About"/>
             </MenuItem>
         </Menu>
+        </StackPanel>
         <DockPanel DockPanel.Dock="Bottom">
             <TextBlock Text="{Binding ConnectedPeers}" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
             <avalonia:MaterialIcon Margin="5,0,0,0" Kind="Lan" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
@@ -44,13 +60,11 @@
         <TabControl DockPanel.Dock="Top">
             <TabItem Header="Overview" VerticalContentAlignment="Center">
                 <DockPanel Margin="20">
-                    <StackPanel DockPanel.Dock="Left">
-                        <Border Background="White"
-                                BorderBrush="LightGray"
-                                BorderThickness="1"
+                    <StackPanel Spacing="20" DockPanel.Dock="Left">
+                        <Border BorderBrush="#66ffffff"
+                                BorderThickness="0.5"
                                 CornerRadius="3"
-                                Padding="4"
-                                BoxShadow="2 2 1 -1 LightGray">
+                                Padding="4">
                             <StackPanel Margin="10" Width="250">
                                 <TextBlock FontWeight="Bold">Balance</TextBlock>
                                 <TextBlock Margin="0, 20, 0, 0">Available</TextBlock>
@@ -59,18 +73,36 @@
                                 <TextBlock FontWeight="Bold" Text="{Binding Pending, Converter={StaticResource CurrencyConverter}}" />
                             </StackPanel>
                         </Border>
+                        <Border BorderBrush="#66ffffff"
+                                BorderThickness="0.5"
+                                CornerRadius="3"
+                                Padding="4">
+                            <StackPanel Margin="10" Width="250">
+                                <TextBlock FontWeight="Bold">SAMPO</TextBlock>
+                                <TextBlock Margin="0, 20, 0, 0">Collateral</TextBlock>
+                                <TextBlock FontWeight="Bold" Text="1000000 / 1000000 FIMC" />
+                                <DockPanel Margin="0, 20, 0, 0" DockPanel.Dock="Left">
+                                    <Button HorizontalAlignment="Right" DockPanel.Dock="Right">Disable</Button>
+                                    <StackPanel>
+                                        <TextBlock>Status</TextBlock>
+                                        <TextBlock Foreground="Green" FontWeight="Bold">ACTIVE</TextBlock>
+                                    </StackPanel>
+                                </DockPanel>
+                                <!--TextBlock FontWeight="Bold" Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" /-->
+                                <!--TextBlock Margin="0, 20, 0, 0">Pending</TextBlock-->
+                                <!--TextBlock FontWeight="Bold" Text="{Binding Pending, Converter={StaticResource CurrencyConverter}}" /-->
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                     <StackPanel DockPanel.Dock="Right">
-                        <Border Background="White"
-                                BorderBrush="LightGray"
-                                BorderThickness="1"
+                        <Border BorderBrush="#66ffffff"
+                                BorderThickness="0.5"
                                 CornerRadius="3"
                                 Padding="4"
-                                BoxShadow="2 2 1 -1 LightGray"
                                 HorizontalAlignment="Right">
-                            <StackPanel Margin="10" Spacing="10" MinWidth="450">
+                            <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="450">
                                 <TextBlock FontWeight="Bold" Margin="11, 0, 0, 0">Recent Transactions</TextBlock>
-                                <ListBox Background="White" Items="{Binding Transactions}">
+                                <ListBox Background="Transparent" Items="{Binding Transactions}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
@@ -92,13 +124,18 @@
                         <Button Command="{Binding OnNewAddressCommand}">New Address</Button>
                     </StackPanel>
                     <DataGrid Name="WalletsGrid" Items="{Binding Wallets}" AutoGenerateColumns="False" DockPanel.Dock="Top">
+                        <DataGrid.Styles>
+                            <Style Selector="DataGridColumnHeader">
+                                <Setter Property="Background" Value="Transparent"/>
+                            </Style>
+                        </DataGrid.Styles>
                         <DataGrid.ContextMenu>
                             <ContextMenu>
                                 <MenuItem Header="Copy Address" Command="{Binding OnCopyAddress}" />
                             </ContextMenu>
                         </DataGrid.ContextMenu>
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Description"  Binding="{Binding Description}"/>
+                            <DataGridTextColumn Header="Description" Binding="{Binding Description}"/>
                             <DataGridTextColumn Header="Address" Binding="{Binding Address}" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Balance" Binding="{Binding Balance, Converter={StaticResource CurrencyConverter}}" IsReadOnly="True"/>
                         </DataGrid.Columns>
@@ -157,4 +194,5 @@
             </TabItem>
         </TabControl>
     </DockPanel>
+    </Panel>
 </Window>
