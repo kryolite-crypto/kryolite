@@ -305,7 +305,7 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetWallet(address)?.Balance ?? 0;
     }
 
-    public List<Transaction> AddTransactionsToQueue(List<Transaction> transactions, bool broadcast = true)
+    public List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockRepository();

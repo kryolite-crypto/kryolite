@@ -1,4 +1,5 @@
 using System.Numerics;
+using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
 using Marccacoin.Shared;
 using MessagePack;
@@ -244,17 +245,23 @@ sync:
             await NodeNetwork.BroadcastAsync(msg);
         }));
 
-        mempoolManager.OnTransactionAdded(new ActionBlock<List<Transaction>>(async txs => {
-            var msg = new Message
-            {
-                Payload = new TransactionData
-                {
-                    Transactions = txs
-                }
-            };
+        var transactionBuffer = new BufferBlock<Transaction>();
 
-            await NodeNetwork.BroadcastAsync(msg);
-        }));
+        transactionBuffer.AsObservable()
+            .Buffer(TimeSpan.FromMilliseconds(100), Constant.MAX_BLOCK_TX)
+            .Subscribe(async transactions => {
+                var msg = new Message
+                {
+                    Payload = new TransactionData
+                    {
+                        Transactions = transactions
+                    }
+                };
+
+                await NodeNetwork.BroadcastAsync(msg);
+            });
+
+        mempoolManager.OnTransactionAdded(transactionBuffer);
 
         logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Network.Set();
@@ -272,7 +279,7 @@ public class Blockchain
 public class TransactionData
 {
     [Key(0)]
-    public List<Transaction> Transactions { get; set; } = new List<Transaction>();
+    public IList<Transaction> Transactions { get; set; } = new List<Transaction>();
 }
 
 public class ChainObserver : IObserver<Node>

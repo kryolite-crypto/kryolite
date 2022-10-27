@@ -1,22 +1,17 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Marccacoin.Shared;
-using System.Collections.Generic;
 using System.Linq;
 using System;
 using System.Collections.ObjectModel;
 using Avalonia.Data;
-using Avalonia;
-using System.Threading.Tasks;
+using System.Collections.Generic;
 
 namespace holvi_wallet;
 
 public class MainWindowViewModel : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
-    public event EventHandler? NewAddressClicked;
-    public event EventHandler? SendTransactionClicked;
-    public event EventHandler? CopyAddressClicked;
     public event EventHandler? ViewLogClicked;
 
     private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
@@ -60,7 +55,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private long _Balance;
-
     public long Balance
     {
         get 
@@ -78,7 +72,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private ulong _Pending;
-
     public ulong Pending
     {
         get 
@@ -96,7 +89,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
     }
 
     private List<WalletTransaction> _Transactions = new List<WalletTransaction>();
-
     public List<WalletTransaction> Transactions
     {
         get 
@@ -108,68 +100,6 @@ public class MainWindowViewModel : INotifyPropertyChanged
             if (!Enumerable.SequenceEqual(_Transactions, value))
             {
                 _Transactions = value;
-                RaisePropertyChanged();
-            }
-        }
-    }
-
-    private WalletModel? _SelectedWallet;
-
-    public WalletModel? SelectedWallet
-    {
-        get 
-        {
-            return _SelectedWallet; 
-        }
-        set
-        {
-            if (_SelectedWallet != value)
-            {
-                _SelectedWallet = value;
-                RaisePropertyChanged();
-            }
-        }
-    }
-
-    private string? _Recipient;
-
-    public string? Recipient
-    {
-        get 
-        {
-            return _Recipient; 
-        }
-        set
-        {
-            if (_Recipient != value)
-            {
-                if (!string.IsNullOrEmpty(value) && !Address.IsValid(value)) {
-                    throw new DataValidationException("Invalid address");
-                }
-
-                _Recipient = value;
-                RaisePropertyChanged();
-            }
-        }
-    }
-
-    private string? _Amount;
-
-    public string? Amount
-    {
-        get 
-        {
-            return _Amount;
-        }
-        set
-        {
-            if (_Amount != value)
-            {
-                if (!string.IsNullOrEmpty(value) && !decimal.TryParse(value, out _)) {
-                    throw new DataValidationException("Invalid decimal value");
-                }
-
-                _Amount = value;
                 RaisePropertyChanged();
             }
         }
@@ -188,17 +118,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
             if (!Enumerable.SequenceEqual(_Wallets, value))
             {
                 _Wallets = value;
-                Balance = _Wallets.Sum(x => (long)(x.Balance ?? 0));
-                Transactions = _Wallets.SelectMany(wallet => wallet.WalletTransactions)
-                    .OrderByDescending(tx => tx.Timestamp)
-                    .Take(5)
-                    .ToList();
-
                 RaisePropertyChanged();
             }
         }
     }
-
     public void SetWallet(Wallet wallet)
     {
         var existing = Wallets
@@ -220,26 +143,10 @@ public class MainWindowViewModel : INotifyPropertyChanged
         }
 
         Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
-
         Transactions = Wallets.SelectMany(wallet => wallet.WalletTransactions)
             .OrderByDescending(tx => tx.Timestamp)
             .Take(5)
             .ToList();
-    }
-
-    public void OnNewAddressCommand()
-    {
-        NewAddressClicked?.Invoke(this, null!);
-    }
-
-    public void OnSendTransactionCommand()
-    {
-        SendTransactionClicked?.Invoke(this, null!);
-    }
-
-    public void OnCopyAddress()
-    {
-        CopyAddressClicked?.Invoke(this, null!);
     }
 
     public void ViewLogCommand()

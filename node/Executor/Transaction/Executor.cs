@@ -287,6 +287,8 @@ public class HasFunds : BaseStep<Transaction, TransactionContext>
         if (wallet.Balance < checked(item.Value + item.MaxFee + pending)) {
             throw new ExecutionException(ExecutionResult.TOO_LOW_BALANCE);
         }
+
+        wallet.Balance -= checked(item.Value + item.MaxFee + pending);
     }
 }
 

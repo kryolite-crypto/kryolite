@@ -14,7 +14,7 @@ public interface IBlockchainManager
     BigInteger GetTotalWork();
     ulong GetBalance(Address address);
     Block? GetBlock(long Id);
-    List<Transaction> AddTransactionsToQueue(List<Transaction> transactions, bool broadcast = true);
+    List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true);
     void AddTransactionsToQueue(Transaction transaction);
     ChainState GetChainState();
     List<Block> GetLastBlocks(int count);

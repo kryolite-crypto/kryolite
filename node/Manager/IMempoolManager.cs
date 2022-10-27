@@ -11,5 +11,6 @@ public interface IMempoolManager
     void RemoveTransactions(IEnumerable<Transaction> transactions);
     bool HasTransaction(Transaction transaction);
     ulong GetPending(Address address);
-    IDisposable OnTransactionAdded(ITargetBlock<List<Transaction>> action);
+    IDisposable OnTransactionAdded(ITargetBlock<Transaction> action);
+    IDisposable OnTransactionRemoved(ITargetBlock<Transaction> action);
 }
