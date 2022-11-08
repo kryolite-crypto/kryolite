@@ -2,6 +2,7 @@
 
 ## Compile and Run
 Requires .NET 7 SDK
+https://dotnet.microsoft.com/en-us/download/dotnet/7.0
 
 ### Node
 `cd node`
