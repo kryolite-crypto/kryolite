@@ -30,4 +30,7 @@ case "${subcommand}" in
   ;;
 esac
 
-exec reflex -v -s -r '\.cs$' dotnet run
+dotnet build
+
+#exec reflex -v -s -r '\.cs$' dotnet run
+exec reflex -s -r '\.cs$' dotnet run
