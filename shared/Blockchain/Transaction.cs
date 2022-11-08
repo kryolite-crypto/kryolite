@@ -36,7 +36,7 @@ public class Transaction : IComparable<Transaction>
         using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
 
-        stream.Write(new byte[] { (byte)TransactionType });
+        stream.Write(BitConverter.GetBytes((short)TransactionType));
         stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
         stream.Write(To);
         stream.Write(BitConverter.GetBytes(Value));
@@ -56,7 +56,7 @@ public class Transaction : IComparable<Transaction>
 
         using var stream = new MemoryStream();
 
-        stream.Write(new byte[] { (byte)TransactionType });
+        stream.Write(BitConverter.GetBytes((short)TransactionType));
         stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
         stream.Write(To);
         stream.Write(BitConverter.GetBytes(Value));

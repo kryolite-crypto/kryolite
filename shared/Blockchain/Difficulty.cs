@@ -1,6 +1,5 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
-using ExtendedNumerics;
 using MessagePack;
 
 namespace Marccacoin.Shared;
@@ -34,12 +33,12 @@ public static class DifficultyExtensions
 
     public static BigInteger ToWork(this Difficulty difficulty)
     {
-        return BigRational.Divide(DifficultyExtensions.TARGET_MAX, difficulty.ToTarget()).WholePart;
+        return DifficultyExtensions.TARGET_MAX / difficulty.ToTarget();
     }
 
     public static BigInteger ToWork(this Difficulty difficulty, BigInteger target)
     {
-        return BigRational.Divide(DifficultyExtensions.TARGET_MAX, target).WholePart;
+        return DifficultyExtensions.TARGET_MAX / target;
     }
 
     public static BigInteger ToTarget(this Difficulty difficulty)

@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Threading.Tasks.Dataflow;
-using ExtendedNumerics;
 using Marccacoin.Shared;
 using Microsoft.Extensions.Logging;
 using NSec.Cryptography;
@@ -395,7 +394,7 @@ public class BlockchainManager : IBlockchainManager
         var elapsed = epochEnd.Header.Timestamp - epochStart.Header.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
 
-        var newDiff = BigRational.Multiply(chainState.CurrentDifficulty.ToWork(), new BigRational(expected / (decimal)elapsed)).WholePart;
+        var newDiff = (BigInteger)(chainState.CurrentDifficulty.ToWork() * new BigRational(expected / (double)elapsed));
         chainState.CurrentDifficulty = newDiff.ToDifficulty();
 
         logger.LogInformation($"Epoch {epochEnd.Id / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");
