@@ -6,7 +6,7 @@ ENV PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
 RUN DEBIAN_FRONTEND=noninteractive \
   apt-get update && apt-get install -y \
   curl \
-  libc6 libgcc1 libgssapi-krb5-2 libicu-dev libssl-dev libstdc++6 zlib1g
+  libicu-dev
 
 WORKDIR /opt/dotnet
 

@@ -23,5 +23,11 @@ _shutdown() {
 
 trap _shutdown TERM INT ERR
 
-tail -f /dev/null &
-wait
+subcommand="${1:-}"
+case "${subcommand}" in
+  hang)
+    tail -f /dev/null & wait
+  ;;
+esac
+
+exec dotnet run
