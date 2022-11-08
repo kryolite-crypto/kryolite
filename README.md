@@ -8,12 +8,12 @@ https://dotnet.microsoft.com/en-us/download/dotnet/7.0
 `cd node`
 `dotnet run`
 
-#### Holvi Wallet
+### Holvi Wallet
 Wallet hosts full Node to connect and synchronize with network
 
 `cd holvi-wallet`
 `dotnet run`
 
-#### Louhi Miner
+### Louhi Miner
 `cd louhi-miner`
 `dotnet run --url http://localhost:5000 --address FIM0x000000`
