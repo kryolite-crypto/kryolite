@@ -24,4 +24,4 @@ COPY node ./
 WORKDIR /markka/daemon
 COPY daemon ./
 
-RUN dotnet run
+ENTRYPOINT [ "/markka/daemon/entrypoint.sh" ]

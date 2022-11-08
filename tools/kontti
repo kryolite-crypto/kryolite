@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+subcommand=$1
+case "${subcommand}" in
+  shell|recreate)
+    component=$2
+  ;;
+esac
+
+case "${subcommand}" in
+  recreate)
+    while true; do
+      docker-compose up --build --force-recreate "${component}" || true
+      sleep 0.5
+    done
+  ;;
+  shell)
+    while true; do
+      docker-compose exec "${component}" bash || echo "shell exited"
+      sleep 0.5
+    done
+  ;;
+esac

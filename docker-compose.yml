@@ -1,7 +1,11 @@
 version: '3'
 
 services:
-  daemon:
+  daemon-manual:
     build:
       context: .
-      dockerfile: Dockerfile.daemon
+      dockerfile: Dockerfile.daemon-manual
+  daemon-script:
+    build:
+      context: .
+      dockerfile: Dockerfile.daemon-script
