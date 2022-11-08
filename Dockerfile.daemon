@@ -15,6 +15,13 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
   && tar -xvof dotnet-sdk.tar.gz \
   && rm dotnet-sdk.tar.gz
 
+RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
+  && mkdir /ghjk && cd /ghjk \
+  && curl -o reflex_linux_${arch}.tar.gz -Lsf "https://github.com/cespare/reflex/releases/download/v0.3.1/reflex_linux_${arch}.tar.gz" \
+  && tar -xvof "reflex_linux_${arch}.tar.gz" \
+  && mv "reflex_linux_${arch}/reflex" /usr/local/bin \
+  && rm -rf /ghjk
+
 WORKDIR /markka/shared
 COPY shared ./
 

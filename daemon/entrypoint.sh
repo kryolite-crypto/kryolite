@@ -30,4 +30,4 @@ case "${subcommand}" in
   ;;
 esac
 
-exec dotnet run
+exec reflex -v -s -r '\.cs$' dotnet run
