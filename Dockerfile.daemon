@@ -1,0 +1,27 @@
+FROM ubuntu:22.04
+
+ENV DOTNET_ROOT=/opt/dotnet
+ENV PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
+
+RUN DEBIAN_FRONTEND=noninteractive \
+  apt-get update && apt-get install -y \
+  curl \
+  libc6 libgcc1 libgssapi-krb5-2 libicu-dev libssl-dev libstdc++6 zlib1g
+
+WORKDIR /opt/dotnet
+
+RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
+  && curl -o dotnet-sdk.tar.gz -Lsf "https://download.visualstudio.microsoft.com/download/pr/8eb03851-3b65-4116-8d6a-f5665e88b90f/901ff01f63c7dd06c3550e0a0cd15587/dotnet-sdk-7.0.100-rc.2.22477.23-linux-${arch}.tar.gz" \
+  && tar -xvof dotnet-sdk.tar.gz \
+  && rm dotnet-sdk.tar.gz
+
+WORKDIR /markka/shared
+COPY shared ./
+
+WORKDIR /markka/node
+COPY node ./
+
+WORKDIR /markka/daemon
+COPY daemon ./
+
+RUN dotnet run
