@@ -30,7 +30,7 @@ case "${subcommand}" in
   ;;
 esac
 
-dotnet build
+#dotnet build
 
 #exec reflex -v -s -r '\.cs$' dotnet run
-exec reflex -s -r '\.cs$' dotnet run
+exec reflex -s -r '\.cs$' -- dotnet run --data-dir=/data bin/Debug/net7.0/daemon
