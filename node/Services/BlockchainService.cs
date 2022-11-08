@@ -1,4 +1,5 @@
 using Marccacoin.Shared;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -6,12 +7,15 @@ namespace Marccacoin;
 
 public class BlockchainService : BackgroundService
 {
+    public static string DATA_DIR { get; private set; } = "data";
     private readonly StartupSequence startup;
 
-    public BlockchainService(IBlockchainManager blockchainManager, StartupSequence startup, ILogger<BlockchainService> logger) {
+    public BlockchainService(IBlockchainManager blockchainManager, StartupSequence startup, ILogger<BlockchainService> logger, IConfiguration configuration) {
         BlockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        DATA_DIR = configuration.GetValue<string>("data-dir") ?? "data";
     }
 
     private IBlockchainManager BlockchainManager { get; }
@@ -19,6 +23,12 @@ public class BlockchainService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!string.IsNullOrEmpty(DATA_DIR)) {
+            Logger.LogInformation($"Redirecting data directory to {DATA_DIR}");
+        }
+
+        Directory.CreateDirectory(DATA_DIR);
+
         if (BlockchainManager.GetCurrentHeight() == 0) {
             InitializeGenesisBlock();
         }

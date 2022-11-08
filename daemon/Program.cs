@@ -32,6 +32,7 @@ internal class Program
             .Build();
 
          await WebHost.CreateDefaultBuilder()
+            .UseConfiguration(configuration)
             .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())
             .UseStartup<Startup>()
             .Build()

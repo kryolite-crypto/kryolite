@@ -5,7 +5,7 @@ namespace Marccacoin;
 
 public class WalletRepository : TransactionalRepository
 {
-    public WalletRepository(bool transactional = false) : base("Filename=data/wallet.dat;Connection=shared", transactional)
+    public WalletRepository(bool transactional = false) : base("/wallet.dat;Connection=shared", transactional)
     {
         BsonMapper.Global.Entity<Wallet>()
             .DbRef(x => x.WalletTransactions, typeof(WalletTransaction).Name);

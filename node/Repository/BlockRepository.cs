@@ -7,7 +7,7 @@ namespace Marccacoin;
 
 public class BlockRepository : TransactionalRepository
 {
-    public BlockRepository(bool transactional = false) : base("Filename=data/blocks.dat;Connection=shared", transactional)
+    public BlockRepository(bool transactional = false) : base("/blocks.dat;Connection=shared", transactional)
     {
         BsonMapper.Global.Entity<Block>()
             .DbRef(x => x.Header, typeof(BlockHeader).Name)

@@ -8,22 +8,26 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using System.Threading;
+using System.Diagnostics;
+using System.Linq;
 
 namespace holvi_wallet
 {
     class Program
     {
-        public static readonly IServiceProvider ServiceCollection;
+        public static IServiceProvider ServiceCollection { get; private set; }
 
         private static IWebHost Host;
 
-        static Program()
-        {
+        [STAThread]
+        public static void Main(string[] args) {
             var configuration = new ConfigurationBuilder()
+                .AddCommandLine(args)
                 .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
                 .Build();
 
             Host = WebHost.CreateDefaultBuilder()
+                .UseConfiguration(configuration)
                 .ConfigureLogging(logging => logging.AddProvider(new InMemoryLoggerProvider()))
                 .UseStartup<Startup>()
                 .Build();
@@ -31,10 +35,7 @@ namespace holvi_wallet
             ServiceCollection = Host.Services;
 
             Host.Start();
-        }
 
-        [STAThread]
-        public static void Main(string[] args) {
             BuildAvaloniaAppWithServices().StartWithClassicDesktopLifetime(args);
         }
 

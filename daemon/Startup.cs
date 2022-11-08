@@ -62,8 +62,6 @@ public class Startup
             serialize: (bigint) => bigint.ToByteArray(),
             deserialize: (bson) => new BigInteger(bson.AsBinary, true)
         );
-
-        Directory.CreateDirectory("data");
     }
 
     public void Configure(IApplicationBuilder app)

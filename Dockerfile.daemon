@@ -10,8 +10,8 @@ RUN DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /opt/dotnet
 
-RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
-  && curl -o dotnet-sdk.tar.gz -Lsf "https://download.visualstudio.microsoft.com/download/pr/8eb03851-3b65-4116-8d6a-f5665e88b90f/901ff01f63c7dd06c3550e0a0cd15587/dotnet-sdk-7.0.100-rc.2.22477.23-linux-${arch}.tar.gz" \
+RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=x64 \
+  && curl -o dotnet-sdk.tar.gz -Lsf "https://download.visualstudio.microsoft.com/download/pr/253e5af8-41aa-48c6-86f1-39a51b44afdc/5bb2cb9380c5b1a7f0153e0a2775727b/dotnet-sdk-7.0.100-linux-${arch}.tar.gz" \
   && tar -xvof dotnet-sdk.tar.gz \
   && rm dotnet-sdk.tar.gz
 
