@@ -11,7 +11,7 @@ RUN DEBIAN_FRONTEND=noninteractive \
 WORKDIR /opt/dotnet
 
 RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=x64 \
-  && curl -o dotnet-sdk.tar.gz -Lsf "https://download.visualstudio.microsoft.com/download/pr/253e5af8-41aa-48c6-86f1-39a51b44afdc/5bb2cb9380c5b1a7f0153e0a2775727b/dotnet-sdk-7.0.100-linux-${arch}.tar.gz" \
+  && curl -o dotnet-sdk.tar.gz -Lsf "https://download.visualstudio.microsoft.com/download/pr/47337472-c910-4815-9d9b-80e1a30fcf16/14847f6a51a6a7e53a859d4a17edc311/dotnet-sdk-7.0.100-linux-${arch}.tar.gz" \
   && tar -xvof dotnet-sdk.tar.gz \
   && rm dotnet-sdk.tar.gz
 
@@ -22,14 +22,7 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
   && mv "reflex_linux_${arch}/reflex" /usr/local/bin \
   && rm -rf /ghjk
 
-WORKDIR /markka/shared
-COPY shared ./
-
-WORKDIR /markka/node
-COPY node ./
-
 WORKDIR /markka/daemon
-COPY daemon ./
 
-RUN dotnet build
+COPY daemon/entrypoint.sh .
 ENTRYPOINT [ "/markka/daemon/entrypoint.sh" ]

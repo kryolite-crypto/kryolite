@@ -28,9 +28,49 @@ case "${subcommand}" in
   hang)
     tail -f /dev/null & wait
   ;;
+  builder)
+    exec reflex -v -s \
+      -r '\.cs$' \
+      -R "^obj\/" \
+      -- \
+      ./build.sh
+  ;;
+  daemon)
+    while true; do
+      [[ -f "/build/daemon" ]] && break
+      echo "waiting for /build/daemon to appear"
+      sleep 0.5
+    done
+
+    daemonPid=""
+    while true; do
+      touch "/build/DAEMON.$HOSTNAME"
+
+      echo "starting /build/daemon"
+      (
+        exec /build/daemon
+      ) &
+      daemonPid=$!
+
+      while true; do
+        [[ -f "/build/EXIT" ]] && break
+        sleep 0.1
+      done
+
+      echo "killing pid '$daemonPid' ..."
+      if kill "$daemonPid"; then
+        echo "... ok"
+      else
+        echo "... failed"
+      fi
+
+      rm "/build/DAEMON.$HOSTNAME"
+
+      while true; do
+        [[ -f "/build/EXIT" ]] || break
+        echo "waiting for /build/EXIT to disappear"
+        sleep 0.5
+      done
+    done
+  ;;
 esac
-
-#dotnet build
-
-#exec reflex -v -s -r '\.cs$' dotnet run
-exec reflex -s -r '\.cs$' -- dotnet run --data-dir=/data bin/Debug/net7.0/daemon

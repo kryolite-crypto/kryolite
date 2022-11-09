@@ -1,9 +1,34 @@
 version: '3'
 
 services:
+  daemon-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile.daemon
+    #command: hang
+    command: builder
+    volumes:
+      - ./daemon:/markka/daemon
+      - ./shared:/markka/shared
+      - ./node:/markka/node
+      - daemon-build:/build
+
   daemon:
     build:
       context: .
       dockerfile: Dockerfile.daemon
+    command: daemon
+    ports:
+      - 6000:6000
+      - 5006:5006
     volumes:
-      - ./daemon:/markka/daemon
+      - daemon-build:/build
+  daemons:
+    build:
+      context: .
+      dockerfile: Dockerfile.daemon
+    command: daemon
+    volumes:
+      - daemon-build:/build
+volumes:
+  daemon-build:
