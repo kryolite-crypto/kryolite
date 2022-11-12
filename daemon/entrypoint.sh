@@ -29,6 +29,16 @@ case "${subcommand}" in
     tail -f /dev/null & wait
   ;;
   builder)
+    if [[ -d "obj" ]]; then
+      if rm -rf obj; then
+        echo "removed 'obj' directory"
+      else
+        echo "failed to remove 'obj' directory"
+        sleep 3
+        exit 1
+      fi
+    fi
+
     exec reflex -v -s \
       -r '\.cs$' \
       -R "^obj\/" \
