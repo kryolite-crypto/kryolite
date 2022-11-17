@@ -30,10 +30,20 @@ dotnet run --url http://localhost:5000 --address FIM0x000000
 
 ## docker
 
-Start 3 daemons
+```console
+docker-compose up --build --force-recreate daemon-builder
+```
 
 ```console
-docker-compose up --build --force-recreate --scale daemon=3
+docker-compose up --build --force-recreate daemon
+```
+
+```console
+docker-compose up --build --force-recreate --scale daemon=3 daemons
+```
+
+```console
+docker-compose up --build --force-recreate louhi-miner
 ```
 
 Get a shell

@@ -25,4 +25,6 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
 WORKDIR /markka/daemon
 
 COPY daemon/entrypoint.sh .
+COPY daemon/appsettings.json .
+
 ENTRYPOINT [ "/markka/daemon/entrypoint.sh" ]
