@@ -22,7 +22,10 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
   && mv "reflex_linux_${arch}/reflex" /usr/local/bin \
   && rm -rf /ghjk
 
-WORKDIR /markka/louhi-miner
-COPY louhi-miner/entrypoint.sh .
+COPY shared /markka/shared
 
+WORKDIR /markka/louhi-miner
+COPY louhi-miner .
+
+RUN dotnet build
 ENTRYPOINT [ "/markka/louhi-miner/entrypoint.sh" ]

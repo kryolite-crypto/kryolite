@@ -30,10 +30,11 @@ COPY --from=ghcr.io/matti/tailer:824002811ee20a0dbb19501e77553b49ebdf5869 /taile
 
 ENV DISPLAY=:0
 
-WORKDIR /markka/holvi-wallet
-
 COPY shared /markka/shared
 COPY node /markka/node
+
+WORKDIR /markka/holvi-wallet
+
 COPY holvi-wallet .
 
 RUN dotnet build
