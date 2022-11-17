@@ -32,7 +32,10 @@ ENV DISPLAY=:0
 
 WORKDIR /markka/holvi-wallet
 
-COPY holvi-wallet/entrypoint.sh .
-COPY holvi-wallet/appsettings.json .
+COPY shared /markka/shared
+COPY node /markka/node
+COPY holvi-wallet .
+
+RUN dotnet build
 
 ENTRYPOINT [ "/markka/holvi-wallet/entrypoint.sh" ]
