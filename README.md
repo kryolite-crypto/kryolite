@@ -46,6 +46,10 @@ docker-compose up --build --force-recreate --scale daemon=3 daemons
 docker-compose up --build --force-recreate louhi-miner
 ```
 
+```console
+docker-compose up --build --force-recreate holvi-wallet
+```
+
 Get a shell
 
 ```console

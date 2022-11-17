@@ -42,5 +42,16 @@ services:
     volumes:
       - ./louhi-miner:/markka/louhi-miner
       - ./shared:/markka/shared
+  holvi-wallet:
+    build:
+      context: .
+      dockerfile: Dockerfile.holvi-wallet
+    command: wallet
+    volumes:
+      - ./holvi-wallet:/markka/holvi-wallet
+      - ./shared:/markka/shared
+      - ./node:/markka/node
+    ports:
+      - 5900:5900
 volumes:
   daemon-build:
