@@ -13,6 +13,32 @@
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
         ExtendClientAreaToDecorationsHint="True">
+    <NativeMenu.Menu>
+        <NativeMenu>
+            <NativeMenuItem Header="_File">
+                <NativeMenuItem.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="_Exit"/>
+                    </NativeMenu>
+                </NativeMenuItem.Menu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="_Settings">
+                <NativeMenuItem.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="_Preferences"/>
+                    </NativeMenu>
+                </NativeMenuItem.Menu>
+            </NativeMenuItem>
+            <NativeMenuItem Header="_Help">
+                <NativeMenuItem.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="_View Log" Command="{Binding ViewLogCommand}"/>
+                        <NativeMenuItem Header="_About"/>
+                    </NativeMenu>
+                </NativeMenuItem.Menu>
+            </NativeMenuItem>
+        </NativeMenu>
+    </NativeMenu.Menu>
 
     <Panel>
         <ExperimentalAcrylicBorder IsHitTestVisible="False">
@@ -26,38 +52,25 @@
         </ExperimentalAcrylicBorder>
 
         <DockPanel>
-        <StackPanel HorizontalAlignment="Left" DockPanel.Dock="Top">
-        <Menu Width="180">
-            <MenuItem Header="_File">
-                <MenuItem Header="_Exit"/>
-            </MenuItem>
-            <MenuItem Header="_Settings">
-                <MenuItem Header="_Preferences"/>
-            </MenuItem>
-            <MenuItem Header="_Help">
-                <MenuItem Header="_View Log" Command="{Binding ViewLogCommand}"/>
-                <MenuItem Header="_About"/>
-            </MenuItem>
-        </Menu>
-        </StackPanel>
-        <DockPanel DockPanel.Dock="Bottom">
-            <TextBlock Text="{Binding ConnectedPeers}" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
-            <avalonia:MaterialIcon Margin="5,0,0,0" Kind="Lan" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
-            <TextBlock Text="{Binding Blocks}" Margin="0,0,5,0" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
-            <avalonia:MaterialIcon Margin="5,0,0,0" Kind="LinkVariant" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
-            <ProgressBar Name="SyncProgress" IsEnabled="False" IsVisible="False" Minimum="0" Maximum="100" ShowProgressText="True" DockPanel.Dock="Left"/>
+            <NativeMenuBar Width="180" HorizontalAlignment="Left" DockPanel.Dock="Top"/>
+            <DockPanel DockPanel.Dock="Bottom">
+                <TextBlock Text="{Binding ConnectedPeers}" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
+                <avalonia:MaterialIcon Margin="5,0,0,0" Kind="Lan" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
+                <TextBlock Text="{Binding Blocks}" Margin="0,0,5,0" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
+                <avalonia:MaterialIcon Margin="5,0,0,0" Kind="LinkVariant" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
+                <ProgressBar Name="SyncProgress" IsEnabled="False" IsVisible="False" Minimum="0" Maximum="100" ShowProgressText="True" DockPanel.Dock="Left"/>
+            </DockPanel>
+            <TabControl DockPanel.Dock="Top">
+                <TabItem Header="Overview" VerticalContentAlignment="Center">
+                    <vm:OverviewTab/>
+                </TabItem>
+                <TabItem Header="Addresses" VerticalContentAlignment="Center">
+                    <vm:AddressesTab/>
+                </TabItem>
+                <TabItem Header="Send" VerticalContentAlignment="Center">
+                    <vm:SendTab/>
+                </TabItem>
+            </TabControl>
         </DockPanel>
-        <TabControl DockPanel.Dock="Top">
-            <TabItem Header="Overview" VerticalContentAlignment="Center">
-                <vm:OverviewTab/>
-            </TabItem>
-            <TabItem Header="Addresses" VerticalContentAlignment="Center">
-                <vm:AddressesTab/>
-            </TabItem>
-            <TabItem Header="Send" VerticalContentAlignment="Center">
-                <vm:SendTab/>
-            </TabItem>
-        </TabControl>
-    </DockPanel>
     </Panel>
 </Window>
