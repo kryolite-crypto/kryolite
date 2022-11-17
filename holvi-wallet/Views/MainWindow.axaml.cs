@@ -33,6 +33,10 @@ public partial class MainWindow : Window
 
         AvaloniaXamlLoader.Load(this);
 
+#if DEBUG
+        this.AttachDevTools();
+#endif
+
         DataContext = Model;
 
         this.Activated += OnActivated;
