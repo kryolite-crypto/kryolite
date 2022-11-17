@@ -26,13 +26,11 @@ internal class Program
                                          ");
         Console.ForegroundColor = ConsoleColor.Gray;
 
-        var configuration = new ConfigurationBuilder()
-            .AddCommandLine(args)
-            .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
-            .Build();
-
          await WebHost.CreateDefaultBuilder()
-            .UseConfiguration(configuration)
+            .ConfigureAppConfiguration(c => c
+                .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables(prefix: "MARKKA__")
+                .AddCommandLine(args))
             .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())
             .UseStartup<Startup>()
             .Build()

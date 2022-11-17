@@ -21,13 +21,11 @@ namespace holvi_wallet
 
         [STAThread]
         public static void Main(string[] args) {
-            var configuration = new ConfigurationBuilder()
-                .AddCommandLine(args)
-                .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
-                .Build();
-
             Host = WebHost.CreateDefaultBuilder()
-                .UseConfiguration(configuration)
+                .ConfigureAppConfiguration(c => c
+                    .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
+                    .AddEnvironmentVariables(prefix: "MARKKA__")
+                    .AddCommandLine(args))
                 .ConfigureLogging(logging => logging.AddProvider(new InMemoryLoggerProvider()))
                 .UseStartup<Startup>()
                 .Build();
