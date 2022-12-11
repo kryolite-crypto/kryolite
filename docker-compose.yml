@@ -25,6 +25,8 @@ services:
       - ./daemon/appsettings.json:/markka/daemon/appsettings.json
       - /markka/daemon/data
       - daemon-build:/build
+    environment:
+      - MARKKA_DAEMON_CLEAN=none
   daemons:
     build:
       context: .
@@ -34,6 +36,8 @@ services:
       - ./daemon/appsettings.json:/markka/daemon/appsettings.json
       - /markka/daemon/data
       - daemon-build:/build
+    environment:
+      - MARKKA_DAEMON_CLEAN=none
   louhi-miner:
     build:
       context: .

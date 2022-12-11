@@ -46,6 +46,18 @@ case "${subcommand}" in
       ./build.sh
   ;;
   daemon)
+    case "${MARKKA_DAEMON_CLEAN:-}" in
+      blocks)
+        rm -rf data/blocks.dat
+      ;;
+      wallet)
+        rm -rf data/wallet.dat
+      ;;
+      all)
+        rm -rf data
+      ;;
+    esac
+
     while true; do
       [[ -f "/build/daemon" ]] && break
       echo "waiting for /build/daemon to appear"
