@@ -23,6 +23,7 @@ services:
       - 5001:5000
     volumes:
       - ./daemon/appsettings.json:/markka/daemon/appsettings.json
+      - /markka/daemon/data
       - daemon-build:/build
   daemons:
     build:
@@ -31,6 +32,7 @@ services:
     command: daemon
     volumes:
       - ./daemon/appsettings.json:/markka/daemon/appsettings.json
+      - /markka/daemon/data
       - daemon-build:/build
   louhi-miner:
     build:
