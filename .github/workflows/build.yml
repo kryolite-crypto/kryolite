@@ -1,0 +1,21 @@
+name: build
+
+on:
+  push:
+
+jobs:
+  daemon:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: docker-compose build daemon
+  holvi-wallet:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: docker-compose build holvi-wallet
+  louhi-miner:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+      - run: docker-compose build louhi-miner
