@@ -83,4 +83,8 @@ case "${subcommand}" in
       done
     done
   ;;
+  *)
+    echo "häh?"
+    exit 1
+  ;;
 esac

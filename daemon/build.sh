@@ -36,7 +36,10 @@ while true; do
 done
 
 echo "building ..."
-if dotnet build -o /build; then
+if
+  #dotnet publish -c Release -p:PublishSingleFile=true --self-contained --runtime linux-x64 -o /build
+  dotnet build -o /build
+then
   echo "${timestamp}" > /build/VERSION
 fi
 
