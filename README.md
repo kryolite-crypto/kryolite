@@ -39,7 +39,7 @@ docker-compose up --build --force-recreate daemon
 ```
 
 ```console
-docker-compose up --build --force-recreate --scale daemon=3 daemons
+docker-compose up --build --force-recreate --scale daemons=3 daemons
 ```
 
 ```console
