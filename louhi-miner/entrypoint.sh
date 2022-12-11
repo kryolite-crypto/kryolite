@@ -30,6 +30,11 @@ case "${subcommand}" in
     tail -f /dev/null & wait
   ;;
   miner)
-    exec dotnet run --url http://daemons:5000 --address FIM0xA101CFBF69818C624A03AF8C8FDD9B345896EE1215287EABA4CB
+    while true; do
+      dotnet run --url http://daemons:5000 --address FIM0xA101CFBF69818C624A03AF8C8FDD9B345896EE1215287EABA4CB || true
+      echo ""
+      echo "miner exited!"
+      sleep 1
+    done
   ;;
 esac

@@ -30,6 +30,14 @@ dotnet run --url http://localhost:5001 --address FIM0xA101CFBF69818C624A03AF8C8F
 
 ## docker
 
+Quickstart:
+
+```console
+docker-compose up --build --force-recreate --scale daemons=9 --scale louhi-miner=3 daemon-builder daemon daemons louhi-miner
+```
+
+Or:
+
 ```console
 docker-compose up --build --force-recreate daemon-builder
 ```
