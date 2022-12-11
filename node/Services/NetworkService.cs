@@ -38,7 +38,7 @@ public class NetworkService : BackgroundService
         await Task.Run(() => startup.Mempool.WaitOne());
 
         NodeNetwork = new Network(configuration.GetValue<string>("NodeIp"), configuration.GetValue<int>("NodePort"), false);
-        SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager));
+        SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager, logger));
 
         NodeNetwork.ClientDropped += async (object? sender, EventArgs args) => {
             if (sender is not Node node) {
@@ -154,6 +154,8 @@ sync:
 
                     break;
                 case QueryNodeInfo queryNodeInfo:
+                    logger.LogInformation($"Node query received from {args.Message.NodeId}");
+
                     var chainState = blockchainManager.GetChainState();
                     var hostname = $"http://{node.Hostname}:{queryNodeInfo.Port}";
 
@@ -176,6 +178,8 @@ sync:
 
                     break;
                 case RequestChainSync syncParams:
+                    logger.LogInformation($"Chain sync requested from {args.Message.NodeId}");
+
                     var block = blockchainManager.GetBlock(syncParams.StartBlock);
 
                     var chain = new Blockchain();
@@ -286,16 +290,18 @@ public class ChainObserver : IObserver<Node>
 {
     private readonly Network nodeNetwork;
     private readonly IBlockchainManager blockchainManager;
+    private readonly ILogger<NetworkService> logger;
 
     // TODO: quick hack, create proper events
     public static event EventHandler<long>? BeginSync;
     public static event EventHandler<double>? SyncProgress;
     public static event EventHandler<EventArgs>? EndSync;
 
-    public ChainObserver(Network nodeNetwork, IBlockchainManager blockchainManager)
+    public ChainObserver(Network nodeNetwork, IBlockchainManager blockchainManager, ILogger<NetworkService> logger)
     {
         this.nodeNetwork = nodeNetwork ?? throw new ArgumentNullException(nameof(nodeNetwork));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public static void ReportProgress(double progress, double total)
@@ -319,6 +325,8 @@ public class ChainObserver : IObserver<Node>
         if (node.Blockchain == null || node.Blockchain.Count == 0) {
             return;
         }
+
+        logger.LogInformation($"Starting chain sync (chain from node {node.ClientId})");
 
         BeginSync?.Invoke(this, node.Blockchain.Count);
 
@@ -348,7 +356,7 @@ public class ChainObserver : IObserver<Node>
             if(!blockExecutor.Execute(block, out var result)) {
                 // TODO: disconnect from node and remove from peers
                 // TODO: Replace with logger
-                Console.WriteLine($"Chain failed at {block.Id} ({result})");
+                logger.LogError($"Chain failed at {block.Id} ({result})");
                 return;
             }
 
