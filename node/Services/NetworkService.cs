@@ -37,7 +37,10 @@ public class NetworkService : BackgroundService
         await Task.Run(() => startup.Blockchain.WaitOne());
         await Task.Run(() => startup.Mempool.WaitOne());
 
+        logger.LogInformation("Starting Websocket server");
         NodeNetwork = new Network(configuration.GetValue<string>("NodeIp"), configuration.GetValue<int>("NodePort"), false);
+        logger.LogInformation("Websocket server started");
+
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager, logger));
 
         NodeNetwork.ClientDropped += async (object? sender, EventArgs args) => {
@@ -76,6 +79,7 @@ public class NetworkService : BackgroundService
 
                     var nodeHost = new NodeHost
                     {
+                        Hostname = args.Hostname,
                         NodeInfo = nodeInfo
                     };
 
@@ -231,6 +235,7 @@ sync:
             }
         };
 
+        logger.LogInformation("Reading peers from appsettings.json");
         var peers = configuration.GetSection("Peers").Get<string[]>() ?? new string[0];
 
         await Parallel.ForEachAsync(peers, async (peer, token) => {

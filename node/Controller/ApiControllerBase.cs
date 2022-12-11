@@ -11,10 +11,12 @@ namespace Marccacoin;
 public class ApiControllerBase : Controller
 {
     private readonly IBlockchainManager blockchainManager;
+    private readonly INetworkManager networkManager;
 
-    public ApiControllerBase(IBlockchainManager blockchainManager)
+    public ApiControllerBase(IBlockchainManager blockchainManager, INetworkManager networkManager)
     {
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
+        this.networkManager = networkManager ?? throw new System.ArgumentNullException(nameof(networkManager));
     }
 
     [HttpGet("blocktemplate")]
@@ -39,6 +41,14 @@ public class ApiControllerBase : Controller
         }
 
         return blockchainManager.GetBalance(wallet);
+    }
+
+    [HttpGet("peers")]
+    public List<string> GetPeers()
+    {
+        return networkManager.GetHosts()
+            .Select(x => x.Hostname)
+            .ToList();
     }
 
     [HttpGet("block")]

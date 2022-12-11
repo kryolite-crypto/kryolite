@@ -21,6 +21,7 @@ public class NetworkManager : INetworkManager
     {
         using var _ = rwlock.EnterWriteLockEx();
         Hosts.Add(host);
+        logger.LogInformation($"Added host {host.Hostname}");
     }
 
     public DateTimeOffset GetNetworkTime()
@@ -47,8 +48,14 @@ public class NetworkManager : INetworkManager
         return Hosts.Count;
     }
 
+    public List<NodeHost> GetHosts()
+    {
+        return Hosts;
+    }
+
     public class NodeHost
     {
+        public string Hostname { get; init; }
         public NodeInfo? NodeInfo { get; init; }
         public DateTime LastSeen { get; init; }
     }
