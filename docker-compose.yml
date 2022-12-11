@@ -32,7 +32,6 @@ services:
     volumes:
       - ./daemon/appsettings.json:/markka/daemon/appsettings.json
       - daemon-build:/build
-
   louhi-miner:
     build:
       context: .
@@ -52,6 +51,6 @@ services:
       - ./shared:/markka/shared
       - ./node:/markka/node
     ports:
-      - 5900:5900
+      - 5901:5900
 volumes:
   daemon-build:

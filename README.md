@@ -25,7 +25,7 @@ dotnet run
 
 ```console
 cd louhi-miner
-dotnet run --url http://localhost:5000 --address FIM0x000000
+dotnet run --url http://localhost:5001 --address FIM0xA101CFBF69818C624A03AF8C8FDD9B345896EE1215287EABA4CB
 ```
 
 ## docker
@@ -43,7 +43,7 @@ docker-compose up --build --force-recreate --scale daemons=3 daemons
 ```
 
 ```console
-docker-compose up --build --force-recreate louhi-miner
+docker-compose up --build --force-recreate --scale louhi-miner=3 louhi-miner
 ```
 
 ```console
