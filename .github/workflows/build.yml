@@ -4,18 +4,24 @@ on:
   push:
 
 jobs:
-  daemon:
+  build:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - run: docker-compose build daemon
-  holvi-wallet:
+      - run: docker build --build-arg COMPONENT=daemon -f Dockerfile.release -t release
+      - run: mkdir release
+      - run: docker create --name release release
+      - run: docker cp release:/daemon-linux-x64 release
+      - run: docker cp release:/daemon-linux-arm64 release
+      - run: docker cp release:/daemon-win-x64.exe release
+      - run: docker cp release:/daemon-mac-x64 release
+      - run: docker cp release:/daemon-mac-arm64 release
+      - uses: actions/upload-artifact@v3
+        with:
+          name: daemon
+          path: release/*
+  release:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v3
-      - run: docker-compose build holvi-wallet
-  louhi-miner:
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v3
-      - run: docker-compose build louhi-miner
+      - uses: actions/download-artifact@v3
+      - run: ls -R
