@@ -9,7 +9,7 @@ _on_error() {
 
   echo ""
   echo "ERR $path:$line $BASH_COMMAND exited with $1"
-  exit
+  exit 1
 }
 trap '_on_error $?' ERR
 

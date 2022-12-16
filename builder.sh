@@ -9,19 +9,31 @@ _on_error() {
 
   echo ""
   echo "ERR $path:$line $BASH_COMMAND exited with $1"
-  exit
+  exit 1
 }
 trap '_on_error $?' ERR
 
 COMPONENT=$1
-RUNTIME=$2
+VARIANT=$2
 DIST=$3
 
+case "$VARIANT" in
+  win-*)
+    runtime="$VARIANT"
+  ;;
+  mac-x64)
+    runtime=osx.11.0-x64
+  ;;
+  mac-arm64)
+    runtime=osx.11.0-arm64
+  ;;
+esac
+
 build=$(mktemp -d)
-dotnet publish -c Release -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --self-contained --runtime="$RUNTIME" -o "$build" "$COMPONENT"
+dotnet publish -c Release -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --self-contained --runtime="$runtime" -o "$build" "$COMPONENT"
 
 target=$(mktemp -d)
-case "$RUNTIME" in
+case "$VARIANT" in
   win-*)
     cp "$build/$COMPONENT.exe" "$target"
   ;;
@@ -31,4 +43,4 @@ case "$RUNTIME" in
 esac
 
 
-zip -jpr "${DIST}/${COMPONENT}-${RUNTIME}.zip" "$target"
+zip -jpr "${DIST}/${COMPONENT}-${VARIANT}.zip" "$target"
