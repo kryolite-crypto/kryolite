@@ -1,9 +1,8 @@
-using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using MessagePack;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 [MessagePackObject]
 public struct SHA256Hash

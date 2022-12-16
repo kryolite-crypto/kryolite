@@ -1,8 +1,7 @@
-using Marccacoin.Shared;
 using MessagePack;
 using NSec.Cryptography;
 
-namespace Marccacoin;
+namespace Kryolite.Shared;
 
 [MessagePackObject]
 public class Vote
@@ -17,7 +16,7 @@ public class Vote
     public SHA256Hash Hash { get; set; }
 
     [Key(3)]
-    public Marccacoin.Shared.PublicKey PublicKey { get; set; }
+    public Shared.PublicKey PublicKey { get; set; }
 
     [Key(4)]
     public Signature Signature { get; private set; }

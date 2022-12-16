@@ -3,7 +3,7 @@ using System.Globalization;
 using System.Numerics;
 using System.Reflection;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
     
 public static class Extensions
 {

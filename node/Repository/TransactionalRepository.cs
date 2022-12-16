@@ -1,6 +1,6 @@
 using LiteDB;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 
 public abstract class TransactionalRepository : IDisposable

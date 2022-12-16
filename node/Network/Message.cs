@@ -1,7 +1,7 @@
 using MessagePack;
 using MessagePack.Formatters;
 
-namespace Marccacoin;
+namespace Kryolite;
 
 [MessagePackObject]
 public class Message

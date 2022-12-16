@@ -4,7 +4,7 @@ using System.Text;
 using Crypto.RIPEMD;
 using MessagePack;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 public struct PrivateKey
 {

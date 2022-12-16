@@ -2,7 +2,7 @@ using System.Numerics;
 using System.Runtime.InteropServices;
 using MessagePack;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 [MessagePackObject]
 [StructLayout(LayoutKind.Explicit)]

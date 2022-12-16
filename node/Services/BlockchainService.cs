@@ -1,9 +1,9 @@
-using Marccacoin.Shared;
+using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public class BlockchainService : BackgroundService
 {

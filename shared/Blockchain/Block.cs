@@ -1,12 +1,9 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using LiteDB;
-using Marccacoin.Shared;
 using MessagePack;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 [StructLayout(LayoutKind.Explicit)]
 public struct Concat

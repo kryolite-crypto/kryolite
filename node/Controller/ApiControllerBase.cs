@@ -1,11 +1,10 @@
 using System.ComponentModel.DataAnnotations;
-using Marccacoin;
-using Marccacoin.Shared;
+using Kryolite.Shared;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 [ApiController]
 public class ApiControllerBase : Controller

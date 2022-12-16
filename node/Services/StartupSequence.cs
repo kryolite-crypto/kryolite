@@ -1,4 +1,4 @@
-namespace Marccacoin;
+namespace Kryolite;
 
 public class StartupSequence
 {

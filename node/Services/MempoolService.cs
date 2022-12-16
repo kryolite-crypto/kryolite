@@ -1,8 +1,7 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Marccacoin.Shared;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public class MempoolService : BackgroundService
 {

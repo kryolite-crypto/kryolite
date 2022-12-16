@@ -1,13 +1,10 @@
-﻿// See https://aka.ms/new-console-template for more information
-
-using System.CommandLine;
-using System.Diagnostics;
+﻿using System.CommandLine;
 using System.Numerics;
 using System.Text;
 using System.Text.Json;
+using Kryolite.Node;
+using Kryolite.Shared;
 using LiteDB;
-using Marccacoin;
-using Marccacoin.Shared;
 using Newtonsoft.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -210,13 +207,13 @@ public class Program
             deserialize: (bson) => bson.AsBinary
         );
 
-        BsonMapper.Global.RegisterType<Marccacoin.Shared.PublicKey>
+        BsonMapper.Global.RegisterType<Kryolite.Shared.PublicKey>
         (
             serialize: (hash) => hash.Buffer,
             deserialize: (bson) => bson.AsBinary
         );
 
-        BsonMapper.Global.RegisterType<Marccacoin.Shared.PrivateKey>
+        BsonMapper.Global.RegisterType<Kryolite.Shared.PrivateKey>
         (
             serialize: (hash) => hash.Buffer,
             deserialize: (bson) => bson.AsBinary

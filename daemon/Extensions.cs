@@ -2,7 +2,7 @@ using System.Collections;
 using System.Globalization;
 using System.Numerics;
 
-namespace Marccacoin.Daemon;
+namespace Kryolite.Daemon;
     
 public static class Extensions
 {

@@ -1,8 +1,6 @@
-using System.Collections.Generic;
 using System.Security.Cryptography;
-using System.Linq;
 
-namespace Marccacoin.Shared
+namespace Kryolite.Shared
 {
     public class MerkleTree
     {

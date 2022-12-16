@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 using MessagePack;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 [MessagePackObject]
 public struct Address

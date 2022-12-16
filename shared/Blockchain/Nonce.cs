@@ -1,7 +1,7 @@
 using System.Runtime.InteropServices;
 using MessagePack;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 [MessagePackObject]
 public record struct Nonce

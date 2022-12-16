@@ -1,7 +1,7 @@
 using System.Threading.Tasks.Dataflow;
-using Marccacoin.Shared;
+using Kryolite.Shared;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public interface IMempoolManager
 {

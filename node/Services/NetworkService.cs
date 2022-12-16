@@ -1,16 +1,15 @@
-using System.Collections.Concurrent;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
-using Marccacoin.Shared;
+using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NSec.Cryptography;
-using static Marccacoin.NetworkManager;
+using static Kryolite.Node.NetworkManager;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public class NetworkService : BackgroundService
 {
@@ -20,7 +19,7 @@ public class NetworkService : BackgroundService
     private readonly IBlockchainManager blockchainManager;
     private readonly IMempoolManager mempoolManager;
     private readonly ILogger<NetworkService> logger;
-    private readonly BufferBlock<Node> SyncBuffer = new BufferBlock<Node>();
+    private readonly BufferBlock<BaseNode> SyncBuffer = new BufferBlock<BaseNode>();
 
     public NetworkService(IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager)
     {
@@ -46,7 +45,7 @@ public class NetworkService : BackgroundService
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager, logger));
 
         NodeNetwork.ClientDropped += async (object? sender, EventArgs args) => {
-            if (sender is not Node node) {
+            if (sender is not BaseNode node) {
                 return;
             }
 
@@ -68,7 +67,7 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            if (sender is not Node node) 
+            if (sender is not BaseNode node) 
             {
                 logger.LogError("Message received from unknown source");
                 return;
@@ -126,7 +125,7 @@ sync:
                     if (blockchain.Blocks != null) 
                     {
                         node.Blockchain = blockchain.Blocks;
-                        SyncBuffer.Post<Node>(node);
+                        SyncBuffer.Post<BaseNode>(node);
                     }
 
                     break;
@@ -326,7 +325,7 @@ public class TransactionData
     public IList<Transaction> Transactions { get; set; } = new List<Transaction>();
 }
 
-public class ChainObserver : IObserver<Node>
+public class ChainObserver : IObserver<BaseNode>
 {
     private readonly Network nodeNetwork;
     private readonly IBlockchainManager blockchainManager;
@@ -360,7 +359,7 @@ public class ChainObserver : IObserver<Node>
         throw new Exception("ChainObserver failed", error);
     }
 
-    public async void OnNext(Node node)
+    public async void OnNext(BaseNode node)
     {
         if (node.Blockchain == null || node.Blockchain.Count == 0) {
             return;

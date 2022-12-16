@@ -1,4 +1,6 @@
-namespace Marccacoin;
+using Kryolite.Node;
+
+namespace Kryolite.Daemon;
 
 public class ApiController : ApiControllerBase
 {
