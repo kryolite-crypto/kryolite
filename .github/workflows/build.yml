@@ -13,14 +13,10 @@ jobs:
       - run: docker push ghcr.io/${GITHUB_REPOSITORY}/builder:latest
   build:
     needs: builder
-    # strategy:
-    #   matrix:
-    #     component: [daemon, holvi-wallet, louhi-miner]
-    #     runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
     strategy:
       matrix:
-        component: [daemon]
-        runtime: [linux-x64, linux-arm64]
+        component: [daemon, holvi-wallet, louhi-miner]
+        runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
