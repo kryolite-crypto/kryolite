@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - run: docker build --build-arg COMPONENT=daemon -f Dockerfile.release -t release
+      - run: docker build --build-arg COMPONENT=daemon -f Dockerfile.release -t release .
       - run: mkdir release
       - run: docker create --name release release
       - run: docker cp release:/daemon-linux-x64 release
