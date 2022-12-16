@@ -11,19 +11,23 @@ jobs:
   #     - run: docker build -f Dockerfile.builder -t builder .
   build:
     #    needs: builder
+    # strategy:
+    #   matrix:
+    #     component: [daemon, holvi-wallet, louhi-miner]
+    #     runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
     strategy:
       matrix:
-        component: [daemon, holvi-wallet, louhi-miner]
-        runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
+        component: [daemon]
+        runtime: [linux-x64, linux-arm64]
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
       - run: docker build -f Dockerfile.builder -t builder .
       - run: mkdir dist
       - run: docker run -v "$(pwd)/dist:/dist" builder "${{ matrix.component }}" "${{ matrix.runtime }}" /dist
+      - run: ls -lah dist
       - uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.component }}-${{ matrix.runtime }}
           path: dist
   release:
     needs: build
@@ -31,3 +35,4 @@ jobs:
     steps:
       - uses: actions/download-artifact@v3
       - run: ls -lah
+      - run: tree
