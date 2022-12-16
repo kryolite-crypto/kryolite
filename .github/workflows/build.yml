@@ -4,12 +4,13 @@ on:
   push:
 
 jobs:
-  base:
+  builder:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - run: docker build -f Dockerfile.release -t builder .
+      - run: docker build -f Dockerfile.builder -t builder .
   build:
+    needs: builder
     strategy:
       matrix:
         component: [daemon, holvi-wallet, louhi-miner]
