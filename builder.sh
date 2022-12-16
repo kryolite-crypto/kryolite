@@ -17,10 +17,8 @@ COMPONENT=$1
 VARIANT=$2
 DIST=$3
 
+runtime=$VARIANT
 case "$VARIANT" in
-  win-*)
-    runtime="$VARIANT"
-  ;;
   mac-x64)
     runtime=osx.11.0-x64
   ;;
