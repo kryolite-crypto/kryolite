@@ -4,24 +4,27 @@ on:
   push:
 
 jobs:
-  build:
+  base:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
-      - run: docker build --build-arg COMPONENT=daemon -f Dockerfile.release -t release .
-      - run: mkdir release
-      - run: docker create --name release release
-      - run: docker cp release:/daemon-linux-x64 release
-      - run: docker cp release:/daemon-linux-arm64 release
-      - run: docker cp release:/daemon-win-x64.exe release
-      - run: docker cp release:/daemon-mac-x64 release
-      - run: docker cp release:/daemon-mac-arm64 release
+      - run: docker build -f Dockerfile.release -t builder .
+  build:
+    strategy:
+      matrix:
+        component: [daemon, holvi-wallet, louhi-miner]
+        runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
+    runs-on: ubuntu-22.04
+    steps:
+      - run: mkdir dist
+      - run: docker run -v "$(pwd)/dist:/dist" builder "${{ matrix.component }}" "${{ matrix.runtime }}" /dist
       - uses: actions/upload-artifact@v3
         with:
-          name: daemon
-          path: release/*
+          name: ${{ matrix.component }}-${{ matrix.runtime }}
+          path: dist
   release:
+    needs: build
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/download-artifact@v3
-      - run: ls -R
+      - run: ls -lah
