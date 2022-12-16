@@ -6,13 +6,13 @@ on:
 jobs:
   builder:
     runs-on: ubuntu-22.04
+    env:
+      DOCKER_BUILDKIT: 1
     steps:
       - uses: actions/checkout@v3
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker pull ghcr.io/${GITHUB_REPOSITORY}/builder:latest || true
       - run: docker build -f Dockerfile.builder --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from=ghcr.io/${GITHUB_REPOSITORY}/builder:latest -t ghcr.io/${GITHUB_REPOSITORY}/builder:latest .
-        env:
-          DOCKER_BUILDKIT: 1
       - run: docker push ghcr.io/${GITHUB_REPOSITORY}/builder:latest
   build:
     needs: builder
@@ -21,6 +21,8 @@ jobs:
         component: [daemon, wallet, miner]
         runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
     runs-on: ubuntu-22.04
+    env:
+      DOCKER_BUILDKIT: 1
     steps:
       - uses: actions/checkout@v3
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
@@ -29,11 +31,9 @@ jobs:
       - run: mkdir dist
       - run: docker run -v "$(pwd)/dist:/dist" builder "${{ matrix.component }}" "${{ matrix.runtime }}" /dist
       - run: echo "FROM scratch" | docker build -t empty -
-        env:
-          DOCKER_BUILDKIT: 1
-      - run: docker create --name empty empty ":"
-      - run: docker cp dist empty:/
-      - run: docker tag empty "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
+      - run: docker create --name artifacts empty ":"
+      - run: docker cp dist artifacts:/
+      - run: docker commit artifacts "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
   release:
     needs: build
