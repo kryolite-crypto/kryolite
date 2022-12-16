@@ -17,7 +17,7 @@ public class Wallet
     [BsonIgnore]
     public bool Updated { get; set; }
 
-    public List<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
+    public List<WalletTransaction> WalletTransactions { get; set; } = new();
 
     public Wallet()
     {

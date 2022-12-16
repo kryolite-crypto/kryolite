@@ -371,6 +371,9 @@ public class BlockchainManager : IBlockchainManager
         var valid = executor.Execute(newTransactions);
 
         mempoolManager.AddTransactions(valid, broadcast);
+
+        logger.LogInformation($"Added {transactions.Count} transactions to queue");
+
         return valid;
     }
 

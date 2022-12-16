@@ -79,4 +79,14 @@ public class ApiControllerBase : Controller
 
         return networkManager.ProposeBlock(block);
     }
+
+    [HttpPost("tx")]
+    public void PostTransaction([FromBody] Transaction tx)
+    {
+        if (!ModelState.IsValid) {
+            throw new Exception("invalid transaction");
+        }
+
+        blockchainManager.AddTransactionsToQueue(tx);
+    }
 }

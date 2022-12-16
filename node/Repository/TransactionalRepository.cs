@@ -13,6 +13,8 @@ public abstract class TransactionalRepository : IDisposable
     {
         Database = new LiteDatabase($"Filename={BlockchainService.DATA_DIR}{connectionString}");
 
+        Directory.CreateDirectory(BlockchainService.DATA_DIR);
+
         if (transactional) {
             Database.BeginTrans();
         }

@@ -7,6 +7,31 @@ namespace Marccacoin.Shared;
     
 public static class Extensions
 {
+    public static string ToHexString(this byte[] bytes)
+    {
+        return BitConverter.ToString(bytes).Replace("-", "");
+    }
+
+    public static string ToHexString(this SHA256Hash bytes)
+    {
+        return BitConverter.ToString(bytes).Replace("-", "");
+    }
+
+    public static string ToHexString(this PrivateKey bytes)
+    {
+        return BitConverter.ToString(bytes).Replace("-", "");
+    }
+
+    public static string ToHexString(this PublicKey bytes)
+    {
+        return BitConverter.ToString(bytes).Replace("-", "");
+    }
+
+    public static string ToHexString(this Signature bytes)
+    {
+        return BitConverter.ToString(bytes).Replace("-", "");
+    }
+
     public static IEnumerable<TElement> PeekTail<TElement, TPriority>(this PriorityQueue<TElement, TPriority> queue, int count) 
     {
         return queue.UnorderedItems.OrderByDescending(x => x.Priority).Take(count).Select(x => x.Element).ToList();
