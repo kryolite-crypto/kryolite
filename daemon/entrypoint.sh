@@ -46,7 +46,7 @@ case "${subcommand}" in
       ./build.sh
   ;;
   daemon)
-    case "${MARKKA_DAEMON_CLEAN:-}" in
+    case "${KRYOLITE_DAEMON_CLEAN:-}" in
       blocks)
         rm -rf data/blocks.dat
       ;;

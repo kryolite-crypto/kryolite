@@ -18,8 +18,8 @@ COPY shared shared
 COPY node node
 
 COPY daemon daemon
-COPY louhi-miner louhi-miner
-COPY holvi-wallet holvi-wallet
+COPY miner miner
+COPY wallet wallet
 
 COPY builder.sh .
 

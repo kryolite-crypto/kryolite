@@ -14,30 +14,11 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
       - run: docker push ghcr.io/${GITHUB_REPOSITORY}/builder:latest
-  delete-artifacts:
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Delete artifacts from previous runs
-        uses: actions/github-script@v3
-        with:
-          github-token: ${{ github.token }}
-          script: |
-            const runsResponse = await github.request("GET /repos/${{ github.repository }}/actions/runs")
-            for (workflow_run of runsResponse.data.workflow_runs) {
-              if (workflow_run.name == "${{ github.workflow }}" && workflow_run.status !== "in_progress") {
-                console.log(`Deleting artifacts from workflow run ${workflow_run.id}`)
-                const response = await github.request(`GET /repos/$/actions/runs/${workflow_run.id}/artifacts`)
-                for (artifact of response.data.artifacts) {
-                  console.log(`Deleting artifact with id ${artifact.id}`)
-                  const deleteResponse = await github.request(`DELETE /repos/$/actions/artifacts/${artifact.id}`)
-                }
-              }
-            }
   build:
     needs: builder
     strategy:
       matrix:
-        component: [daemon, holvi-wallet, louhi-miner]
+        component: [daemon, wallet, miner]
         runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
     runs-on: ubuntu-22.04
     steps:
@@ -47,14 +28,22 @@ jobs:
       - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/builder:latest" builder
       - run: mkdir dist
       - run: docker run -v "$(pwd)/dist:/dist" builder "${{ matrix.component }}" "${{ matrix.runtime }}" /dist
-      - run: ls -lah dist
-      - uses: actions/upload-artifact@v3
-        with:
-          path: dist
+      - run: echo "FROM scratch" | docker build -t empty -
+      - run: docker create --name empty empty ":"
+      - run: docker cp dist empty:/
+      - run: docker tag empty "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
+      - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
   release:
     needs: build
     runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        component: [daemon, wallet, miner]
+        runtime: [linux-x64, linux-arm64, mac-x64, mac-arm64, win-x64]
     steps:
-      - uses: actions/download-artifact@v3
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+      - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
+      - run: docker tag  "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}" artifacts
+      - run: docker create --name artifacts artifacts
+      - run: docker cp artifacts:/dist/${{ matrix.component }}-${{ matrix.runtime }}.zip .
       - run: ls -lah
-      - run: tree

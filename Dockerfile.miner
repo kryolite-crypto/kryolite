@@ -20,21 +20,10 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
   && mv "reflex_linux_${arch}/reflex" /usr/local/bin \
   && rm -rf /ghjk
 
-RUN DEBIAN_FRONTEND=noninteractive \
-  apt-get update && apt-get install -y \
-  xvfb x11vnc netcat fluxbox
+COPY shared /kryolite/shared
 
-COPY --from=ghcr.io/matti/tailer:824002811ee20a0dbb19501e77553b49ebdf5869 /tailer /usr/local/bin
-
-ENV DISPLAY=:0
-
-COPY shared /markka/shared
-COPY node /markka/node
-
-WORKDIR /markka/holvi-wallet
-
-COPY holvi-wallet .
+WORKDIR /kryolite/miner
+COPY miner .
 
 RUN dotnet build
-
-ENTRYPOINT [ "/markka/holvi-wallet/entrypoint.sh" ]
+ENTRYPOINT [ "/kryolite/miner/entrypoint.sh" ]

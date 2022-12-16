@@ -13,9 +13,9 @@ _on_error() {
 }
 trap '_on_error $?' ERR
 
-COMPONENT=${1}
-RUNTIME=${2}
-DIST=${3}
+COMPONENT=$1
+RUNTIME=$2
+DIST=$3
 
 build=$(mktemp -d)
 dotnet publish -c Release -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --self-contained --runtime="$RUNTIME" -o "$build" "$COMPONENT"
@@ -24,21 +24,11 @@ target=$(mktemp -d)
 case "$RUNTIME" in
   win-*)
     cp "$build/$COMPONENT.exe" "$target"
-    arch="$RUNTIME"
   ;;
-  linux-*)
+  *)
     cp "$build/$COMPONENT" "$target"
-    arch="$RUNTIME"
-  ;;
-  osx*arm64)
-    cp "$build/$COMPONENT" "$target"
-    arch="mac-arm64"
-  ;;
-  osx*x64)
-    cp "$build/$COMPONENT" "$target"
-    arch="mac-x64"
   ;;
 esac
 
 
-zip -jpr "${DIST}/${COMPONENT}-${arch}.zip" "$target"
+zip -jpr "${DIST}/${COMPONENT}-${RUNTIME}.zip" "$target"

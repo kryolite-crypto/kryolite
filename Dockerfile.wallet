@@ -20,10 +20,21 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
   && mv "reflex_linux_${arch}/reflex" /usr/local/bin \
   && rm -rf /ghjk
 
-COPY shared /markka/shared
+RUN DEBIAN_FRONTEND=noninteractive \
+  apt-get update && apt-get install -y \
+  xvfb x11vnc netcat fluxbox
 
-WORKDIR /markka/louhi-miner
-COPY louhi-miner .
+COPY --from=ghcr.io/matti/tailer:824002811ee20a0dbb19501e77553b49ebdf5869 /tailer /usr/local/bin
+
+ENV DISPLAY=:0
+
+COPY shared /kryolite/shared
+COPY node /kryolite/node
+
+WORKDIR /kryolite/wallet
+
+COPY wallet .
 
 RUN dotnet build
-ENTRYPOINT [ "/markka/louhi-miner/entrypoint.sh" ]
+
+ENTRYPOINT [ "/kryolite/wallet/entrypoint.sh" ]

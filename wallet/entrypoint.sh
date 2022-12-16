@@ -31,7 +31,7 @@ case "${subcommand}" in
   ;;
   wallet)
     (
-      exec tailer /tmp/xvfb.log:xvfb /tmp/x11vnc.log:x11vnc /tmp/fluxbox.log /tmp/holvi-wallet.log
+      exec tailer /tmp/xvfb.log:xvfb /tmp/x11vnc.log:x11vnc /tmp/fluxbox.log /tmp/wallet.log
     ) &
 
     (
@@ -57,7 +57,7 @@ case "${subcommand}" in
 
     (
       exec dotnet run
-    ) >/tmp/holvi-wallet.log 2>&1 &
+    ) >/tmp/wallet.log 2>&1 &
 
     exec tail -f /dev/null
   ;;

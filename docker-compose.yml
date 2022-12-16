@@ -8,9 +8,9 @@ services:
     #command: hang
     command: builder
     volumes:
-      - ./daemon:/markka/daemon
-      - ./shared:/markka/shared
-      - ./node:/markka/node
+      - ./daemon:/kryolite/daemon
+      - ./shared:/kryolite/shared
+      - ./node:/kryolite/node
       - daemon-build:/build
 
   daemon:
@@ -22,40 +22,40 @@ services:
       - 6001:6000
       - 5001:5000
     volumes:
-      - ./daemon/appsettings.json:/markka/daemon/appsettings.json
-      - /markka/daemon/data
+      - ./daemon/appsettings.json:/kryolite/daemon/appsettings.json
+      - /kryolite/daemon/data
       - daemon-build:/build
     environment:
-      - MARKKA_DAEMON_CLEAN=none
+      - KRYOLITE_DAEMON_CLEAN=none
   daemons:
     build:
       context: .
       dockerfile: Dockerfile.daemon
     command: daemon
     volumes:
-      - ./daemon/appsettings.json:/markka/daemon/appsettings.json
-      - /markka/daemon/data
+      - ./daemon/appsettings.json:/kryolite/daemon/appsettings.json
+      - /kryolite/daemon/data
       - daemon-build:/build
     environment:
-      - MARKKA_DAEMON_CLEAN=none
-  louhi-miner:
+      - KRYOLITE_DAEMON_CLEAN=none
+  miner:
     build:
       context: .
-      dockerfile: Dockerfile.louhi-miner
+      dockerfile: Dockerfile.miner
     #command: hang
     command: miner
     volumes:
-      - ./louhi-miner:/markka/louhi-miner
-      - ./shared:/markka/shared
-  holvi-wallet:
+      - ./miner:/kryolite/miner
+      - ./shared:/kryolite/shared
+  wallet:
     build:
       context: .
-      dockerfile: Dockerfile.holvi-wallet
+      dockerfile: Dockerfile.wallet
     command: wallet
     volumes:
-      - ./holvi-wallet:/markka/holvi-wallet
-      - ./shared:/markka/shared
-      - ./node:/markka/node
+      - ./wallet:/kryolite/wallet
+      - ./shared:/kryolite/shared
+      - ./node:/kryolite/node
     ports:
       - 5901:5900
 volumes:

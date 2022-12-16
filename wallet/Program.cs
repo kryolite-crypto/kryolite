@@ -18,7 +18,7 @@ namespace Kryolite.Wallet
             Host = WebHost.CreateDefaultBuilder()
                 .ConfigureAppConfiguration(c => c
                     .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
-                    .AddEnvironmentVariables(prefix: "MARKKA__")
+                    .AddEnvironmentVariables(prefix: "KRYOLITE__")
                     .AddCommandLine(args))
                 .ConfigureLogging(logging => logging.AddProvider(new InMemoryLoggerProvider()))
                 .UseStartup<Startup>()

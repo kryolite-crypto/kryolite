@@ -5,11 +5,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d"
-        Width="600" 
+        Width="600"
         Height="400"
 		x:DataType="vm:LogViewerDialogViewModel"
         x:Class="Kryolite.Wallet.LogViewerDialog"
-        Title="Log Viewer - Holvi Wallet">
+        Title="Log Viewer - Wallet">
     <DockPanel>
         <TextBox Name="LogBox" AcceptsReturn="True" IsReadOnly="true" FontFamily="Andale Mono" FontSize="12"/>
     </DockPanel>

@@ -1,4 +1,4 @@
-# marcca
+# kryolite
 
 ## Compile and Run
 
@@ -12,19 +12,19 @@ cd node
 dotnet run
 ```
 
-### Holvi Wallet
+### Wallet
 
 Wallet hosts full Node to connect and synchronize with network
 
 ```console
-cd holvi-wallet
+cd wallet
 dotnet run
 ```
 
-### Louhi Miner
+### Miner
 
 ```console
-cd louhi-miner
+cd miner
 dotnet run --url http://localhost:5001 --address FIM0xA101CFBF69818C624A03AF8C8FDD9B345896EE1215287EABA4CB
 ```
 
@@ -33,7 +33,7 @@ dotnet run --url http://localhost:5001 --address FIM0xA101CFBF69818C624A03AF8C8F
 Quickstart:
 
 ```console
-docker-compose up --build --force-recreate --scale daemons=9 --scale louhi-miner=3 daemon-builder daemon daemons louhi-miner
+docker-compose up --build --force-recreate --scale daemons=9 --scale miner=3 daemon-builder daemon daemons miner
 ```
 
 Or:
@@ -51,11 +51,11 @@ docker-compose up --build --force-recreate --scale daemons=3 daemons
 ```
 
 ```console
-docker-compose up --build --force-recreate --scale louhi-miner=3 louhi-miner
+docker-compose up --build --force-recreate --scale miner=3 miner
 ```
 
 ```console
-docker-compose up --build --force-recreate holvi-wallet
+docker-compose up --build --force-recreate wallet
 ```
 
 Get a shell
