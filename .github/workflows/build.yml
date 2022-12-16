@@ -14,7 +14,7 @@ jobs:
       - run: docker pull ghcr.io/${GITHUB_REPOSITORY}/builder:latest || true
       - run: docker build -f Dockerfile.builder --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from=ghcr.io/${GITHUB_REPOSITORY}/builder:latest -t ghcr.io/${GITHUB_REPOSITORY}/builder:latest .
       - run: docker push ghcr.io/${GITHUB_REPOSITORY}/builder:latest
-  build:
+  builds:
     needs: builder
     strategy:
       matrix:
@@ -35,8 +35,8 @@ jobs:
       - run: docker cp dist artifacts:/
       - run: docker commit artifacts "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
-  release:
-    needs: build
+  artifacts:
+    needs: builds
     strategy:
       matrix:
         component: [daemon, wallet, miner]
