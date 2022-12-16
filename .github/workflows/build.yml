@@ -7,8 +7,8 @@ jobs:
   builder:
     runs-on: ubuntu-22.04
     steps:
-      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - uses: actions/checkout@v3
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker build -f Dockerfile.builder -t ghcr.io/${GITHUB_REPOSITORY}/builder:latest .
       - run: docker push ghcr.io/${GITHUB_REPOSITORY}/builder:latest
   build:
@@ -24,6 +24,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v3
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:latest"
       - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/builder:latest" builder
       - run: mkdir dist
