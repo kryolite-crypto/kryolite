@@ -24,11 +24,11 @@ target=$(mktemp -d)
 case "$RUNTIME" in
   win-*)
     cp "$build/$COMPONENT.exe" "$target"
-    arch="$runtime"
+    arch="$RUNTIME"
   ;;
   linux-*)
     cp "$build/$COMPONENT" "$target"
-    arch="$runtime"
+    arch="$RUNTIME"
   ;;
   osx*arm64)
     cp "$build/$COMPONENT" "$target"
