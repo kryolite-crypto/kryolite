@@ -85,9 +85,11 @@ public partial class MainWindow : Window
             });
         };
 
-        BlockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {
+        BlockchainManager.OnBlockAdded(new ActionBlock<PosBlock>(async block => {
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Blocks = block.Id;
+                if (block.Pow is not null) {
+                    Model.Blocks = block.Pow.Height;
+                }
             });
         }));
 

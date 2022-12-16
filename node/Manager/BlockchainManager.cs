@@ -1,9 +1,7 @@
 using System.Numerics;
-using System.Security.Cryptography;
 using System.Threading.Tasks.Dataflow;
 using Marccacoin.Shared;
 using Microsoft.Extensions.Logging;
-using NSec.Cryptography;
 
 namespace Marccacoin;
 
@@ -13,10 +11,11 @@ public class BlockchainManager : IBlockchainManager
     private readonly IMempoolManager mempoolManager;
     private readonly IWalletManager walletManager;
     private readonly ILogger<BlockchainManager> logger;
-    private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+    private readonly ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    private BroadcastBlock<Block> BlockBroadcast = new BroadcastBlock<Block>(i => i);
-    private BroadcastBlock<Wallet> WalletBroadcast = new BroadcastBlock<Wallet>(i => i);
+    private BroadcastBlock<PosBlock> BlockBroadcast = new(i => i);
+    private BroadcastBlock<Wallet> WalletBroadcast = new(i => i);
+    private BroadcastBlock<Vote> VoteBroadcast = new(i => i);
 
     public BlockchainManager(INetworkManager discoveryManager, IMempoolManager mempoolManager, IWalletManager walletManager, ILogger<BlockchainManager> logger)
     {
@@ -26,7 +25,7 @@ public class BlockchainManager : IBlockchainManager
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public Block? GetBlock(long id)
+    public PowBlock? GetBlock(long id)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockRepository();
@@ -34,7 +33,7 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetBlock(id);
     }
 
-    public bool AddBlock(Block block, bool broadcastBlock = true)
+    public bool AddBlock(PosBlock block, bool broadcastBlock = true)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockRepository(true);
@@ -44,11 +43,11 @@ public class BlockchainManager : IBlockchainManager
         var blockchainContext = new BlockchainContext()
         {
             LastBlocks = blockchainRepository.Tail(11),
-            CurrentDifficulty = chainState.CurrentDifficulty,
+            CurrentDifficulty = chainState.POW.CurrentDifficulty,
             NetworkTime = discoveryManager.GetNetworkTime()
         };
 
-        var blockExecutor = Executor.Create<Block, BlockchainContext>(blockchainContext)
+        var powExcecutor = Executor.Create<PowBlock, BlockchainContext>(blockchainContext)
             .Link<VerifyDifficulty>()
             .Link<VerifyNonce>()
             .Link<VerifyId>(x => x.Id > 0)
@@ -56,10 +55,27 @@ public class BlockchainManager : IBlockchainManager
             .Link<VerifyTimestampPast>(x => x.Id > 0)
             .Link<VerifyTimestampFuture>(x => x.Id > 0);
 
-        if (!blockExecutor.Execute(block, out var result)) {
-            logger.LogError(blockchainContext.Ex, $"AddBlock failed with: {result}");
+        if (block.Pow != null && !powExcecutor.Execute(block.Pow, out var result)) {
+            logger.LogWarning($"AddBlock failed with: {result}");
             return false;
         }
+
+        // POS
+        // Verify Id
+        // Verify ParentHash
+        // Verify Timestamp (must be more then median of 11 last pos blocks?)
+        
+        // If has POW
+        // Verify Transactions as votes
+        // Credit Block Reward to Miner (create transaction)
+        // Credit Verifier reward to signers (create transaction)
+        // Credit Dev Fee (create transaction)
+
+        // If not has POW
+        // Verify Transactions
+        // Execute transactions
+        // Credit tx fees to pos node
+        // Sign block and collect transaction fees
 
         var wallets = walletManager.GetWallets();
 
@@ -67,7 +83,7 @@ public class BlockchainManager : IBlockchainManager
         {
             Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
             FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
-            Timestamp = block.Header.Timestamp
+            Timestamp = block.Timestamp
         };
 
         var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
@@ -85,31 +101,82 @@ public class BlockchainManager : IBlockchainManager
             .Link<UpdateRecipientWallet>();
 
         if (!txExecutor.ExecuteBatch(block.Transactions, out var txresult)) {
-            logger.LogError(txContext.Ex, $"AddBlock failed with: {txresult}");
+            logger.LogWarning($"AddBlock failed with: {txresult}");
             return false;
         }
 
         walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
         blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
 
-        logger.LogInformation($"Added block {block.Id}");
+        logger.LogInformation($"Added block {block.Height}");
 
-        if (block.Id % Constant.EPOCH_LENGTH_BLOCKS == 0) {
-            var epochStart = blockchainRepository.GetBlock(block!.Id - Constant.EPOCH_LENGTH_BLOCKS + 1);
-            NextEpoch(epochStart, block, chainState);
+        if (block.Pow is not null) 
+        {
+            txContext = new TransactionContext(blockchainRepository, wallets)
+            {
+                Fee = block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
+                FeeTotal = (ulong)block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
+                Timestamp = block.Timestamp
+            };
+
+            txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
+                .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
+                .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
+                .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
+                .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT)
+                // TODO: Check for duplicate tx
+                .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
+                .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT)
+                .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
+                .Link<FetchRecipientWallet>()
+                .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
+                .Link<AddBalanceToRecipient>()
+                .Link<UpdateRecipientWallet>();
+
+            if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res)) {
+                logger.LogWarning($"AddBlock failed with: {res}");
+                return false;
+            }
+
+            walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
+            blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
+
+            mempoolManager.RemoveTransactions(block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT));
+
+            if (block.Pow.Height % Constant.EPOCH_LENGTH_BLOCKS == 0)
+            {
+                var epochStart = blockchainRepository.GetBlock(block.Pow.Height - Constant.EPOCH_LENGTH_BLOCKS + 1);
+                NextEpoch(epochStart, block.Pow, chainState);
+            }
+
+            chainState.POW.Height = block.Pow.Height;
+            chainState.POW.TotalWork += block.Pow.Difficulty.ToWork();
+            chainState.POW.LastHash = block.Pow.GetHash();
         }
 
-        chainState.Height = block.Id;
-        chainState.TotalWork += block.Header.Difficulty.ToWork();
+        chainState.POS.Height = block.Height;
+        chainState.POS.LastHash = block.GetHash();
 
         blockchainRepository.Add(block, chainState);
-
         blockchainRepository.Commit();
 
         mempoolManager.RemoveTransactions(block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT));
 
         if (broadcastBlock) {
             BlockBroadcast.Post(block);
+
+            if (block.Pow is not null)
+            {
+                var vote = new Vote
+                {
+                    Height = block.Height,
+                    Hash = block.GetHash()
+                };
+
+                vote.Sign(walletManager.GetNodeWallet().PrivateKey);
+
+                VoteBroadcast.Post(vote);
+            }
         }
 
         foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated)) {
@@ -119,7 +186,7 @@ public class BlockchainManager : IBlockchainManager
         return true;
     }
 
-    public bool AddBlocks(List<Block> blocks)
+    public bool AddBlocks(List<PowBlock> blocks)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockRepository(true);
@@ -130,11 +197,11 @@ public class BlockchainManager : IBlockchainManager
         var blockchainContext = new BlockchainContext()
         {
             LastBlocks = blockchainRepository.Tail(11),
-            CurrentDifficulty = chainState.CurrentDifficulty,
+            CurrentDifficulty = chainState.POW.CurrentDifficulty,
             NetworkTime = discoveryManager.GetNetworkTime()
         };
 
-        var blockExecutor = Executor.Create<Block, BlockchainContext>(blockchainContext)
+        var blockExecutor = Executor.Create<PowBlock, BlockchainContext>(blockchainContext)
             .Link<VerifyDifficulty>()
             .Link<VerifyNonce>()
             .Link<VerifyId>(x => x.Id > 0)
@@ -158,8 +225,7 @@ public class BlockchainManager : IBlockchainManager
             .Link<AddBalanceToRecipient>()
             .Link<UpdateRecipientWallet>();
 
-        var epochStart = blockchainRepository.GetBlock(chainState.Height - (chainState.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
-        Console.WriteLine(chainState.Height - (chainState.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
+        var epochStart = blockchainRepository.GetBlock(chainState.POW.Height - (chainState.POW.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
 
         int progress = 0;
         foreach (var block in blocks)
@@ -171,26 +237,26 @@ public class BlockchainManager : IBlockchainManager
 
             txContext.Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min();
             txContext.FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum();
-            txContext.Timestamp = block.Header.Timestamp;
+            txContext.Timestamp = block.Timestamp;
 
             if (!txExecutor.ExecuteBatch(block.Transactions, out var txresult)) {
                 logger.LogError(txContext.Ex, $"AddBlock failed with: {txresult}");
                 return false;
             }
 
-            logger.LogInformation($"Added block {block.Id}");
+            logger.LogInformation($"Added block {block.Height}");
 
-            if (block.Id % Constant.EPOCH_LENGTH_BLOCKS == 0) {
+            if (block.Height % Constant.EPOCH_LENGTH_BLOCKS == 0) {
                 NextEpoch(epochStart, block, chainState);
-                blockchainContext.CurrentDifficulty = chainState.CurrentDifficulty;
+                blockchainContext.CurrentDifficulty = chainState.POW.CurrentDifficulty;
             }
 
-            if (block.Id % Constant.EPOCH_LENGTH_BLOCKS == 1) {
+            if (block.Height % Constant.EPOCH_LENGTH_BLOCKS == 1) {
                 epochStart = block;
             }
 
-            chainState.Height = block.Id;
-            chainState.TotalWork += block.Header.Difficulty.ToWork();
+            chainState.POW.Height = block.Height;
+            chainState.POW.TotalWork += block.Difficulty.ToWork();
 
             blockchainContext.LastBlocks.Add(block);
 
@@ -221,9 +287,19 @@ public class BlockchainManager : IBlockchainManager
         var chainState = blockchainRepository.GetChainState();
         var lastBlock = blockchainRepository.Last();
 
-        var transactions = new List<Transaction>();
+        var transactions = mempoolManager.GetTransactions();
 
         var rand = new Random();
+
+        var timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
+
+        var block = new PowBlock {
+            Height = chainState.POW.Height + 1,
+            ParentHash = lastBlock.GetHash(),
+            Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
+            Difficulty = chainState.POW.CurrentDifficulty,
+            Transactions = transactions
+        };
 
         transactions.Add(new Transaction {
             TransactionType = TransactionType.MINER_FEE,
@@ -232,39 +308,11 @@ public class BlockchainManager : IBlockchainManager
             Nonce = rand.Next(int.MinValue, int.MaxValue)
         });
 
-        transactions.Add(new Transaction {
-            TransactionType = TransactionType.VALIDATOR_FEE,
-            To = "FIM0xA101CFBF69818C624A03AF8C8FDD9B345896EE1215287EABA4CB",
-            Value = (ulong)(1000000000 * Constant.VALIDATOR_FEE),
-            Nonce = rand.Next(int.MinValue, int.MaxValue)
-        });
-
-        transactions.Add(new Transaction {
-            TransactionType = TransactionType.DEV_FEE,
-            To = "FIM0xA10192865B85F23DC1E7B13A486DBDAFBE0CFF3F4A0CB83561C0",
-            Value = (ulong)(1000000000 * Constant.DEV_FEE),
-            Nonce = rand.Next(int.MinValue, int.MaxValue)
-        });
-
-        transactions.AddRange(mempoolManager.GetTransactions());
-
-        var timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-
-        var block = new Block {
-            Id = chainState.Height + 1,
-            Header = new BlockHeader {
-                ParentHash = lastBlock.GetHash(),
-                Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
-                Difficulty = chainState.CurrentDifficulty
-            },
-            Transactions = transactions
-        };
-
         return new Blocktemplate
         {
-            Id = block.Id,
-            Difficulty = chainState.CurrentDifficulty,
-            ParentHash = block.Header.ParentHash,
+            Height = block.Height,
+            Difficulty = chainState.POW.CurrentDifficulty,
+            ParentHash = block.ParentHash,
             Nonce = block.GetHash(),
             Timestamp = timestamp,
             Transactions = transactions
@@ -277,7 +325,7 @@ public class BlockchainManager : IBlockchainManager
         using var blockchainRepository = new BlockRepository();
 
         var chainState = blockchainRepository.GetChainState();
-        return chainState.CurrentDifficulty;
+        return chainState.POW.CurrentDifficulty;
     }
 
     public long GetCurrentHeight()
@@ -330,60 +378,11 @@ public class BlockchainManager : IBlockchainManager
         AddTransactionsToQueue(new List<Transaction>() { transaction });
     }
 
-    private bool VerifyBlock(BlockRepository blockchainRepository, Block block)
+    private void NextEpoch(PowBlock? epochStart, PowBlock epochEnd, ChainState chainState)
     {
-        var blockCount = blockchainRepository.Count();
-        var chainState = blockchainRepository.GetChainState();
-
-        if (block.Header.Difficulty != chainState.CurrentDifficulty) {
-            Console.WriteLine("diff");
-            return false;
-        }
-
-        if (!block.VerifyNonce()) {
-            Console.WriteLine("nonce");
-            return false;
-        }
-
-        if (blockCount > 0) {
-            var lastBlock = blockchainRepository.Last();
-
-            if (block.Id != lastBlock.Id + 1) {
-                Console.WriteLine("id");
-                return false;
-            }
-
-            if (!Enumerable.SequenceEqual((byte[])block.Header.ParentHash, (byte[])lastBlock.GetHash())) {
-                Console.WriteLine("last_hash");
-                return false;
-            }
-
-            // Get median of last 11 blocks
-            var median = blockchainRepository.Tail(11)
-                .ElementAt((int)(Math.Min(blockCount / 2, 5)));
-
-            if (block.Header.Timestamp < median.Header.Timestamp) {
-                Console.WriteLine("too old");
-                return false;
-            }
-
-            // Timestamp must be within 2 hours of average network time
-            if (block.Header.Timestamp > discoveryManager.GetNetworkTime().AddHours(2).ToUnixTimeSeconds()) {
-                Console.WriteLine("in future");
-                return false;
-            }
-
-            // TODO: check max transactions
-        }
-
-        return true;
-    }
-
-    private void NextEpoch(Block? epochStart, Block epochEnd, ChainState chainState)
-    {
-        if (chainState.Height == 0) {
+        if (chainState.POW.Height == 0) {
             // Starting difficulty
-            chainState.CurrentDifficulty = new Difficulty { b0 = Constant.STARTING_DIFFICULTY };
+            chainState.POW.CurrentDifficulty = new Difficulty { b0 = Constant.STARTING_DIFFICULTY };
             return;
         }
 
@@ -391,23 +390,13 @@ public class BlockchainManager : IBlockchainManager
             throw new Exception("Epoch Start block not found");
         }
 
-        var elapsed = epochEnd.Header.Timestamp - epochStart.Header.Timestamp;
+        var elapsed = epochEnd.Timestamp - epochStart.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
 
-        var newDiff = (BigInteger)(chainState.CurrentDifficulty.ToWork() * new BigRational(expected / (double)elapsed));
-        chainState.CurrentDifficulty = newDiff.ToDifficulty();
+        var newDiff = (BigInteger)(chainState.POW.CurrentDifficulty.ToWork() * new BigRational(expected / (double)elapsed));
+        chainState.POW.CurrentDifficulty = newDiff.ToDifficulty();
 
         logger.LogInformation($"Epoch {epochEnd.Id / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");
-    }
-
-    public IDisposable OnBlockAdded(ITargetBlock<Block> action)
-    {
-        return BlockBroadcast.LinkTo(action);
-    }
-
-    public IDisposable OnWalletUpdated(ITargetBlock<Wallet> action)
-    {
-        return WalletBroadcast.LinkTo(action);
     }
 
     public BigInteger GetTotalWork()
@@ -415,7 +404,7 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockRepository();
         var chainState = blockchainRepository.GetChainState();
-        return chainState.TotalWork;
+        return chainState.POW.TotalWork;
     }
 
     public ChainState GetChainState()
@@ -425,21 +414,21 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetChainState();
     }
 
-    public List<Block> GetLastBlocks(int count)
+    public List<PowBlock> GetLastBlocks(int count)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockRepository();
         return blockchainRepository.Tail(count);
     }
 
-    public List<Block> GetLastBlocks(long start, int count)
+    public List<PowBlock> GetLastBlocks(long start, int count)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockRepository();
         return blockchainRepository.Tail(start, count);
     }
 
-    public bool SetChain(List<Block> blocks)
+    public bool SetChain(List<PowBlock> blocks)
     {
         var sortedBlocks = blocks.Where(x => x.Id > 0)
             .OrderBy(x => x.Id)
@@ -451,7 +440,7 @@ public class BlockchainManager : IBlockchainManager
         var chainState = blockchainRepository.GetChainState();
 
         var min = sortedBlocks.Min(x => x.Id);
-        var max = chainState.Height;
+        var max = chainState.POW.Height;
 
         var ledgerWallets = new Dictionary<string, LedgerWallet>();
         var wallets = walletManager.GetWallets();
@@ -468,7 +457,7 @@ public class BlockchainManager : IBlockchainManager
                 continue;
             }
 
-            var fee = cBlock.Transactions.DefaultIfEmpty().Select(x => x?.MaxFee ?? 0UL).Min();
+            /*var fee = cBlock.Transactions.DefaultIfEmpty().Select(x => x?.MaxFee ?? 0UL).Min();
 
             foreach (var tx in cBlock.Transactions) 
             {
@@ -518,15 +507,14 @@ public class BlockchainManager : IBlockchainManager
                 }
 
                 blockchainRepository.DeleteTransaction(tx.Id);
-            }
+            }*/
 
             blockchainRepository.UpdateWallets(ledgerWallets.Values);
             blockchainRepository.Delete(cBlock.Id);
-            blockchainRepository.DeleteHeader(cBlock.Header.Id);
 
-            chainState.Height--;
-            chainState.TotalWork -= cBlock.Header.Difficulty.ToWork();
-            chainState.CurrentDifficulty = cBlock.Header.Difficulty;
+            chainState.POW.Height--;
+            chainState.POW.TotalWork -= cBlock.Difficulty.ToWork();
+            chainState.POW.CurrentDifficulty = cBlock.Difficulty;
 
             ChainObserver.ReportProgress(++progress, sortedBlocks.Count);
         }
@@ -549,7 +537,7 @@ public class BlockchainManager : IBlockchainManager
             return false;
         }
 
-        BlockBroadcast.Post(sortedBlocks.Last());
+        // BlockBroadcast.Post(sortedBlocks.Last());
 
         foreach (var wallet in wallets.Select(x => x.Value).Where(x => x.Updated)) {
             WalletBroadcast.Post(wallet);
@@ -559,11 +547,43 @@ public class BlockchainManager : IBlockchainManager
         return true;
     }
 
-    public List<Block> GetFrom(long id)
+    public bool AddVote(Vote vote)
+    {
+        if (!vote.Verify())
+        {
+            logger.LogWarning("Vote rejected (invalid signature)");
+            // TODO: file complaint
+            return false;
+        }
+
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockRepository(true);
+
+        blockchainRepository.AddVote(vote);
+
+        return true;
+    }
+
+    public List<PowBlock> GetFrom(long id)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockRepository();
 
         return blockchainRepository.GetFrom(id);
+    }
+
+    public IDisposable OnBlockAdded(ITargetBlock<PosBlock> action)
+    {
+        return BlockBroadcast.LinkTo(action);
+    }
+
+    public IDisposable OnWalletUpdated(ITargetBlock<Wallet> action)
+    {
+        return WalletBroadcast.LinkTo(action);
+    }
+
+    public IDisposable OnVoteAdded(ITargetBlock<Vote> action)
+    {
+        return VoteBroadcast.LinkTo(action);
     }
 }

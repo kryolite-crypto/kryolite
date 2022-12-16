@@ -65,10 +65,6 @@ public class Startup
             deserialize: (bson) => new BigInteger(bson.AsBinary, true)
         );
 
-        BsonMapper.Global.Entity<Block>()
-            .DbRef(x => x.Header, typeof(BlockHeader).Name)
-            .DbRef(x => x.Transactions, typeof(Transaction).Name);
-
         Directory.CreateDirectory("data");
     }
 

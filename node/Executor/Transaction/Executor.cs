@@ -366,7 +366,7 @@ public class UpdateRecipientWallet : BaseStep<Transaction, TransactionContext>
 
 public class BlockchainContext : IContext
 {
-    public List<Block> LastBlocks { get; init; } = new List<Block>();
+    public List<PowBlock> LastBlocks { get; init; } = new List<PowBlock>();
     public DateTimeOffset NetworkTime { get; init; }
     public Difficulty CurrentDifficulty { get; set; }
 
@@ -378,20 +378,20 @@ public class BlockchainContext : IContext
     }
 }
 
-public class VerifyDifficulty : BaseStep<Block, BlockchainContext>
+public class VerifyDifficulty : BaseStep<PowBlock, BlockchainContext>
 {
-    protected override void Execute(Block block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainContext ctx)
     {
-        if (block.Header.Difficulty != ctx.CurrentDifficulty) 
+        if (block.Difficulty != ctx.CurrentDifficulty) 
         {
             throw new ExecutionException(ExecutionResult.INVALID_DIFFICULTY);
         }
     }
 }
 
-public class VerifyNonce : BaseStep<Block, BlockchainContext>
+public class VerifyNonce : BaseStep<PowBlock, BlockchainContext>
 {
-    protected override void Execute(Block block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainContext ctx)
     {
         if (!block.VerifyNonce()) 
         {
@@ -400,56 +400,56 @@ public class VerifyNonce : BaseStep<Block, BlockchainContext>
     }
 }
 
-public class VerifyId : BaseStep<Block, BlockchainContext>
+public class VerifyId : BaseStep<PowBlock, BlockchainContext>
 {
-    protected override void Execute(Block block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainContext ctx)
     {
         var lastBlock = ctx.LastBlocks.Last();
 
-        if (block.Id != lastBlock.Id + 1) 
+        if (block.Height != lastBlock.Height + 1) 
         {
             throw new ExecutionException(ExecutionResult.INVALID_ID);
         }
     }
 }
 
-public class VerifyParentHash : BaseStep<Block, BlockchainContext>
+public class VerifyParentHash : BaseStep<PowBlock, BlockchainContext>
 {
-    protected override void Execute(Block block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainContext ctx)
     {
         var lastBlock = ctx.LastBlocks.Last();
 
-        if (!Enumerable.SequenceEqual((byte[])block.Header.ParentHash, (byte[])lastBlock.GetHash()))
+        if (!Enumerable.SequenceEqual((byte[])block.ParentHash, (byte[])lastBlock.GetHash()))
         {
             throw new ExecutionException(ExecutionResult.INVALID_PARENT_HASH);
         }
     }
 }
 
-public class VerifyTimestampPast : BaseStep<Block, BlockchainContext>
+public class VerifyTimestampPast : BaseStep<PowBlock, BlockchainContext>
 {
-    protected override void Execute(Block block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainContext ctx)
     {
         // Get median of last 11 blocks
         var median = ctx.LastBlocks.TakeLast(11)
             .ElementAt((int)(Math.Min(ctx.LastBlocks.Count / 2, 5)));
 
-        if (block.Header.Timestamp < median.Header.Timestamp)
+        if (block.Timestamp < median.Timestamp)
         {
             throw new ExecutionException(ExecutionResult.TIMESTAMP_TOO_OLD);
         }
     }
 }
 
-public class VerifyTimestampFuture : BaseStep<Block, BlockchainContext>
+public class VerifyTimestampFuture : BaseStep<PowBlock, BlockchainContext>
 {
-    protected override void Execute(Block block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainContext ctx)
     {
         // Get median of last 11 blocks
         var median = ctx.LastBlocks.TakeLast(11)
             .ElementAt((int)(Math.Min(ctx.LastBlocks.Count / 2, 5)));
 
-        if (block.Header.Timestamp > ctx.NetworkTime.AddHours(2).ToUnixTimeSeconds())
+        if (block.Timestamp > ctx.NetworkTime.AddHours(2).ToUnixTimeSeconds())
         {
             throw new ExecutionException(ExecutionResult.TIMESTAMP_IN_FUTURE);
         }

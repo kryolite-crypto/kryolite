@@ -1,5 +1,6 @@
 using System.Net;
 using System.Numerics;
+using System.Threading.Tasks.Dataflow;
 using Marccacoin.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
@@ -11,6 +12,7 @@ public class NetworkManager : INetworkManager
     private List<NodeHost> Hosts = new List<NodeHost>();
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly ILogger<INetworkManager> logger;
+    private BroadcastBlock<PowBlock> BlockProposedBroadcast = new BroadcastBlock<PowBlock>(i => i);
 
     public NetworkManager(ILogger<INetworkManager> logger)
     {
@@ -53,11 +55,22 @@ public class NetworkManager : INetworkManager
         return Hosts;
     }
 
+    public bool ProposeBlock(PowBlock block)
+    {
+        BlockProposedBroadcast.Post(block);
+        return true;
+    }
+
+    public IDisposable OnBlockProposed(ITargetBlock<PowBlock> action)
+    {
+        return BlockProposedBroadcast.LinkTo(action);
+    }
+
     public class NodeHost
     {
         public string Hostname { get; init; }
         public NodeInfo? NodeInfo { get; init; }
-        public DateTime LastSeen { get; init; }
+        public DateTime LastSeen { get; set; }
     }
 }
 

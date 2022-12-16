@@ -40,17 +40,24 @@ public class BlockchainService : BackgroundService
 
     private void InitializeGenesisBlock()
     {
-        var genesis = new Block {
-            Id = 0,
-            Header = new BlockHeader {
-                ParentHash = new SHA256Hash(),
-                Timestamp = new DateTimeOffset(1917, 12, 6, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds(),
-                Nonce = new Nonce { Buffer = new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }},
-                Difficulty = new Difficulty { Value = 0 }
-            }
+        var pow = new PowBlock {
+            Height = 0,
+            ParentHash = new SHA256Hash(),
+            Timestamp = new DateTimeOffset(1917, 12, 6, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds(),
+            Nonce = new Nonce { Buffer = new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }},
+            Difficulty = new Difficulty { Value = 0 }
         };
 
-        if(!BlockchainManager.AddBlock(genesis)) {
+        var pos = new PosBlock {
+            Height = 0,
+            ParentHash = new SHA256Hash(),
+            Timestamp = new DateTimeOffset(1917, 12, 6, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds(),
+            Pow = pow,
+            SignedBy = new PublicKey { Buffer = new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }},
+            Signature = new Signature { Buffer = new byte[64] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  }}
+        };
+
+        if(!BlockchainManager.AddBlock(pos, false)) {
             Logger.LogError("Failed to initialize Genesis");
         }
     }

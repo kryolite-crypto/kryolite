@@ -22,12 +22,24 @@ public class WalletManager : IWalletManager
         return walletRepository.GetLastTransactions(count);
     }
 
-    public Wallet CreateWallet()
+    public Wallet CreateWallet(WalletType walletType = WalletType.WALLET)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var walletRepository = new WalletRepository(true);
 
-        var wallet = new Wallet();
+        if (walletType == WalletType.NODE) {
+            var nodeWallet = walletRepository.GetNodeWallet();
+
+            if (nodeWallet != null) {
+                return nodeWallet;
+            }
+        }
+
+        var wallet = new Wallet
+        {
+            Type = walletType
+        };
+
         walletRepository.Add(wallet);
         walletRepository.Commit();
 
@@ -66,5 +78,13 @@ public class WalletManager : IWalletManager
         walletRepository.UpdateWallets(wallets);
 
         walletRepository.Commit();
+    }
+
+    public Wallet GetNodeWallet()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var walletRepository = new WalletRepository();
+
+        return walletRepository.GetNodeWallet();
     }
 }

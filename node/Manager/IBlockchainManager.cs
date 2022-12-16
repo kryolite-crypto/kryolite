@@ -6,22 +6,24 @@ namespace Marccacoin;
 
 public interface IBlockchainManager
 {
-    bool AddBlock(Block block, bool broadcastBlock = true);
+    bool AddBlock(PosBlock block, bool broadcastBlock = true);
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     SHA256Hash GetLastBlockhash();
     BigInteger GetTotalWork();
     ulong GetBalance(Address address);
-    Block? GetBlock(long Id);
+    PowBlock? GetBlock(long Id);
     List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true);
     void AddTransactionsToQueue(Transaction transaction);
     ChainState GetChainState();
-    List<Block> GetLastBlocks(int count);
-    List<Block> GetLastBlocks(long start, int count);
-    bool SetChain(List<Block> blocks);
-    List<Block> GetFrom(long id);
+    List<PowBlock> GetLastBlocks(int count);
+    List<PowBlock> GetLastBlocks(long start, int count);
+    bool SetChain(List<PowBlock> blocks);
+    List<PowBlock> GetFrom(long id);
+    bool AddVote(Vote vote);
 
-    IDisposable OnBlockAdded(ITargetBlock<Block> action);
+    IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
+    IDisposable OnVoteAdded(ITargetBlock<Vote> action);
 }

@@ -10,23 +10,24 @@ namespace Marccacoin.Shared;
 [MessagePackObject]
 public class Transaction : IComparable<Transaction>
 {
-    [Key(0)]
+    [IgnoreMember]
     public long Id { get; set; }
-    [Key(1)]
+
+    [Key(0)]
     public TransactionType TransactionType { get; set; }
-    [Key(2)]
+    [Key(1)]
     public PublicKey? PublicKey { get; set; }
-    [Key(3)]
+    [Key(2)]
     public Address To { get; set; }
-    [Key(4)]
+    [Key(3)]
     public ulong Value { get; set; }
-    [Key(5)]
+    [Key(4)]
     public ulong MaxFee { get; set; }
-    [Key(6)]
+    [Key(5)]
     public byte[]? Data { get; set; }
-    [Key(7)]
+    [Key(6)]
     public int Nonce { get; set; }
-    [Key(8)]
+    [Key(7)]
     public Signature? Signature { get; set; }
 
     public void Sign(PrivateKey privateKey)

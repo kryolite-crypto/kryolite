@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
@@ -6,6 +7,7 @@ using MessagePack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using NSec.Cryptography;
 using static Marccacoin.NetworkManager;
 
 namespace Marccacoin;
@@ -128,7 +130,7 @@ sync:
                     }
 
                     break;
-                case Block newBlock:
+                case PosBlock newBlock:
                     logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
                     var height = blockchainManager.GetCurrentHeight();
 
@@ -167,8 +169,8 @@ sync:
                     {
                         Payload = new NodeInfo
                         {
-                            Height = chainState.Height,
-                            TotalWork = chainState.TotalWork,
+                            Height = chainState.POS.Height,
+                            TotalWork = chainState.POW.TotalWork,
                             LastHash = blockchainManager.GetLastBlockhash(),
                             CurrentTime = DateTime.UtcNow,
                             Peers = NodeNetwork.GetPeers()
@@ -229,29 +231,32 @@ sync:
                         args.Rebroadcast = true;
                     }
                     break;
+                case Vote vote:
+                    logger.LogInformation($"Received vote from {args.Hostname}");
+
+                    if(blockchainManager.AddVote(vote))
+                    {
+                        args.Rebroadcast = true;
+                    }
+
+                    break;
                 default:
                     logger.LogError($"Invalid payload type: {args.Message.Payload.GetType()}");
                     break;
             }
         };
 
-        logger.LogInformation("Reading peers from appsettings.json");
-        var peers = configuration.GetSection("Peers").Get<string[]>() ?? new string[0];
-
-        await Parallel.ForEachAsync(peers, async (peer, token) => {
-            var uri = new Uri(peer);
-
-            logger.LogInformation($"Connecting to {uri}");
-            await NodeNetwork.AddNode(uri.Host, uri.Port, false, Guid.Empty);
-        });
-
-        blockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {
+        blockchainManager.OnBlockAdded(new ActionBlock<PosBlock>(async block => {
             var msg = new Message
             {
                 Payload = block
             };
 
             await NodeNetwork.BroadcastAsync(msg);
+        }));
+
+        networkManager.OnBlockProposed(new ActionBlock<PowBlock>(block => {
+            ProposeBlock(block);
         }));
 
         var transactionBuffer = new BufferBlock<Transaction>();
@@ -272,8 +277,38 @@ sync:
 
         mempoolManager.OnTransactionAdded(transactionBuffer);
 
+        logger.LogInformation("Reading peers from appsettings.json");
+        var peers = configuration.GetSection("Peers").Get<string[]>() ?? new string[0];
+
+        await Parallel.ForEachAsync(peers, async (peer, token) => {
+            var uri = new Uri(peer);
+
+            logger.LogInformation($"Connecting to {uri}");
+            await NodeNetwork.AddNode(uri.Host, uri.Port, false, Guid.Empty);
+        });
+
         logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Network.Set();
+    }
+
+    public bool ProposeBlock(PowBlock block)
+    {
+        logger.LogInformation($"Proposing block {block.Id} to network...");
+        // TODO: lock
+
+        // TODO: Validate
+
+        var chainState = blockchainManager.GetChainState();
+
+        var posBlock = new PosBlock
+        {
+            Height = chainState.POS.Height + 1,
+            ParentHash = chainState.POS.LastHash,
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
+            Pow = block
+        };
+
+        return blockchainManager.AddBlock(posBlock);
     }
 }
 
@@ -281,7 +316,7 @@ sync:
 public class Blockchain
 {
     [Key(0)]
-    public List<Block>? Blocks { get; set; }
+    public List<PowBlock>? Blocks { get; set; }
 }
 
 [MessagePackObject]
@@ -348,7 +383,7 @@ public class ChainObserver : IObserver<Node>
                 .ToList()
         };
 
-        var blockExecutor = Executor.Create<Block, BlockchainContext>(blockchainContext)
+        var blockExecutor = Executor.Create<PowBlock, BlockchainContext>(blockchainContext)
             .Link<VerifyNonce>()
             .Link<VerifyId>(x => x.Id > 0)
             .Link<VerifyParentHash>(x => x.Id > 0);
@@ -365,7 +400,7 @@ public class ChainObserver : IObserver<Node>
                 return;
             }
 
-            totalWork += block.Header.Difficulty.ToWork();
+            totalWork += block.Difficulty.ToWork();
 
             blockchainContext.LastBlocks.Add(block);
 
