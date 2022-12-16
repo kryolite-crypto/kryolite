@@ -14,6 +14,25 @@ jobs:
         env:
           DOCKER_BUILDKIT: 1
       - run: docker push ghcr.io/${GITHUB_REPOSITORY}/builder:latest
+  delete-artifacts:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Delete artifacts from previous runs
+        uses: actions/github-script@v3
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const runsResponse = await github.request("GET /repos/${{ github.repository }}/actions/runs")
+            for (workflow_run of runsResponse.data.workflow_runs) {
+              if (workflow_run.name == "${{ github.workflow }}" && workflow_run.status !== "in_progress") {
+                console.log(`Deleting artifacts from workflow run ${workflow_run.id}`)
+                const response = await github.request(`GET /repos/$/actions/runs/${workflow_run.id}/artifacts`)
+                for (artifact of response.data.artifacts) {
+                  console.log(`Deleting artifact with id ${artifact.id}`)
+                  const deleteResponse = await github.request(`DELETE /repos/$/actions/artifacts/${artifact.id}`)
+                }
+              }
+            }
   build:
     needs: builder
     strategy:
