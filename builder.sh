@@ -18,7 +18,7 @@ RUNTIME=${2}
 DIST=${3}
 
 build=$(mktemp -d)
-dotnet publish -c Release -p:PublishSingleFile=true --self-contained --runtime="$RUNTIME" -o "$build" "$COMPONENT"
+dotnet publish -c Release -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true --self-contained --runtime="$RUNTIME" -o "$build" "$COMPONENT"
 
 target=$(mktemp -d)
 case "$RUNTIME" in
