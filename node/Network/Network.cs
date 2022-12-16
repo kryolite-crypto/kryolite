@@ -1,10 +1,10 @@
 using System.Collections.Concurrent;
-using Marccacoin.Shared;
+using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Caching.Memory;
 using WatsonWebsocket;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public class Network
 {
@@ -20,7 +20,7 @@ public class Network
     public static Guid ServerId { get; } = Guid.NewGuid();
 
     private WatsonWsServer wsServer;
-    private ConcurrentDictionary<string, Node> Peers = new();
+    private ConcurrentDictionary<string, BaseNode> Peers = new();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 

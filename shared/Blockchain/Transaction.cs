@@ -1,11 +1,8 @@
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using System.Text.Json.Serialization;
-using LiteDB;
 using MessagePack;
 using NSec.Cryptography;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 [MessagePackObject]
 public class Transaction : IComparable<Transaction>

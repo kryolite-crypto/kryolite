@@ -1,9 +1,8 @@
 using System.Diagnostics.Contracts;
-using System.Numerics;
+using Kryolite.Shared;
 using LiteDB;
-using Marccacoin.Shared;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public class BlockRepository : TransactionalRepository
 {

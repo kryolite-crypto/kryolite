@@ -1,10 +1,10 @@
-using Marccacoin.Shared;
+using Kryolite.Shared;
 using MessagePack;
 using WatsonWebsocket;
 
-namespace Marccacoin;
+namespace Kryolite;
 
-public abstract class Node
+public abstract class BaseNode
 {
     public string? Hostname { get; protected set; }
     public int Port { get; protected set; }
@@ -15,7 +15,7 @@ public abstract class Node
     public abstract Task SendAsync(Message msg);
 }
 
-public class Client : Node
+public class Client : BaseNode
 {
     WatsonWsServer watsonServer;
     private readonly string ipAndPort;
@@ -47,7 +47,7 @@ public class Client : Node
 }
 
 
-public class Peer : Node
+public class Peer : BaseNode
 {
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
     public event EventHandler<EventArgs>? Dropped;
@@ -62,7 +62,7 @@ public class Peer : Node
         wsClient = new WatsonWsClient(hostname, port, ssl);
 
         wsClient.ConfigureOptions(opts => {
-            opts.SetRequestHeader("ClientId", Network.ServerId.ToString());
+            opts.SetRequestHeader("ClientId", Kryolite.Node.Network.ServerId.ToString());
         });
 
         wsClient.MessageReceived += (object? sender, MessageReceivedEventArgs args) => {
@@ -107,7 +107,7 @@ public class Peer : Node
 
     public override async Task SendAsync(Message msg)
     {
-        msg.NodeId = Network.ServerId;
+        msg.NodeId = Kryolite.Node.Network.ServerId;
 
         var bytes = MessagePackSerializer.Serialize(msg);
         var res = await wsClient.SendAsync(bytes);

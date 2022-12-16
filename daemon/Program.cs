@@ -5,7 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 
-namespace Marccacoin.Daemon;
+namespace Kryolite.Daemon;
 
 internal class Program
 {

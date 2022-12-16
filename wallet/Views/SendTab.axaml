@@ -1,0 +1,58 @@
+<UserControl    xmlns="https://github.com/avaloniaui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:vm="using:Kryolite.Wallet"
+                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+                mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                x:Class="Kryolite.Wallet.SendTab">
+
+    <DockPanel Margin="20">
+        <StackPanel Spacing="20">
+            <!--StackPanel.Styles>
+                <Style Selector="TextBox.floating">
+                    <Setter Property="Margin" Value="0, -18, 0, 0"/>
+                </Style>
+                <Style Selector="TextBox.floating ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Margin" Value="0, 18, 0, 0"/>
+                </Style>
+                <Style Selector="TextBox.floating TextBlock#PART_FloatingWatermark">
+                    <Setter Property="Margin" Value="0, -18, 0, 0"/>
+                    <Setter Property="Padding" Value="5, 0, 5, 0"/>
+                    <Setter Property="Background" Value="Gray"/>
+                    <Setter Property="HorizontalAlignment" Value="Left"/>
+                </Style>
+                <Style Selector="TextBox.floating ContentControl#InlineDataValidationContentControl > ContentPresenter">
+                    <Setter Property="Margin" Value="0, 0, 0, 0"/>
+                </Style>
+            </StackPanel.Styles-->
+            <ComboBox Width="550" Items="{Binding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
+                            <TextBlock Text="{Binding Description}" Grid.Row="0" Grid.Column="0"/>
+                            <TextBlock Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
+                            <TextBlock Text="{Binding Address}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                        </Grid>
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+            <TextBox Classes="floating" Width="550" Text="{Binding Recipient}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
+            <StackPanel Orientation="Horizontal" Spacing="10">
+                <TextBox Classes="floating" Width="200" Text="{Binding Amount}" Watermark="Amount to send" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
+                <StackPanel>
+                    <TextBlock VerticalAlignment="Center">Available</TextBlock>
+                    <TextBlock VerticalAlignment="Center" Text="{Binding Path=SelectedWallet.Balance, Converter={StaticResource CurrencyConverter}}"/>
+                </StackPanel>
+            </StackPanel>
+            <StackPanel Orientation="Horizontal">
+                <Button IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" Command="{Binding OnSendTransactionCommand}">Send</Button>
+            </StackPanel>
+        </StackPanel>
+        <DataGrid Name="PendingGrid" AutoGenerateColumns="False" DockPanel.Dock="Bottom">
+            <DataGrid.Columns>
+
+            </DataGrid.Columns>
+        </DataGrid>
+    </DockPanel>
+</UserControl>

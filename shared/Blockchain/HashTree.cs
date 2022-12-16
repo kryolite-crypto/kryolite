@@ -1,4 +1,4 @@
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 public class HashTree
 {

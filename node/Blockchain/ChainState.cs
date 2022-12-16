@@ -1,8 +1,8 @@
 using System.Numerics;
+using Kryolite.Shared;
 using LiteDB;
-using Marccacoin.Shared;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public class ChainState
 {

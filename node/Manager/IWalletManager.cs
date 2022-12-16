@@ -1,6 +1,6 @@
-using Marccacoin.Shared;
+using Kryolite.Shared;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public interface IWalletManager
 {

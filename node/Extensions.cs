@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using LiteDB;
 
-namespace Marccacoin;
+namespace Kryolite;
 
 public static class Extensions
 {

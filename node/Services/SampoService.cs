@@ -1,9 +1,9 @@
 using System.Threading.Tasks.Dataflow;
-using Marccacoin.Shared;
+using Kryolite.Shared;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-namespace Marccacoin;
+namespace Kryolite.Node;
 
 public class SampoService : BackgroundService
 {

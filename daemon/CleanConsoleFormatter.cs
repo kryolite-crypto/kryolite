@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 
-namespace Marccacoin.Daemon;
+namespace Kryolite.Daemon;
 
 public class CleanConsoleFormatter : ConsoleFormatter, IDisposable
 {

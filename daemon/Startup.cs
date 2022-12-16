@@ -1,11 +1,12 @@
 using System.Numerics;
+using Kryolite.Node;
+using Kryolite.Shared;
 using LiteDB;
-using Marccacoin.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace Marccacoin.Daemon;
+namespace Kryolite.Daemon;
 
 public class Startup
 {

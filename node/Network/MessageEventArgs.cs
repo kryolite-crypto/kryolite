@@ -1,6 +1,6 @@
 using MessagePack;
 
-namespace Marccacoin;
+namespace Kryolite;
 
 public class MessageEventArgs
 {

@@ -1,6 +1,6 @@
 using System.Text;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 public static class Constant
 {

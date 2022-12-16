@@ -1,7 +1,7 @@
 using LiteDB;
 using NSec.Cryptography;
 
-namespace Marccacoin.Shared;
+namespace Kryolite.Shared;
 
 public class Wallet
 {
