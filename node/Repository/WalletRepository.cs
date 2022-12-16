@@ -73,4 +73,12 @@ public class WalletRepository : TransactionalRepository
             .Limit(count)
             .ToList();
     }
+
+    public Wallet GetNodeWallet()
+    {
+        return Database.GetCollection<Wallet>()
+            .Query()
+            .Where(x => x.Type == WalletType.NODE)
+            .SingleOrDefault();
+    }
 }

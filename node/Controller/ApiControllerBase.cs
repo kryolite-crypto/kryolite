@@ -16,7 +16,7 @@ public class ApiControllerBase : Controller
     public ApiControllerBase(IBlockchainManager blockchainManager, INetworkManager networkManager)
     {
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
-        this.networkManager = networkManager ?? throw new System.ArgumentNullException(nameof(networkManager));
+        this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
     }
 
     [HttpGet("blocktemplate")]
@@ -52,7 +52,7 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("block")]
-    public Block GetBlock([BindRequired, FromQuery] long id)
+    public PowBlock GetBlock([BindRequired, FromQuery] long id)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid parameter (address)");
@@ -68,17 +68,15 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid blocktemplate");
         }
 
-        var block = new Block {
-            Id = blocktemplate.Id,
-            Header = new BlockHeader {
-                ParentHash = blocktemplate.ParentHash,
-                Timestamp = blocktemplate.Timestamp,
-                Nonce = blocktemplate.Solution,
-                Difficulty = blocktemplate.Difficulty
-            },
+        var block = new PowBlock {
+            Height = blocktemplate.Height,
+            ParentHash = blocktemplate.ParentHash,
+            Timestamp = blocktemplate.Timestamp,
+            Nonce = blocktemplate.Solution,
+            Difficulty = blocktemplate.Difficulty,
             Transactions = blocktemplate.Transactions
         };
 
-        return blockchainManager.AddBlock(block);
+        return networkManager.ProposeBlock(block);
     }
 }

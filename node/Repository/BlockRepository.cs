@@ -9,9 +9,27 @@ public class BlockRepository : TransactionalRepository
 {
     public BlockRepository(bool transactional = false) : base("/blocks.dat;Connection=shared", transactional)
     {
-        BsonMapper.Global.Entity<Block>()
-            .DbRef(x => x.Header, typeof(BlockHeader).Name)
-            .DbRef(x => x.Transactions, typeof(Transaction).Name);
+        BsonMapper.Global.Entity<PowBlock>()
+            .Id<long>(x => x.Id)
+            .DbRef<List<Transaction>>(x => x.Transactions);
+
+        BsonMapper.Global.Entity<PosBlock>()
+            .Id<long>(x => x.Id)
+            .DbRef<List<Transaction>>(x => x.Transactions)
+            .DbRef<PowBlock>(x => x.Pow!)
+            .DbRef<List<Vote>>(x => x.Votes);
+
+        BsonMapper.Global.Entity<Vote>()
+            .Id<long>(x => x.Id);
+
+        Database.GetCollection<PowBlock>()
+            .EnsureIndex(x => x.Height, false);
+
+        Database.GetCollection<PosBlock>()
+            .EnsureIndex(x => x.Height, false);
+
+        Database.GetCollection<Vote>()
+            .EnsureIndex(x => x.Height, false);
 
         Database.GetCollection<Transaction>()
             .EnsureIndex(x => x.To, false);
@@ -22,35 +40,43 @@ public class BlockRepository : TransactionalRepository
 
     public long Count()
     {
-        return Database.GetCollection<Block>()
+        return Database.GetCollection<PowBlock>()
             .LongCount();
     }
 
-    public void Add(Block block, ChainState chainState)
+    public void Add(PosBlock block, ChainState chainState)
     {
         Contract.Equals(0, chainState.Id);
         Contract.Equals(true, Transactional);
 
-        block.Header.Id = block.Id;
+        if (block.Pow is not null)
+        {
+            Database.GetCollection<Transaction>().InsertBulk(block.Pow.Transactions);
+            Database.GetCollection<PowBlock>().Insert(block.Pow);
+        }
 
-        Database.GetCollection<BlockHeader>().Insert(block.Header);
-        Database.GetCollection<Transaction>().Insert(block.Transactions);
-        Database.GetCollection<Block>().Insert(block);
+        // Fetch pending votes for block
+        var pending = Database.GetCollection<Vote>()
+            .Query()
+            .Where(x => x.Height == block.Height)
+            .Where("$.Hash = @0", new BsonValue(block.GetHash()))
+            .ToEnumerable();
+        
+        Database.GetCollection<Transaction>().InsertBulk(block.Transactions);
+        Database.GetCollection<Vote>().InsertBulk(block.Votes);
+
+        block.Votes.AddRange(pending);
+
+        Database.GetCollection<PosBlock>().Insert(block);
         Database.GetCollection<ChainState>().Upsert(chainState);
     }
 
-    public void Add(List<Block> blocks, ChainState chainState)
+    public void Add(List<PowBlock> blocks, ChainState chainState)
     {
         Contract.Equals(0, chainState.Id);
         Contract.Equals(true, Transactional);
 
-        foreach (var block in blocks) {
-            block.Header.Id = block.Id;
-        }
-
-        Database.GetCollection<BlockHeader>().InsertBulk(blocks.Select(x => x.Header));
-        Database.GetCollection<Transaction>().InsertBulk(blocks.SelectMany(x => x.Transactions));
-        Database.GetCollection<Block>().InsertBulk(blocks);
+        Database.GetCollection<PowBlock>().InsertBulk(blocks);
         Database.GetCollection<ChainState>().Upsert(chainState);
     }
 
@@ -59,45 +85,30 @@ public class BlockRepository : TransactionalRepository
         Database.GetCollection<ChainState>().Upsert(chainState);
     }
 
-    public Block? GetBlock(long id)
+    public PowBlock? GetBlock(long height)
     {
-        return Database.GetCollection<Block>()
-            .Include(x => x.Header)
-            .IncludeCollection(x => x.Transactions)
-            .FindById(id);
+        return Database.GetCollection<PowBlock>()
+            .Find(x => x.Height == height)
+            .FirstOrDefault(); // TODO: get the one with most votes?
     }
 
     public void Delete(long id)
     {
-        Database.GetCollection<Block>()
-            .Delete(id);
-    }
-
-    public void DeleteHeader(long id)
-    {
-        Database.GetCollection<BlockHeader>()
-            .Delete(id);
-    }
-
-    public void DeleteTransaction(long id)
-    {
-        Database.GetCollection<Transaction>()
+        Database.GetCollection<PowBlock>()
             .Delete(id);
     }
 
     public ChainState GetChainState()
     {
-        return Database.GetCollection<ChainState>().FindById(0) ?? new ChainState { Height = 0 };
+        return Database.GetCollection<ChainState>().FindById(0) ?? new ChainState();
     }
 
-    public List<Block> Tail(int count)
+    public List<PowBlock> Tail(int count)
     {
-        var blocks = Database.GetCollection<Block>().LongCount();
+        var blocks = Database.GetCollection<PowBlock>().LongCount();
         var startId = blocks - count;
 
-        var results = Database.GetCollection<Block>()
-            .Include(x => x.Header)
-            .IncludeCollection(x => x.Transactions)
+        var results = Database.GetCollection<PowBlock>()
             .Query()
             .OrderByDescending<long>(x => x.Id)
             .Limit(count)
@@ -108,14 +119,12 @@ public class BlockRepository : TransactionalRepository
         return results;
     }
 
-    public List<Block> Tail(long start, int count)
+    public List<PowBlock> Tail(long start, int count)
     {
-        var blocks = Database.GetCollection<Block>().LongCount();
+        var blocks = Database.GetCollection<PowBlock>().LongCount();
         var startId = blocks - count;
 
-        var results = Database.GetCollection<Block>()
-            .Include(x => x.Header)
-            .IncludeCollection(x => x.Transactions)
+        var results = Database.GetCollection<PowBlock>()
             .Query()
             .Where(x => x.Id < start)
             .OrderByDescending<long>(x => x.Id)
@@ -127,21 +136,18 @@ public class BlockRepository : TransactionalRepository
         return results;
     }
 
-    public Block Last()
+    public PowBlock Last()
     {
-        return Database.GetCollection<Block>()
-            .Include(x => x.Header)
-            .IncludeCollection(x => x.Transactions)
+        return Database.GetCollection<PowBlock>()
             .Query()
             .OrderByDescending<long>(x => x.Id)
+            .Include(x => x.Transactions)
             .FirstOrDefault();
     }
 
-    public List<Block> GetFrom(long id)
+    public List<PowBlock> GetFrom(long id)
     {
-        return Database.GetCollection<Block>()
-            .Include(x => x.Header)
-            .IncludeCollection(x => x.Transactions)
+        return Database.GetCollection<PowBlock>()
             .Query()
             .Where(x => x.Id > id)
             .ToList();
@@ -165,5 +171,11 @@ public class BlockRepository : TransactionalRepository
     {
         Database.GetCollection<LedgerWallet>()
             .Upsert(wallets);
+    }
+
+    public void AddVote(Vote vote)
+    {
+        Database.GetCollection<Vote>()
+            .Insert(vote);
     }
 }

@@ -9,7 +9,7 @@ public abstract class Node
     public string? Hostname { get; protected set; }
     public int Port { get; protected set; }
     public DateTime LastSeen { get; set; }
-    public List<Block> Blockchain { get; set; } = new List<Block>();
+    public List<PowBlock> Blockchain { get; set; } = new List<PowBlock>();
     public Guid ClientId;
 
     public abstract Task SendAsync(Message msg);

@@ -23,6 +23,11 @@ public struct PublicKey
     [MarshalAs(UnmanagedType.ByValArray, SizeConst=32)]
     public byte[] Buffer;
 
+    public PublicKey()
+    {
+        Buffer = new byte[32];
+    }
+
     public static implicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator PublicKey(byte[] buffer) => new PublicKey { Buffer = buffer };

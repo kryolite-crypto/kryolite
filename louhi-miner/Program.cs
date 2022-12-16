@@ -12,11 +12,6 @@ IConfiguration configuration = new ConfigurationBuilder()
 Blocktemplate current = new Blocktemplate();
 var tokenSource = new CancellationTokenSource();
 
-var d = new Dictionary<int, int>();
-d[5] =+ 10;
-d[5] =+ 1;
-Console.WriteLine(d[5]);
-
 while (true) {
     var httpClient = new HttpClient();
 
@@ -27,14 +22,14 @@ while (true) {
     var json = await request.Content.ReadAsStringAsync();
     var blocktemplate = JsonConvert.DeserializeObject<Blocktemplate>(json);
 
-    if (blocktemplate == null || blocktemplate.Id == current.Id) {
+    if (blocktemplate == null || blocktemplate.Height == current.Height) {
         Thread.Sleep(TimeSpan.FromSeconds(1));
         continue;
     }
 
     current = blocktemplate;
 
-    Console.WriteLine($"New Block {blocktemplate.Id}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
+    Console.WriteLine($"New job {blocktemplate.Height}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
 
     tokenSource.Cancel();
     tokenSource = new CancellationTokenSource();

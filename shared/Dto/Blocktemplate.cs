@@ -2,7 +2,7 @@ namespace Marccacoin.Shared;
 
 public class Blocktemplate
 {
-    public long Id { get; set; }
+    public long Height { get; set; }
     public Difficulty Difficulty { get; set; }
     public SHA256Hash Nonce { get; set; }
     public SHA256Hash Solution { get; set; }

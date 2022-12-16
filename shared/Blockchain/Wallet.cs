@@ -12,6 +12,7 @@ public class Wallet
     public PublicKey PublicKey { get; set; }
     public PrivateKey PrivateKey { get; set; }
     public ulong Balance { get; set; }
+    public WalletType Type { get; set; }
 
     [BsonIgnore]
     public bool Updated { get; set; }
@@ -31,4 +32,10 @@ public class Wallet
         Address = PublicKey.ToAddress().ToString();
         Balance = 0;
     }
+}
+
+public enum WalletType
+{
+    WALLET,
+    NODE
 }
