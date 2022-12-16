@@ -29,6 +29,8 @@ jobs:
       - run: mkdir dist
       - run: docker run -v "$(pwd)/dist:/dist" builder "${{ matrix.component }}" "${{ matrix.runtime }}" /dist
       - run: echo "FROM scratch" | docker build -t empty -
+        env:
+          DOCKER_BUILDKIT: 1
       - run: docker create --name empty empty ":"
       - run: docker cp dist empty:/
       - run: docker tag empty "ghcr.io/${GITHUB_REPOSITORY}/artifacts:${{ matrix.component }}-${{ matrix.runtime }}"
