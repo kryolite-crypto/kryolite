@@ -4,10 +4,10 @@ FROM ghcr.io/${GITHUB_REPOSITORY}/builder:base
 COPY shared shared
 COPY node node
 
-COPY wallet wallet
+COPY cli cli
 
 ARG RUNTIME
-RUN dotnet publish wallet \
+RUN dotnet publish cli \
   -c Release \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   --self-contained --runtime="$RUNTIME" \

@@ -44,11 +44,29 @@ services:
         - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:miner-${VARIANT:-linux-x64}"
     networks:
       - builder
-    command:
-      - --url
-      - http://daemon:5000
-      - --address
-      - FIM0xA101CFBF69818C624A03AF8C8FDD9B345896EE1215287EABA4CB
+    entrypoint:
+      - /usr/bin/tail
+      - -f
+      - /dev/null
+  cli:
+    depends_on:
+      - base
+    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:cli-${VARIANT:-linux-x64}"
+    build:
+      context: .
+      dockerfile: Dockerfile.builder.cli
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto}
+        RUNTIME: ${RUNTIME:-linux-x64}
+      cache_from:
+        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:cli-${VARIANT:-linux-x64}"
+    networks:
+      - builder
+    entrypoint:
+      - /usr/bin/tail
+      - -f
+      - /dev/null
 
 networks:
   builder:

@@ -27,15 +27,15 @@ id=$(docker create "ghcr.io/${GITHUB_REPOSITORY}/builder:${COMPONENT}-${VARIANT}
 
 case "$VARIANT" in
   win-*)
-    docker cp "$id:/build/${COMPONENT}.exe" "$output"
+    docker cp "$id:/build/${COMPONENT}.exe" "$output/kryolite-${COMPONENT}.exe"
   ;;
   *)
-    docker cp "$id:/build/${COMPONENT}" "$output"
+    docker cp "$id:/build/${COMPONENT}" "$output/kryolite-${COMPONENT}"
   ;;
 esac
 
 docker rm "$id"
 
-zip -jpr "${DIST}/${COMPONENT}-${VARIANT}.zip" "$output"
+zip -jpr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" "$output"
 
 echo "PACKAGE OK"
