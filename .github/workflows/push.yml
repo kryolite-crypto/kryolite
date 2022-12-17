@@ -9,8 +9,7 @@ on:
       - "cli/**"
       - "node/**"
       - "shared/**"
-      - "build.sh"
-      - "test.sh"
+      - ".build"
 jobs:
   build:
     runs-on: ubuntu-22.04
