@@ -4,7 +4,22 @@ on:
       - prereleased
 
 jobs:
+  base:
+    runs-on: ubuntu-22.04
+    env:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - uses: actions/checkout@v3
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+      - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:base" || true
+      - run: docker build \
+          -f Dockerfile.builder \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          --cache-from="ghcr.io/${GITHUB_REPOSITORY}/builder:base" \
+          -t "ghcr.io/${GITHUB_REPOSITORY}/builder:base" .
+      - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/builder:base"
   builds:
+    needs: base
     strategy:
       matrix:
         component: [daemon, wallet, miner]
@@ -15,10 +30,10 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: mkdir dist
       - run: ./build.sh "${{ matrix.component }}" "${{ matrix.variant }}" dist
-      - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/builder:base"
-      - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/builder:${{ matrix.component }}-${{ matrix.runtime }}"
+      - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/builder:${{ matrix.component }}-${{ matrix.variant }}"
       - uses: softprops/action-gh-release@v1
         with:
           files: dist/*
