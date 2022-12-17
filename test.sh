@@ -60,7 +60,11 @@ echo "wallet_receiver: $wallet_receiver"
 while true
 do
   sender=$(_balance $wallet_sender)
-  [[ $sender -gt 0 ]] && break
+  if [[ $sender -gt 0 ]]
+  then
+    echo "sender got balance: $sender"
+    break
+  fi
 
   echo "sender balance: $sender"
   sleep 1
@@ -71,9 +75,13 @@ docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --no
 while true
 do
   receiver=$(_balance $wallet_receiver)
-  [[ $receiver -gt 0 ]] && break
+  if [[ $receiver -gt 0 ]]
+  then
+    echo "receiver got balance: $receiver"
+    break
+  fi
 
-  echo "receiver balance: $sender"
+  echo "receiver balance: $receiver"
   sleep 1
 done
 
