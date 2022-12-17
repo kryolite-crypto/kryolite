@@ -35,9 +35,9 @@ docker-compose -f docker-compose.builder.yml build base
 docker-compose -f docker-compose.builder.yml build daemon miner
 docker-compose -f docker-compose.builder.yml up --force-recreate -d daemon kryolite miner
 
-wallet=$(docker-compose -f docker-compose.builder.yml exec kryolite kryolite wallet create)
-echo "wallet: ${wallet}"
-# docker-compose -f docker-compose.builder.yml exec miner kryolite-miner --url http://daemon:5000 --address "$wallet"
+wallet=$(docker-compose -f docker-compose.builder.yml exec kryolite kryolite-wallet create)
+echo "wallet: '${wallet}'"
+docker-compose -f docker-compose.builder.yml exec miner kryolite-miner --url http://daemon:5000 --address "$wallet"
 
 # until
 #   docker-compose -f docker-compose.builder.yml logs --no-log-prefix miner | grep "New job 2"
