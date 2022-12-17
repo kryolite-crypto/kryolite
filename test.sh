@@ -26,10 +26,10 @@ _balance() {
 }
 
 _print_balances() {
-  sender=$(_balance $1)
-  receiver=$(_balance $2)
-  echo "sender: $sender"
-  echo "receiver: $receiver"
+  miner=$(_balance $1)
+  other=$(_balance $2)
+  echo "miner: $miner"
+  echo "other: $other"
 }
 
 
@@ -51,37 +51,37 @@ _cleanup
 
 docker-compose -f docker-compose.builder.yml up --force-recreate -d daemon kryolite miner
 
-wallet_sender=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
-wallet_receiver=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
-echo "wallet_sender: $wallet_sender"
-echo "wallet_receiver: $wallet_receiver"
+wallet_miner=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
+wallet_other=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
+echo "wallet_miner: $wallet_miner"
+echo "wallet_other: $wallet_other"
 
->/dev/null 2>&1 docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_sender" &
+>/dev/null 2>&1 docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_miner" &
 echo "started mining"
 
 while true
 do
-  sender=$(_balance $wallet_sender)
-  if [[ $sender -gt 0 ]]
+  miner=$(_balance $wallet_miner)
+  if [[ $miner -gt 0 ]]
   then
-    echo "sender got balance: $sender"
+    echo "miner got balance: $miner"
     break
   fi
 
-  echo "sender balance: $sender"
+  echo "miner balance: $miner"
   sleep 1
 done
 
-docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_sender" --to "$wallet_receiver" --amount 1
-echo "sent 1 to receiver"
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
+echo "sent 1 to other"
 
 while true
 do
-  receiver=$(_balance $wallet_receiver)
-  if [[ $receiver -gt 0 ]]
+  other=$(_balance $wallet_other)
+  if [[ $other -gt 0 ]]
   then
-    echo "receiver got balance: $receiver"
-    if [[ "$receiver" != 1000000 ]]; then
+    echo "other got balance: $other"
+    if [[ "$other" != 1000000 ]]; then
       echo "unexpected balance"
       exit 1
     fi
@@ -89,20 +89,20 @@ do
     break
   fi
 
-  echo "receiver balance: $receiver"
+  echo "other balance: $other"
   sleep 1
 done
 
-docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_sender" --to "$wallet_receiver" --amount 1
-echo "sent 1 to receiver"
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
+echo "sent 1 to other"
 
 while true
 do
-  receiver=$(_balance $wallet_receiver)
-  if [[ $receiver -gt 1000000 ]]
+  other=$(_balance $wallet_other)
+  if [[ $other -gt 1000000 ]]
   then
-    echo "receiver got balance: $receiver"
-    if [[ "$receiver" != 2000000 ]]; then
+    echo "other got balance: $other"
+    if [[ "$other" != 2000000 ]]; then
       echo "unexpected balance"
       exit 1
     fi
@@ -110,20 +110,20 @@ do
     break
   fi
 
-  echo "receiver balance: $receiver"
+  echo "other balance: $other"
   sleep 1
 done
 
-docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_receiver" --to "$wallet_sender" --amount 1
-echo "sent 1 to sender"
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_other" --to "$wallet_miner" --amount 1
+echo "sent 1 to miner"
 
 while true
 do
-  receiver=$(_balance $wallet_receiver)
-  if [[ $receiver -lt 2000000 ]]
+  other=$(_balance $wallet_other)
+  if [[ $other -lt 2000000 ]]
   then
-    echo "receiver got balance: $receiver"
-    if [[ "$receiver" != 999999 ]]; then
+    echo "other got balance: $other"
+    if [[ "$other" != 999999 ]]; then
       echo "unexpected balance"
       exit 1
     fi
@@ -131,7 +131,7 @@ do
     break
   fi
 
-  echo "receiver balance: $receiver"
+  echo "other balance: $other"
   sleep 1
 done
 
