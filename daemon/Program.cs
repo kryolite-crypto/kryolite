@@ -19,7 +19,7 @@ internal class Program
 |    <  |  | \/\___  (  <_> )  |_|  ||  | \  ___/
 |__|_ \ |__|   / ____|\____/|____/__||__|  \___  >
      \/        \/                              \/
-                            node
+                            node2
                                          ");
         Console.ForegroundColor = ConsoleColor.Gray;
 
