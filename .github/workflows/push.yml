@@ -9,6 +9,8 @@ on:
       - "cli/**"
       - "node/**"
       - "shared/**"
+      - "build.sh"
+      - "test.sh"
       - ".build"
 jobs:
   build:
