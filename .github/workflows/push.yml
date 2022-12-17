@@ -2,17 +2,7 @@ on:
   push:
 
 jobs:
-  base:
-    runs-on: ubuntu-22.04
-    env:
-      DOCKER_BUILDKIT: 1
-    steps:
-      - uses: actions/checkout@v3
-      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-      - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:base" || true
-      - run: docker-compose -f docker-compose.builder.yml build base
-  builds:
-    needs: base
+  build:
     runs-on: ubuntu-22.04
     env:
       DOCKER_BUILDKIT: 1
