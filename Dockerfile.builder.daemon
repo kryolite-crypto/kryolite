@@ -1,0 +1,14 @@
+ARG GITHUB_REPOSITORY
+FROM ghcr.io/${GITHUB_REPOSITORY}/builder:base
+
+COPY shared shared
+COPY node node
+
+COPY daemon daemon
+
+ARG RUNTIME
+RUN dotnet publish daemon \
+  -c Release \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+  --self-contained --runtime="$RUNTIME" \
+  -o /build

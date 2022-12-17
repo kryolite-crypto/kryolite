@@ -2,7 +2,8 @@ FROM ubuntu:22.04
 ENV DOTNET_ROOT=/root/.dotnet
 ENV PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
 
-RUN apt-get update && apt-get install -y curl
+RUN apt-get update && apt-get install -y \
+  curl libicu-dev zip
 
 RUN mkdir /ghjk && cd /ghjk \
   && curl -Lsf https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh \
@@ -10,17 +11,5 @@ RUN mkdir /ghjk && cd /ghjk \
   && ./dotnet-install.sh --channel 7.0 \
   && rm -rf /ghjk
 
-RUN apt-get update && apt-get install -y libicu-dev zip
-
+WORKDIR /build
 WORKDIR /src
-
-COPY shared shared
-COPY node node
-
-COPY daemon daemon
-COPY miner miner
-COPY wallet wallet
-
-COPY builder.sh .
-
-ENTRYPOINT [ "/src/builder.sh" ]
