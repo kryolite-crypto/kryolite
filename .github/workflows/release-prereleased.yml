@@ -4,6 +4,16 @@ on:
       - prereleased
 
 jobs:
+  base:
+    runs-on: ubuntu-22.04
+    env:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - uses: actions/checkout@v3
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+      - run: ./build.sh linux-x64 base
+      - run: docker-compose -f docker-compose.builder.yml push base
+
   builds:
     strategy:
       matrix:
