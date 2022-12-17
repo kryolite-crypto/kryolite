@@ -48,19 +48,19 @@ services:
       - /usr/bin/tail
       - -f
       - /dev/null
-  cli:
+  kryolite:
     depends_on:
       - base
-    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:cli-${VARIANT:-linux-x64}"
+    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:kryolite-${VARIANT:-linux-x64}"
     build:
       context: .
-      dockerfile: Dockerfile.builder.cli
+      dockerfile: Dockerfile.builder.kryolite
       args:
         BUILDKIT_INLINE_CACHE: 1
         GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto}
         RUNTIME: ${RUNTIME:-linux-x64}
       cache_from:
-        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:cli-${VARIANT:-linux-x64}"
+        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:kryolite-${VARIANT:-linux-x64}"
     networks:
       - builder
     entrypoint:

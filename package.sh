@@ -22,15 +22,16 @@ export DIST=$3
 export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto}
 export DOCKER_BUILDKIT=1
 
-output=$(mktemp -d)
 id=$(docker create "ghcr.io/${GITHUB_REPOSITORY}/builder:${COMPONENT}-${VARIANT}")
+
+output=$(mktemp -d)
 
 case "$VARIANT" in
   win-*)
-    docker cp "$id:/build/${COMPONENT}.exe" "$output/kryolite-${COMPONENT}.exe"
+    docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}.exe" "$output"
   ;;
   *)
-    docker cp "$id:/build/${COMPONENT}" "$output/kryolite-${COMPONENT}"
+    docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"
   ;;
 esac
 

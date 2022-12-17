@@ -11,7 +11,9 @@ RUN dotnet publish cli \
   -c Release \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   --self-contained --runtime="$RUNTIME" \
-  -o /build
+  -o /build \
+  && mv /build/cli /usr/local/bin/kryolite \
+  && rm -rf /build
 
 WORKDIR /kryolite
-ENTRYPOINT [ "/build/cli" ]
+ENTRYPOINT [ "/usr/local/bin/kryolite" ]
