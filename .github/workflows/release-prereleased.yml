@@ -12,11 +12,7 @@ jobs:
       - uses: actions/checkout@v3
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:base" || true
-      - run: docker build \
-          -f Dockerfile.builder \
-          --build-arg BUILDKIT_INLINE_CACHE=1 \
-          --cache-from="ghcr.io/${GITHUB_REPOSITORY}/builder:base" \
-          -t "ghcr.io/${GITHUB_REPOSITORY}/builder:base" .
+      - run: docker build -f Dockerfile.builder --build-arg BUILDKIT_INLINE_CACHE=1 --cache-from="ghcr.io/${GITHUB_REPOSITORY}/builder:base" -t "ghcr.io/${GITHUB_REPOSITORY}/builder:base" .
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/builder:base"
   builds:
     needs: base
