@@ -1,0 +1,54 @@
+version: '3'
+
+services:
+  base:
+    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:base"
+    build:
+      context: .
+      dockerfile: Dockerfile.builder
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+      cache_from:
+        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:base"
+    networks:
+      - builder
+  daemon:
+    depends_on:
+      - base
+    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:daemon-${VARIANT:-linux-x64}"
+    build:
+      context: .
+      dockerfile: Dockerfile.builder.daemon
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto}
+        RUNTIME: ${RUNTIME:-linux-x64}
+      cache_from:
+        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:daemon-${VARIANT:-linux-x64}"
+    networks:
+      - builder
+    volumes:
+      - ./daemon/appsettings.daemons.json:/kryolite/appsettings.json
+  miner:
+    depends_on:
+      - base
+    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:miner-${VARIANT:-linux-x64}"
+    build:
+      context: .
+      dockerfile: Dockerfile.builder.miner
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto}
+        RUNTIME: ${RUNTIME:-linux-x64}
+      cache_from:
+        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:miner-${VARIANT:-linux-x64}"
+    networks:
+      - builder
+    command:
+      - --url
+      - http://daemon:5000
+      - --address
+      - FIM0xA101CFBF69818C624A03AF8C8FDD9B345896EE1215287EABA4CB
+
+networks:
+  builder:

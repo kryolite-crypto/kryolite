@@ -17,25 +17,25 @@ trap '_on_error $?' ERR
 
 export COMPONENT=$1
 export VARIANT=$2
+export DIST=$3
 
 export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto}
 export DOCKER_BUILDKIT=1
 
-RUNTIME=$VARIANT
+output=$(mktemp -d)
+id=$(docker create "ghcr.io/${GITHUB_REPOSITORY}/builder:${COMPONENT}-${VARIANT}")
+
 case "$VARIANT" in
-  mac-x64)
-    RUNTIME=osx.11.0-x64
+  win-*)
+    docker cp "$id:/build/${COMPONENT}.exe" "$output"
   ;;
-  mac-arm64)
-    RUNTIME=osx.11.0-arm64
+  *)
+    docker cp "$id:/build/${COMPONENT}" "$output"
   ;;
 esac
-export RUNTIME
 
-docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:base" || true
-docker-compose -f docker-compose.builder.yml build base
+docker rm "$id"
 
-docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:${COMPONENT}-${VARIANT}" || true
-docker-compose -f docker-compose.builder.yml build "${COMPONENT}"
+zip -jpr "${DIST}/${COMPONENT}-${VARIANT}.zip" "$output"
 
-echo "BUILD OK"
+echo "PACKAGE OK"

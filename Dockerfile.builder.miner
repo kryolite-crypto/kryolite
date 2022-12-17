@@ -11,3 +11,6 @@ RUN dotnet publish miner \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   --self-contained --runtime="$RUNTIME" \
   -o /build
+
+WORKDIR /kryolite
+ENTRYPOINT [ "/build/miner" ]

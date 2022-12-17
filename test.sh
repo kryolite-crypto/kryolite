@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+_on_error() {
+  set +x
+
+  trap '' ERR
+  line_path=$(caller)
+  line=${line_path% *}
+  path=${line_path#* }
+
+  echo ""
+  echo "ERR $path:$line $BASH_COMMAND exited with $1"
+  exit 1
+}
+trap '_on_error $?' ERR
+
+export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto}
+export DOCKER_BUILDKIT=1
+
+if [[ $(arch) == "arm64" ]]
+then
+  RUNTIME=linux-arm64
+  VARIANT=linux-arm64
+else
+  RUNTIME=linux-x64
+  VARIANT=linux-arm64
+fi
+export RUNTIME VARIANT
+
+docker-compose -f docker-compose.builder.yml down -v
+docker-compose -f docker-compose.builder.yml build base
+docker-compose -f docker-compose.builder.yml build daemon miner
+docker-compose -f docker-compose.builder.yml up --force-recreate -d daemon
+docker-compose -f docker-compose.builder.yml up --force-recreate -d miner
+
+until
+  docker-compose -f docker-compose.builder.yml logs --no-log-prefix miner | grep "New job 2"
+do
+  echo "waiting for block to be mined"
+done
+
+until
+  docker-compose -f docker-compose.builder.yml logs --no-log-prefix daemon | grep "Added block 2"
+do
+  echo "waiting for block to be added"
+done
+
+echo "TEST OK"
