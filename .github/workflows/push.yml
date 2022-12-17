@@ -2,7 +2,13 @@ on:
   push:
     branches:
       - "**"
-
+    paths:
+      - "daemon/**"
+      - "miner/**"
+      - "wallet/**"
+      - "cli/**"
+      - "node/**"
+      - "shared/**"
 jobs:
   build:
     runs-on: ubuntu-22.04

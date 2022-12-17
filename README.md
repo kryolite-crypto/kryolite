@@ -58,6 +58,10 @@ docker-compose up --build --force-recreate --scale miner=3 miner
 docker-compose up --build --force-recreate wallet
 ```
 
+```console
+docker-compose up --build --force-recreate cli
+```
+
 Get a shell
 
 ```console
