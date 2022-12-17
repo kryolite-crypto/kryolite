@@ -17,6 +17,22 @@ _on_error() {
 }
 trap '_on_error $?' ERR
 
+_cleanup() {
+  docker-compose -f docker-compose.builder.yml down --remove-orphans -v -t 0
+}
+
+_balance() {
+  docker-compose -f docker-compose.builder.yml exec -T daemon curl --silent "http://localhost:5000/balance?wallet=$1"
+}
+
+_print_balances() {
+  sender=$(_balance $1)
+  receiver=$(_balance $2)
+  echo "sender: $sender"
+  echo "receiver: $receiver"
+}
+
+
 export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto}
 export DOCKER_BUILDKIT=1
 
@@ -30,25 +46,36 @@ else
 fi
 export RUNTIME VARIANT
 
-docker-compose -f docker-compose.builder.yml down --remove-orphans -v -t 0
-docker-compose -f docker-compose.builder.yml build base
-docker-compose -f docker-compose.builder.yml build daemon miner
+_cleanup
+
 docker-compose -f docker-compose.builder.yml up --force-recreate -d daemon kryolite miner
 
-wallet=$(docker-compose -f docker-compose.builder.yml exec kryolite kryolite-wallet create)
-echo "wallet: '${wallet}'"
-docker-compose -f docker-compose.builder.yml exec miner kryolite-miner --url http://daemon:5000 --address "$wallet"
+wallet_sender=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
+wallet_receiver=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
+echo "wallet_sender: $wallet_sender"
+echo "wallet_receiver: $wallet_receiver"
 
-# until
-#   docker-compose -f docker-compose.builder.yml logs --no-log-prefix miner | grep "New job 2"
-# do
-#   echo "waiting for block to be mined"
-# done
+>/dev/null 2>&1 docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_sender" &
 
-# until
-#   docker-compose -f docker-compose.builder.yml logs --no-log-prefix daemon | grep "Added block 2"
-# do
-#   echo "waiting for block to be added"
-# done
+while true
+do
+  sender=$(_balance $wallet_sender)
+  [[ $sender -gt 0 ]] && break
 
+  echo "sender balance: $sender"
+  sleep 1
+done
+
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_sender" --to "$wallet_receiver" --amount 1
+
+while true
+do
+  receiver=$(_balance $wallet_receiver)
+  [[ $receiver -gt 0 ]] && break
+
+  echo "receiver balance: $sender"
+  sleep 1
+done
+
+_cleanup
 echo "TEST OK"
