@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-      - run: ./build.sh "${{ matrix.component }}" "${{ matrix.variant }}"
+      - run: ./build.sh "${{ matrix.variant }}" "${{ matrix.component }}"
       - run: mkdir dist
       - run: ./package.sh "${{ matrix.component }}" "${{ matrix.variant }}" dist
       - uses: softprops/action-gh-release@v1
