@@ -13,14 +13,14 @@ jobs:
       - run: docker-compose -f docker-compose.builder.yml build base
   builds:
     needs: base
-    strategy:
-      matrix:
-        component: [daemon, wallet, miner, cli]
     runs-on: ubuntu-22.04
     env:
       DOCKER_BUILDKIT: 1
     steps:
       - uses: actions/checkout@v3
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-      - run: ./build.sh "${{ matrix.component }}" linux-x64
+      - run: ./build.sh daemon linux-x64
+      - run: ./build.sh miner linux-x64
+      - run: ./build.sh wallet linux-x64
+      - run: ./build.sh cli linux-x64
       - run: ./test.sh
