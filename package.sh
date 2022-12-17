@@ -28,10 +28,24 @@ output=$(mktemp -d)
 
 case "$VARIANT" in
   win-*)
-    docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}.exe" "$output"
+    case "$COMPONENT" in
+      kryolite)
+        docker cp "$id:/usr/local/bin/kryolite.exe" "$output"
+      ;;
+      *)
+        docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}.exe" "$output"
+      ;;
+    esac
   ;;
   *)
-    docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"
+    case "$COMPONENT" in
+      kryolite)
+        docker cp "$id:/usr/local/bin/kryolite" "$output"
+      ;;
+      *)
+        docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"
+      ;;
+    esac
   ;;
 esac
 
