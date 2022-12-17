@@ -1,10 +1,13 @@
 FROM ubuntu:22.04
 ENV DOTNET_ROOT=/root/.dotnet
 ENV PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
+ENV DISPLAY=:0
 
 RUN DEBIAN_FRONTEND=noninteractive \
   apt-get update && apt-get install -y \
+  tini \
   curl nano iputils-ping htop \
+  xvfb x11vnc netcat fluxbox \
   libicu-dev
 
 RUN mkdir /ghjk && cd /ghjk \
@@ -20,10 +23,6 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
   && mv "reflex_linux_${arch}/reflex" /usr/local/bin \
   && rm -rf /ghjk
 
-COPY shared /kryolite/shared
+WORKDIR /src
 
-WORKDIR /kryolite/miner
-COPY miner .
-
-RUN dotnet build
-ENTRYPOINT [ "/kryolite/miner/entrypoint.sh" ]
+ENTRYPOINT [ "/usr/bin/tini", "tail", "--", "-f", "/dev/null" ]

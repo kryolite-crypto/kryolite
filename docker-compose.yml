@@ -1,62 +1,98 @@
 version: '3'
 
 services:
-  daemon-builder:
+  dev:
+    image: kryolite:dev
     build:
       context: .
-      dockerfile: Dockerfile.daemon
-    #command: hang
-    command: builder
-    volumes:
-      - ./daemon:/kryolite/daemon
-      - ./shared:/kryolite/shared
-      - ./node:/kryolite/node
-      - daemon-build:/build
+      dockerfile: Dockerfile.dev
 
+  daemon-builder:
+    depends_on:
+      - dev
+    image: kryolite:dev
+    entrypoint:
+      - /src/daemon/entrypoint.sh
+      - builder
+    working_dir: "/src/daemon"
+    volumes:
+      - ./shared:/src/shared
+      - ./node:/src/node
+      - ./daemon:/src/daemon
+      - daemon-build:/build
   daemon:
-    build:
-      context: .
-      dockerfile: Dockerfile.daemon
-    command: daemon
+    depends_on:
+      - daemon-builder
+    image: kryolite:dev
+    working_dir: "/kryolite"
+    entrypoint:
+      - /kryolite/entrypoint.sh
+      - daemon
+    volumes:
+      - ./daemon/entrypoint.sh:/kryolite/entrypoint.sh
+      - ./daemon/appsettings.daemon.json:/kryolite/appsettings.json
+      - /kryolite/data
+      - daemon-build:/build
+    environment:
+      - KRYOLITE__DAEMON__CLEAN=${KRYOLITE__DAEMON__CLEAN:-none}
     ports:
       - 6001:6000
       - 5001:5000
-    volumes:
-      - ./daemon/appsettings.json:/kryolite/daemon/appsettings.json
-      - /kryolite/daemon/data
-      - daemon-build:/build
-    environment:
-      - KRYOLITE_DAEMON_CLEAN=none
+
   daemons:
-    build:
-      context: .
-      dockerfile: Dockerfile.daemon
-    command: daemon
+    depends_on:
+      - daemon-builder
+    image: kryolite:dev
+    working_dir: "/kryolite"
+    entrypoint:
+      - /kryolite/entrypoint.sh
+      - daemon
     volumes:
-      - ./daemon/appsettings.json:/kryolite/daemon/appsettings.json
-      - /kryolite/daemon/data
+      - ./daemon/entrypoint.sh:/kryolite/entrypoint.sh
+      - ./daemon/appsettings.daemons.json:/kryolite/appsettings.json
+      - /kryolite/data
       - daemon-build:/build
     environment:
-      - KRYOLITE_DAEMON_CLEAN=none
+      - KRYOLITE__DAEMON__CLEAN=${KRYOLITE__DAEMON__CLEAN:-none}
+
+  cli:
+    depends_on:
+      - dev
+    image: kryolite:dev
+    working_dir: "/src/cli"
+    entrypoint:
+      - /src/cli/entrypoint.sh
+      - cli
+    volumes:
+      - ./shared:/src/shared
+      - ./node:/src/node
+      - ./cli:/src/cli
   miner:
-    build:
-      context: .
-      dockerfile: Dockerfile.miner
-    #command: hang
-    command: miner
+    depends_on:
+      - dev
+    image: kryolite:dev
+    working_dir: "/src/miner"
+    entrypoint:
+      - /src/miner/entrypoint.sh
+      - miner
     volumes:
-      - ./miner:/kryolite/miner
-      - ./shared:/kryolite/shared
+      - ./miner:/src/miner
+      - ./shared:/src/shared
+
   wallet:
-    build:
-      context: .
-      dockerfile: Dockerfile.wallet
-    command: wallet
+    depends_on:
+      - dev
+    image: kryolite:dev
+    working_dir: "/src/wallet"
+    entrypoint:
+      - /src/wallet/entrypoint.sh
+      - wallet
     volumes:
-      - ./wallet:/kryolite/wallet
-      - ./shared:/kryolite/shared
-      - ./node:/kryolite/node
+      - ./shared:/src/shared
+      - ./node:/src/node
+      - ./wallet:/src/wallet
     ports:
       - 5901:5900
+
 volumes:
   daemon-build:

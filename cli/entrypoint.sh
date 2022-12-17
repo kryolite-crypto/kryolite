@@ -29,28 +29,10 @@ case "${subcommand}" in
     echo "HANG"
     tail -f /dev/null & wait
   ;;
-  wallet)
-    (
-      exec Xvfb :0 -listen tcp
-    ) >/tmp/xvfb.log 2>&1 &
-
+  cli)
     while true; do
-      echo "waiting for 127.0.0.1:6000"
-      nc -z 127.0.0.1 6000 && break
-      sleep 0.1
-      echo "waiting for x"
+      dotnet run wallet create
+      sleep 1
     done
-
-    echo "x ready"
-
-    (
-      exec fluxbox
-    ) >/tmp/fluxbox.log 2>&1 &
-
-    (
-      exec x11vnc -listen 0.0.0.0 -shared -passwd "secret" -loop0
-    ) >/tmp/x11vnc.log 2>&1 &
-
-    exec dotnet run
   ;;
 esac

@@ -46,15 +46,26 @@ case "${subcommand}" in
       ./build.sh
   ;;
   daemon)
-    case "${KRYOLITE_DAEMON_CLEAN:-}" in
-      blocks)
-        rm -rf data/blocks.dat
-      ;;
-      wallet)
-        rm -rf data/wallet.dat
+    case "$KRYOLITE__DAEMON__CLEAN" in
+      blocks|wallet)
+        if [[ -f "data/${KRYOLITE__DAEMON__CLEAN}.dat" ]]
+        then
+          rm "data/${KRYOLITE__DAEMON__CLEAN}.dat"
+          echo "removed data/${KRYOLITE__DAEMON__CLEAN}.dat"
+        else
+          echo "no data/${KRYOLITE__DAEMON__CLEAN}.dat to remove"
+        fi
       ;;
       all)
-        rm -rf data
+        rm -rf data/*
+        echo "cleaned all data"
+      ;;
+      none)
+        :
+      ;;
+      *)
+        echo "unknown value in KRYOLITE__DAEMON__CLEAN: $KRYOLITE__DAEMON__CLEAN"
+        exit 1
       ;;
     esac
 
@@ -68,7 +79,7 @@ case "${subcommand}" in
     while true; do
       touch "/build/DAEMON.$HOSTNAME"
 
-      echo "starting /build/daemon"
+      echo "starting /build/daemon in $(pwd)"
       (
         exec /build/daemon
       ) &
