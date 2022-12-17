@@ -26,7 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: mkdir dist
       - run: ./build.sh "${{ matrix.component }}" "${{ matrix.variant }}" dist
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/builder:${{ matrix.component }}-${{ matrix.variant }}"
