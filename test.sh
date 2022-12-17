@@ -42,9 +42,10 @@ then
   VARIANT=linux-arm64
 else
   RUNTIME=linux-x64
-  VARIANT=linux-arm64
+  VARIANT=linux-x64
 fi
-export RUNTIME VARIANT
+export RUNTIME
+export VARIANT
 
 _cleanup
 
@@ -56,6 +57,7 @@ echo "wallet_sender: $wallet_sender"
 echo "wallet_receiver: $wallet_receiver"
 
 >/dev/null 2>&1 docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_sender" &
+echo "started mining"
 
 while true
 do
@@ -71,6 +73,7 @@ do
 done
 
 docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_sender" --to "$wallet_receiver" --amount 1
+echo "sent 1 to receiver"
 
 while true
 do
@@ -78,12 +81,61 @@ do
   if [[ $receiver -gt 0 ]]
   then
     echo "receiver got balance: $receiver"
+    if [[ "$receiver" != 1000000 ]]; then
+      echo "unexpected balance"
+      exit 1
+    fi
+
     break
   fi
 
   echo "receiver balance: $receiver"
   sleep 1
 done
+
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_sender" --to "$wallet_receiver" --amount 1
+echo "sent 1 to receiver"
+
+while true
+do
+  receiver=$(_balance $wallet_receiver)
+  if [[ $receiver -gt 1000000 ]]
+  then
+    echo "receiver got balance: $receiver"
+    if [[ "$receiver" != 2000000 ]]; then
+      echo "unexpected balance"
+      exit 1
+    fi
+
+    break
+  fi
+
+  echo "receiver balance: $receiver"
+  sleep 1
+done
+
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_receiver" --to "$wallet_sender" --amount 1
+echo "sent 1 to sender"
+
+while true
+do
+  receiver=$(_balance $wallet_receiver)
+  if [[ $receiver -lt 2000000 ]]
+  then
+    echo "receiver got balance: $receiver"
+    if [[ "$receiver" != 999999 ]]; then
+      echo "unexpected balance"
+      exit 1
+    fi
+
+    break
+  fi
+
+  echo "receiver balance: $receiver"
+  sleep 1
+done
+
+
 
 _cleanup
 echo "TEST OK"

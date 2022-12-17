@@ -12,7 +12,7 @@ RUN dotnet publish wallet \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   --self-contained --runtime="$RUNTIME" \
   -o /build \
-  && mv /build/wallet /usr/local/bin/kryolite-wallet \
+  && [ "$RUNTIME" != "win-x64" ] && mv /build/wallet /usr/local/bin/kryolite-wallet || true \
   && rm -rf /build
 
 WORKDIR /kryolite
