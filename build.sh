@@ -18,6 +18,7 @@ trap '_on_error $?' ERR
 export COMPONENT=$1
 export VARIANT=$2
 export DIST=$3
+
 export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto}
 export DOCKER_BUILDKIT=1
 
