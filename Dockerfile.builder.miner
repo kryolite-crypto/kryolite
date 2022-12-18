@@ -11,8 +11,7 @@ RUN dotnet publish miner \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   --self-contained --runtime="$RUNTIME" \
   -o /build \
-  && [ "$RUNTIME" != "win-x64" ] && mv /build/miner /usr/local/bin/kryolite-miner || true \
-  && rm -rf /build
+  && if [ "$RUNTIME" != "win-x64" ]; then mv /build/miner /usr/local/bin/kryolite-miner && rm -rf /build; fi
 
 WORKDIR /kryolite
 ENTRYPOINT [ "/usr/local/bin/kryolite-miner" ]

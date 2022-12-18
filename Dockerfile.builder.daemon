@@ -12,8 +12,7 @@ RUN dotnet publish daemon \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   --self-contained --runtime="$RUNTIME" \
   -o /build \
-  && [ "$RUNTIME" != "win-x64" ] && mv /build/daemon /usr/local/bin/kryolite-daemon || true \
-  && rm -rf /build
+  && if [ "$RUNTIME" != "win-x64" ]; then mv /build/daemon /usr/local/bin/kryolite-daemon && rm -rf /build; fi
 
 WORKDIR /kryolite
 ENTRYPOINT [ "/usr/local/bin/kryolite-daemon" ]

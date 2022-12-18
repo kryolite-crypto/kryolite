@@ -12,8 +12,8 @@ RUN dotnet publish cli \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   --self-contained --runtime="$RUNTIME" \
   -o /build \
-  && [ "$RUNTIME" != "win-x64" ] && mv /build/cli /usr/local/bin/kryolite || true \
-  && rm -rf /build
+  && if [ "$RUNTIME" != "win-x64" ]; then mv /build/cli /usr/local/bin/kryolite && rm -rf /build; fi
+
 
 WORKDIR /kryolite
 ENTRYPOINT [ "/usr/local/bin/kryolite" ]
