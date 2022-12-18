@@ -38,7 +38,7 @@ for COMPONENT in $COMPONENTS; do
       win-*)
         case "$COMPONENT" in
           kryolite)
-            docker cp "$id:/build/kryolite.exe" "$output"
+            docker cp "$id:/build/cli.exe" "$output/kryolite.exe"
           ;;
           *)
             docker cp "$id:/build/${COMPONENT}.exe" "$output/kryolite-${COMPONENT}.exe"
