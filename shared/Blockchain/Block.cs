@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
-using LiteDB;
 using MessagePack;
 
 namespace Kryolite.Shared;
@@ -22,7 +21,9 @@ public struct Concat
 public class PowBlock
 {
     [IgnoreMember]
-    public long Id { get; set; }
+    public Guid Id { get; set; }
+    [IgnoreMember]
+    public Guid PosBlockId { get; set; }
 
     [Key(0)]
     public long Height { get; set; }
@@ -36,6 +37,8 @@ public class PowBlock
     public Difficulty Difficulty { get; set; }
     [Key(5)]
     public List<Transaction> Transactions { get; set; } = new();
+    [IgnoreMember]
+    public PosBlock? Pos { get; set; }
 
     public SHA256Hash GetHash()
     {
@@ -73,7 +76,7 @@ public class PowBlock
 public class PosBlock
 {
     [IgnoreMember]
-    public long Id { get; set; }
+    public Guid Id { get; set; }
 
     [Key(0)]
     public long Height { get; set; }

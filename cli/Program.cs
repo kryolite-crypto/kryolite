@@ -46,7 +46,7 @@ public class Program
 
         createCmd.SetHandler((output) =>
         {
-            using var walletRepository = new WalletRepository(true);
+            var walletRepository = new WalletRepository();
 
             var wallet = new Wallet
             {
@@ -54,7 +54,6 @@ public class Program
             };
 
             walletRepository.Add(wallet);
-            walletRepository.Commit();
 
             switch (output)
             {
@@ -75,7 +74,7 @@ public class Program
 
         listCmd.SetHandler((output) => 
         {
-            using var walletRepository = new WalletRepository();
+            var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
 
             switch (output)
@@ -140,7 +139,7 @@ public class Program
 
         sendCmd.SetHandler(async (from, to, amount, node) =>
         {
-            using var walletRepository = new WalletRepository();
+            var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
 
             if(!wallets.TryGetValue(from, out var wallet))
@@ -163,6 +162,7 @@ public class Program
             tx.Sign(wallet.PrivateKey);
 
             var json = JsonConvert.SerializeObject(tx);
+            Console.WriteLine(json);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
             using var http = new HttpClient();

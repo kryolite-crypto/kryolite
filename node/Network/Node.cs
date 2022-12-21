@@ -6,10 +6,10 @@ namespace Kryolite;
 
 public abstract class BaseNode
 {
-    public string? Hostname { get; protected set; }
+    public string Hostname { get; protected set; } = string.Empty;
     public int Port { get; protected set; }
     public DateTime LastSeen { get; set; }
-    public List<PowBlock> Blockchain { get; set; } = new List<PowBlock>();
+    public List<PosBlock> Blockchain { get; set; } = new List<PosBlock>();
     public Guid ClientId;
 
     public abstract Task SendAsync(Message msg);

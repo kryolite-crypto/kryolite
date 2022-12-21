@@ -8,7 +8,7 @@ namespace Kryolite.Shared;
 public class Transaction : IComparable<Transaction>
 {
     [IgnoreMember]
-    public long Id { get; set; }
+    public Guid Id { get; set; }
 
     [Key(0)]
     public TransactionType TransactionType { get; set; }
@@ -44,8 +44,7 @@ public class Transaction : IComparable<Transaction>
 
         stream.Flush();
 
-        Signature = new Signature { Buffer = new byte[64] };
-        algorithm.Sign(key, stream.ToArray(), Signature.Value);
+        Signature = algorithm.Sign(key, stream.ToArray());
     }
 
     public bool Verify()

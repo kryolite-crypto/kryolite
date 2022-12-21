@@ -31,7 +31,7 @@ public class NetworkService : BackgroundService
         this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
     }
 
-    private Network NodeNetwork;
+    private Network? NodeNetwork;
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -39,7 +39,7 @@ public class NetworkService : BackgroundService
         await Task.Run(() => startup.Mempool.WaitOne());
 
         logger.LogInformation("Starting Websocket server");
-        NodeNetwork = new Network(configuration.GetValue<string>("NodeIp"), configuration.GetValue<int>("NodePort"), false);
+        NodeNetwork = new Network(configuration.GetValue<string>("NodeIp") ?? "127.0.0.1", configuration.GetValue<int>("NodePort"), false);
         logger.LogInformation("Websocket server started");
 
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(NodeNetwork, blockchainManager, logger));
@@ -111,7 +111,7 @@ public class NetworkService : BackgroundService
                         goto sync;
                     }
 
-                    if (!Enumerable.SequenceEqual((byte[])nodeInfo.LastHash, (byte[])blockchainManager.GetLastBlockhash())) {
+                    if (!Enumerable.SequenceEqual((byte[])nodeInfo.LastHash, (byte[])(blockchainManager.GetLastBlockhash() ?? new byte[0]))) {
                         goto sync;
                     }
 
@@ -130,29 +130,30 @@ sync:
 
                     break;
                 case PosBlock newBlock:
-                    logger.LogInformation($"Received block {newBlock.Id} from {args.Message.NodeId}");
-                    var height = blockchainManager.GetCurrentHeight();
+                    logger.LogInformation($"Received block {newBlock.Height} from {args.Message.NodeId}");
+                    var chainState = blockchainManager.GetChainState();
 
-                    if (height > newBlock.Id)
+                    if (chainState.POS.Height > newBlock.Height)
                     {
                         return;
                     }
 
-                    if (height < (newBlock.Id - 1))
+                    if (chainState.POS.Height < (newBlock.Height - 1))
                     {
                         var msg2 = new Message
                         {
                             Payload = new RequestChainSync
                             {
-                                StartBlock = blockchainManager.GetCurrentHeight(),
-                                StartHash = blockchainManager.GetLastBlockhash()
+                                StartBlock = chainState.POS.Height,
+                                StartHash = chainState.POS.LastHash
                             }
                         };
 
                         await node.SendAsync(msg2);
+                        return;
                     }
 
-                    if (blockchainManager.AddBlock(newBlock, false)) 
+                    if (blockchainManager.AddBlock(newBlock, false, true)) 
                     {
                         args.Rebroadcast = true;
                     }
@@ -161,16 +162,16 @@ sync:
                 case QueryNodeInfo queryNodeInfo:
                     logger.LogInformation($"Node query received from {args.Message.NodeId}");
 
-                    var chainState = blockchainManager.GetChainState();
+                    var chainState2 = blockchainManager.GetChainState();
                     var hostname = $"http://{node.Hostname}:{queryNodeInfo.Port}";
 
                     var response = new Message
                     {
                         Payload = new NodeInfo
                         {
-                            Height = chainState.POS.Height,
-                            TotalWork = chainState.POW.TotalWork,
-                            LastHash = blockchainManager.GetLastBlockhash(),
+                            Height = chainState2.POS.Height,
+                            TotalWork = chainState2.POW.TotalWork,
+                            LastHash = blockchainManager.GetLastBlockhash() ?? new SHA256Hash(),
                             CurrentTime = DateTime.UtcNow,
                             Peers = NodeNetwork.GetPeers()
                                 .Where(x => x.Key != hostname)
@@ -185,17 +186,17 @@ sync:
                 case RequestChainSync syncParams:
                     logger.LogInformation($"Chain sync requested from {args.Message.NodeId}");
 
-                    var block = blockchainManager.GetBlock(syncParams.StartBlock);
+                    var block = blockchainManager.GetPosBlock(syncParams.StartBlock);
 
                     var chain = new Blockchain();
 
                     if (block == null) {
-                        chain.Blocks = blockchainManager.GetFrom(0);
+                        chain.Blocks = blockchainManager.GetPosFrom(0);
                         goto answer;
                     }
 
                     if (!Enumerable.SequenceEqual(block.GetHash().Buffer, syncParams.StartHash!)) {
-                        chain.Blocks = blockchainManager.GetFrom(0);
+                        chain.Blocks = blockchainManager.GetPosFrom(0);
                         goto answer;
                     }
 
@@ -203,7 +204,7 @@ sync:
                         return;
                     }
 
-                    chain.Blocks = blockchainManager.GetFrom(syncParams.StartBlock);
+                    chain.Blocks = blockchainManager.GetPosFrom(syncParams.StartBlock);
     answer:
                     var answer = new Message()
                     {
@@ -226,12 +227,13 @@ sync:
                         Transactions = valid
                     };
 
-                    if (valid.Count > 0) {
+                    if (valid.Count > 0) 
+                    {
                         args.Rebroadcast = true;
                     }
                     break;
                 case Vote vote:
-                    logger.LogInformation($"Received vote from {args.Hostname}");
+                    logger.LogInformation($"Received vote (height={vote.Height}) from {args.Message.NodeId}");
 
                     if(blockchainManager.AddVote(vote))
                     {
@@ -249,6 +251,15 @@ sync:
             var msg = new Message
             {
                 Payload = block
+            };
+
+            await NodeNetwork.BroadcastAsync(msg);
+        }));
+
+        blockchainManager.OnVoteAdded(new ActionBlock<Vote>(async vote => {
+            var msg = new Message
+            {
+                Payload = vote
             };
 
             await NodeNetwork.BroadcastAsync(msg);
@@ -292,7 +303,7 @@ sync:
 
     public bool ProposeBlock(PowBlock block)
     {
-        logger.LogInformation($"Proposing block {block.Id} to network...");
+        logger.LogInformation($"Proposing POW block {block.Height} to network...");
         // TODO: lock
 
         // TODO: Validate
@@ -304,10 +315,12 @@ sync:
             Height = chainState.POS.Height + 1,
             ParentHash = chainState.POS.LastHash,
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            Pow = block
+            Pow = block,
+            SignedBy = new Shared.PublicKey { Buffer = new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }},
+            Signature = new Signature { Buffer = new byte[64] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  }}
         };
 
-        return blockchainManager.AddBlock(posBlock);
+        return blockchainManager.AddBlock(posBlock, true, true);
     }
 }
 
@@ -315,7 +328,7 @@ sync:
 public class Blockchain
 {
     [Key(0)]
-    public List<PowBlock>? Blocks { get; set; }
+    public List<PosBlock>? Blocks { get; set; }
 }
 
 [MessagePackObject]
@@ -369,45 +382,48 @@ public class ChainObserver : IObserver<BaseNode>
 
         BeginSync?.Invoke(this, node.Blockchain.Count);
 
-        var sortedBlocks = node.Blockchain.OrderBy(x => x.Id).ToList();
+        var sortedBlocks = node.Blockchain.OrderBy(x => x.Height).ToList();
 
-        var min = sortedBlocks.Min(x => x.Id);
+        var min = sortedBlocks.Min(x => x.Height);
 
         BigInteger totalWork = new BigInteger(0);
 
-        var blockchainContext = new BlockchainContext()
+        var blockchainContext = new BlockchainExContext()
         {
             LastBlocks = blockchainManager.GetLastBlocks(min, 11)
                 .OrderBy(x => x.Id)
                 .ToList()
         };
 
-        var blockExecutor = Executor.Create<PowBlock, BlockchainContext>(blockchainContext)
+        var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext)
             .Link<VerifyNonce>()
-            .Link<VerifyId>(x => x.Id > 0)
-            .Link<VerifyParentHash>(x => x.Id > 0);
+            .Link<VerifyId>(x => x.Height > 0)
+            .Link<VerifyParentHash>(x => x.Height > 0);
 
         long progress = 0;
         ReportProgress(progress, sortedBlocks.Count);
 
         foreach (var block in sortedBlocks)
         {
-            if(!blockExecutor.Execute(block, out var result)) {
-                // TODO: disconnect from node and remove from peers
-                // TODO: Replace with logger
-                logger.LogError($"Chain failed at {block.Id} ({result})");
-                return;
+            if (block.Pow is not null)
+            {
+                if(!blockExecutor.Execute(block.Pow, out var result)) 
+                {
+                    // TODO: disconnect from node and remove from peers
+                    // TODO: Replace with logger
+                    logger.LogError($"Chain failed at {block.Id} ({result})");
+                    return;
+                }
+
+                totalWork += block.Pow.Difficulty.ToWork();
+                blockchainContext.LastBlocks.Add(block.Pow);
             }
-
-            totalWork += block.Difficulty.ToWork();
-
-            blockchainContext.LastBlocks.Add(block);
 
             ReportProgress(++progress, sortedBlocks.Count);
         }
 
         if (totalWork > blockchainManager.GetTotalWork()) {
-            if(!blockchainManager.SetChain(blockchainContext.LastBlocks)) {
+            if(!blockchainManager.SetChain(sortedBlocks)) {
                 EndSync?.Invoke(this, EventArgs.Empty);
                 return;
             }

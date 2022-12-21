@@ -24,8 +24,9 @@ internal class Program
         Console.ForegroundColor = ConsoleColor.Gray;
 
          await WebHost.CreateDefaultBuilder()
-            .ConfigureAppConfiguration(c => c
-                .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
+            .ConfigureAppConfiguration((hostingContext, config) => config
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables(prefix: "MARKKA__")
                 .AddCommandLine(args))
             .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())

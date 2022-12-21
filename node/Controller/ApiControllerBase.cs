@@ -51,13 +51,13 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("block")]
-    public PowBlock GetBlock([BindRequired, FromQuery] long id)
+    public PowBlock? GetBlock([BindRequired, FromQuery] long id)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid parameter (address)");
         }
 
-        return blockchainManager.GetBlock(id);
+        return blockchainManager.GetPowBlock(id);
     }
 
     [HttpPost("solution")]

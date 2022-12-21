@@ -123,20 +123,20 @@ public class TransactionContext : IContext
     public ulong FeeTotal;
     public long Timestamp;
     public Dictionary<string, Wallet> Wallets;
-    public BlockRepository BlockRepository;
+    public BlockchainRepository BlockRepository;
     public IMempoolManager MempoolManager;
     public Dictionary<string, LedgerWallet> LedgerWalletCache = new Dictionary<string, LedgerWallet>();
 
     public Exception? Ex { get; private set; }
 
-    public TransactionContext(BlockRepository blockRepository, IMempoolManager mempoolManager)
+    public TransactionContext(BlockchainRepository blockRepository, IMempoolManager mempoolManager)
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         MempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         Wallets = null!;
     }
 
-    public TransactionContext(BlockRepository blockRepository, Dictionary<string, Wallet> wallets)
+    public TransactionContext(BlockchainRepository blockRepository, Dictionary<string, Wallet> wallets)
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
@@ -364,7 +364,7 @@ public class UpdateRecipientWallet : BaseStep<Transaction, TransactionContext>
     }
 }
 
-public class BlockchainContext : IContext
+public class BlockchainExContext : IContext
 {
     public List<PowBlock> LastBlocks { get; init; } = new List<PowBlock>();
     public DateTimeOffset NetworkTime { get; init; }
@@ -378,9 +378,9 @@ public class BlockchainContext : IContext
     }
 }
 
-public class VerifyDifficulty : BaseStep<PowBlock, BlockchainContext>
+public class VerifyDifficulty : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         if (block.Difficulty != ctx.CurrentDifficulty) 
         {
@@ -389,9 +389,9 @@ public class VerifyDifficulty : BaseStep<PowBlock, BlockchainContext>
     }
 }
 
-public class VerifyNonce : BaseStep<PowBlock, BlockchainContext>
+public class VerifyNonce : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         if (!block.VerifyNonce()) 
         {
@@ -400,9 +400,9 @@ public class VerifyNonce : BaseStep<PowBlock, BlockchainContext>
     }
 }
 
-public class VerifyId : BaseStep<PowBlock, BlockchainContext>
+public class VerifyId : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         var lastBlock = ctx.LastBlocks.Last();
 
@@ -413,9 +413,9 @@ public class VerifyId : BaseStep<PowBlock, BlockchainContext>
     }
 }
 
-public class VerifyParentHash : BaseStep<PowBlock, BlockchainContext>
+public class VerifyParentHash : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         var lastBlock = ctx.LastBlocks.Last();
 
@@ -426,9 +426,9 @@ public class VerifyParentHash : BaseStep<PowBlock, BlockchainContext>
     }
 }
 
-public class VerifyTimestampPast : BaseStep<PowBlock, BlockchainContext>
+public class VerifyTimestampPast : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         // Get median of last 11 blocks
         var median = ctx.LastBlocks.TakeLast(11)
@@ -441,9 +441,9 @@ public class VerifyTimestampPast : BaseStep<PowBlock, BlockchainContext>
     }
 }
 
-public class VerifyTimestampFuture : BaseStep<PowBlock, BlockchainContext>
+public class VerifyTimestampFuture : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         // Get median of last 11 blocks
         var median = ctx.LastBlocks.TakeLast(11)
