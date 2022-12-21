@@ -3,7 +3,6 @@ using System.IO;
 using System.Numerics;
 using Kryolite.Node;
 using Kryolite.Shared;
-using LiteDB;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +29,11 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
+        var dataDir = Configuration.GetValue<string>("data-dir") ?? "data";
+        Directory.CreateDirectory(dataDir);
+
+        BlockchainService.DATA_PATH = dataDir;
+
         services.AddSingleton<IBlockchainManager, BlockchainManager>()
                 .AddSingleton<Lazy<IBlockchainManager>>(c => new Lazy<IBlockchainManager>(c.GetService<IBlockchainManager>()!))
                 .AddSingleton<INetworkManager, NetworkManager>()

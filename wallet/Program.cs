@@ -16,8 +16,9 @@ namespace Kryolite.Wallet
         [STAThread]
         public static void Main(string[] args) {
             Host = WebHost.CreateDefaultBuilder()
-                .ConfigureAppConfiguration(c => c
+                .ConfigureAppConfiguration((hostingContext, config) => config
                     .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
+                    .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
                     .AddEnvironmentVariables(prefix: "KRYOLITE__")
                     .AddCommandLine(args))
                 .ConfigureLogging(logging => logging.AddProvider(new InMemoryLoggerProvider()))

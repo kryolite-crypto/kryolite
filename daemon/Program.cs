@@ -27,7 +27,7 @@ internal class Program
             .ConfigureAppConfiguration((hostingContext, config) => config
                 .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-                .AddEnvironmentVariables(prefix: "MARKKA__")
+                .AddEnvironmentVariables(prefix: "KRYOLITE__")
                 .AddCommandLine(args))
             .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())
             .UseStartup<Startup>()
