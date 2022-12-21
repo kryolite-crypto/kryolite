@@ -4,7 +4,6 @@ using System.Text;
 using System.Text.Json;
 using Kryolite.Node;
 using Kryolite.Shared;
-using LiteDB;
 using Newtonsoft.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -17,8 +16,7 @@ public class Program
 
     private static async Task Main(string[] args)
     {
-        InitializeLiteDb();
-
+        BlockchainService.DATA_PATH = "data"; // TODO: take as an argument from cmdline
         var rootCmd = new RootCommand("Kryolite CLI");
 
         var nodeOption = new Option<string>(name: "--node", description: "Node url", getDefaultValue: () => "http://localhost:5000");
@@ -172,57 +170,5 @@ public class Program
         }, fromOption, toOption, amountOption, nodeOption);
 
         return sendCmd;
-    }
-
-    // TODO: Move this under node or shared project
-    private static void InitializeLiteDb()
-    {
-        BsonMapper.Global.RegisterType<Difficulty>
-        (
-            serialize: (diff) => BitConverter.GetBytes(diff.Value),
-            deserialize: (bson) => new Difficulty { Value = BitConverter.ToUInt32(bson.AsBinary) }
-        );
-
-        BsonMapper.Global.RegisterType<SHA256Hash>
-        (
-            serialize: (hash) => hash.Buffer,
-            deserialize: (bson) => bson.AsBinary
-        );
-
-        BsonMapper.Global.RegisterType<Nonce>
-        (
-            serialize: (hash) => hash.Buffer,
-            deserialize: (bson) => bson.AsBinary
-        );
-
-        BsonMapper.Global.RegisterType<Signature>
-        (
-            serialize: (hash) => hash.Buffer,
-            deserialize: (bson) => bson.AsBinary
-        );
-
-        BsonMapper.Global.RegisterType<Address>
-        (
-            serialize: (hash) => hash.Buffer,
-            deserialize: (bson) => bson.AsBinary
-        );
-
-        BsonMapper.Global.RegisterType<Kryolite.Shared.PublicKey>
-        (
-            serialize: (hash) => hash.Buffer,
-            deserialize: (bson) => bson.AsBinary
-        );
-
-        BsonMapper.Global.RegisterType<Kryolite.Shared.PrivateKey>
-        (
-            serialize: (hash) => hash.Buffer,
-            deserialize: (bson) => bson.AsBinary
-        );
-
-        BsonMapper.Global.RegisterType<BigInteger>
-        (
-            serialize: (bigint) => bigint.ToByteArray(),
-            deserialize: (bson) => new BigInteger(bson.AsBinary, true)
-        );
     }
 }
