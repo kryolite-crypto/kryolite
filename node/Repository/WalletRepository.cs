@@ -1,84 +1,81 @@
 using Kryolite.Shared;
-using LiteDB;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Kryolite.Node;
 
-public class WalletRepository : TransactionalRepository
+public class WalletRepository : IDisposable
 {
-    public WalletRepository(bool transactional = false) : base("/wallet.dat;Connection=shared", transactional)
-    {
-        BsonMapper.Global.Entity<Wallet>()
-            .DbRef(x => x.WalletTransactions, typeof(WalletTransaction).Name);
+    public WalletContext Context { get; }
 
-        Database.GetCollection<Wallet>()
-            .EnsureIndex(x => x.Address, true);
+    public WalletRepository()
+    {
+        var walletPath = Path.Join(BlockchainService.DATA_PATH, "wallet.dat");
+
+        var options = new DbContextOptionsBuilder<WalletContext>()
+            .UseSqlite($"Data Source={walletPath}")
+            .Options;
+
+        Context = new WalletContext(options);
+        Context.Database.EnsureCreated();
     }
 
     public void Add(Wallet wallet)
     {
-        Database.GetCollection<WalletTransaction>().Insert(wallet.WalletTransactions);
-        Database.GetCollection<Wallet>().Insert(wallet);
+        Context.Wallets.Add(wallet);
+        Context.SaveChanges();
     }
 
-    public Wallet Get(Address address)
+    public Wallet? Get(Address address)
     {
-        return Database.GetCollection<Wallet>()
-            .IncludeCollection(x => x.WalletTransactions)
-            .Query()
+        return Context.Wallets
             .Where(x => x.Address == address.ToString())
             .FirstOrDefault();
     }
 
     public void Update(Wallet wallet)
     {
-        Database.GetCollection<WalletTransaction>()
-            .Upsert(wallet.WalletTransactions);
-        Database.GetCollection<Wallet>()
-            .Update(wallet);
+        Context.Wallets.Update(wallet);
+        Context.SaveChanges();
     }
 
     public void UpdateWallets(IEnumerable<Wallet> wallets)
     {
-        foreach (var wallet in wallets) {
-            Database.GetCollection<WalletTransaction>()
-                .Upsert(wallet.WalletTransactions);
-        }
-
-        Database.GetCollection<Wallet>()
-            .Update(wallets);
+        Context.Wallets.UpdateRange(wallets);
+        Context.SaveChanges();
     }
 
     public void RollbackWallets(IEnumerable<Wallet> wallets, long blockId)
     {
-        Database.GetCollection<WalletTransaction>()
-            .DeleteMany(x => x.BlockId >= blockId);
+        var toRemove = Context.Transactions.Where(x => x.BlockId >= blockId)
+            .ToList();
 
-        Database.GetCollection<Wallet>()
-            .Update(wallets);
+        Context.Transactions.RemoveRange(toRemove);
+        Context.SaveChanges();
     }
 
     public Dictionary<string, Wallet> GetWallets()
     {
-        return Database.GetCollection<Wallet>()
-            .IncludeCollection(x => x.WalletTransactions)
-            .FindAll()
-            .ToDictionary(x => x.Address, x => x);
+        return Context.Wallets.ToDictionary(x => x.Address, x => x);
     }
 
     public List<WalletTransaction> GetLastTransactions(int count)
     {
-        return Database.GetCollection<WalletTransaction>()
-            .Query()
+        return Context.Transactions
             .OrderByDescending(x => x.Timestamp)
-            .Limit(count)
+            .Take(count)
             .ToList();
     }
 
-    public Wallet GetNodeWallet()
+    public Wallet? GetNodeWallet()
     {
-        return Database.GetCollection<Wallet>()
-            .Query()
+        return Context.Wallets
             .Where(x => x.Type == WalletType.NODE)
             .SingleOrDefault();
+    }
+
+    public void Dispose()
+    {
+        Context.Dispose();
     }
 }

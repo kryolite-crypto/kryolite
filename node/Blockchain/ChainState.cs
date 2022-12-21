@@ -1,19 +1,18 @@
 using System.Numerics;
 using Kryolite.Shared;
-using LiteDB;
 
 namespace Kryolite.Node;
 
 public class ChainState
 {
-    [BsonId(false)]
-    public int Id { get; set; } = 0;
+    public int Id { get; set; } = 1;
     public PohjolaChain POW { get; set; } = new();
     public TuonelaChain POS { get; set; } = new();
 }
 
 public class PohjolaChain
 {
+    public int Id { get; set; } = 1;
     public long Height { get; set; }
     public BigInteger TotalWork { get; set; } = new BigInteger(0);
     public Difficulty CurrentDifficulty {get; set; } = new Difficulty { Value = 0 };
@@ -23,6 +22,7 @@ public class PohjolaChain
 
 public class TuonelaChain
 {
+    public int Id { get; set; } = 1;
     public bool Active { get => SampoCount > 0; }
     public long Height { get; set; }
     public int SampoCount { get; set; }

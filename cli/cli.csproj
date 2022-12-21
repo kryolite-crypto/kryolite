@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.1" />
     <ProjectReference Include="..\shared\shared.csproj" />
     <ProjectReference Include="..\node\node.csproj" />
   </ItemGroup>

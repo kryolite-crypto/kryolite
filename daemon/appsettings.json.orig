@@ -24,7 +24,11 @@
       }
     }
   },
+<<<<<<< HEAD
+  "NodeIp": "0.0.0.0",
+=======
   "NodeIp": "*",
+>>>>>>> f532e29 (Fix chain sync. Change LiteDb to SQLite,)
   "NodePort": 6000,
   "Peers": [
     "http://daemon:6000"

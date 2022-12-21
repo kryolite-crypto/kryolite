@@ -6,6 +6,11 @@ public class WalletManager : IWalletManager
 {
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
+    public WalletManager()
+    {
+
+    }
+
     public Dictionary<string, Wallet> GetWallets()
     {
         using var _ = rwlock.EnterReadLockEx();
@@ -25,7 +30,7 @@ public class WalletManager : IWalletManager
     public Wallet CreateWallet(WalletType walletType = WalletType.WALLET)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository(true);
+        using var walletRepository = new WalletRepository();
 
         if (walletType == WalletType.NODE) {
             var nodeWallet = walletRepository.GetNodeWallet();
@@ -41,8 +46,6 @@ public class WalletManager : IWalletManager
         };
 
         walletRepository.Add(wallet);
-        walletRepository.Commit();
-
         return wallet;
     }
 
@@ -55,32 +58,33 @@ public class WalletManager : IWalletManager
         using var walletRepository = new WalletRepository();
 
         var wallet = walletRepository.Get(wal.Address);
-        wallet.Description = wal.Description;
 
+        if (wallet is null)
+        {
+            return;
+        }
+
+        wallet.Description = wal.Description;
         walletRepository.Update(wallet);
     }
 
     public void RollbackWallets(List<Wallet> wallets, long blockId)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository(true);
+        using var walletRepository = new WalletRepository();
 
         walletRepository.RollbackWallets(wallets, blockId);
-
-        walletRepository.Commit();
     }
 
     public void UpdateWallets(IEnumerable<Wallet> wallets)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository(true);
+        using var walletRepository = new WalletRepository();
 
         walletRepository.UpdateWallets(wallets);
-
-        walletRepository.Commit();
     }
 
-    public Wallet GetNodeWallet()
+    public Wallet? GetNodeWallet()
     {
         using var _ = rwlock.EnterReadLockEx();
         using var walletRepository = new WalletRepository();

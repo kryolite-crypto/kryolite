@@ -15,11 +15,11 @@ public class Vote
     [Key(1)]
     public SHA256Hash Hash { get; set; }
 
-    [Key(3)]
+    [Key(2)]
     public Shared.PublicKey PublicKey { get; set; }
 
-    [Key(4)]
-    public Signature Signature { get; private set; }
+    [Key(3)]
+    public Signature Signature { get; set; }
 
     public void Sign(PrivateKey privateKey)
     {
@@ -33,8 +33,7 @@ public class Vote
 
         stream.Flush();
 
-        Signature = new Signature { Buffer = new byte[64] };
-        algorithm.Sign(key, stream.ToArray(), Signature);
+        Signature = algorithm.Sign(key, stream.ToArray());
     }
 
     public bool Verify()
@@ -43,7 +42,7 @@ public class Vote
 
         using var stream = new MemoryStream();
 
-        stream.Write(BitConverter.GetBytes(Id));
+        stream.Write(BitConverter.GetBytes(Height));
         stream.Write(Hash);
 
         stream.Flush();

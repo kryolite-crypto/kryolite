@@ -1,11 +1,9 @@
-using LiteDB;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared;
 
 public class Wallet
 {
-    [BsonId(true)]
     public int Id { get; set; }
     public string? Description { get; set; }
     public string Address { get; set; }
@@ -13,8 +11,6 @@ public class Wallet
     public PrivateKey PrivateKey { get; set; }
     public ulong Balance { get; set; }
     public WalletType Type { get; set; }
-
-    [BsonIgnore]
     public bool Updated { get; set; }
 
     public List<WalletTransaction> WalletTransactions { get; set; } = new();

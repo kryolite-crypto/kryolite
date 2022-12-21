@@ -91,6 +91,11 @@ public class Network
 
         var bytes = MessagePackSerializer.Serialize(msg);
 
+        using(var _ = rwlock.EnterWriteLockEx())
+        {
+            cache.Set(msg.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+        }
+
         await Parallel.ForEachAsync(Peers, async (peer, token) => {
             await peer.Value.SendAsync(msg);
         });
