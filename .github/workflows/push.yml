@@ -22,6 +22,16 @@ jobs:
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: ./build.sh linux-x64
       - run: ./test.sh
+
+  docker:
+    runs-on: ubuntu-22.04
+    env:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - uses: actions/checkout@v3
+      - uses: docker/setup-qemu-action@v2
+      - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
+      - run: docker buildx create --use
       - run: docker buildx bake -f docker-compose.release.yml
       - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/daemon:latest" "ghcr.io/${GITHUB_REPOSITORY}/daemon:${GITHUB_SHA}"
       - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/miner:latest" "ghcr.io/${GITHUB_REPOSITORY}/miner:${GITHUB_SHA}"
