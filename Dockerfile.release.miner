@@ -1,11 +1,22 @@
-FROM ubuntu:22.04
+ARG GITHUB_REPOSITORY
+FROM ghcr.io/${GITHUB_REPOSITORY}/builder:miner-linux-x64 as binary-amd64
+FROM ghcr.io/${GITHUB_REPOSITORY}/builder:miner-linux-x64 as binary-arm64
 
+FROM ubuntu:22.04 as current
+COPY --from=binary-amd64 /usr/local/bin/kryolite-miner /tmp/kryolite-miner.amd64
+COPY --from=binary-arm64 /usr/local/bin/kryolite-miner /tmp/kryolite-miner.arm64
+
+RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
+  && cp "/tmp/kryolite-miner.$arch" /kryolite-miner
+
+FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y \
   nano htop iputils-ping curl dnsutils \
   && useradd --home /kryolite --no-create-home kryolite
 
-COPY --from=builder /usr/local/bin/kryolite-miner /usr/local/bin
-WORKDIR /kryolite
-COPY daemon/appsettings.testnet-0.json appsettings.json
+COPY --from=current /kryolite-miner /usr/local/bin
 
-ENTRYPOINT [ "/usr/local/bin/kryolite-daemon" ]
+USER kryolite
+WORKDIR /kryolite
+
+ENTRYPOINT [ "/usr/local/bin/kryolite-miner" ]

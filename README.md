@@ -67,3 +67,7 @@ Get a shell
 ```console
 docker-compose exec daemon bash
 ```
+
+## Issues
+
+- qemu bake fails <https://github.com/dotnet/dotnet-docker/discussions/3848>
