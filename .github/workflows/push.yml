@@ -36,6 +36,6 @@ jobs:
       - uses: docker/setup-qemu-action@v2
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker buildx create --use
-      - run: docker buildx bake -f docker-compose.release.yml ${{ matrix.component }}
+      - run: docker buildx bake -f docker-compose.release.yml --load ${{ matrix.component }}
       - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:latest" "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:${GITHUB_SHA}"
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:${GITHUB_SHA}"
