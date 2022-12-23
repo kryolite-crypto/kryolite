@@ -10,7 +10,7 @@ services:
           - ghcr.io/${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}/daemon:latest
         platforms:
           - linux/amd64
-          - linux/arm64
+  #          - linux/arm64
   miner:
     build:
       context: .
@@ -20,4 +20,5 @@ services:
           - ghcr.io/${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}/miner:latest
         platforms:
           - linux/amd64
-          - linux/arm64
+
+#          - linux/arm64
