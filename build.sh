@@ -23,7 +23,7 @@ then
   COMPONENTS="daemon miner wallet kryolite"
 fi
 
-export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto}
+export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}
 export DOCKER_BUILDKIT=1
 
 RUNTIME=$VARIANT

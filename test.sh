@@ -33,7 +33,7 @@ _print_balances() {
 }
 
 
-export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto}
+export GITHUB_REPOSITORY=${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}
 export DOCKER_BUILDKIT=1
 
 if [[ $(arch) == "arm64" ]]
