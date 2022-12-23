@@ -31,7 +31,7 @@ FROM ubuntu:22.04
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
   nano htop iputils-ping curl dnsutils \
-  && adduser --home /kryolite --no-create-home kryolite
+  && useradd --home /kryolite --no-create-home kryolite
 
 COPY --from=builder /build/miner /usr/local/bin/kryolite-miner
 
