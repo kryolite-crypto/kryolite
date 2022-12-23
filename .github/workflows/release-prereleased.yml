@@ -45,6 +45,7 @@ jobs:
       DOCKER_BUILDKIT: 1
     steps:
       - uses: actions/checkout@v3
+      - uses: docker/setup-qemu-action@v2
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:${{ matrix.component }}-${{ matrix.variant }}"
       - run: ./docker.sh "${{ matrix.variant }}" "${{ matrix.component }}"
