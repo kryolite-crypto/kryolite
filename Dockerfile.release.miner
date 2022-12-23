@@ -29,7 +29,7 @@ RUN [ "$(uname -m)" = "aarch64" ] && runtime=linux-arm64 || runtime=linux-x64 \
 
 FROM ubuntu:22.04
 
-RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+RUN apt-get update && apt-get install -y \
   nano htop iputils-ping curl dnsutils \
   && useradd --home /kryolite --no-create-home kryolite
 
