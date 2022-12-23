@@ -71,3 +71,4 @@ docker-compose exec daemon bash
 ## Issues
 
 - qemu bake fails <https://github.com/dotnet/dotnet-docker/discussions/3848>
+- multi-arch with --load fails <https://github.com/docker/buildx/issues/59#issuecomment-1168619521>
