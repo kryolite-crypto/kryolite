@@ -26,7 +26,8 @@ jobs:
   docker:
     strategy:
       matrix:
-        component: [daemon, miner]
+        #        component: [daemon, miner]
+        component: [daemon]
     runs-on: ubuntu-22.04
     env:
       DOCKER_BUILDKIT: 1
