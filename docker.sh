@@ -42,6 +42,8 @@ do
     --platform linux/arm64,linux/amd64 \
     --push \
     -t "ghcr.io/${GITHUB_REPOSITORY}/${COMPONENT}:${tag}" .
+
+  echo "PUSHED ghcr.io/${GITHUB_REPOSITORY}/${COMPONENT}:${tag}"
 done
 
 echo
