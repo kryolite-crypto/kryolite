@@ -1,0 +1,25 @@
+version: '3'
+
+services:
+  daemon:
+    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/daemon:latest"
+    build:
+      context: .
+      dockerfile: Dockerfile.release.daemon
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}
+        PLATFORM: ${PLATFORM}
+      cache_from:
+        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/daemon:latest"
+  miner:
+    image: "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/miner:latest"
+    build:
+      context: .
+      dockerfile: Dockerfile.release.miner
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+        GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}
+        PLATFORM: ${PLATFORM}
+      cache_from:
+        - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/miner:latest"

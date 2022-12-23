@@ -1,0 +1,13 @@
+ARG PLATFORM
+FROM --platform=$PLATFORM ubuntu:22.04
+
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+  curl iputils-ping nano htop dnsutils
+
+COPY kryolite-daemon /usr/local/bin/kryolite-daemon
+
+RUN adduser kryolite
+
+USER kryolite
+WORKDIR /kryolite
+ENTRYPOINT [ "/usr/local/bin/kryolite-daemon" ]
