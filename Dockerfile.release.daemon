@@ -1,40 +1,10 @@
-FROM ubuntu:22.04 as builder
-
-ENV DOTNET_ROOT=/root/.dotnet
-ENV PATH=$PATH:$DOTNET_ROOT:$DOTNET_ROOT/tools
-
-RUN apt-get update && apt-get install -y \
-  curl libicu-dev
-
-RUN mkdir /ghjk && cd /ghjk \
-  && curl -Lsf https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh \
-  && chmod +x ./dotnet-install.sh \
-  && ./dotnet-install.sh --channel 7.0 \
-  && rm -rf /ghjk
-
-WORKDIR /build
-WORKDIR /src
-
-COPY shared shared
-COPY node node
-
-COPY daemon daemon
-
-RUN [ "$(uname -m)" = "aarch64" ] && runtime=linux-arm64 || runtime=linux-x64 \
-  && dotnet publish daemon \
-  -c Release \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  --self-contained --runtime="$runtime" \
-  -o /build
-
 FROM ubuntu:22.04
 
 RUN apt-get update && apt-get install -y \
   nano htop iputils-ping curl dnsutils \
   && useradd --home /kryolite --no-create-home kryolite
 
-COPY --from=builder /build/daemon /usr/local/bin/kryolite-daemon
-
+COPY --from=builder /usr/local/bin/kryolite-daemon /usr/local/bin
 WORKDIR /kryolite
 COPY daemon/appsettings.testnet-0.json appsettings.json
 

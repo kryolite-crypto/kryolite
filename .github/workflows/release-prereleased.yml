@@ -35,6 +35,7 @@ jobs:
           files: dist/*
 
   docker:
+    needs: builds
     strategy:
       matrix:
         component: [daemon, miner]
@@ -46,6 +47,8 @@ jobs:
       - uses: docker/setup-qemu-action@v2
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
       - run: docker buildx create --use
+      - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:${{ matrix.component }}-${{ matrix.variant }}"
+      - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/builder:${{ matrix.component }}-${{ matrix.variant }}" builder
       - run: docker buildx bake -f docker-compose.release.yml ${{ matrix.component }}
       - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/daemon:latest" "ghcr.io/${GITHUB_REPOSITORY}/daemon:${GITHUB_REF_NAME}"
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:latest"
