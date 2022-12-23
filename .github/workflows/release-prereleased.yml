@@ -35,11 +35,9 @@ jobs:
           files: dist/*
 
   docker:
-    needs: builds
     strategy:
       matrix:
         component: [daemon, miner]
-        variant: [linux-x64, linux-arm64]
     runs-on: ubuntu-22.04
     env:
       DOCKER_BUILDKIT: 1
@@ -47,8 +45,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: docker/setup-qemu-action@v2
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u $ --password-stdin
-      - run: docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:${{ matrix.component }}-${{ matrix.variant }}"
-      - run: ./docker.sh "${{ matrix.variant }}" "${{ matrix.component }}"
-      - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:latest" "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:${GITHUB_REF_NAME}"
+      - run: docker buildx bake -f docker-compose.release.yml ${{ matrix.component }}
+      - run: docker tag "ghcr.io/${GITHUB_REPOSITORY}/daemon:latest" "ghcr.io/${GITHUB_REPOSITORY}/daemon:${GITHUB_REF_NAME}"
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:latest"
       - run: docker push "ghcr.io/${GITHUB_REPOSITORY}/${{ matrix.component }}:${GITHUB_REF_NAME}"
