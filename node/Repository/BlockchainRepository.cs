@@ -179,6 +179,18 @@ public class BlockchainRepository : IDisposable
         Context.SaveChanges();
     }
 
+    public void AddVotes(List<Vote> votes)
+    {
+        Context.Votes.AddRange(votes);
+        Context.SaveChanges();
+    }
+
+    public bool VoteExists(Signature signature)
+    {
+        // TODO this crashes, implement equals on signature?
+        return Context.Votes.Any(x => x.Signature == signature);
+    }
+
     public void Dispose()
     {
         // Context.Dispose();

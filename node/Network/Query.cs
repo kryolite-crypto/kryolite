@@ -17,3 +17,9 @@ public class RequestChainSync
     [Key(1)]
     public byte[]? StartHash { get; init; }
 }
+
+[MessagePackObject]
+public class NodeDiscovery
+{
+
+}

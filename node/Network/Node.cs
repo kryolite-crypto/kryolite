@@ -9,10 +9,12 @@ public abstract class BaseNode
     public string Hostname { get; protected set; } = string.Empty;
     public int Port { get; protected set; }
     public DateTime LastSeen { get; set; }
+    public DateTime ConnectedSince { get; set; }
     public List<PosBlock> Blockchain { get; set; } = new List<PosBlock>();
     public Guid ClientId;
 
     public abstract Task SendAsync(Message msg);
+    public abstract void Disconnect();
 }
 
 public class Client : BaseNode
@@ -39,16 +41,40 @@ public class Client : BaseNode
 
     public override async Task SendAsync(Message msg)
     {
-        msg.NodeId = serverId;
+        try
+        {
+            msg.NodeId = serverId;
 
-        var bytes = MessagePackSerializer.Serialize(msg);
-        await watsonServer.SendAsync(ipAndPort, bytes);
+            var bytes = MessagePackSerializer.Serialize(msg);
+            await watsonServer.SendAsync(ipAndPort, bytes);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+
+    public override void Disconnect()
+    {
+        try
+        {
+            if (watsonServer.IsClientConnected(ipAndPort))
+            {
+                watsonServer.DisconnectClient(ipAndPort);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
     }
 }
 
 
 public class Peer : BaseNode
 {
+    public bool ForceDisconnect { get; set; }
+
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
     public event EventHandler<EventArgs>? Dropped;
 
@@ -62,7 +88,7 @@ public class Peer : BaseNode
         wsClient = new WatsonWsClient(hostname, port, ssl);
 
         wsClient.ConfigureOptions(opts => {
-            opts.SetRequestHeader("ClientId", Kryolite.Node.Network.ServerId.ToString());
+            opts.SetRequestHeader("ClientId", Kryolite.Node.MeshNetwork.ServerId.ToString());
         });
 
         wsClient.MessageReceived += (object? sender, MessageReceivedEventArgs args) => {
@@ -75,10 +101,8 @@ public class Peer : BaseNode
         };
 
         wsClient.ServerConnected += async (object? sender, EventArgs e) => {
-            // TODO: Logger
-            Console.WriteLine($"Connected to {hostname}:{port}");
-
             LastSeen = DateTime.UtcNow;
+            ConnectedSince = DateTime.UtcNow;
 
             var msg = new Message
             {
@@ -100,16 +124,44 @@ public class Peer : BaseNode
         };
     }
 
-    public Task<bool> StartWithTimeoutAsync()
+    public async Task<bool> StartWithTimeoutAsync()
     {
-        return wsClient.StartWithTimeoutAsync();
+        try
+        {
+            return await wsClient.StartWithTimeoutAsync();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            return false;
+        }
     }
 
     public override async Task SendAsync(Message msg)
     {
-        msg.NodeId = Kryolite.Node.Network.ServerId;
+        try
+        {
+            msg.NodeId = Kryolite.Node.MeshNetwork.ServerId;
 
-        var bytes = MessagePackSerializer.Serialize(msg);
-        var res = await wsClient.SendAsync(bytes);
+            var bytes = MessagePackSerializer.Serialize(msg);
+            var res = await wsClient.SendAsync(bytes);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+
+    public override void Disconnect()
+    {
+        try
+        {
+            ForceDisconnect = true;
+            wsClient.Stop();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
     }
 }

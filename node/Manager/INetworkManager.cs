@@ -6,6 +6,7 @@ namespace Kryolite.Node;
 public interface INetworkManager
 {
     void AddHost(NetworkManager.NodeHost host);
+    //void AddHosts(List<NetworkManager.NodeHost> hosts);
     int GetHostCount();
     List<NetworkManager.NodeHost> GetHosts();
     DateTimeOffset GetNetworkTime();

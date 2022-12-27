@@ -36,6 +36,7 @@ public class Startup
                 .AddSingleton<INetworkManager, NetworkManager>()
                 .AddSingleton<IMempoolManager, MempoolManager>()
                 .AddSingleton<IWalletManager, WalletManager>()
+                .AddSingleton<IMeshNetwork, MeshNetwork>()
                 .AddHostedService<NetworkService>()
                 .AddHostedService<BlockchainService>()
                 .AddHostedService<MempoolService>()

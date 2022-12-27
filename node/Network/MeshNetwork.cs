@@ -2,11 +2,13 @@ using System.Collections.Concurrent;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using WatsonWebsocket;
 
 namespace Kryolite.Node;
 
-public class Network
+public class MeshNetwork : IMeshNetwork
 {
     public int Port { get; init; }
 
@@ -23,10 +25,21 @@ public class Network
     private ConcurrentDictionary<string, BaseNode> Peers = new();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+    private readonly IConfiguration configuration;
+    private readonly ILogger<MeshNetwork> logger;
+    private MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
 
-    public Network(string ip, int port, bool ssl)
+    public MeshNetwork(IConfiguration configuration, ILogger<MeshNetwork> logger)
     {
-        wsServer = new WatsonWsServer(ip, port, ssl);
+        logger.LogInformation("Initializing WebSocket server");
+
+        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+
+        var ip = configuration.GetValue<string>("NodeIp");
+        var port = configuration.GetValue<int>("NodePort");
+
+        wsServer = new WatsonWsServer(ip, port, false);
         Port = port;
 
         wsServer.ClientConnected += (object? sender, ClientConnectedEventArgs args) => {
@@ -42,7 +55,10 @@ public class Network
                 return;
             }
 
+            peer.LastSeen = DateTime.UtcNow;
+            peer.ConnectedSince = DateTime.UtcNow;
             peer.ClientId = guid;
+
             Peers.TryAdd(args.IpPort, peer);
 
             ClientConnected?.Invoke(sender, args);
@@ -57,9 +73,9 @@ public class Network
         };
 
         wsServer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
-            var eventArgs = new MessageEventArgs(args.Data);
+            var eventArgs = new MessageEventArgs(args.Data, lz4Options);
 
-            eventArgs.Hostname = args.IpPort.Split(":").First();
+            eventArgs.Hostname = args.IpPort;
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
@@ -72,6 +88,7 @@ public class Network
             
             if (Peers.TryGetValue(args.IpPort, out var peer))
             {
+                peer.LastSeen = DateTime.UtcNow;
                 MessageReceived?.Invoke(peer, eventArgs);
             }
             
@@ -79,8 +96,20 @@ public class Network
                 await BroadcastAsync(eventArgs.Message);
             }
         };
+    }
 
-        wsServer.Start();
+    public void Start()
+    {
+        logger.LogInformation("Starting Websocket server");
+        try
+        {
+            wsServer.Start();
+            logger.LogInformation("Websocket server started");
+        } 
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to start WebSocket server");
+        }
     }
 
     public async Task BroadcastAsync(Message msg)
@@ -89,22 +118,36 @@ public class Network
             msg.NodeId = ServerId;
         }
 
-        var bytes = MessagePackSerializer.Serialize(msg);
+        var bytes = MessagePackSerializer.Serialize(msg, lz4Options);
 
         using(var _ = rwlock.EnterWriteLockEx())
         {
             cache.Set(msg.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
         }
 
-        await Parallel.ForEachAsync(Peers, async (peer, token) => {
+        await Parallel.ForEachAsync(Peers, async (peer, token) => 
+        {
             await peer.Value.SendAsync(msg);
         });
     }
 
     public async Task<bool> AddNode(string hostname, bool ssl, Guid clientId)
     {
-        var uri = new Uri(hostname);
-        return await AddNode(uri.Host, uri.Port, ssl, clientId);
+        try
+        {
+            if (!hostname.StartsWith("http://"))
+            {
+                hostname = $"http://{hostname}";
+            }
+
+            var uri = new Uri(hostname);
+            return await AddNode(uri.Host, uri.Port, ssl, clientId);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, $"Hostname: {hostname}");
+            return false;
+        }
     }
 
     public async Task<bool> AddNode(string hostname, int port, bool ssl, Guid clientId)
@@ -113,29 +156,46 @@ public class Network
 
         using(var _ = rwlock.EnterWriteLockEx())
         {
-            if (Peers.Count == Constant.MAX_PEERS) {
-                return false;
-            }
-
-            if (Peers.ContainsKey(ipAndPort)) 
+            if (Peers.ContainsKey(ipAndPort))
             {
                 return false;
             }
 
-            if (Peers.Values.Any(x => x.ClientId == clientId))
+            // TODO: Fails if Peer has not received any messages (and clientid)
+            /*if (Peers.Values.Any(x => x.ClientId == clientId))
             {
                 return false;
+            }*/
+
+            // filter out clients connected to local wsServer
+            var connectedTo = Peers.Where(x => x.Value is Peer).ToDictionary(x => x.Key, x => x.Value);
+
+            if (connectedTo.Count >= Constant.MAX_PEERS)
+            {
+                var client = connectedTo.OrderBy(x => x.Value.ConnectedSince).First();
+                client.Value.Disconnect();
+
+                if (Peers.TryRemove(client.Key, out var _))
+                {
+                    logger.LogInformation($"Disconnected from {client.Key}");
+                }
             }
         }
 
+        logger.LogInformation($"Connecting to {ipAndPort}");
+
         var peer = new Peer(hostname, port, ssl, Port);
 
-        peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
-            var eventArgs = new MessageEventArgs(args.Data);
+        peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => 
+        {
+            var eventArgs = new MessageEventArgs(args.Data, lz4Options);
+
+            eventArgs.Hostname = args.IpPort;
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
-                if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
+                if(cache.TryGetValue(eventArgs.Message.Id, out var _)) 
+                {
                     return;
                 }
 
@@ -144,12 +204,14 @@ public class Network
             
             MessageReceived?.Invoke(sender, eventArgs);
             
-            if (eventArgs.Rebroadcast) {
+            if (eventArgs.Rebroadcast) 
+            {
                 await BroadcastAsync(eventArgs.Message);
             }
         };
 
-        peer.Dropped += (object? sender, EventArgs args) => {
+        peer.Dropped += (object? sender, EventArgs args) => 
+        {
             Peers.TryRemove(ipAndPort, out var _);
 
             ClientDropped?.Invoke(sender, EventArgs.Empty);
@@ -158,6 +220,7 @@ public class Network
 
         if (await peer.StartWithTimeoutAsync())
         {
+            logger.LogInformation($"Connected to {ipAndPort}");
             Peers.TryAdd(ipAndPort, peer);
             ConnectedChanged?.Invoke(this, Peers.Count);
             return true;
@@ -171,5 +234,10 @@ public class Network
         return Peers.Values
             .Where(x => x is Peer)
             .ToDictionary(x => $"http://{x.Hostname}:{x.Port}", x => x.ClientId);
+    }
+
+    public int GetPort()
+    {
+        return Port;
     }
 }
