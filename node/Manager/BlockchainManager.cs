@@ -666,6 +666,34 @@ public class BlockchainManager : IBlockchainManager
         return true;
     }
 
+    public List<Vote> AddVotes(IList<Vote> votes)
+    {
+        var valid = new List<Vote>();
+
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        foreach (var vote in votes)
+        {
+            if (!vote.Verify())
+            {
+                logger.LogWarning("Vote rejected (invalid signature)");
+                // file complaint
+                continue;
+            }
+
+            if (!blockchainRepository.VoteExists(vote.Signature))
+            {
+                valid.Add(vote);
+            }
+        }
+
+        // TODO check for duplicates
+        blockchainRepository.AddVotes(valid);
+
+        return valid;
+    }
+
     public List<PosBlock> GetPosFrom(long id)
     {
         using var _ = rwlock.EnterReadLockEx();

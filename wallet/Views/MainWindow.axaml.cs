@@ -48,7 +48,7 @@ public partial class MainWindow : Window
             dialog.Show(this);
         };
 
-        Node.Network.ConnectedChanged += async (object? sender, int count) => {
+        Node.MeshNetwork.ConnectedChanged += async (object? sender, int count) => {
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.ConnectedPeers = count;
             });

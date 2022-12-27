@@ -3,12 +3,26 @@ using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
+using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
 
 public class NetworkManager : INetworkManager
 {
     private List<NodeHost> Hosts = new List<NodeHost>();
+    private DateTime _lastDiscovery = DateTime.MinValue;
+    public DateTime LastDiscovery
+    {
+        get {
+            using var _ = rwlock.EnterReadLockEx();
+            return _lastDiscovery;
+        }
+        set {
+            using var _ = rwlock.EnterWriteLockEx();
+            _lastDiscovery = value;
+        }
+    }
+
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly ILogger<INetworkManager> logger;
     private BroadcastBlock<PowBlock> BlockProposedBroadcast = new BroadcastBlock<PowBlock>(i => i);
@@ -20,6 +34,12 @@ public class NetworkManager : INetworkManager
 
     public void AddHost(NodeHost host)
     {
+        if (host.Hostname is null)
+        {
+            logger.LogWarning($"Failed to add host. Null hostname for {host.ClientId}");
+            return;
+        }
+
         using var _ = rwlock.EnterWriteLockEx();
         Hosts.Add(host);
         logger.LogInformation($"Added host {host.Hostname}");
@@ -28,10 +48,10 @@ public class NetworkManager : INetworkManager
     public DateTimeOffset GetNetworkTime()
     {
         using var _ = rwlock.EnterReadLockEx();
-
         var maxAge = DateTime.Now.AddHours(-1);
 
         var timestamps = Hosts.Where(x => x.LastSeen > maxAge)
+            .Where(x => x.NodeInfo is not null)
             .Take(100)
             .OrderBy(arg => Guid.NewGuid())
             .Take(10)
@@ -67,9 +87,10 @@ public class NetworkManager : INetworkManager
 
     public class NodeHost
     {
-        public string Hostname { get; init; }
+        public string Hostname { get; init; } = string.Empty;
+        public Guid ClientId { get; init; }
         public NodeInfo? NodeInfo { get; init; }
-        public DateTime LastSeen { get; set; }
+        public DateTime LastSeen { get; set; } // TODO unixtime
     }
 }
 
@@ -77,7 +98,7 @@ public class NetworkManager : INetworkManager
 public class NodeInfo
 {
     [Key(0)]
-    public DateTime CurrentTime { get; init; }
+    public DateTime CurrentTime { get; init; } // TODO unixtime
     [Key(1)]
     public long Height { get; init; }
     [Key(2)]
@@ -85,6 +106,23 @@ public class NodeInfo
     [Key(3)]
     public SHA256Hash LastHash { get; init; }
     [Key(4)]
-    public Dictionary<string, Guid> Peers { get; init; } = new();
+    public int ConnectedPeers { get; init; }
 }
 
+[MessagePackObject]
+public class NodeList
+{
+    [Key(0)]
+    public List<NodeCandidate> Nodes { get; set; } = new();
+}
+
+[MessagePackObject]
+public class NodeCandidate
+{
+    [Key(0)]
+    public string Hostname { get; init; } = string.Empty;
+    [Key(1)]
+    public Guid ClientId { get; init; }
+    [Key(2)]
+    public int ConnectedPeers { get; set; }
+}

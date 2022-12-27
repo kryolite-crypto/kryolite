@@ -23,6 +23,7 @@ public interface IBlockchainManager
     bool SetChain(List<PosBlock> blocks);
     List<PosBlock> GetPosFrom(long id);
     bool AddVote(Vote vote);
+    List<Vote> AddVotes(IList<Vote> votes);
 
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
