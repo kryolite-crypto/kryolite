@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 
 namespace Kryolite.Daemon;
 
@@ -44,6 +45,8 @@ public class Startup
                 .AddSingleton<StartupSequence>()
                 .AddRouting()
                 .AddControllers()
-                .AddNewtonsoftJson();
+                .AddNewtonsoftJson(options => {
+                    options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+                });
     }
 }

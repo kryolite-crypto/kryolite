@@ -79,6 +79,7 @@ public class BlockchainRepository : IDisposable
     {
         // TODO: get the one with most votes?
         return Context.PowBlocks.Where(x => x.Height == height)
+            .Include(x => x.Transactions)
             .FirstOrDefault();
     }
 
@@ -86,6 +87,10 @@ public class BlockchainRepository : IDisposable
     {
         // TODO: get the one with most votes?
         return Context.PosBlocks.Where(x => x.Height == height)
+            .Include(x => x.Transactions)
+            .Include(x => x.Votes)
+            .Include(x => x.Pow)
+                .ThenInclude(x => x.Transactions)
             .FirstOrDefault();
     }
 
