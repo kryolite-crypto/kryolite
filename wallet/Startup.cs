@@ -6,6 +6,7 @@ using Kryolite.Shared;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 
 namespace Kryolite.Wallet;
 
@@ -47,6 +48,8 @@ public class Startup
                 .AddSingleton<StartupSequence>()
                 .AddRouting()
                 .AddControllers()
-                .AddNewtonsoftJson();
+                .AddNewtonsoftJson(options => {
+                    options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+                });
     }
 }

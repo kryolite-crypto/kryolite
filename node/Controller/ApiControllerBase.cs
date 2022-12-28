@@ -50,14 +50,24 @@ public class ApiControllerBase : Controller
             .ToList();
     }
 
-    [HttpGet("block")]
-    public PowBlock? GetBlock([BindRequired, FromQuery] long id)
+    [HttpGet("block/pos")]
+    public PosBlock? GetPosBlock([BindRequired, FromQuery] long height)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid parameter (address)");
         }
 
-        return blockchainManager.GetPowBlock(id);
+        return blockchainManager.GetPosBlock(height);
+    }
+
+    [HttpGet("block/pow")]
+    public PowBlock? GetPowBlock([BindRequired, FromQuery] long height)
+    {
+        if (!ModelState.IsValid) {
+            throw new Exception("invalid parameter (address)");
+        }
+
+        return blockchainManager.GetPowBlock(height);
     }
 
     [HttpPost("solution")]
