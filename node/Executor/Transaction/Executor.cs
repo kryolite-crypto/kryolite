@@ -82,6 +82,9 @@ public abstract class BaseStep<TItem, TContext> where TContext : IContext
         } catch (Exception ex) {
             result = ExecutionResult.FAILURE;
             ctx.Fail(ex);
+
+            Console.WriteLine(ex);
+
             return false;
         }
 

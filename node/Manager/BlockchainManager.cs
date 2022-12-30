@@ -66,6 +66,7 @@ public class BlockchainManager : IBlockchainManager
 
         if (block.Pow != null && !powExcecutor.Execute(block.Pow, out var result)) {
             logger.LogWarning($"AddBlock failed with: {result}");
+            txCtx.Rollback();
             return false;
         }
 
@@ -111,6 +112,7 @@ public class BlockchainManager : IBlockchainManager
 
         if (!txExecutor.ExecuteBatch(block.Transactions, out var txresult)) {
             logger.LogWarning($"AddBlock failed with: {txresult}");
+            txCtx.Rollback();
             return false;
         }
 
@@ -142,6 +144,7 @@ public class BlockchainManager : IBlockchainManager
 
             if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res)) {
                 logger.LogWarning($"AddBlock failed with: {res}");
+                txCtx.Rollback();
                 return false;
             }
 
@@ -204,18 +207,14 @@ public class BlockchainManager : IBlockchainManager
         return true;
     }
 
-    public bool AddBlocks(List<PosBlock> blocks)
+    private bool AddBlocks(List<PosBlock> blocks, BlockchainRepository blockchainRepository)
     {
-        using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-        using var txCtx = blockchainRepository.Context.Database.BeginTransaction();
-
         var chainState = blockchainRepository.GetChainState();
         var wallets = walletManager.GetWallets();
 
         var blockchainContext = new BlockchainExContext()
         {
-            LastBlocks = blockchainRepository.Tail(11),
+            LastBlocks = blockchainRepository.Tail(blocks.Select(x => x.Height).Min(), 11),
             CurrentDifficulty = chainState.POW.CurrentDifficulty,
             NetworkTime = discoveryManager.GetNetworkTime()
         };
@@ -252,7 +251,7 @@ public class BlockchainManager : IBlockchainManager
             if (block.Pow != null)
             {
                 if (!powExcecutor.Execute(block.Pow, out var result)) {
-                    logger.LogWarning($"AddBlock failed with: {result}");
+                    logger.LogWarning($"AddBlock ({block.Pow.Height}) failed with: {result}");
                     return false;
                 }
 
@@ -290,6 +289,9 @@ public class BlockchainManager : IBlockchainManager
                 return false;
             }
 
+            chainState.POS.Height = block.Height;
+            chainState.POS.LastHash = block.GetHash();
+
             logger.LogInformation($"Added block {block.Height}");
 
             ChainObserver.ReportProgress(++progress, blocks.Count);
@@ -299,8 +301,6 @@ public class BlockchainManager : IBlockchainManager
 
         blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
         blockchainRepository.Add(blocks, chainState);
-
-        txCtx.Commit();
 
         mempoolManager.RemoveTransactions(blocks.SelectMany(x => x.Transactions).Where(x => x.TransactionType == TransactionType.PAYMENT));
 
@@ -317,7 +317,6 @@ public class BlockchainManager : IBlockchainManager
         using var blockchainRepository = new BlockchainRepository();
 
         var chainState = blockchainRepository.GetChainState();
-        var lastBlock = blockchainRepository.Last();
 
         var transactions = mempoolManager.GetTransactions();
 
@@ -327,7 +326,7 @@ public class BlockchainManager : IBlockchainManager
 
         var block = new PowBlock {
             Height = chainState.POW.Height + 1,
-            ParentHash = lastBlock.GetHash(),
+            ParentHash = chainState.POW.LastHash,
             Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
             Difficulty = chainState.POW.CurrentDifficulty,
             Transactions = transactions
@@ -470,7 +469,7 @@ public class BlockchainManager : IBlockchainManager
     public bool SetChain(List<PosBlock> blocks)
     {
         var sortedBlocks = blocks.Where(x => x.Height > 0)
-            .OrderBy(x => x.Id)
+            .OrderBy(x => x.Height)
             .ToList();
 
         using var _ = rwlock.EnterWriteLockEx();
@@ -480,7 +479,7 @@ public class BlockchainManager : IBlockchainManager
         var chainState = blockchainRepository.GetChainState();
 
         var min = sortedBlocks.Min(x => x.Height);
-        var max = chainState.POW.Height;
+        var max = chainState.POS.Height;
 
         var ledgerWallets = new Dictionary<string, LedgerWallet>();
         var wallets = walletManager.GetWallets();
@@ -548,11 +547,9 @@ public class BlockchainManager : IBlockchainManager
                         rWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Height);
                         rWallet.Updated = true;
                     }
-
-                    blockchainRepository.DeleteTransaction(tx.Id);
                 }
 
-                chainState.POW.Height--;
+                chainState.POW.Height = cBlock.Pow.Height - 1;
                 chainState.POW.TotalWork -= cBlock.Pow.Difficulty.ToWork();
                 chainState.POW.CurrentDifficulty = cBlock.Pow.Difficulty;
                 chainState.POW.LastHash = blockchainRepository.GetPowBlock(chainState.POW.Height)?.GetHash() ?? new SHA256Hash();
@@ -607,15 +604,13 @@ public class BlockchainManager : IBlockchainManager
                     rWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Height);
                     rWallet.Updated = true;
                 }
-
-                blockchainRepository.DeleteTransaction(tx.Id);
             }
 
-            chainState.POS.Height--;
+            chainState.POS.Height = cBlock.Height - 1;
             chainState.POS.LastHash = blockchainRepository.GetPosBlock(chainState.POS.Height)?.GetHash() ?? new SHA256Hash();
 
             blockchainRepository.UpdateWallets(ledgerWallets.Values);
-            blockchainRepository.Delete(cBlock.Id);
+            blockchainRepository.Delete(cBlock);
 
             ChainObserver.ReportProgress(++progress, sortedBlocks.Count);
         }
@@ -626,20 +621,17 @@ public class BlockchainManager : IBlockchainManager
 
         blockchainRepository.SaveState(chainState);
 
-        var last = sortedBlocks.Last();
-
         progress = 0;
         ChainObserver.ReportProgress(progress, sortedBlocks.Count);
 
-        if(!AddBlocks(sortedBlocks))
+        if(!AddBlocks(sortedBlocks, blockchainRepository))
         {
             logger.LogError($"Set chain failed");
+            txContext.Rollback();
             return false;
         }
 
         txContext.Commit();
-
-        BlockBroadcast.Post(sortedBlocks.Last());
 
         foreach (var wallet in wallets.Select(x => x.Value).Where(x => x.Updated)) {
             WalletBroadcast.Post(wallet);

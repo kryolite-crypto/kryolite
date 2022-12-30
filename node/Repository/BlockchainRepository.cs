@@ -32,7 +32,9 @@ public class BlockchainRepository : IDisposable
     public long Count()
     {
         return Context.PosBlocks
-            .LongCount();
+            .Select(x => x.Height)
+            .DefaultIfEmpty()
+            .Max();
     }
 
     public void Add(PosBlock block, ChainState chainState)
@@ -78,31 +80,48 @@ public class BlockchainRepository : IDisposable
     public PowBlock? GetPowBlock(long height)
     {
         // TODO: get the one with most votes?
-        return Context.PowBlocks.Where(x => x.Height == height)
+        return Context.PowBlocks
+            .Where(x => x.Height == height)
             .Include(x => x.Transactions)
+            .Include(x => x.Pos)
+                .ThenInclude(x => x.Votes)
+            .AsEnumerable()
+            .GroupBy(x => x.Height, (key, values) => new 
+            {
+                Height = key,
+                Blocks = values
+            })
+            .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
             .FirstOrDefault();
     }
 
     public PosBlock? GetPosBlock(long height)
     {
-        // TODO: get the one with most votes?
-        return Context.PosBlocks.Where(x => x.Height == height)
+        return Context.PosBlocks
+            .Where(x => x.Height == height)
             .Include(x => x.Transactions)
             .Include(x => x.Votes)
             .Include(x => x.Pow)
                 .ThenInclude(x => x.Transactions)
+            .AsEnumerable()
+            .GroupBy(x => x.Height, (key, values) => new 
+            {
+                Height = key,
+                Blocks = values
+            })
+            .Select(x => x.Blocks.MaxBy(x => x.Votes.Count))
             .FirstOrDefault();
     }
 
-    public void Delete(Guid id)
+    public void Delete(PosBlock block)
     {
-        Context.PowBlocks.Remove(new PowBlock { Id = id });
+        Context.PosBlocks.Remove(block);
         Context.SaveChanges();
     }
 
-    public void DeleteTransaction(Guid id)
+    public void DeleteTransaction(Transaction tx)
     {
-        Context.Transactions.Remove(new Transaction { Id = id });
+        Context.Transactions.Remove(tx);
         Context.SaveChanges();
     }
 
@@ -116,31 +135,45 @@ public class BlockchainRepository : IDisposable
 
     public List<PowBlock> Tail(int count)
     {
-        var blocks = Context.PowBlocks.LongCount();
-        var startId = blocks - count;
+        var start = Context.PowBlocks
+            .Select(x => x.Height)
+            .DefaultIfEmpty()
+            .Max();
 
         var results = Context.PowBlocks
-            .OrderByDescending(x => x.Height)
-            .Take(count)
+            .Where(x => x.Height >= start - count)
+            .Include(x => x.Transactions)
+            .Include(x => x.Pos)
+                .ThenInclude(x => x.Votes)
+            .AsEnumerable()
+            .GroupBy(x => x.Height, (key, values) => new 
+            {
+                Height = key,
+                Blocks = values
+            })
+            .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
+            .OrderBy(x => x.Height)
             .ToList();
-
-        results.Reverse();
 
         return results;
     }
 
     public List<PowBlock> Tail(long start, int count)
     {
-        var blocks = Context.PowBlocks.LongCount();
-        var startId = blocks - count;
-
         var results = Context.PowBlocks
-            .Where(x => x.Height < start)
-            .OrderByDescending(x => x.Id)
-            .Take(count)
+            .Where(x => x.Height < start && x.Height >= start - count)
+            .Include(x => x.Transactions)
+            .Include(x => x.Pos)
+                .ThenInclude(x => x.Votes)
+            .AsEnumerable()
+            .GroupBy(x => x.Height, (key, values) => new 
+            {
+                Height = key,
+                Blocks = values
+            })
+            .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
+            .OrderBy(x => x.Height)
             .ToList();
-
-        results.Reverse();
 
         return results;
     }
@@ -156,6 +189,10 @@ public class BlockchainRepository : IDisposable
     {
         return Context.PosBlocks
             .Where(x => x.Height > height)
+            .Include(x => x.Transactions)
+            .Include(x => x.Votes)
+            .Include(x => x.Pow)
+                .ThenInclude(x => x.Transactions)
             .ToList();
     }
 

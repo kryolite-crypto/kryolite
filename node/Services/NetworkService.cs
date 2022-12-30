@@ -99,6 +99,7 @@ public class NetworkService : BackgroundService
             {
                 case NodeInfo nodeInfo:
                     logger.LogInformation($"Received NodeInfo from {args.Message.NodeId}");
+                    var chainState2 = blockchainManager.GetChainState();
 
                     var nodeHost = new NodeHost
                     {
@@ -112,24 +113,19 @@ public class NetworkService : BackgroundService
                     {
                         Payload = new RequestChainSync
                         {
-                            StartBlock = blockchainManager.GetCurrentHeight(),
-                            StartHash = blockchainManager.GetLastBlockhash()
+                            StartBlock = chainState2.POS.Height,
+                            StartHash = chainState2.POS.LastHash
                         }
                     };
 
-                    if (nodeInfo.TotalWork > blockchainManager.GetTotalWork())
+                    var totalWork = blockchainManager.GetTotalWork();
+
+                    if (nodeInfo.TotalWork > totalWork)
                     {
+                        logger.LogInformation($"{args.Message.NodeId} has greater TotalWork ({nodeInfo.TotalWork}) compared to local ({totalWork}). Requesting chain sync");
                         await node.SendAsync(msg);
-                        goto sync;
                     }
 
-                    if (!Enumerable.SequenceEqual((byte[])nodeInfo.LastHash, (byte[])(blockchainManager.GetLastBlockhash() ?? new byte[0]))) {
-                        goto sync;
-                    }
-
-                    return;
-sync:
-                    await node.SendAsync(msg);
                     break;
                 case Blockchain blockchain:
                     logger.LogInformation($"Received blockchain from {args.Message.NodeId}");
@@ -152,6 +148,7 @@ sync:
 
                     if (chainState.POS.Height < (newBlock.Height - 1))
                     {
+                        logger.LogInformation($"Chain is behind received block (local = {chainState.POS.Height}, received = {newBlock.Height}), requesting chain sync...");
                         var msg2 = new Message
                         {
                             Payload = new RequestChainSync
@@ -174,13 +171,13 @@ sync:
                 case QueryNodeInfo queryNodeInfo:
                     logger.LogInformation($"Node query received from {args.Message.NodeId}");
 
-                    var chainState2 = blockchainManager.GetChainState();
+                    var chainState3 = blockchainManager.GetChainState();
                     var response = new Message
                     {
                         Payload = new NodeInfo
                         {
-                            Height = chainState2.POS.Height,
-                            TotalWork = chainState2.POW.TotalWork,
+                            Height = chainState3.POS.Height,
+                            TotalWork = chainState3.POW.TotalWork,
                             LastHash = blockchainManager.GetLastBlockhash() ?? new SHA256Hash(),
                             CurrentTime = DateTime.UtcNow,
                             ConnectedPeers = meshNetwork.GetPeers().Count
@@ -521,8 +518,7 @@ public class ChainObserver : IObserver<BaseNode>
 
     public void OnError(Exception error)
     {
-        // TODO: log error
-        throw new Exception("ChainObserver failed", error);
+        logger.LogError(error, "Chain sync failed");
     }
 
     public async void OnNext(BaseNode node)
@@ -531,7 +527,7 @@ public class ChainObserver : IObserver<BaseNode>
             return;
         }
 
-        logger.LogInformation($"Starting chain sync (chain from node {node.ClientId})");
+        logger.LogInformation($"Starting chain sync (blocks={node.Blockchain.Count}) (chain from node {node.ClientId})");
 
         BeginSync?.Invoke(this, node.Blockchain.Count);
 
@@ -544,17 +540,19 @@ public class ChainObserver : IObserver<BaseNode>
         var blockchainContext = new BlockchainExContext()
         {
             LastBlocks = blockchainManager.GetLastBlocks(min, 11)
-                .OrderBy(x => x.Id)
+                .OrderBy(x => x.Height)
                 .ToList()
         };
 
         var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext)
-            .Link<VerifyNonce>()
             .Link<VerifyId>(x => x.Height > 0)
-            .Link<VerifyParentHash>(x => x.Height > 0);
+            .Link<VerifyParentHash>(x => x.Height > 0)
+            .Link<VerifyNonce>();
 
         long progress = 0;
         ReportProgress(progress, sortedBlocks.Count);
+
+        logger.LogInformation($"Verifying blocks");
 
         foreach (var block in sortedBlocks)
         {
@@ -562,7 +560,7 @@ public class ChainObserver : IObserver<BaseNode>
             {
                 if(!blockExecutor.Execute(block.Pow, out var result)) 
                 {
-                    // TODO: disconnect from node and remove from peers
+                    // TODO: disconnect from node and ban from peers
                     logger.LogError($"Chain failed at {block.Height} ({result})");
                     return;
                 }
@@ -574,10 +572,29 @@ public class ChainObserver : IObserver<BaseNode>
             ReportProgress(++progress, sortedBlocks.Count);
         }
 
-        if (totalWork > blockchainManager.GetTotalWork()) 
+        // Calculate how much work we would pop
+        var height = blockchainManager.GetCurrentHeight();
+        var toPop = blockchainManager.GetLastBlocks((int)(height - min));
+        
+        BigInteger toPopWork = new BigInteger();
+
+        foreach (var block in toPop)
         {
-            if(!blockchainManager.SetChain(sortedBlocks)) 
+            toPopWork += block.Difficulty.ToWork();
+        }
+
+        var localWork = blockchainManager.GetTotalWork();
+        var remoteWork = localWork - toPopWork + totalWork;
+
+        logger.LogInformation($"Current chain totalWork = {localWork}, received chain with totalWork = {remoteWork}");
+
+        if (remoteWork > localWork)
+        {
+            logger.LogInformation("Chain is ahead, rolling forward");
+
+            if(!blockchainManager.SetChain(sortedBlocks))
             {
+                logger.LogWarning("Failed to set chain, discarding...");
                 EndSync?.Invoke(this, EventArgs.Empty);
                 return;
             }
@@ -592,6 +609,8 @@ public class ChainObserver : IObserver<BaseNode>
 
             await node.SendAsync(msg);
         }
+
+        logger.LogInformation($"Chain sync finished");
 
         EndSync?.Invoke(this, EventArgs.Empty);
     }
