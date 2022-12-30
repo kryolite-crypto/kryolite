@@ -22,7 +22,7 @@ public struct Signature
 
     public override bool Equals(object? obj) 
     {
-        return obj is Signature c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
+        return obj is Signature c && c.Buffer is not null && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
     }
 
     public override int GetHashCode()
@@ -37,11 +37,11 @@ public struct Signature
 
     public static bool operator ==(Signature x, Signature y) 
     {
-        return Enumerable.SequenceEqual(x.Buffer, y.Buffer);
+        return x.Equals(y);
     }
 
     public static bool operator !=(Signature x, Signature y) 
     {
-        return !(Enumerable.SequenceEqual(x.Buffer, y.Buffer));
+        return !x.Equals(y);
     }
 }

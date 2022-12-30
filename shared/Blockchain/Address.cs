@@ -19,7 +19,7 @@ public struct Address
 
     public override bool Equals(object? obj) 
     {
-        return obj is Address c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
+        return obj is Address c && c.Buffer is not null && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
     }
 
     public override int GetHashCode()
@@ -34,12 +34,12 @@ public struct Address
 
     public static bool operator ==(Address x, Address y) 
     {
-        return Enumerable.SequenceEqual(x.Buffer, y.Buffer);
+        return x.Equals(y);
     }
 
     public static bool operator !=(Address x, Address y) 
     {
-        return !(Enumerable.SequenceEqual(x.Buffer, y.Buffer));
+        return !x.Equals(y);
     }
 
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;

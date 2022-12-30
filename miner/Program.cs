@@ -22,14 +22,14 @@ while (true) {
     var json = await request.Content.ReadAsStringAsync();
     var blocktemplate = JsonConvert.DeserializeObject<Blocktemplate>(json);
 
-    if (blocktemplate == null || blocktemplate.Height == current.Height) {
+    if (blocktemplate == null || blocktemplate.ParentHash == current.ParentHash) {
         Thread.Sleep(TimeSpan.FromSeconds(1));
         continue;
     }
 
     current = blocktemplate;
 
-    Console.WriteLine($"New job {blocktemplate.Height}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
+    Console.WriteLine($"{DateTime.Now}: New job {blocktemplate.Height}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
 
     tokenSource.Cancel();
     tokenSource = new CancellationTokenSource();
@@ -59,7 +59,7 @@ while (true) {
             var result = sha256Hash.ToBigInteger();
 
             if (result.CompareTo(target) <= 0) {
-                Console.WriteLine("Block found");
+                Console.WriteLine($"{DateTime.Now}: Block found");
                 var solution = current;
                 var bytes = new byte[32];
                 Array.Copy(concat.Buffer, 32, bytes, 0, 32);
