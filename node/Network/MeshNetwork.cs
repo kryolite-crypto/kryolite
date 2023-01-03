@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Net;
+using System.Net.Sockets;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Caching.Memory;
@@ -10,10 +12,8 @@ namespace Kryolite.Node;
 
 public class MeshNetwork : IMeshNetwork
 {
-    public int Port { get; init; }
-
-    public event EventHandler<ClientConnectedEventArgs>? ClientConnected;
-    public event EventHandler<ClientDisconnectedEventArgs>? ClientDisconnected;
+    public event EventHandler<ConnectionEventArgs>? ClientConnected;
+    public event EventHandler<DisconnectionEventArgs>? ClientDisconnected;
     public event EventHandler? ClientDropped;
     public event EventHandler<MessageEventArgs>? MessageReceived;
     
@@ -21,13 +21,17 @@ public class MeshNetwork : IMeshNetwork
     public static event EventHandler<int>? ConnectedChanged;
     public static Guid ServerId { get; } = Guid.NewGuid();
 
+    private int LocalPort { get; init; }
+    private int RemotePort { get; init; }
+
     private WatsonWsServer wsServer;
-    private ConcurrentDictionary<string, BaseNode> Peers = new();
+    private ConcurrentDictionary<Guid, Peer> Peers = new();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly IConfiguration configuration;
     private readonly ILogger<MeshNetwork> logger;
     private MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+    private TcpListener listener;
 
     public MeshNetwork(IConfiguration configuration, ILogger<MeshNetwork> logger)
     {
@@ -36,37 +40,81 @@ public class MeshNetwork : IMeshNetwork
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        var ip = configuration.GetValue<string>("NodeIp");
-        var port = configuration.GetValue<int>("NodePort");
+        var endpoints = configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable();
 
-        wsServer = new WatsonWsServer(ip, port, false);
-        Port = port;
+        var endpoint = endpoints.Where(x => !string.IsNullOrEmpty(x.Value))
+            .Select(x => new Uri(x.Value!))
+            .FirstOrDefault(new Uri("http://localhost:5000"));
 
-        wsServer.ClientConnected += (object? sender, ClientConnectedEventArgs args) => {
-            var peer = new Client(wsServer, args.IpPort, ServerId);
+        RemotePort = endpoint.Port;
 
-            if(string.IsNullOrEmpty(args.HttpRequest.Headers["ClientId"])) {
-                wsServer.DisconnectClient(args.IpPort);
+        // Reserve port for WsServer
+        listener = new TcpListener(IPAddress.Any, 0)
+        {
+            ExclusiveAddressUse = false
+        };
+
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
+
+        wsServer = new WatsonWsServer("127.0.0.1", port, false);
+        LocalPort = port;
+
+        logger.LogDebug($"Binding WebSocket to localhost port {LocalPort}");
+
+        wsServer.ClientConnected += (object? sender, ConnectionEventArgs args) => {
+            logger.LogInformation($"Received connection from {args.Client.IpPort} connected");
+
+            if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
+            {
+                logger.LogInformation("Received connection without client-id, forcing disconnect...");
+                wsServer.DisconnectClient(args.Client.Guid);
                 return;
             }
 
-            if (!Guid.TryParse(args.HttpRequest.Headers["ClientId"], out var guid)) {
-                wsServer.DisconnectClient(args.IpPort);
+            if (!Guid.TryParse(args.HttpRequest.Headers["kryo-client-id"], out var guid)) 
+            {
+                logger.LogInformation("Received connection with invalid client-id, forcing disconnect...");
+                wsServer.DisconnectClient(args.Client.Guid);
                 return;
             }
+
+            if (args.HttpRequest.Headers["X-Forwarded-For"] is null) 
+            {
+                // something went wrong, this should be set with builtin reverse proxy
+                wsServer.DisconnectClient(args.Client.Guid);
+                return;
+            }
+
+            Uri? url = null;
+
+            if (!int.TryParse(args.HttpRequest.Headers["kryo-connect-to-port"], out var port))
+            {
+                port = 5000;
+            }
+
+            if (!Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out url))
+            {
+                var builder = new UriBuilder(args.HttpRequest.Headers["X-Forwarded-For"]!);
+                builder.Port = port;
+                url = builder.Uri;
+            }
+
+            var peer = new RemoteClient(wsServer, url, ServerId, args.Client.Guid);
 
             peer.LastSeen = DateTime.UtcNow;
             peer.ConnectedSince = DateTime.UtcNow;
             peer.ClientId = guid;
 
-            Peers.TryAdd(args.IpPort, peer);
+            Peers.TryAdd(args.Client.Guid, peer);
 
-            ClientConnected?.Invoke(sender, args);
+            ClientConnected?.Invoke(peer, args);
             ConnectedChanged?.Invoke(this, Peers.Count);
         };
 
-        wsServer.ClientDisconnected += (object? sender, ClientDisconnectedEventArgs args) => {
-            Peers.TryRemove(args.IpPort, out var _);
+        wsServer.ClientDisconnected += (object? sender, DisconnectionEventArgs args) => {
+            logger.LogInformation($"{args.Client.Ip} disconnected");
+            Peers.TryRemove(args.Client.Guid, out var _);
 
             ClientDisconnected?.Invoke(sender, args);
             ConnectedChanged?.Invoke(this, Peers.Count);
@@ -74,8 +122,6 @@ public class MeshNetwork : IMeshNetwork
 
         wsServer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
             var eventArgs = new MessageEventArgs(args.Data, lz4Options);
-
-            eventArgs.Hostname = args.IpPort;
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
@@ -86,7 +132,7 @@ public class MeshNetwork : IMeshNetwork
                 cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
             }
             
-            if (Peers.TryGetValue(args.IpPort, out var peer))
+            if (Peers.TryGetValue(args.Client.Guid, out var peer))
             {
                 peer.LastSeen = DateTime.UtcNow;
                 MessageReceived?.Invoke(peer, eventArgs);
@@ -103,6 +149,7 @@ public class MeshNetwork : IMeshNetwork
         logger.LogInformation("Starting Websocket server");
         try
         {
+            listener.Stop();
             wsServer.Start();
             logger.LogInformation("Websocket server started");
         } 
@@ -131,32 +178,11 @@ public class MeshNetwork : IMeshNetwork
         });
     }
 
-    public async Task<bool> AddNode(string hostname, bool ssl, Guid clientId)
+    public async Task<bool> AddNode(Uri url, Guid clientId)
     {
-        try
-        {
-            if (!hostname.StartsWith("http://"))
-            {
-                hostname = $"http://{hostname}";
-            }
-
-            var uri = new Uri(hostname);
-            return await AddNode(uri.Host, uri.Port, ssl, clientId);
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, $"Hostname: {hostname}");
-            return false;
-        }
-    }
-
-    public async Task<bool> AddNode(string hostname, int port, bool ssl, Guid clientId)
-    {
-        string ipAndPort = $"{hostname}:{port}";
-
         using(var _ = rwlock.EnterWriteLockEx())
         {
-            if (Peers.ContainsKey(ipAndPort))
+            if (Peers.Any(x => x.Value.Url == url))
             {
                 return false;
             }
@@ -182,15 +208,13 @@ public class MeshNetwork : IMeshNetwork
             }
         }
 
-        logger.LogInformation($"Connecting to {ipAndPort}");
+        logger.LogInformation($"Connecting to {url}");
 
-        var peer = new Peer(hostname, port, ssl, Port);
+        var peer = new LocalClient(url, configuration.GetValue<string>("PublicUrl"), RemotePort);
 
         peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => 
         {
             var eventArgs = new MessageEventArgs(args.Data, lz4Options);
-
-            eventArgs.Hostname = args.IpPort;
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
@@ -212,7 +236,10 @@ public class MeshNetwork : IMeshNetwork
 
         peer.Dropped += (object? sender, EventArgs args) => 
         {
-            Peers.TryRemove(ipAndPort, out var _);
+            if (sender is LocalClient peer)
+            {
+                Peers.TryRemove(peer.ConnectionId, out var _);
+            }
 
             ClientDropped?.Invoke(sender, EventArgs.Empty);
             ConnectedChanged?.Invoke(this, Peers.Count);
@@ -220,8 +247,8 @@ public class MeshNetwork : IMeshNetwork
 
         if (await peer.StartWithTimeoutAsync())
         {
-            logger.LogInformation($"Connected to {ipAndPort}");
-            Peers.TryAdd(ipAndPort, peer);
+            logger.LogInformation($"Connected to {url}");
+            Peers.TryAdd(peer.ConnectionId, peer);
             ConnectedChanged?.Invoke(this, Peers.Count);
             return true;
         }
@@ -229,15 +256,20 @@ public class MeshNetwork : IMeshNetwork
         return false;
     }
 
-    public Dictionary<string, Guid> GetPeers()
+    public Dictionary<string, Peer> GetPeers()
     {
         return Peers.Values
-            .Where(x => x is Peer)
-            .ToDictionary(x => $"http://{x.Hostname}:{x.Port}", x => x.ClientId);
+            .Where(x => x is LocalClient)
+            .ToDictionary(x => x.Url.ToString(), x => x);
     }
 
-    public int GetPort()
+    public int GetLocalPort()
     {
-        return Port;
+        return LocalPort;
+    }
+
+    public int GetRemotePort()
+    {
+        return RemotePort;
     }
 }

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore;
+﻿using Kryolite.Node;
+using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -11,7 +12,7 @@ internal class Program
 {
     static async Task Main(string[] args)
     {
-        Console.ForegroundColor = ConsoleColor.DarkYellow;
+        Console.ForegroundColor = ConsoleColor.Cyan;
         Console.WriteLine(@"
  __                         .__  .__  __
 |  | _________ ___.__. ____ |  | |__|/  |_  ____
@@ -19,13 +20,13 @@ internal class Program
 |    <  |  | \/\___  (  <_> )  |_|  ||  | \  ___/
 |__|_ \ |__|   / ____|\____/|____/__||__|  \___  >
      \/        \/                              \/
-                            node2
+                            node
                                          ");
         Console.ForegroundColor = ConsoleColor.Gray;
 
          await WebHost.CreateDefaultBuilder()
             .ConfigureAppConfiguration((hostingContext, config) => config
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                 .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables(prefix: "KRYOLITE__")
                 .AddCommandLine(args))

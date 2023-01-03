@@ -31,10 +31,7 @@ public class BlockchainRepository : IDisposable
 
     public long Count()
     {
-        return Context.PosBlocks
-            .Select(x => x.Height)
-            .DefaultIfEmpty()
-            .Max();
+        return Context.PosBlocks.Count();
     }
 
     public void Add(PosBlock block, ChainState chainState)
@@ -102,7 +99,7 @@ public class BlockchainRepository : IDisposable
             .Include(x => x.Transactions)
             .Include(x => x.Votes)
             .Include(x => x.Pow)
-                .ThenInclude(x => x.Transactions)
+                .ThenInclude(x => x!.Transactions)
             .AsEnumerable()
             .GroupBy(x => x.Height, (key, values) => new 
             {
@@ -152,10 +149,10 @@ public class BlockchainRepository : IDisposable
                 Blocks = values
             })
             .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
-            .OrderBy(x => x.Height)
+            .OrderBy(x => x!.Height)
             .ToList();
 
-        return results;
+        return results!;
     }
 
     public List<PowBlock> Tail(long start, int count)
@@ -172,10 +169,10 @@ public class BlockchainRepository : IDisposable
                 Blocks = values
             })
             .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
-            .OrderBy(x => x.Height)
+            .OrderBy(x => x!.Height)
             .ToList();
 
-        return results;
+        return results!;
     }
 
     public PowBlock? Last()
@@ -192,7 +189,7 @@ public class BlockchainRepository : IDisposable
             .Include(x => x.Transactions)
             .Include(x => x.Votes)
             .Include(x => x.Pow)
-                .ThenInclude(x => x.Transactions)
+                .ThenInclude(x => x!.Transactions)
             .ToList();
     }
 

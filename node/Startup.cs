@@ -1,14 +1,15 @@
-using System;
-using System.IO;
-using System.Numerics;
-using Kryolite.Node;
-using Kryolite.Shared;
+using System.Net;
+using LettuceEncrypt.Acme;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
+using Yarp.ReverseProxy.Configuration;
 
-namespace Kryolite.Wallet;
+namespace Kryolite.Node;
 
 public class Startup
 {
@@ -21,10 +22,22 @@ public class Startup
 
     public void Configure(IApplicationBuilder app)
     {
+        app.UseForwardedHeaders();
+
+        if (Configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable().Any(x => x.Value is not null && x.Value.StartsWith(Uri.UriSchemeHttps)))
+        {
+            app.UseHttpsRedirection();
+        }
+
         app.UseRouting();
         app.UseEndpoints(endpoints =>
         {
+            endpoints.MapGroup(".well-known").MapGet("{**catch-all}", async context =>
+            {
+                await context.Response.WriteAsync("OK");
+            });
             endpoints.MapControllers();
+            endpoints.MapReverseProxy();
         });
     }
 
@@ -34,6 +47,20 @@ public class Startup
         Directory.CreateDirectory(dataDir);
 
         BlockchainService.DATA_PATH = dataDir;
+
+        services.Configure<ForwardedHeadersOptions>(options =>
+          {
+              options.ForwardedHeaders =
+                  ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        });
+
+        if(Configuration.GetSection("LettuceEncrypt").Exists())
+        {
+            services.AddLettuceEncrypt(c => c.AllowedChallengeTypes = ChallengeType.Http01);
+        }
+
+        services.AddSingleton<IProxyConfigProvider, ProxyConfigProvider>()
+                .AddReverseProxy();
 
         services.AddSingleton<IBlockchainManager, BlockchainManager>()
                 .AddSingleton<Lazy<IBlockchainManager>>(c => new Lazy<IBlockchainManager>(c.GetService<IBlockchainManager>()!))

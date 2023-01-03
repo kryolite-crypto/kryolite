@@ -34,7 +34,7 @@ public class NetworkManager : INetworkManager
 
     public void AddHost(NodeHost host)
     {
-        if (host.Hostname is null)
+        if (host.Url is null)
         {
             logger.LogWarning($"Failed to add host. Null hostname for {host.ClientId}");
             return;
@@ -42,7 +42,7 @@ public class NetworkManager : INetworkManager
 
         using var _ = rwlock.EnterWriteLockEx();
         Hosts.Add(host);
-        logger.LogInformation($"Added host {host.Hostname}");
+        logger.LogInformation($"Added host {host.Url}");
     }
 
     public DateTimeOffset GetNetworkTime()
@@ -87,10 +87,15 @@ public class NetworkManager : INetworkManager
 
     public class NodeHost
     {
-        public string Hostname { get; init; } = string.Empty;
+        public Uri Url { get; init; }
         public Guid ClientId { get; init; }
         public NodeInfo? NodeInfo { get; init; }
         public DateTime LastSeen { get; set; } // TODO unixtime
+        
+        public NodeHost(Uri url)
+        {
+            Url = url;
+        }
     }
 }
 
@@ -120,9 +125,14 @@ public class NodeList
 public class NodeCandidate
 {
     [Key(0)]
-    public string Hostname { get; init; } = string.Empty;
+    public Uri Url { get; init; }
     [Key(1)]
     public Guid ClientId { get; init; }
     [Key(2)]
     public int ConnectedPeers { get; set; }
+
+    public NodeCandidate(Uri url)
+    {
+        Url = url;
+    }
 }

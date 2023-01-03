@@ -172,7 +172,7 @@ public class BlockchainManager : IBlockchainManager
 
         if (broadcastVote && block.Pow is not null /*&& pos is active*/)
         {
-            var nodeWallet = walletManager.GetNodeWallet();
+            var nodeWallet = walletManager.GetNodeWallet() ?? throw new Exception("Trying to sign vote without node keys");
 
             var vote = new Vote
             {
@@ -364,6 +364,7 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
+        // TODO: return actual height
         return blockchainRepository.Count();
     }
 

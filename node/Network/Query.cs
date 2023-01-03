@@ -5,8 +5,7 @@ namespace Kryolite;
 [MessagePackObject]
 public class QueryNodeInfo
 {
-    [Key(0)]
-    public int Port { get; set; }
+
 }
 
 [MessagePackObject]
