@@ -8,8 +8,8 @@ namespace Kryolite.Node;
 
 public class WalletContext : DbContext
 {
-    public DbSet<Wallet> Wallets { get; set; }
-    public DbSet<WalletTransaction> Transactions { get; set; }
+    public DbSet<Wallet> Wallets => Set<Wallet>();
+    public DbSet<WalletTransaction> Transactions => Set<WalletTransaction>();
 
     public WalletContext(DbContextOptions<WalletContext> options)
       :base(options)

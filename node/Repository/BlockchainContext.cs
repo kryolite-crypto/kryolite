@@ -8,12 +8,12 @@ namespace Kryolite.Node;
 
 public class BlockchainContext : DbContext
 {
-    public DbSet<PosBlock> PosBlocks { get; set; }
-    public DbSet<PowBlock> PowBlocks { get; set; }
-    public DbSet<Transaction> Transactions { get; set; }
-    public DbSet<Vote> Votes { get; set; }
-    public DbSet<LedgerWallet> LedgerWallets { get; set; }
-    public DbSet<ChainState> ChainState { get; set; }
+    public DbSet<PosBlock> PosBlocks => Set<PosBlock>();
+    public DbSet<PowBlock> PowBlocks => Set<PowBlock>();
+    public DbSet<Transaction> Transactions => Set<Transaction>();
+    public DbSet<Vote> Votes => Set<Vote>();
+    public DbSet<LedgerWallet> LedgerWallets => Set<LedgerWallet>();
+    public DbSet<ChainState> ChainState => Set<ChainState>();
 
     public BlockchainContext(DbContextOptions<BlockchainContext> options)
       :base(options)

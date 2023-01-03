@@ -4,39 +4,34 @@ using WatsonWebsocket;
 
 namespace Kryolite;
 
-public abstract class BaseNode
+public abstract class Peer
 {
-    public string Hostname { get; protected set; } = string.Empty;
-    public int Port { get; protected set; }
+    public Uri Url { get; protected set; }
     public DateTime LastSeen { get; set; }
     public DateTime ConnectedSince { get; set; }
     public List<PosBlock> Blockchain { get; set; } = new List<PosBlock>();
-    public Guid ClientId;
+    public Guid ClientId = Guid.Empty;
+
+    public Peer(Uri url)
+    {
+        Url = url;
+    }
 
     public abstract Task SendAsync(Message msg);
     public abstract void Disconnect();
 }
 
-public class Client : BaseNode
+public class RemoteClient : Peer
 {
     WatsonWsServer watsonServer;
-    private readonly string ipAndPort;
     private readonly Guid serverId;
+    private readonly Guid connectionId;
 
-    public Client(WatsonWsServer watsonServer, string ipAndPort, Guid serverId)
+    public RemoteClient(WatsonWsServer watsonServer, Uri client, Guid serverId, Guid connectionId) : base(client)
     {
-        if (string.IsNullOrEmpty(ipAndPort))
-        {
-            throw new ArgumentException($"'{nameof(ipAndPort)}' cannot be null or empty.", nameof(ipAndPort));
-        }
-
         this.watsonServer = watsonServer ?? throw new ArgumentNullException(nameof(watsonServer));
-        this.ipAndPort = ipAndPort;
         this.serverId = serverId;
-
-        var uri = new Uri($"http://{ipAndPort}");
-        Hostname = uri.Host;
-        Port = uri.Port;
+        this.connectionId = connectionId;
     }
 
     public override async Task SendAsync(Message msg)
@@ -46,7 +41,7 @@ public class Client : BaseNode
             msg.NodeId = serverId;
 
             var bytes = MessagePackSerializer.Serialize(msg);
-            await watsonServer.SendAsync(ipAndPort, bytes);
+            await watsonServer.SendAsync(connectionId, bytes);
         }
         catch (Exception ex)
         {
@@ -58,9 +53,9 @@ public class Client : BaseNode
     {
         try
         {
-            if (watsonServer.IsClientConnected(ipAndPort))
+            if (watsonServer.IsClientConnected(connectionId))
             {
-                watsonServer.DisconnectClient(ipAndPort);
+                watsonServer.DisconnectClient(connectionId);
             }
         }
         catch (Exception ex)
@@ -71,28 +66,39 @@ public class Client : BaseNode
 }
 
 
-public class Peer : BaseNode
+public class LocalClient : Peer
 {
     public bool ForceDisconnect { get; set; }
+    public Guid ConnectionId { get; set; }
 
     public event EventHandler<MessageReceivedEventArgs>? MessageReceived;
     public event EventHandler<EventArgs>? Dropped;
 
     private WatsonWsClient wsClient;
 
-    public Peer(string hostname, int port, bool ssl, int serverPort)
+    public LocalClient(Uri client, string? publicUrl, int serverPort) : base(client)
     {
-        Hostname = hostname;
-        Port = port;
+        var url = new UriBuilder(client);
+        url.Scheme = client.Scheme == Uri.UriSchemeHttps ?
+            Uri.UriSchemeWss : Uri.UriSchemeWs;
 
-        wsClient = new WatsonWsClient(hostname, port, ssl);
+        wsClient = new WatsonWsClient(url.Uri);
 
         wsClient.ConfigureOptions(opts => {
-            opts.SetRequestHeader("ClientId", Kryolite.Node.MeshNetwork.ServerId.ToString());
+            opts.SetRequestHeader("kryo-client-id", Kryolite.Node.MeshNetwork.ServerId.ToString());
+
+            if (!string.IsNullOrEmpty(publicUrl))
+            {
+                opts.SetRequestHeader("kryo-connect-to-url", publicUrl);
+            }
+            else
+            {
+                opts.SetRequestHeader("kryo-connect-to-port", serverPort.ToString());
+            }
         });
 
         wsClient.MessageReceived += (object? sender, MessageReceivedEventArgs args) => {
-            if (ClientId == null) {
+            if (ClientId == Guid.Empty) {
                 ClientId = MessagePackSerializer.Deserialize<Message>(args.Data).NodeId;
             }
 
@@ -106,10 +112,7 @@ public class Peer : BaseNode
 
             var msg = new Message
             {
-                Payload = new QueryNodeInfo 
-                {
-                    Port = serverPort
-                }
+                Payload = new QueryNodeInfo()
             };
 
             await SendAsync(msg);
@@ -117,7 +120,7 @@ public class Peer : BaseNode
 
         wsClient.ServerDisconnected += (object? sender, EventArgs e) => {
             // TODO: Logger
-            Console.WriteLine($"Disconnected from {hostname}:{port}");
+            Console.WriteLine($"Disconnected from {Url}");
 
             Dropped?.Invoke(this, EventArgs.Empty);
             wsClient.Dispose();

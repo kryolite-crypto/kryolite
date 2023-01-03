@@ -14,13 +14,15 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="BigRational" Version="1.0.0.6" />
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
+    <PackageReference Include="LettuceEncrypt" Version="1.2.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.1" />
     <PackageReference Include="MessagePack" Version="2.4.59" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="7.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.0" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="System.Reactive.Linq" Version="5.0.0" />
-    <PackageReference Include="WatsonWebsocket" Version="3.0.1" />
+    <PackageReference Include="WatsonWebsocket" Version="4.0.4" />
+    <PackageReference Include="Yarp.ReverseProxy" Version="1.1.1" />
   </ItemGroup>
 
 </Project>

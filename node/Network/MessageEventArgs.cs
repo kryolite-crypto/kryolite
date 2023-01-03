@@ -1,10 +1,10 @@
 using MessagePack;
+using WatsonWebsocket;
 
 namespace Kryolite;
 
 public class MessageEventArgs
 {
-    public string Hostname { get; set; }
     public Message Message { get; }
     public bool Rebroadcast { get; set; }
 

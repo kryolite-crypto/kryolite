@@ -6,13 +6,13 @@ public interface IMeshNetwork
 {
     void Start();
     Task BroadcastAsync(Message msg);
-    Task<bool> AddNode(string hostname, bool ssl, Guid clientId);
-    Task<bool> AddNode(string hostname, int port, bool ssl, Guid clientId);
-    Dictionary<string, Guid> GetPeers();
-    int GetPort();
+    Task<bool> AddNode(Uri host, Guid clientId);
+    Dictionary<string, Peer> GetPeers();
+    int GetLocalPort();
+    int GetRemotePort();
 
-    event EventHandler<ClientConnectedEventArgs>? ClientConnected;
-    event EventHandler<ClientDisconnectedEventArgs>? ClientDisconnected;
+    event EventHandler<ConnectionEventArgs>? ClientConnected;
+    event EventHandler<DisconnectionEventArgs>? ClientDisconnected;
     event EventHandler? ClientDropped;
     event EventHandler<MessageEventArgs>? MessageReceived;
 }

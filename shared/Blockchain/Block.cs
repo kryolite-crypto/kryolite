@@ -38,7 +38,7 @@ public class PowBlock
     [Key(5)]
     public List<Transaction> Transactions { get; set; } = new();
     [IgnoreMember]
-    public PosBlock? Pos { get; set; }
+    public PosBlock Pos { get; set; } = default!;
 
     public SHA256Hash GetHash()
     {

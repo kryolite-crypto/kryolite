@@ -4,6 +4,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
+using Kryolite.Node;
 
 namespace Kryolite.Wallet
 {

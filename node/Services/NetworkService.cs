@@ -20,7 +20,7 @@ public class NetworkService : BackgroundService
     private readonly IBlockchainManager blockchainManager;
     private readonly IMempoolManager mempoolManager;
     private readonly ILogger<NetworkService> logger;
-    private readonly BufferBlock<BaseNode> SyncBuffer = new BufferBlock<BaseNode>();
+    private readonly BufferBlock<Peer> SyncBuffer = new BufferBlock<Peer>();
 
     public NetworkService(IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager)
     {
@@ -43,13 +43,15 @@ public class NetworkService : BackgroundService
         var discoveryBuffer = new BufferBlock<NodeCandidate>();
         var voteBuffer = new BufferBlock<Vote>();
 
+        var uri = configuration.GetSection("Kestrel").GetSection("Endpoints").GetSection("Http").GetValue<Uri>("Url") ?? new Uri("http://127.0.0.1:5000");
+
         meshNetwork.ClientDropped += async (object? sender, EventArgs args) => {
-            if (sender is not Peer peer) {
+            if (sender is not LocalClient client) {
                 // we only care about outgoing connections
                 return;
             }
 
-            if (peer.ForceDisconnect)
+            if (client.ForceDisconnect)
             {
                 // Peer got disconnected by action made within node, do not reconnect to new node
                 return;
@@ -63,7 +65,7 @@ public class NetworkService : BackgroundService
 
             foreach (var host in randomized)
             {
-                if (await meshNetwork.AddNode(host.Hostname, false, host.ClientId))
+                if (await meshNetwork.AddNode(host.Url, host.ClientId))
                 {
                     success = true;
                     break;
@@ -89,7 +91,7 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            if (sender is not BaseNode node) 
+            if (sender is not Peer peer) 
             {
                 logger.LogError("Message received from unknown source");
                 return;
@@ -101,9 +103,8 @@ public class NetworkService : BackgroundService
                     logger.LogInformation($"Received NodeInfo from {args.Message.NodeId}");
                     var chainState2 = blockchainManager.GetChainState();
 
-                    var nodeHost = new NodeHost
+                    var nodeHost = new NodeHost(peer.Url)
                     {
-                        Hostname = args.Hostname,
                         NodeInfo = nodeInfo
                     };
 
@@ -123,7 +124,7 @@ public class NetworkService : BackgroundService
                     if (nodeInfo.TotalWork > totalWork)
                     {
                         logger.LogInformation($"{args.Message.NodeId} has greater TotalWork ({nodeInfo.TotalWork}) compared to local ({totalWork}). Requesting chain sync");
-                        await node.SendAsync(msg);
+                        await peer.SendAsync(msg);
                     }
 
                     break;
@@ -132,8 +133,8 @@ public class NetworkService : BackgroundService
 
                     if (blockchain.Blocks != null) 
                     {
-                        node.Blockchain = blockchain.Blocks;
-                        SyncBuffer.Post<BaseNode>(node);
+                        peer.Blockchain = blockchain.Blocks;
+                        SyncBuffer.Post<Peer>(peer);
                     }
 
                     break;
@@ -158,7 +159,7 @@ public class NetworkService : BackgroundService
                             }
                         };
 
-                        await node.SendAsync(msg2);
+                        await peer.SendAsync(msg2);
                         return;
                     }
 
@@ -184,11 +185,10 @@ public class NetworkService : BackgroundService
                         }
                     };
 
-                    await node.SendAsync(response);
+                    await peer.SendAsync(response);
 
-                    networkManager.AddHost(new NodeHost
+                    networkManager.AddHost(new NodeHost(peer.Url)
                     {
-                        Hostname = $"{args.Hostname.Split(':').First()}:{queryNodeInfo.Port}",
                         ClientId = args.Message.NodeId,
                         LastSeen = DateTime.Now
                     });
@@ -222,7 +222,7 @@ public class NetworkService : BackgroundService
                         Payload = chain
                     };
 
-                    await node.SendAsync(answer);
+                    await peer.SendAsync(answer);
                     break;
                 case TransactionData transactionData:
                     if (transactionData.Transactions.Count == 0) {
@@ -264,27 +264,34 @@ public class NetworkService : BackgroundService
                         {
                             Payload = new NodeList
                             {
-                                Nodes = networkManager.GetHosts().Select(x => new NodeCandidate
+                                Nodes = networkManager.GetHosts().Select(x => new NodeCandidate(x.Url)
                                 {
-                                    Hostname = x.Hostname,
                                     ClientId = x.ClientId,
                                     ConnectedPeers = x.NodeInfo?.ConnectedPeers ?? 0
                                 }).ToList()
                             }
                         };
 
-                        await node.SendAsync(answer2);
+                        await peer.SendAsync(answer2);
                         return;
                     }
 
-                    var ip = configuration.GetValue<string>("NodeIp") ?? "127.0.0.1";
-                    var port = configuration.GetValue<int>("NodePort");
-                    var hostname2 = $"http://{ip}:{port}";
+                    var hostname2 = $"http://{uri.Host}:{uri.Port}";
+
+                    var publicUrl = configuration.GetValue<Uri?>("PublicUrl");
+
+                    if (publicUrl == null)
+                    {
+                        var endpoints = configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable();
+
+                        publicUrl = endpoints.Where(x => !string.IsNullOrEmpty(x.Value))
+                            .Select(x => new Uri(x.Value!))
+                            .FirstOrDefault(new Uri("http://localhost:5000"));
+                    }
 
                     // continue with fresh discovery
-                    var selfHost = new NodeCandidate
+                    var selfHost = new NodeCandidate(publicUrl)
                     {
-                        Hostname = hostname2,
                         ClientId = MeshNetwork.ServerId,
                         ConnectedPeers = meshNetwork.GetPeers().Count
                     };
@@ -372,23 +379,22 @@ public class NetworkService : BackgroundService
 
                 logger.LogInformation($"Discovery found {nodes.Count} nodes");
 
-                var current = networkManager.GetHosts().Select(x => new NodeCandidate
+                var current = networkManager.GetHosts().Select(x => new NodeCandidate(x.Url)
                 {
-                    Hostname = x.Hostname,
                     ClientId = x.ClientId,
                     ConnectedPeers = x.NodeInfo?.ConnectedPeers ?? 0
                 }).ToList();
 
                 current.AddRange(nodes);
 
-                var randomized = nodes.Select(x => x.Hostname).Distinct().OrderBy(arg => Guid.NewGuid());
+                var randomized = nodes.Select(x => x.Url).Distinct().OrderBy(arg => Guid.NewGuid());
 
                 var connected = 0;
                 
-                foreach (var hostname in randomized)
+                foreach (var url in randomized)
                 {
-                    Console.WriteLine($"Connecting to {hostname}");
-                    if(!await meshNetwork.AddNode(hostname, false, Guid.Empty))
+                    Console.WriteLine($"Connecting to {url}");
+                    if(!await meshNetwork.AddNode(url, Guid.Empty))
                     {
                         continue;
                     }
@@ -424,13 +430,11 @@ public class NetworkService : BackgroundService
         meshNetwork.Start();
 
         logger.LogInformation("Reading peers from appsettings.json");
-        var peers = configuration.GetSection("Peers").Get<string[]>() ?? new string[0];
+        var peers = configuration.GetSection("Peers").Get<Uri[]>() ?? new Uri[0];
 
         foreach (var peer in peers)
         {
-            var uri = new Uri(peer);
-
-            if (await meshNetwork.AddNode(uri.Host, uri.Port, false, Guid.Empty))
+            if (await meshNetwork.AddNode(peer, Guid.Empty))
             {
                 var msg = new Message{
                     Payload = new NodeDiscovery()
@@ -488,7 +492,7 @@ public class VoteBatch
     public IList<Vote> Votes { get; set; } = new List<Vote>();
 }
 
-public class ChainObserver : IObserver<BaseNode>
+public class ChainObserver : IObserver<Peer>
 {
     private readonly IMeshNetwork nodeNetwork;
     private readonly IBlockchainManager blockchainManager;
@@ -521,7 +525,7 @@ public class ChainObserver : IObserver<BaseNode>
         logger.LogError(error, "Chain sync failed");
     }
 
-    public async void OnNext(BaseNode node)
+    public async void OnNext(Peer node)
     {
         if (node.Blockchain == null || node.Blockchain.Count == 0) {
             return;
@@ -601,10 +605,7 @@ public class ChainObserver : IObserver<BaseNode>
 
             var msg = new Message
             {
-                Payload = new QueryNodeInfo
-                {
-                    Port = nodeNetwork.GetPort()
-                }
+                Payload = new QueryNodeInfo()
             };
 
             await node.SendAsync(msg);
