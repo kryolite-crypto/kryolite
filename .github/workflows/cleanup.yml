@@ -7,7 +7,7 @@ jobs:
       - name: cleanup
         uses: snok/container-retention-policy@v1
         with:
-          image-names: builder
+          image-names: "*"
           cut-off: 1 week ago UTC
           timestamp-to-use: updated_at
           account-type: org
