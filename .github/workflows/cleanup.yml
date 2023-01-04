@@ -11,7 +11,7 @@ jobs:
           cut-off: 1 week ago UTC
           timestamp-to-use: updated_at
           account-type: org
-          org-name: ${{ github.event.repository.name }}
+          org-name: kryolite-crypto
           token: ${{ secrets.PAT_PACKAGES_CLEANUP }}
           keep-at-least: 1
           untagged-only: false
