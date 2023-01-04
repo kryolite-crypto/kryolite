@@ -1,10 +1,11 @@
-on: workflow_dispatch
-
+on:
+  schedule:
+    - cron: "0 0 */3 * *"
 jobs:
-  builder:
+  packages:
     runs-on: ubuntu-22.04
     steps:
-      - name: cleanup
+      - name: packages
         uses: snok/container-retention-policy@v1
         with:
           image-names: "*"
@@ -15,5 +16,4 @@ jobs:
           token: ${{ secrets.PAT_PACKAGES_CLEANUP }}
           keep-at-least: 1
           untagged-only: false
-      - run: echo ${{join(steps.cleanup.outputs.*, '\n')}}
-      - run: echo ${{ steps.cleanup.outputs }}
+          skip-tags: "latest, v*"
