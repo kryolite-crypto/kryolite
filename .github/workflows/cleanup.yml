@@ -11,6 +11,6 @@ jobs:
           timestamp-to-use: updated_at
           account-type: org
           org-name: kryolite
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_PACKAGES_CLEANUP }}
           keep-at-least: 1
           untagged-only: false
