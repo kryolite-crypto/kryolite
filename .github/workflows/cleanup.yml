@@ -1,0 +1,16 @@
+on: workflow_dispatch
+
+jobs:
+  builder:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: snok/container-retention-policy@v1
+        with:
+          image-names: builder
+          cut-off: 1 week ago UTC
+          timestamp-to-use: updated_at
+          account-type: org
+          org-name: kryolite
+          token: ${{ secrets.GITHUB_TOKEN }}
+          keep-at-least: 1
+          untagged-only: false
