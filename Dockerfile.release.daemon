@@ -18,6 +18,6 @@ COPY --from=current /kryolite-daemon /usr/local/bin
 
 USER kryolite
 WORKDIR /kryolite
-COPY daemon/appsettings.testnet-0.json appsettings.json
+COPY daemon/appsettings.testnet.json appsettings.json
 
 ENTRYPOINT [ "/usr/local/bin/kryolite-daemon" ]
