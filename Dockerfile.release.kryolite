@@ -18,5 +18,7 @@ COPY --from=current /kryolite /usr/local/bin
 
 USER kryolite
 WORKDIR /kryolite
+# TODO: workaround
+RUN mkdir data
 
 ENTRYPOINT [ "/usr/local/bin/kryolite" ]

@@ -68,6 +68,20 @@ Get a shell
 docker-compose exec daemon bash
 ```
 
+## Docker Release
+
+```console
+docker run -p 80:80 ghcr.io/kryolite-crypto/kryolite/daemon:v27
+```
+
+```console
+docker run ghcr.io/kryolite-crypto/kryolite/kryolite:v27 wallet create -o json
+```
+
+```console
+docker run --net host ghcr.io/kryolite-crypto/kryolite/miner:v27 --url http://localhost:80 --address FIM0x...
+```
+
 ## Issues
 
 - qemu bake fails <https://github.com/dotnet/dotnet-docker/discussions/3848>
