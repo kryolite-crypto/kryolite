@@ -39,7 +39,7 @@ jobs:
     needs: builds
     strategy:
       matrix:
-        component: [daemon, miner]
+        component: [daemon, miner, kryolite]
     runs-on: ubuntu-22.04
     env:
       DOCKER_BUILDKIT: 1
