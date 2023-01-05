@@ -68,18 +68,24 @@ Get a shell
 docker-compose exec daemon bash
 ```
 
-## Docker Release
+## Getting started with docker
+
+First, run daemon and map the port 80 to your machine like this:
 
 ```console
-docker run -p 80:80 ghcr.io/kryolite-crypto/kryolite/daemon:v27
+docker run -p 80:80 ghcr.io/kryolite-crypto/kryolite/daemon:v28
 ```
 
-```console
-docker run ghcr.io/kryolite-crypto/kryolite/kryolite:v27 wallet create -o json
-```
+Now generate an address with:
 
 ```console
-docker run --net host ghcr.io/kryolite-crypto/kryolite/miner:v27 --url http://localhost:80 --address FIM0x...
+docker run ghcr.io/kryolite-crypto/kryolite/kryolite:v28 wallet create -o json
+```
+
+And then run the miner on your machine's network so that your miner can talk to your daemon with hostname localhost. Also replace `ADDRESS` with the address given in the previous step
+
+```console
+docker run --net host ghcr.io/kryolite-crypto/kryolite/miner:v28 --url http://localhost:80 --address ADDRESS
 ```
 
 ## Issues
