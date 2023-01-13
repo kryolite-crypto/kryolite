@@ -13,7 +13,9 @@ public class BlockchainContext : DbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Vote> Votes => Set<Vote>();
     public DbSet<LedgerWallet> LedgerWallets => Set<LedgerWallet>();
+    //public DbSet<LedgerAsset> LedgerAssets => Set<LedgerAsset>();
     public DbSet<ChainState> ChainState => Set<ChainState>();
+    public DbSet<Contract> Contracts => Set<Contract>();
 
     public BlockchainContext(DbContextOptions<BlockchainContext> options)
       :base(options)
@@ -111,6 +113,9 @@ public class BlockchainContext : DbContext
             entity.HasIndex(x => x.To)
                 .HasDatabaseName("ix_tx_to");
 
+            entity.HasIndex(x => x.Hash)
+                .HasDatabaseName("ix_tx_hash");
+
             entity.Property(x => x.To)
                 .HasConversion(addrConverter);
 
@@ -119,6 +124,9 @@ public class BlockchainContext : DbContext
 
             entity.Property(x => x.PublicKey)
                 .HasConversion(pubKeyConverter);
+
+            entity.Property(x => x.Hash)
+                .HasConversion(sha256Converter);
         });
 
         builder.Entity<Vote>(entity => {
@@ -143,13 +151,31 @@ public class BlockchainContext : DbContext
             entity.ToTable("LedgerWallets")
                 .HasKey(e => e.Id)
                 .HasName("pk_ledger_wallet");
-            
+
             entity.HasIndex(x => x.Address)
                 .HasDatabaseName("ix_ledger_wallet_address");
 
             entity.Property(x => x.Address)
                 .HasConversion(addrConverter);
+
+            /*entity.HasMany(x => x.Assets)
+                .WithOne()
+                .HasForeignKey(x => x.Address)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_lwallet_lassets");*/
         });
+
+        /*builder.Entity<LedgerAsset>(entity => {
+            entity.ToTable("LedgerAssets")
+                .HasKey(e => e.Token)
+                .HasName("pk_ledger_asset");
+            
+            entity.Property(x => x.Address)
+                .HasConversion(addrConverter);
+
+            entity.Property(x => x.Token)
+                .HasConversion(sha256Converter);
+        });*/
 
         builder.Entity<ChainState>(entity => {
             entity.ToTable("ChainState")
@@ -189,6 +215,21 @@ public class BlockchainContext : DbContext
 
             entity.Property(x => x.LastHash)
                 .HasConversion(sha256Converter);
+        });
+
+        builder.Entity<Contract>(entity => {
+            entity.ToTable("Contracts")
+                .HasKey(x => x.Id)
+                .HasName("pk_contracts");
+
+            entity.HasIndex(x => x.Address)
+                .HasDatabaseName("ix_contract_address");
+
+            entity.Property(x => x.Address)
+                .HasConversion(addrConverter);
+
+            entity.Property(x => x.Owner)
+                .HasConversion(addrConverter);
         });
      }
 }

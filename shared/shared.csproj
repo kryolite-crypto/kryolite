@@ -12,5 +12,6 @@
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.1" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="MessagePack" Version="2.4.35" />
+    <PackageReference Include="SimpleBase" Version="4.0.0" />
   </ItemGroup>
 </Project>

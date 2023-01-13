@@ -42,7 +42,7 @@ public struct PublicKey
 
         var addressBytes = ripemdHash.ToList();
         addressBytes.Insert(0, (byte)Network.MAIN); // network (161 mainnet, 177 testnet)
-        addressBytes.Insert(1, 1); // version
+        addressBytes.Insert(1, (byte)AddressType.WALLET); // version
 
         var ripemdBytes = new List<byte>(addressBytes);
         ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));

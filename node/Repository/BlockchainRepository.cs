@@ -1,6 +1,4 @@
-using System.Diagnostics.Contracts;
 using Kryolite.Shared;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -36,7 +34,7 @@ public class BlockchainRepository : IDisposable
 
     public void Add(PosBlock block, ChainState chainState)
     {
-        Contract.Equals(1, chainState.Id);
+        System.Diagnostics.Contracts.Contract.Equals(1, chainState.Id);
 
         var pendingVotes = Context.Votes
             .Where(x => x.Height == block.Height)
@@ -58,7 +56,7 @@ public class BlockchainRepository : IDisposable
 
     public void Add(List<PosBlock> blocks, ChainState chainState)
     {
-        Contract.Equals(1, chainState.Id);
+        System.Diagnostics.Contracts.Contract.Equals(1, chainState.Id);
 
         Context.PosBlocks.AddRange(blocks);
         Context.ChainState.Update(chainState);
@@ -68,7 +66,7 @@ public class BlockchainRepository : IDisposable
 
     public void SaveState(ChainState chainState)
     {
-        Contract.Equals(1, chainState.Id);
+        System.Diagnostics.Contracts.Contract.Equals(1, chainState.Id);
 
         Context.ChainState.Update(chainState);
         Context.SaveChanges();
@@ -197,6 +195,7 @@ public class BlockchainRepository : IDisposable
     {
         return Context.LedgerWallets
             .Where(x => x.Address == address)
+            //.Include(x => x.Assets)
             .FirstOrDefault();
     }
 
@@ -226,8 +225,19 @@ public class BlockchainRepository : IDisposable
 
     public bool VoteExists(Signature signature)
     {
-        // TODO this crashes, implement equals on signature?
         return Context.Votes.Any(x => x.Signature == signature);
+    }
+
+    public Contract? GetContract(Address address)
+    {
+        return Context.Contracts
+            .Where(x => x.Address == address)
+            .FirstOrDefault();
+    }
+
+    public void AddContract(Contract contract)
+    {
+        Context.Contracts.Add(contract);
     }
 
     public void Dispose()

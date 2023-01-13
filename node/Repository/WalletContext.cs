@@ -10,6 +10,7 @@ public class WalletContext : DbContext
 {
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<WalletTransaction> Transactions => Set<WalletTransaction>();
+    //public DbSet<WalletAsset> Assets => Set<WalletAsset>();
 
     public WalletContext(DbContextOptions<WalletContext> options)
       :base(options)
@@ -40,9 +41,15 @@ public class WalletContext : DbContext
                 .HasDatabaseName("ix_wallet_address");
 
             entity.HasMany(e => e.WalletTransactions)
-                .WithOne(e => e.Wallet)
+                .WithOne()
+                .HasForeignKey(x => x.WalletId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_wallettx");
+
+            /*entity.HasMany(e => e.WalletAssets)
+                .WithOne()
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_wallettx");*/
 
             entity.Property(x => x.PrivateKey)
                 .HasConversion(privateKeyConverter);

@@ -1,6 +1,9 @@
+using System.Text;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
+using MessagePack;
 using Microsoft.Extensions.Logging;
+using Wasmtime;
 
 namespace Kryolite.Node;
 
@@ -57,7 +60,7 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
 
         foreach (var item in items) {
             if(!Execute(item, out var result)) {
-                Console.WriteLine($"Transaction failed {result}");
+                Console.WriteLine($"Transaction failed: {result}");
                 continue;
             }
 
@@ -117,7 +120,13 @@ public enum ExecutionResult
     INVALID_ID,
     INVALID_PARENT_HASH,
     TIMESTAMP_TOO_OLD,
-    TIMESTAMP_IN_FUTURE
+    TIMESTAMP_IN_FUTURE,
+    INVALID_CONTRACT,
+    DUPLICATE_CONTRACT,
+    INVALID_PAYLOAD,
+    TX_IS_BLOCK_REWARD,
+    NULL_PAYLOAD,
+    INVALID_METHOD
 }
 
 public class TransactionContext : IContext
@@ -129,6 +138,7 @@ public class TransactionContext : IContext
     public BlockchainRepository BlockRepository;
     public IMempoolManager MempoolManager;
     public Dictionary<string, LedgerWallet> LedgerWalletCache = new Dictionary<string, LedgerWallet>();
+    public Dictionary<string, Contract> ContractCache = new Dictionary<string, Contract>();
 
     public Exception? Ex { get; private set; }
 
@@ -207,8 +217,8 @@ public class NotReward : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext exCtx)
     {
-        if(item.TransactionType != TransactionType.PAYMENT) {
-            throw new ExecutionException(ExecutionResult.FAILURE);
+        if(item.TransactionType != TransactionType.PAYMENT && item.TransactionType != TransactionType.CONTRACT) {
+            throw new ExecutionException(ExecutionResult.TX_IS_BLOCK_REWARD);
         }
     }
 }
@@ -257,13 +267,269 @@ public class FetchRecipientWallet : BaseStep<Transaction, TransactionContext>
     }
 }
 
+public class FetchContract : BaseStep<Transaction, TransactionContext>
+{
+    protected override void Execute(Transaction item, TransactionContext ctx)
+    {
+        if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract))
+        {
+            contract = ctx.BlockRepository.GetContract(item.To) ?? throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+            ctx.ContractCache.TryAdd(item.To.ToString(), contract);
+        }
+    }
+}
+
+public class AddBalanceToContract : BaseStep<Transaction, TransactionContext>
+{
+    protected override void Execute(Transaction item, TransactionContext ctx)
+    {
+        if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract))
+        {
+            contract = ctx.BlockRepository.GetContract(item.To) ?? throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+            contract.Balance = checked(contract.Balance + item.Value);
+        }
+    }
+}
+
+public class FetchOwnerWallet : BaseStep<Transaction, TransactionContext>
+{
+    protected override void Execute(Transaction item, TransactionContext ctx)
+    {
+        if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract)) {
+            throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+        }
+
+        if (!ctx.LedgerWalletCache.TryGetValue(contract.Owner.ToString(), out var wallet)) {
+            wallet = ctx.BlockRepository.GetWallet(contract.Owner) ?? new LedgerWallet(contract.Owner);
+            ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
+        }
+    }
+}
+
+public class ExecuteContract : BaseStep<Transaction, TransactionContext>
+{
+    protected override void Execute(Transaction item, TransactionContext ctx)
+    {
+        if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract)) 
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+        }
+
+        using var engine = new Engine(new Config()
+            .WithFuelConsumption(true)
+            .WithReferenceTypes(true));
+
+        var errors = Module.Validate(engine, contract.Code);
+        if(errors != null)
+        {
+            Console.WriteLine(errors);
+            throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+        }
+
+        using var module = Module.FromBytes(engine, contract.Name, contract.Code);
+
+        var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+        var payload = MessagePackSerializer.Deserialize<TransactionPayload>(item.Data, lz4Options);
+
+        if (payload.Payload is not CallMethod call)
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_PAYLOAD);
+        }
+
+        var methodName = $"_c_{call.Method}";
+
+        if (!module.Exports.Any(x => x.Name == methodName))
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_METHOD);
+        }
+
+        if (!ctx.LedgerWalletCache.TryGetValue(contract.Owner.ToString(), out var ownerWallet))
+        {
+            var wallet = ctx.BlockRepository.GetWallet(contract.Owner);
+            if (wallet != null) 
+            {
+                ctx.LedgerWalletCache.Add(contract.Owner.ToString(), wallet);
+            }
+        }
+
+        using var linker = new Linker(engine);
+        using var store = new Store(engine);
+
+        ulong start = 1000000;
+        store.AddFuel(start + item.MaxFee);
+
+        linker.Define("kryolite", "get_balance",
+            Function.FromCallback<int, long>(store,  (Caller caller, int address) => 
+            {
+                var memory = caller.GetMemory("memory");
+
+                if (memory is null)
+                {
+                    return 0;
+                }
+
+                var addr = memory.ReadAddress(address);
+
+                if(!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
+                {
+                    return 0;
+                }
+
+                Console.WriteLine($"Get balance for '{addr.ToString()}': {wallet.Balance / 1000000} kryo");
+
+                return (long)wallet.Balance;
+            })
+        );
+
+        linker.Define("kryolite", "transfer",
+            Function.FromCallback<int, long>(store,  (Caller caller, int address, long value) => 
+            {
+                var memory = caller.GetMemory("memory");
+
+                if (memory is null)
+                {
+                    return;
+                }
+
+                var addr = memory.ReadAddress(address);
+
+                if (addr.Equals(contract.Address))
+                {
+                    Console.WriteLine($"Set balance for '{addr.ToString()}': {contract.Balance / 1000000} -> {(contract.Balance + (ulong)value) / 1000000} kryo");
+                    contract.Balance = checked(contract.Balance + (ulong)value);
+                    return;
+                }
+
+                if(!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
+                {
+                    return;
+                }
+
+                Console.WriteLine($"Set balance for '{addr.ToString()}': {wallet.Balance / 1000000} -> {(wallet.Balance + (ulong)value) / 1000000} kryo");
+                wallet.Balance = checked(wallet.Balance + (ulong)value);
+                contract.Balance = checked(contract.Balance - (ulong)value);
+            })
+        );
+
+        linker.Define("kryolite", "get_state_sz",
+            Function.FromCallback<int>(store,  (Caller caller) => 
+            {
+                return contract.State.Length * 2;
+            })
+        );
+
+        linker.Define("kryolite", "get_state",
+            Function.FromCallback<int>(store,  (Caller caller, int ptr) => 
+            {
+                caller.GetMemory("memory")!.WriteString(ptr, contract.State, Encoding.Unicode);
+            })
+        );
+
+        linker.Define("kryolite", "set_state",
+            Function.FromCallback<int>(store,  (Caller caller, int ptr) => 
+            {
+                var memory = caller.GetMemory("memory");
+
+                if (memory is null)
+                {
+                    return;
+                }
+
+                var keyLen = memory.ReadInt32(ptr - 4);
+                var state = memory.ReadString(ptr, keyLen, Encoding.Unicode);
+
+                Console.WriteLine(state);
+                contract.State = state;
+            })
+        );
+
+        linker.Define(
+            "env",
+            "console.log",
+            Function.FromCallback(store, (Caller caller, int message) =>
+            {
+                var mem = caller.GetMemory("memory");
+
+                if (mem is null)
+                {
+                    return;
+                }
+
+                var msgLen = mem.ReadInt32(message - 4);
+                var msg = mem.ReadString(message, msgLen, Encoding.Unicode);
+                Console.WriteLine("LOG: " + msg);
+            })
+        );
+
+        linker.Define(
+            "env",
+            "abort",
+            Function.FromCallback(store, (Caller caller, int message, int filename, int linenum, int colnum) =>
+            {
+                var mem = caller.GetMemory("memory");
+
+                if (mem is null)
+                {
+                    return;
+                }
+
+                var filenameStr = string.Empty;
+                var messageStr = string.Empty;
+
+                if (filename > 0) 
+                {
+                    filenameStr = mem.ReadString(filename, mem.ReadInt32(filename - 4), Encoding.Unicode);
+                }
+
+                if (message > 0)
+                {
+                    messageStr = mem.ReadString(message, mem.ReadInt32(message - 4), Encoding.Unicode);
+                }
+
+                throw new Exception($"{messageStr} ({filenameStr}:{linenum}:{colnum})");
+            })
+        );
+
+        var instance = linker.Instantiate(store, module);
+
+        var memory = instance.GetMemory("memory") ?? throw new Exception("memory not found");
+        var tx = (int)(instance.GetGlobal("Transaction")?.GetValue() ?? throw new Exception("Transaction global not found"));
+
+        memory.WriteBuffer(memory.ReadInt32(tx), item.PublicKey!.Value.ToAddress());
+        memory.WriteBuffer(memory.ReadInt32(tx + 4), item.To);
+        memory.WriteInt64(tx + 8, (long)item.Value);
+
+        var ctr = (int)(instance.GetGlobal("Contract")?.GetValue() ?? throw new Exception("Contract global not found"));
+        memory.WriteBuffer(memory.ReadInt32(ctr), contract.Owner);
+        memory.WriteBuffer(memory.ReadInt32(ctr + 4), contract.Address);
+
+        var run = instance.GetAction(methodName);
+
+        if (run == null)
+        {
+            throw new ExecutionException(ExecutionResult.FAILURE);
+        }
+
+        Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
+        run();
+
+        var save = instance.GetAction("Save");
+
+        if (save != null)
+        {
+            Console.WriteLine($"Saving state for contract {contract.Name}");
+            save();
+        }
+    }
+}
+
 public class TakeBalanceFromSender : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext ctx)
     {
         var address = item.PublicKey?.ToAddress() ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
         
-        if(!ctx.LedgerWalletCache.TryGetValue(address.ToString(), out var wallet)) {
+        if (!ctx.LedgerWalletCache.TryGetValue(address.ToString(), out var wallet)) {
             throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
@@ -315,6 +581,7 @@ public class AddBlockRewardToRecipient : BaseStep<Transaction, TransactionContex
             throw new ExecutionException(ExecutionResult.INVALID_SENDER);
         }
 
+        wallet.Balance = checked(wallet.Balance + item.Value);
         wallet.Balance = checked(wallet.Balance + ctx.FeeTotal);
     }
 }
@@ -456,5 +723,48 @@ public class VerifyTimestampFuture : BaseStep<PowBlock, BlockchainExContext>
         {
             throw new ExecutionException(ExecutionResult.TIMESTAMP_IN_FUTURE);
         }
+    }
+}
+
+public class AddContract : BaseStep<Transaction, TransactionContext>
+{
+    protected override void Execute(Transaction item, TransactionContext ctx)
+    {
+        if (item.PublicKey == null)
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_SENDER);
+        }
+
+        if (item.Data is null)
+        {
+            throw new ExecutionException(ExecutionResult.NULL_PAYLOAD);
+        }
+
+        var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+        var payload = MessagePackSerializer.Deserialize<TransactionPayload>(item.Data, lz4Options);
+
+        if (payload.Payload is not NewContract newContract)
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_PAYLOAD);
+        }
+
+        using var engine = new Engine(new Config()
+            .WithReferenceTypes(true));
+
+        if(Module.Validate(engine, newContract.Code) != null)
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+        }
+
+        var contract = new Contract(item.PublicKey.Value.ToAddress(), newContract.Name, newContract.Code);
+
+        var ctr = ctx.BlockRepository.GetContract(contract.Address);
+
+        if (ctr != null) 
+        {
+            throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
+        }
+
+        ctx.BlockRepository.AddContract(contract);
     }
 }

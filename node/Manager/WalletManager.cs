@@ -78,6 +78,11 @@ public class WalletManager : IWalletManager
 
     public void UpdateWallets(IEnumerable<Wallet> wallets)
     {
+        if (wallets.Count() == 0)
+        {
+            return;
+        }
+
         using var _ = rwlock.EnterWriteLockEx();
         using var walletRepository = new WalletRepository();
 

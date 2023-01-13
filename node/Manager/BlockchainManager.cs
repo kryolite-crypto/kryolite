@@ -97,18 +97,29 @@ public class BlockchainManager : IBlockchainManager
         };
 
         var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
+            // Miner fee
             .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
-            .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
-            .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
-            .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT)
-            // TODO: Check for duplicate tx
-            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
-            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT)
-            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
-            .Link<FetchRecipientWallet>()
+            .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
             .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
-            .Link<AddBalanceToRecipient>()
-            .Link<UpdateRecipientWallet>();
+            .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
+            // Payment, TODO: check for duplicate TX
+            .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            // Payment to Contract
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            // Add contract
+            .Link<AddContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract());
 
         if (!txExecutor.ExecuteBatch(block.Transactions, out var txresult)) {
             logger.LogWarning($"AddBlock failed with: {txresult}");
@@ -129,18 +140,29 @@ public class BlockchainManager : IBlockchainManager
             };
 
             txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
-                .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
-                .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
-                .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT)
-                // TODO: Check for duplicate tx
-                .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
-                .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT)
-                .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
-                .Link<FetchRecipientWallet>()
-                .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<AddBalanceToRecipient>()
-                .Link<UpdateRecipientWallet>();
+            // Miner fee
+            .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
+            .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
+            .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
+            .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
+            // Payment, TODO: check for duplicate TX
+            .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            // Payment to Contract
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            // Add contract
+            .Link<AddContract>(x => x.TransactionType == TransactionType.CONTRACT);
 
             if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res)) {
                 logger.LogWarning($"AddBlock failed with: {res}");
@@ -193,10 +215,10 @@ public class BlockchainManager : IBlockchainManager
 
         if (block.Pow is not null)
         {
-            mempoolManager.RemoveTransactions(block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT));
+            mempoolManager.RemoveTransactions(block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT));
         }
 
-        mempoolManager.RemoveTransactions(block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT));
+        mempoolManager.RemoveTransactions(block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT));
 
         logger.LogInformation($"Added block {block.Height}");
 
@@ -229,19 +251,33 @@ public class BlockchainManager : IBlockchainManager
         
         var txContext = new TransactionContext(blockchainRepository, wallets);
 
+        // .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
+        // .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
+        // TODO: This needs refactoring
         var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
+            // Miner fee
             .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
-            .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
-            .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
-            .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT)
-            // TODO: Check for duplicate tx
-            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
-            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT)
-            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
-            .Link<FetchRecipientWallet>()
+            .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
             .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
-            .Link<AddBalanceToRecipient>()
-            .Link<UpdateRecipientWallet>();
+            .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
+            // Payment, TODO: check for duplicate TX
+            .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+            // Payment to Contract
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+            // Add contract
+            .Link<AddContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract());
 
         var epochStart = blockchainRepository.GetPowBlock(chainState.POW.Height - (chainState.POW.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
 
@@ -396,15 +432,16 @@ public class BlockchainManager : IBlockchainManager
             .Link<CheckMinFee>()
             .Link<VerifySignature>()
             // TODO: Check for duplicate tx
-            .Link<FetchSenderWallet>()
-            .Link<HasFunds>();
+            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
+            .Link<HasFunds>(x => x.TransactionType == TransactionType.PAYMENT);
+            // TODO: HasAsset
 
         var newTransactions = transactions.Where(tx => !mempoolManager.HasTransaction(tx));
         var valid = executor.Execute(newTransactions);
 
         mempoolManager.AddTransactions(valid, broadcast);
 
-        logger.LogInformation($"Added {transactions.Count} transactions to queue");
+        logger.LogInformation($"Added {valid.Count} transactions to queue");
 
         return valid;
     }
@@ -522,7 +559,7 @@ public class BlockchainManager : IBlockchainManager
                         if (wallets.TryGetValue(senderAddr.ToString(), out var sWallet))
                         {
                             sWallet.Balance = sender.Balance;
-                            sWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Height);
+                            sWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
                             sWallet.Updated = true;
                         }
                     }
@@ -545,7 +582,7 @@ public class BlockchainManager : IBlockchainManager
                     if(wallets.TryGetValue(tx.To.ToString(), out var rWallet))
                     {
                         rWallet.Balance = recipient.Balance;
-                        rWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Height);
+                        rWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
                         rWallet.Updated = true;
                     }
                 }
@@ -579,7 +616,7 @@ public class BlockchainManager : IBlockchainManager
                     if (wallets.TryGetValue(senderAddr.ToString(), out var sWallet))
                     {
                         sWallet.Balance = sender.Balance;
-                        sWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Height);
+                        sWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
                         sWallet.Updated = true;
                     }
                 }
@@ -602,7 +639,7 @@ public class BlockchainManager : IBlockchainManager
                 if(wallets.TryGetValue(tx.To.ToString(), out var rWallet))
                 {
                     rWallet.Balance = recipient.Balance;
-                    rWallet.WalletTransactions.RemoveAll(x => x.Id == cBlock.Height);
+                    rWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
                     rWallet.Updated = true;
                 }
             }

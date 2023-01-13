@@ -10,7 +10,7 @@ public static class Constant
     public const double MINER_FEE = 0.75;
     public const double VALIDATOR_FEE = 0.2;
     public const double DEV_FEE = 0.05;
-    public const string ADDR_PREFIX = "FIM0x";
+    public const string ADDR_PREFIX = "kryo:";
     public const int MAX_MEMPOOL_TX = 100000;
     public const int MAX_BLOCK_TX = 20000;
     public const int MAX_PEERS = 6;

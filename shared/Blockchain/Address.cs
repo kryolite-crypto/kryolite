@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using MessagePack;
+using SimpleBase;
 
 namespace Kryolite.Shared;
 
@@ -9,13 +10,13 @@ namespace Kryolite.Shared;
 public struct Address
 {
     [Key(0)]
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst=26)] 
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst=Address.SIZE)]
     public byte[] Buffer;
 
-    public override string ToString()
-    {
-        return Constant.ADDR_PREFIX + BitConverter.ToString(Buffer).Replace("-", "");
-    }
+    public bool IsContract() => Buffer[1] == (byte)AddressType.CONTRACT;
+    public bool IsWallet() => Buffer[1] == (byte)AddressType.WALLET;
+
+    public override string ToString() => Constant.ADDR_PREFIX + Base58.Flickr.Encode(Buffer);
 
     public override bool Equals(object? obj) 
     {
@@ -45,7 +46,8 @@ public struct Address
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
     public static implicit operator byte[] (Address address) => address.Buffer;
     public static implicit operator Address(byte[] buffer) => new Address { Buffer = buffer };
-    public static implicit operator Address(string address) => IsValid(address) ? new Address { Buffer = address.Split('x').Last().ToByteArray() } : throw new Exception($"invalid address {address}");
+    public static implicit operator Address(Span<byte> buffer) => new Address { Buffer = buffer.ToArray() };
+    public static implicit operator Address(string address) => IsValid(address) ? new Address { Buffer = Base58.Flickr.Decode(address.Split(':').Last()) } : throw new Exception($"invalid address {address}");
 
     public static bool IsValid(string address)
     {
@@ -53,7 +55,7 @@ public struct Address
             return false;
         }
 
-        var bytes = address.Split('x').Last().ToByteArray();
+        var bytes = Base58.Flickr.Decode(address.Split(':').Last());
         
         if (bytes.Length != 26) {
             return false;
@@ -69,6 +71,8 @@ public struct Address
 
         return Enumerable.SequenceEqual(h2.Take(4).ToArray(), checksum);
     }
+
+    public const int SIZE = 26;
 }
 
 public static class StringExtensions
