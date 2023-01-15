@@ -286,8 +286,9 @@ public class AddBalanceToContract : BaseStep<Transaction, TransactionContext>
         if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract))
         {
             contract = ctx.BlockRepository.GetContract(item.To) ?? throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
-            contract.Balance = checked(contract.Balance + item.Value);
         }
+
+        contract.Balance = checked(contract.Balance + item.Value);
     }
 }
 
@@ -370,6 +371,17 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
                 var addr = memory.ReadAddress(address);
 
+                if (addr.IsContract())
+                {
+                    if(!ctx.ContractCache.TryGetValue(addr.ToString(), out var ctract))
+                    {
+                        return 0;
+                    }
+
+                    Console.WriteLine($"Get balance for '{addr.ToString()}': {ctract.Balance / 1000000} kryo");
+                    return (long)ctract.Balance;
+                }
+
                 if(!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
                 {
                     return 0;
@@ -395,19 +407,27 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
                 if (addr.Equals(contract.Address))
                 {
-                    Console.WriteLine($"Set balance for '{addr.ToString()}': {contract.Balance / 1000000} -> {(contract.Balance + (ulong)value) / 1000000} kryo");
-                    contract.Balance = checked(contract.Balance + (ulong)value);
+                    Console.WriteLine($"Cannot transfer to contract address");
                     return;
                 }
 
                 if(!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
                 {
-                    return;
+                    wallet = ctx.BlockRepository.GetWallet(addr);
+                    
+                    if (wallet == null) 
+                    {
+                        wallet = new LedgerWallet(addr);
+                    }
+
+                    ctx.LedgerWalletCache.Add(wallet.Address.ToString(), wallet);
                 }
 
                 Console.WriteLine($"Set balance for '{addr.ToString()}': {wallet.Balance / 1000000} -> {(wallet.Balance + (ulong)value) / 1000000} kryo");
-                wallet.Balance = checked(wallet.Balance + (ulong)value);
                 contract.Balance = checked(contract.Balance - (ulong)value);
+                wallet.Balance = checked(wallet.Balance + (ulong)value);
+
+                item.Effects.Add(new Effect(addr, (ulong)value));
             })
         );
 
@@ -490,6 +510,24 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             })
         );
 
+        linker.Define(
+            "env",
+            "seed",
+            Function.FromCallback(store, (Caller caller) =>
+            {
+                return ctx.Timestamp;
+            })
+        );
+
+        linker.Define(
+            "env",
+            "process.exit",
+            Function.FromCallback<int>(store, (Caller caller, int exitCode) =>
+            {
+                throw new ExitException(exitCode);
+            })
+        );
+
         var instance = linker.Instantiate(store, module);
 
         var memory = instance.GetMemory("memory") ?? throw new Exception("memory not found");
@@ -510,8 +548,36 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.FAILURE);
         }
 
+        var exitCode = 0;
         Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
-        run();
+
+        try
+        {
+            run();
+        }
+        catch (WasmtimeException waEx)
+        {
+            if (waEx.InnerException is ExitException eEx)
+            {
+                exitCode = eEx.ExitCode;
+            }
+            else
+            {
+                Console.WriteLine(waEx);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+
+        Console.WriteLine($"{contract.Name}:{call.Method} return with exit code {exitCode}");
+
+        if (exitCode != 0) 
+        {
+            // TODO: rollback changes to ledger / contract balances
+            return;
+        }
 
         var save = instance.GetAction("Save");
 

@@ -7,11 +7,25 @@ using SimpleBase;
 namespace Kryolite.Shared;
 
 [MessagePackObject]
-public struct Address
+public class Address
 {
     [Key(0)]
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst=Address.SIZE)]
-    public byte[] Buffer;
+    public byte[] Buffer { get; private init; } = new byte[ADDRESS_SZ];
+
+    public Address(byte[] buffer)
+    {
+        if (buffer is null)
+        {
+            throw new ArgumentNullException(nameof(buffer));
+        }
+
+        if (buffer.Length != ADDRESS_SZ)
+        {
+            throw new ArgumentOutOfRangeException(nameof(buffer));
+        }
+
+        Buffer = buffer;
+    }
 
     public bool IsContract() => Buffer[1] == (byte)AddressType.CONTRACT;
     public bool IsWallet() => Buffer[1] == (byte)AddressType.WALLET;
@@ -45,9 +59,9 @@ public struct Address
 
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
     public static implicit operator byte[] (Address address) => address.Buffer;
-    public static implicit operator Address(byte[] buffer) => new Address { Buffer = buffer };
-    public static implicit operator Address(Span<byte> buffer) => new Address { Buffer = buffer.ToArray() };
-    public static implicit operator Address(string address) => IsValid(address) ? new Address { Buffer = Base58.Flickr.Decode(address.Split(':').Last()) } : throw new Exception($"invalid address {address}");
+    public static implicit operator Address(byte[] buffer) => new Address(buffer);
+    public static implicit operator Address(Span<byte> buffer) => new Address(buffer.ToArray());
+    public static implicit operator Address(string address) => IsValid(address) ? new Address(Base58.Flickr.Decode(address.Split(':').Last())) : throw new Exception($"invalid address {address}");
 
     public static bool IsValid(string address)
     {
@@ -72,7 +86,7 @@ public struct Address
         return Enumerable.SequenceEqual(h2.Take(4).ToArray(), checksum);
     }
 
-    public const int SIZE = 26;
+    public static int ADDRESS_SZ = 26;
 }
 
 public static class StringExtensions

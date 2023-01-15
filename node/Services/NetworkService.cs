@@ -197,7 +197,7 @@ public class NetworkService : BackgroundService
                 case RequestChainSync syncParams:
                     logger.LogInformation($"Chain sync requested from {args.Message.NodeId}");
 
-                    var block = blockchainManager.GetPosBlock(syncParams.StartBlock);
+                    var block = blockchainManager.GetPosBlock(syncParams.StartBlock, false);
 
                     var chain = new Blockchain();
 

@@ -90,15 +90,27 @@ public class BlockchainRepository : IDisposable
             .FirstOrDefault();
     }
 
-    public PosBlock? GetPosBlock(long height)
+    public PosBlock? GetPosBlock(long height, bool includeEffects)
     {
-        return Context.PosBlocks
+        var query = Context.PosBlocks
             .Where(x => x.Height == height)
-            .Include(x => x.Transactions)
-            .Include(x => x.Votes)
+            .Include(x => x.Transactions);
+
+        if (includeEffects)
+        {
+            query.ThenInclude(x => x.Effects);
+        }
+
+        query.Include(x => x.Votes)
             .Include(x => x.Pow)
-                .ThenInclude(x => x!.Transactions)
-            .AsEnumerable()
+                .ThenInclude(x => x!.Transactions);
+
+        if (includeEffects)
+        {
+            query.ThenInclude(x => x.Effects);
+        }
+
+        return query.AsEnumerable()
             .GroupBy(x => x.Height, (key, values) => new 
             {
                 Height = key,
@@ -238,6 +250,13 @@ public class BlockchainRepository : IDisposable
     public void AddContract(Contract contract)
     {
         Context.Contracts.Add(contract);
+        Context.SaveChanges();
+    }
+
+    public void UpdateContracts(IEnumerable<Contract> contracts)
+    {
+        Context.Contracts.UpdateRange(contracts);
+        Context.SaveChanges();
     }
 
     public void Dispose()

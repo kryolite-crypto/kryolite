@@ -16,6 +16,7 @@ public class BlockchainContext : DbContext
     //public DbSet<LedgerAsset> LedgerAssets => Set<LedgerAsset>();
     public DbSet<ChainState> ChainState => Set<ChainState>();
     public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<Effect> Effects => Set<Effect>();
 
     public BlockchainContext(DbContextOptions<BlockchainContext> options)
       :base(options)
@@ -39,7 +40,7 @@ public class BlockchainContext : DbContext
 
         var addrConverter = new ValueConverter<Address, byte[]>(
             v => v.Buffer,
-            v => new Address { Buffer = v });
+            v => v);
 
         var signConverter = new ValueConverter<Signature, byte[]>(
             v => v.Buffer,
@@ -127,6 +128,20 @@ public class BlockchainContext : DbContext
 
             entity.Property(x => x.Hash)
                 .HasConversion(sha256Converter);
+
+            entity.HasMany(e => e.Effects)
+                .WithOne()
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_tx_effect");
+        });
+
+        builder.Entity<Effect>(entity => {
+            entity.ToTable("Effects")
+                .HasKey(e => e.Id)
+                .HasName("pk_effect");
+
+            entity.Property(x => x.To)
+                .HasConversion(addrConverter);
         });
 
         builder.Entity<Vote>(entity => {

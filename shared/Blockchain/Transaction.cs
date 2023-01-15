@@ -28,6 +28,8 @@ public class Transaction : IComparable<Transaction>
     public Signature? Signature { get; set; }
 
     [IgnoreMember]
+    public List<Effect> Effects { get; set; } = new();
+    [IgnoreMember]
     public SHA256Hash Hash { get => CalculateHash(); private set {} }
 
     public void Sign(PrivateKey privateKey)

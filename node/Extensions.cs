@@ -8,7 +8,7 @@ public static class Extensions
 {
     public static Address ReadAddress(this Memory memory, int address)
     {
-        return (Address)memory.GetSpan(address, Address.SIZE);
+        return (Address)memory.GetSpan(address, Address.ADDRESS_SZ);
     }
 
     public static void WriteBuffer(this Memory memory, int address, byte[] buffer)

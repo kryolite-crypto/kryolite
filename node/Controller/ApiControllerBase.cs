@@ -57,7 +57,7 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid parameter (address)");
         }
 
-        return blockchainManager.GetPosBlock(height);
+        return blockchainManager.GetPosBlock(height, true);
     }
 
     [HttpGet("block/pow")]

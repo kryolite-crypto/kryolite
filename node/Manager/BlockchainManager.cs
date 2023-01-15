@@ -33,12 +33,12 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetPowBlock(id);
     }
 
-    public PosBlock? GetPosBlock(long id)
+    public PosBlock? GetPosBlock(long id, bool includeEffects)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetPosBlock(id);
+        return blockchainRepository.GetPosBlock(id, includeEffects);
     }
 
     public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
@@ -129,6 +129,7 @@ public class BlockchainManager : IBlockchainManager
 
         walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
         blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
+        blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
 
         if (block.Pow is not null) 
         {
@@ -172,6 +173,7 @@ public class BlockchainManager : IBlockchainManager
 
             walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
             blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
+            blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
 
             if (block.Pow.Height % Constant.EPOCH_LENGTH_BLOCKS == 0)
             {
@@ -336,6 +338,7 @@ public class BlockchainManager : IBlockchainManager
         walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
 
         blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
+        blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
         blockchainRepository.Add(blocks, chainState);
 
         mempoolManager.RemoveTransactions(blocks.SelectMany(x => x.Transactions).Where(x => x.TransactionType == TransactionType.PAYMENT));
@@ -416,6 +419,10 @@ public class BlockchainManager : IBlockchainManager
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
+
+        if (address.IsContract()) {
+            return blockchainRepository.GetContract(address)?.Balance ?? 0;
+        }
 
         return blockchainRepository.GetWallet(address)?.Balance ?? 0;
     }
@@ -527,7 +534,7 @@ public class BlockchainManager : IBlockchainManager
 
         for (long i = max; i >= min; i--)
         {
-            var cBlock = blockchainRepository.GetPosBlock(i);
+            var cBlock = blockchainRepository.GetPosBlock(i, false);
 
             if (cBlock == null)
             {
@@ -645,7 +652,7 @@ public class BlockchainManager : IBlockchainManager
             }
 
             chainState.POS.Height = cBlock.Height - 1;
-            chainState.POS.LastHash = blockchainRepository.GetPosBlock(chainState.POS.Height)?.GetHash() ?? new SHA256Hash();
+            chainState.POS.LastHash = blockchainRepository.GetPosBlock(chainState.POS.Height, false)?.GetHash() ?? new SHA256Hash();
 
             blockchainRepository.UpdateWallets(ledgerWallets.Values);
             blockchainRepository.Delete(cBlock);

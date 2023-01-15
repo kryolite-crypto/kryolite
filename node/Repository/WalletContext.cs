@@ -22,7 +22,7 @@ public class WalletContext : DbContext
      {
         var addrConverter = new ValueConverter<Address, byte[]>(
             v => v.Buffer,
-            v => new Address { Buffer = v });
+            v => v);
 
         var pubKeyConverter = new ValueConverter<PublicKey, byte[]>(
             v => v.Buffer,
