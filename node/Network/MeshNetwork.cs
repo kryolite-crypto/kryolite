@@ -30,7 +30,10 @@ public class MeshNetwork : IMeshNetwork
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly IConfiguration configuration;
     private readonly ILogger<MeshNetwork> logger;
-    private MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+    private MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard
+                .WithCompression(MessagePackCompression.Lz4BlockArray)
+                .WithOmitAssemblyVersion(true);
+
     private TcpListener listener;
 
     public MeshNetwork(IConfiguration configuration, ILogger<MeshNetwork> logger)

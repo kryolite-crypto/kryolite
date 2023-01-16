@@ -329,7 +329,10 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
         using var module = Module.FromBytes(engine, contract.Name, contract.Code);
 
-        var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+        var lz4Options = MessagePackSerializerOptions.Standard
+                .WithCompression(MessagePackCompression.Lz4BlockArray)
+                .WithOmitAssemblyVersion(true);
+
         var payload = MessagePackSerializer.Deserialize<TransactionPayload>(item.Data, lz4Options);
 
         if (payload.Payload is not CallMethod call)
@@ -820,7 +823,10 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.NULL_PAYLOAD);
         }
 
-        var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+        var lz4Options = MessagePackSerializerOptions.Standard
+            .WithCompression(MessagePackCompression.Lz4BlockArray)
+            .WithOmitAssemblyVersion(true);
+
         var payload = MessagePackSerializer.Deserialize<TransactionPayload>(item.Data, lz4Options);
 
         if (payload.Payload is not NewContract newContract)

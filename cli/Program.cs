@@ -173,7 +173,9 @@ public class Program
                 };
             }
 
-            var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+            var lz4Options = MessagePackSerializerOptions.Standard
+                .WithCompression(MessagePackCompression.Lz4BlockArray)
+                .WithOmitAssemblyVersion(true);
 
             var tx = new Transaction
             {
