@@ -513,7 +513,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
         linker.Define(
             "env",
             "seed",
-            Function.FromCallback(store, (Caller caller) =>
+            Function.FromCallback<double>(store, (Caller caller) =>
             {
                 return ctx.Timestamp;
             })
@@ -593,7 +593,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             return;
         }
 
-        var save = instance.GetAction("Save");
+        var save = instance.GetAction("__save");
 
         if (save != null)
         {
