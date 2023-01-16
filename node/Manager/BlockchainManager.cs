@@ -33,12 +33,12 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetPowBlock(id);
     }
 
-    public PosBlock? GetPosBlock(long id, bool includeEffects)
+    public PosBlock? GetPosBlock(long id)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetPosBlock(id, includeEffects);
+        return blockchainRepository.GetPosBlock(id);
     }
 
     public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
@@ -534,7 +534,7 @@ public class BlockchainManager : IBlockchainManager
 
         for (long i = max; i >= min; i--)
         {
-            var cBlock = blockchainRepository.GetPosBlock(i, false);
+            var cBlock = blockchainRepository.GetPosBlock(i);
 
             if (cBlock == null)
             {
@@ -575,6 +575,29 @@ public class BlockchainManager : IBlockchainManager
                     if (!ledgerWallets.ContainsKey(recipientAddr)) 
                     {
                         ledgerWallets.Add(recipientAddr, blockchainRepository.GetWallet(tx.To));
+                    }
+
+                    if (tx.To.IsContract()) 
+                    {
+                        var contract = blockchainRepository.GetContract(tx.To);
+
+                        if (contract is not null)
+                        {
+                            foreach (var effect in tx.Effects)
+                            {
+                                if (!ledgerWallets.ContainsKey(effect.To.ToString())) 
+                                {
+                                    ledgerWallets.Add(effect.To.ToString(), blockchainRepository.GetWallet(effect.To));
+                                }
+
+                                var eWallet = ledgerWallets[effect.To.ToString()];
+                                checked
+                                {
+                                    eWallet.Balance -= effect.Value;
+                                    contract.Balance += effect.Value;
+                                }
+                            }
+                        }
                     }
 
                     var recipient = ledgerWallets[recipientAddr];
@@ -649,10 +672,33 @@ public class BlockchainManager : IBlockchainManager
                     rWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
                     rWallet.Updated = true;
                 }
+
+                if (tx.To.IsContract()) 
+                {
+                    var contract = blockchainRepository.GetContract(tx.To);
+
+                    if (contract is not null)
+                    {
+                        foreach (var effect in tx.Effects)
+                        {
+                            if (!ledgerWallets.ContainsKey(effect.To.ToString())) 
+                            {
+                                ledgerWallets.Add(effect.To.ToString(), blockchainRepository.GetWallet(effect.To));
+                            }
+
+                            var eWallet = ledgerWallets[effect.To.ToString()];
+                            checked
+                            {
+                                eWallet.Balance -= effect.Value;
+                                contract.Balance += effect.Value;
+                            }
+                        }
+                    }
+                }
             }
 
             chainState.POS.Height = cBlock.Height - 1;
-            chainState.POS.LastHash = blockchainRepository.GetPosBlock(chainState.POS.Height, false)?.GetHash() ?? new SHA256Hash();
+            chainState.POS.LastHash = blockchainRepository.GetPosBlock(chainState.POS.Height)?.GetHash() ?? new SHA256Hash();
 
             blockchainRepository.UpdateWallets(ledgerWallets.Values);
             blockchainRepository.Delete(cBlock);

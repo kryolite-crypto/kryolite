@@ -575,7 +575,21 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
         if (exitCode != 0) 
         {
-            // TODO: rollback changes to ledger / contract balances
+            foreach (var effect in item.Effects)
+            {
+                if (!ctx.LedgerWalletCache.ContainsKey(effect.To.ToString())) 
+                {
+                    continue;
+                }
+
+                var eWallet = ctx.LedgerWalletCache[effect.To.ToString()];
+
+                checked
+                {
+                    eWallet.Balance -= effect.Value;
+                    contract.Balance += effect.Value;
+                }
+            }
             return;
         }
 

@@ -14,7 +14,7 @@ public interface IBlockchainManager
     BigInteger GetTotalWork();
     ulong GetBalance(Address address);
     PowBlock? GetPowBlock(long Id);
-    PosBlock? GetPosBlock(long Id, bool includeEffects);
+    PosBlock? GetPosBlock(long Id);
     List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true);
     void AddTransactionsToQueue(Transaction transaction);
     ChainState GetChainState();
