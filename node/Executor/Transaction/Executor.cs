@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using MessagePack;
@@ -347,6 +348,18 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.INVALID_METHOD);
         }
 
+        var _params = new object[4] {"foo", 69, true, "420"};
+        var _dict = new Dictionary<string, object>();
+        var _start = 'a';
+
+        for(int i = 0; i < _params.Length; i++)
+        {
+            _dict.Add(_start.ToString(), _params[i]);
+            _start++;
+        }
+
+        var methodParams = JsonSerializer.Serialize(_dict);
+
         if (!ctx.LedgerWalletCache.TryGetValue(contract.Owner.ToString(), out var ownerWallet))
         {
             var wallet = ctx.BlockRepository.GetWallet(contract.Owner);
@@ -431,6 +444,20 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
                 wallet.Balance = checked(wallet.Balance + (ulong)value);
 
                 item.Effects.Add(new Effect(addr, (ulong)value));
+            })
+        );
+
+        linker.Define("kryolite", "get_params_sz",
+            Function.FromCallback<int>(store,  (Caller caller) => 
+            {
+                return methodParams.Length * 2;
+            })
+        );
+
+        linker.Define("kryolite", "get_params",
+            Function.FromCallback<int>(store,  (Caller caller, int ptr) => 
+            {
+                caller.GetMemory("memory")!.WriteString(ptr, methodParams, Encoding.Unicode);
             })
         );
 

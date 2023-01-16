@@ -125,10 +125,10 @@ public class Program
             IsRequired = false
         };
 
-        /*var contractParamsOption = new Option<decimal>(name: "--contract-params", description: "Amount to send")
+        var contractParamsOption = new Option<string>(name: "--contract-params", description: "Contract method name to execute: example '[\"foo\", 32, true]'")
         {
             IsRequired = false
-        };*/
+        };
 
         sendCmd.AddValidator(result => 
         {
@@ -147,8 +147,9 @@ public class Program
         sendCmd.AddOption(toOption);
         sendCmd.AddOption(amountOption);
         sendCmd.AddOption(contractMethodOption);
+        sendCmd.AddOption(contractParamsOption);
 
-        sendCmd.SetHandler(async (from, to, amount, node, contractMethod) =>
+        sendCmd.SetHandler(async (from, to, amount, node, contractMethod, contractParams) =>
         {
             var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
@@ -168,7 +169,8 @@ public class Program
                 {
                     Payload = new CallMethod
                     {
-                        Method = contractMethod
+                        Method = contractMethod,
+                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<object[]>(contractParams)
                     }
                 };
             }
@@ -188,6 +190,8 @@ public class Program
                 Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
             };
 
+            Console.WriteLine("'" + MessagePackSerializer.SerializeToJson(transactionPayload, lz4Options) + "'");
+
             tx.Sign(wallet.PrivateKey);
 
             var json = JsonConvert.SerializeObject(tx);
@@ -198,7 +202,7 @@ public class Program
             await http.PostAsync($"{node}/tx", stringContent);
 
             Console.WriteLine($"Transaction sent to {node}");
-        }, fromOption, toOption, amountOption, nodeOption, contractMethodOption);
+        }, fromOption, toOption, amountOption, nodeOption, contractMethodOption, contractParamsOption);
 
         return sendCmd;
     }
