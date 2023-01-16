@@ -45,9 +45,9 @@ public class WalletRepository : IDisposable
         Context.SaveChanges();
     }
 
-    public void RollbackWallets(IEnumerable<Wallet> wallets, long blockId)
+    public void RollbackWallets(IEnumerable<Wallet> wallets, long height)
     {
-        var toRemove = Context.Transactions.Where(x => x.BlockId >= blockId)
+        var toRemove = Context.Transactions.Where(x => x.Height >= height)
             .ToList();
 
         Context.Transactions.RemoveRange(toRemove);

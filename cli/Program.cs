@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Kryolite.Node;
 using Kryolite.Shared;
+using MessagePack;
 using Newtonsoft.Json;
 using JsonSerializer = System.Text.Json.JsonSerializer;
 
@@ -24,6 +25,7 @@ public class Program
 
         rootCmd.Add(BuildWalletCommand());
         rootCmd.Add(BuildSendCommand(nodeOption));
+        rootCmd.Add(BuildContractCommand(nodeOption));
 
         await rootCmd.InvokeAsync(args);
     }
@@ -101,7 +103,7 @@ public class Program
 
     private static Command BuildSendCommand(Option<string> nodeOption)
     {
-        var sendCmd = new Command("send", "Send funds to address");
+        var sendCmd = new Command("send", "Send funds / assets to address");
 
         var fromOption = new Option<string>(name: "--from", description: "Address to send from")
         {
@@ -115,8 +117,18 @@ public class Program
 
         var amountOption = new Option<decimal>(name: "--amount", description: "Amount to send")
         {
-            IsRequired = true
+            IsRequired = false
         };
+
+        var contractMethodOption = new Option<string>(name: "--contract-method", description: "Contract method name to execute")
+        {
+            IsRequired = false
+        };
+
+        /*var contractParamsOption = new Option<decimal>(name: "--contract-params", description: "Amount to send")
+        {
+            IsRequired = false
+        };*/
 
         sendCmd.AddValidator(result => 
         {
@@ -134,8 +146,9 @@ public class Program
         sendCmd.AddOption(fromOption);
         sendCmd.AddOption(toOption);
         sendCmd.AddOption(amountOption);
+        sendCmd.AddOption(contractMethodOption);
 
-        sendCmd.SetHandler(async (from, to, amount, node) =>
+        sendCmd.SetHandler(async (from, to, amount, node, contractMethod) =>
         {
             var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
@@ -147,6 +160,21 @@ public class Program
                 Environment.Exit(-1);
             }
 
+            TransactionPayload? transactionPayload = null;
+
+            if (!string.IsNullOrEmpty(contractMethod))
+            {
+                transactionPayload = new TransactionPayload
+                {
+                    Payload = new CallMethod
+                    {
+                        Method = contractMethod
+                    }
+                };
+            }
+
+            var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+
             var tx = new Transaction
             {
                 TransactionType = TransactionType.PAYMENT,
@@ -154,7 +182,8 @@ public class Program
                 To = to,
                 Value = (ulong)(amount * 1000000),
                 MaxFee = 1,
-                Nonce = 69
+                Nonce = 69,
+                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
             };
 
             tx.Sign(wallet.PrivateKey);
@@ -167,8 +196,94 @@ public class Program
             await http.PostAsync($"{node}/tx", stringContent);
 
             Console.WriteLine($"Transaction sent to {node}");
-        }, fromOption, toOption, amountOption, nodeOption);
+        }, fromOption, toOption, amountOption, nodeOption, contractMethodOption);
 
         return sendCmd;
+    }
+
+    private static Command BuildContractCommand(Option<string> nodeOption)
+    {
+        var contractCmd = new Command("contract", "Manage Contracts");
+        var uploadCmd = new Command("upload", "Upload contract");
+
+        var nameOption = new Argument<string>(name: "NAME", description: "Contract name")
+        {
+
+        };
+
+        var fromOption = new Argument<string>(name: "ADDRESS", description: "Address to send contract from (Contract Owner)")
+        {
+            
+        };
+
+        var fileOption = new Argument<string>(name: "PATH", description: "Path to WASM file to upload.")
+        {
+            
+        };
+
+        uploadCmd.AddArgument(fileOption);
+        uploadCmd.AddArgument(fromOption);
+        uploadCmd.AddArgument(nameOption);
+
+        contractCmd.AddCommand(uploadCmd);
+
+        uploadCmd.SetHandler(async (name, from, file, node) =>
+        {
+            var walletRepository = new WalletRepository();
+            var wallets = walletRepository.GetWallets();
+
+            if(!wallets.TryGetValue(from, out var wallet))
+            {
+                Console.WriteLine("Wallet not found from wallet.dat");
+                Console.WriteLine("'" + from + "'");
+                Environment.Exit(-1);
+            }
+
+            if(!File.Exists(file)) 
+            {
+                Console.WriteLine($"File does not exist {file}");
+            }
+
+            var bytes = File.ReadAllBytes(file);
+
+            var contract = new Contract(
+                wallet.PublicKey.ToAddress(),
+                name,
+                bytes
+            );
+
+            Console.WriteLine(contract.ToAddress());
+
+            var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+            var newContract = new NewContract(name, bytes);
+
+            var payload = new TransactionPayload
+            {
+                Payload = newContract
+            };
+
+            var tx = new Transaction
+            {
+                TransactionType = TransactionType.CONTRACT,
+                PublicKey = wallet.PublicKey,
+                To = contract.ToAddress(),
+                Value = 0,
+                Data = MessagePackSerializer.Serialize(payload, lz4Options),
+                MaxFee = 1,
+                Nonce = 69
+            };
+
+            tx.Sign(wallet.PrivateKey);
+            
+            var json = JsonConvert.SerializeObject(tx);
+            var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
+
+            using var http = new HttpClient();
+            await http.PostAsync($"{node}/tx", stringContent);
+
+            Console.WriteLine($"Contract sent to {node}");
+        }, nameOption, fromOption, fileOption, nodeOption);
+
+        return contractCmd;
     }
 }

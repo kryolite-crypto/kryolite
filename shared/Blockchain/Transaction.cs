@@ -27,6 +27,11 @@ public class Transaction : IComparable<Transaction>
     [Key(7)]
     public Signature? Signature { get; set; }
 
+    [IgnoreMember]
+    public List<Effect> Effects { get; set; } = new();
+    [IgnoreMember]
+    public SHA256Hash Hash { get => CalculateHash(); private set {} }
+
     public void Sign(PrivateKey privateKey)
     {
         var algorithm = SignatureAlgorithm.Ed25519;
@@ -74,7 +79,8 @@ public class Transaction : IComparable<Transaction>
 
         stream.Write(CalculateContentHash());
 
-        if (TransactionType == TransactionType.PAYMENT) {
+        if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT) 
+        {
             stream.Write(Signature ?? throw new Exception("signature required when hashing payment"));
         }
 
@@ -89,7 +95,8 @@ public class Transaction : IComparable<Transaction>
         using var sha256 = SHA256.Create();
         using var stream = new MemoryStream();
 
-        if (TransactionType == TransactionType.PAYMENT) {
+        if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT) 
+        {
             stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
         }
 

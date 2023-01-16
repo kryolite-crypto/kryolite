@@ -21,6 +21,7 @@
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.0" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="System.Reactive.Linq" Version="5.0.0" />
+    <PackageReference Include="Wasmtime" Version="3.0.0" />
     <PackageReference Include="WatsonWebsocket" Version="4.0.4" />
     <PackageReference Include="Yarp.ReverseProxy" Version="1.1.1" />
   </ItemGroup>

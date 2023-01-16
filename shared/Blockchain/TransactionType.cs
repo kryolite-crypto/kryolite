@@ -6,5 +6,5 @@ public enum TransactionType : byte
     MINER_FEE,
     VALIDATOR_FEE,
     DEV_FEE,
-    PROTX
+    CONTRACT
 }

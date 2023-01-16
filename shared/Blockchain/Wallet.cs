@@ -4,7 +4,7 @@ namespace Kryolite.Shared;
 
 public class Wallet
 {
-    public int Id { get; set; }
+    public Guid Id { get; set; }
     public string? Description { get; set; }
     public string Address { get; set; }
     public PublicKey PublicKey { get; set; }
@@ -14,6 +14,7 @@ public class Wallet
     public bool Updated { get; set; }
 
     public List<WalletTransaction> WalletTransactions { get; set; } = new();
+    //public List<WalletAsset> WalletAssets { get; set; } = new();
 
     public Wallet()
     {
