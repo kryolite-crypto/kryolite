@@ -41,8 +41,20 @@ public class NetworkManager : INetworkManager
         }
 
         using var _ = rwlock.EnterWriteLockEx();
-        Hosts.Add(host);
-        logger.LogInformation($"Added host {host.Url}");
+        
+        var existing = Hosts.FirstOrDefault(x => x.Url == host.Url);
+
+        if (existing == null)
+        {
+            Hosts.Add(host);
+            logger.LogInformation($"Added host {host.Url}");
+        }
+        else
+        {
+            existing.ClientId = host.ClientId;
+            existing.NodeInfo = host.NodeInfo;
+            existing.LastSeen = host.LastSeen;
+        }
     }
 
     public DateTimeOffset GetNetworkTime()
@@ -88,8 +100,8 @@ public class NetworkManager : INetworkManager
     public class NodeHost
     {
         public Uri Url { get; init; }
-        public Guid ClientId { get; init; }
-        public NodeInfo? NodeInfo { get; init; }
+        public Guid ClientId { get; set; }
+        public NodeInfo? NodeInfo { get; set; }
         public DateTime LastSeen { get; set; } // TODO unixtime
         
         public NodeHost(Uri url)

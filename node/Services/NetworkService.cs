@@ -109,7 +109,9 @@ public class NetworkService : BackgroundService
 
                     var nodeHost = new NodeHost(peer.Url)
                     {
-                        NodeInfo = nodeInfo
+                        NodeInfo = nodeInfo,
+                        LastSeen = DateTime.Now,
+                        Online = true
                     };
 
                     networkManager.AddHost(nodeHost);
