@@ -1,6 +1,8 @@
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
+using DnsClient;
+using DnsClient.Protocol;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Configuration;
@@ -21,8 +23,9 @@ public class NetworkService : BackgroundService
     private readonly IMempoolManager mempoolManager;
     private readonly ILogger<NetworkService> logger;
     private readonly BufferBlock<Peer> SyncBuffer = new BufferBlock<Peer>();
+    private readonly ILookupClient LookupClient;
 
-    public NetworkService(IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager)
+    public NetworkService(IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager, ILookupClient lookupClient)
     {
         this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
@@ -31,6 +34,7 @@ public class NetworkService : BackgroundService
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
+        LookupClient = lookupClient ?? throw new ArgumentNullException(nameof(lookupClient));
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -429,20 +433,50 @@ public class NetworkService : BackgroundService
 
         meshNetwork.Start();
 
-        logger.LogInformation("Reading peers from appsettings.json");
-        var peers = configuration.GetSection("Peers").Get<Uri[]>() ?? new Uri[0];
+        var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
+
+        if (peers.Count == 0)
+        {
+            logger.LogInformation("Resolving peers from testnet.kryolite.io");
+
+            var result = await LookupClient.QueryAsync("testnet.kryolite.io", QueryType.TXT);
+            
+            if (result.HasError)
+            {
+                throw new InvalidOperationException(result.ErrorMessage);
+            }
+
+            foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
+            {
+                logger.LogInformation($"Peer: {txtRecord}");
+
+                var uriBuilder = new UriBuilder(txtRecord);
+                peers.Add(uriBuilder.Uri.ToString().TrimEnd('/'));
+            }
+        }
 
         foreach (var peer in peers)
         {
-            if (await meshNetwork.AddNode(peer, Guid.Empty))
+            if (!Uri.TryCreate(peer, new UriCreationOptions(), out var peerUri))
             {
-                var msg = new Message{
+                logger.LogWarning("Invalid uri format {}", peer);
+                continue;
+            }
+
+            if (await meshNetwork.AddNode(peerUri, Guid.Empty))
+            {
+                var msg = new Message {
                     Payload = new NodeDiscovery()
                 };
 
                 await meshNetwork.BroadcastAsync(msg);
             }
         };
+
+        if (peers.Count == 0)
+        {
+            logger.LogInformation("No peers resolved. Manually add peers in configuration.");
+        }
 
         logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Network.Set();

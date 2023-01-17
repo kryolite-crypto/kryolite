@@ -1,4 +1,5 @@
 using System.Net;
+using DnsClient;
 using Kryolite.Shared;
 using LettuceEncrypt.Acme;
 using Microsoft.AspNetCore.Builder;
@@ -85,6 +86,7 @@ public class Startup
                 .AddHostedService<MempoolService>()
                 .AddHostedService<SampoService>()
                 .AddSingleton<StartupSequence>()
+                .AddSingleton<ILookupClient>(new LookupClient())
                 .AddRouting()
                 .AddControllers()
                 .AddNewtonsoftJson(options => {
