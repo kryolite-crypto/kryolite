@@ -14,12 +14,12 @@ public class CurrencyConverter : IValueConverter
     {
         if (value is ulong uval)
         {
-            return String.Format(CultureInfo.InvariantCulture, "{0:0.######} FIMC", uval / 1000000.0);
+            return String.Format(CultureInfo.InvariantCulture, "{0:0.######} KRYO", uval / 1000000.0);
         }
 
         if (value is long val)
         {
-            return String.Format(CultureInfo.InvariantCulture, "{0:0.######} FIMC", val / 1000000.0);
+            return String.Format(CultureInfo.InvariantCulture, "{0:0.######} KRYO", val / 1000000.0);
         }
 
         // converter used for the wrong type
