@@ -135,7 +135,8 @@ public class MainWindowViewModel : INotifyPropertyChanged
                 PublicKey = wallet.PublicKey,
                 PrivateKey = wallet.PrivateKey,
                 Balance = wallet.Balance,
-                WalletTransactions = wallet.WalletTransactions
+                WalletTransactions = wallet.WalletTransactions,
+                Wallet = wallet
             });
         } else {
             Wallets[Wallets.IndexOf(existing)].Balance = wallet.Balance;
