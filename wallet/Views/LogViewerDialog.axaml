@@ -9,8 +9,26 @@
         Height="400"
 		x:DataType="vm:LogViewerDialogViewModel"
         x:Class="Kryolite.Wallet.LogViewerDialog"
-        Title="Log Viewer - Wallet">
-    <DockPanel>
-        <TextBox Name="LogBox" AcceptsReturn="True" IsReadOnly="true" FontFamily="Andale Mono" FontSize="12"/>
-    </DockPanel>
+        Title="Log Viewer"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True">
+    <Panel>
+        <ExperimentalAcrylicBorder IsHitTestVisible="False">
+            <ExperimentalAcrylicBorder.Material>
+                <ExperimentalAcrylicMaterial
+                    BackgroundSource="Digger"
+                    TintColor="Black"
+                    TintOpacity="0.8"
+                    MaterialOpacity="0.65" />
+            </ExperimentalAcrylicBorder.Material>
+        </ExperimentalAcrylicBorder>
+
+        <DockPanel>
+            <Panel DockPanel.Dock="Top">
+                <TextBlock Margin="0, 6, 0, 6" Text="Log Viewer" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+            </Panel>
+            <TextBox Name="LogBox" AcceptsReturn="True" IsReadOnly="true" FontFamily="Andale Mono" FontSize="12" DockPanel.Dock="Bottom"/>
+        </DockPanel>
+    </Panel>
 </Window>
