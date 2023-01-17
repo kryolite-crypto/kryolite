@@ -66,53 +66,61 @@ public class MeshNetwork : IMeshNetwork
         logger.LogDebug($"Binding WebSocket to localhost port {LocalPort}");
 
         wsServer.ClientConnected += (object? sender, ConnectionEventArgs args) => {
-            logger.LogInformation($"Received connection from {args.Client.IpPort} connected");
-
-            if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
+            try
             {
-                logger.LogInformation("Received connection without client-id, forcing disconnect...");
+                logger.LogInformation($"Received connection from {args.Client.IpPort} connected");
+
+                if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
+                {
+                    logger.LogInformation("Received connection without client-id, forcing disconnect...");
+                    wsServer.DisconnectClient(args.Client.Guid);
+                    return;
+                }
+
+                if (!Guid.TryParse(args.HttpRequest.Headers["kryo-client-id"], out var guid)) 
+                {
+                    logger.LogInformation("Received connection with invalid client-id, forcing disconnect...");
+                    wsServer.DisconnectClient(args.Client.Guid);
+                    return;
+                }
+
+                if (args.HttpRequest.Headers["X-Forwarded-For"] is null) 
+                {
+                    // something went wrong, this should be set with builtin reverse proxy
+                    wsServer.DisconnectClient(args.Client.Guid);
+                    return;
+                }
+
+                Uri? url = null;
+
+                if (!int.TryParse(args.HttpRequest.Headers["kryo-connect-to-port"], out var port))
+                {
+                    port = 5000;
+                }
+
+                if (!Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out url))
+                {
+                    var builder = new UriBuilder(args.HttpRequest.Headers["X-Forwarded-For"]!);
+                    builder.Port = port;
+                    url = builder.Uri;
+                }
+
+                var peer = new RemoteClient(wsServer, url, ServerId, args.Client.Guid);
+
+                peer.LastSeen = DateTime.UtcNow;
+                peer.ConnectedSince = DateTime.UtcNow;
+                peer.ClientId = guid;
+
+                Peers.TryAdd(args.Client.Guid, peer);
+
+                ClientConnected?.Invoke(peer, args);
+                ConnectedChanged?.Invoke(this, Peers.Count);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Invalid connection params from {}", args.Client.IpPort);
                 wsServer.DisconnectClient(args.Client.Guid);
-                return;
             }
-
-            if (!Guid.TryParse(args.HttpRequest.Headers["kryo-client-id"], out var guid)) 
-            {
-                logger.LogInformation("Received connection with invalid client-id, forcing disconnect...");
-                wsServer.DisconnectClient(args.Client.Guid);
-                return;
-            }
-
-            if (args.HttpRequest.Headers["X-Forwarded-For"] is null) 
-            {
-                // something went wrong, this should be set with builtin reverse proxy
-                wsServer.DisconnectClient(args.Client.Guid);
-                return;
-            }
-
-            Uri? url = null;
-
-            if (!int.TryParse(args.HttpRequest.Headers["kryo-connect-to-port"], out var port))
-            {
-                port = 5000;
-            }
-
-            if (!Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out url))
-            {
-                var builder = new UriBuilder(args.HttpRequest.Headers["X-Forwarded-For"]!);
-                builder.Port = port;
-                url = builder.Uri;
-            }
-
-            var peer = new RemoteClient(wsServer, url, ServerId, args.Client.Guid);
-
-            peer.LastSeen = DateTime.UtcNow;
-            peer.ConnectedSince = DateTime.UtcNow;
-            peer.ClientId = guid;
-
-            Peers.TryAdd(args.Client.Guid, peer);
-
-            ClientConnected?.Invoke(peer, args);
-            ConnectedChanged?.Invoke(this, Peers.Count);
         };
 
         wsServer.ClientDisconnected += (object? sender, DisconnectionEventArgs args) => {
@@ -124,25 +132,33 @@ public class MeshNetwork : IMeshNetwork
         };
 
         wsServer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => {
-            var eventArgs = new MessageEventArgs(args.Data, lz4Options);
-
-            using(var _ = rwlock.EnterWriteLockEx())
+            try
             {
-                if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
-                    return;
+                var eventArgs = new MessageEventArgs(args.Data, lz4Options);
+
+                using(var _ = rwlock.EnterWriteLockEx())
+                {
+                    if(cache.TryGetValue(eventArgs.Message.Id, out var _)) {
+                        return;
+                    }
+
+                    cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
                 }
-
-                cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+                
+                if (Peers.TryGetValue(args.Client.Guid, out var peer))
+                {
+                    peer.LastSeen = DateTime.UtcNow;
+                    MessageReceived?.Invoke(peer, eventArgs);
+                }
+                
+                if (eventArgs.Rebroadcast) {
+                    await BroadcastAsync(eventArgs.Message);
+                }
             }
-            
-            if (Peers.TryGetValue(args.Client.Guid, out var peer))
+            catch (Exception ex)
             {
-                peer.LastSeen = DateTime.UtcNow;
-                MessageReceived?.Invoke(peer, eventArgs);
-            }
-            
-            if (eventArgs.Rebroadcast) {
-                await BroadcastAsync(eventArgs.Message);
+                logger.LogError(ex, "Received invalid message from {}", args.Client.IpPort);
+                wsServer.DisconnectClient(args.Client.Guid);
             }
         };
     }
@@ -217,23 +233,31 @@ public class MeshNetwork : IMeshNetwork
 
         peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => 
         {
-            var eventArgs = new MessageEventArgs(args.Data, lz4Options);
-
-            using(var _ = rwlock.EnterWriteLockEx())
+            try
             {
-                if(cache.TryGetValue(eventArgs.Message.Id, out var _)) 
+                var eventArgs = new MessageEventArgs(args.Data, lz4Options);
+
+                using(var _ = rwlock.EnterWriteLockEx())
                 {
-                    return;
-                }
+                    if(cache.TryGetValue(eventArgs.Message.Id, out var _)) 
+                    {
+                        return;
+                    }
 
-                cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
-            }
-            
-            MessageReceived?.Invoke(sender, eventArgs);
-            
-            if (eventArgs.Rebroadcast) 
+                    cache.Set(eventArgs.Message.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+                }
+                
+                MessageReceived?.Invoke(sender, eventArgs);
+                
+                if (eventArgs.Rebroadcast) 
+                {
+                    await BroadcastAsync(eventArgs.Message);
+                }
+            } 
+            catch (Exception ex)
             {
-                await BroadcastAsync(eventArgs.Message);
+                logger.LogError(ex, "Received invalid message from {}", args.Client.IpPort);
+                peer.Disconnect();
             }
         };
 
