@@ -1,5 +1,5 @@
+using Kryolite.Shared;
 using MessagePack;
-using MessagePack.Formatters;
 
 namespace Kryolite;
 
@@ -11,6 +11,6 @@ public class Message
     [Key(1)]
     public Guid NodeId { get; set; }
     [Key(2)]
-    [MessagePackFormatter(typeof(TypelessFormatter))]
+    [MessagePackFormatter(typeof(PacketFormatter))]
     public object? Payload { get; set; }
 }

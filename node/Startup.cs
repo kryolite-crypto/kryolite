@@ -1,4 +1,5 @@
 using System.Net;
+using Kryolite.Shared;
 using LettuceEncrypt.Acme;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -47,6 +48,17 @@ public class Startup
         Directory.CreateDirectory(dataDir);
 
         BlockchainService.DATA_PATH = dataDir;
+
+        PacketFormatter.Register<NodeInfo>(Packet.NodeInfo);
+        PacketFormatter.Register<Blockchain>(Packet.Blockchain);
+        PacketFormatter.Register<PosBlock>(Packet.PosBlock);
+        PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
+        PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);
+        PacketFormatter.Register<TransactionData>(Packet.TransactionData);
+        PacketFormatter.Register<VoteBatch>(Packet.VoteBatch);
+        PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
+        PacketFormatter.Register<NodeList>(Packet.NodeList);
+        PacketFormatter.Register<CallMethod>(Packet.CallMethod);
 
         services.Configure<ForwardedHeadersOptions>(options =>
           {

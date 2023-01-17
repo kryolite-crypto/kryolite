@@ -17,6 +17,8 @@ public class Program
 
     private static async Task Main(string[] args)
     {
+        PacketFormatter.Register<CallMethod>(Packet.CallMethod);
+
         BlockchainService.DATA_PATH = "data"; // TODO: take as an argument from cmdline
         var rootCmd = new RootCommand("Kryolite CLI");
 
@@ -170,7 +172,7 @@ public class Program
                     Payload = new CallMethod
                     {
                         Method = contractMethod,
-                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<object[]>(contractParams)
+                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonConvert.DeserializeObject<object[]>(contractParams)
                     }
                 };
             }
@@ -189,8 +191,6 @@ public class Program
                 Nonce = 69,
                 Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
             };
-
-            Console.WriteLine("'" + MessagePackSerializer.SerializeToJson(transactionPayload, lz4Options) + "'");
 
             tx.Sign(wallet.PrivateKey);
 
