@@ -45,7 +45,7 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
-        var dataDir = Configuration.GetValue<string>("data-dir") ?? "data";
+        var dataDir = Configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         Directory.CreateDirectory(dataDir);
 
         BlockchainService.DATA_PATH = dataDir;

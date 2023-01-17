@@ -19,7 +19,7 @@ public class Program
     {
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
 
-        BlockchainService.DATA_PATH = "data"; // TODO: take as an argument from cmdline
+        BlockchainService.DATA_PATH = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var rootCmd = new RootCommand("Kryolite CLI");
 
         var nodeOption = new Option<string>(name: "--node", description: "Node url", getDefaultValue: () => "http://localhost:5000");
