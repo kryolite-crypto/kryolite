@@ -39,7 +39,7 @@ public partial class MainWindow : Window
 
         DataContext = Model;
 
-        this.Activated += OnActivated;
+        this.Initialized += OnInitialized;
 
         var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
 
@@ -113,7 +113,7 @@ public partial class MainWindow : Window
         MempoolManager.OnTransactionRemoved(transactionRemovedBuffer);
     }
 
-    private void OnActivated(object? sender, EventArgs args)
+    private void OnInitialized(object? sender, EventArgs args)
     {
         Task.Run(async () => {
             var wallets = WalletManager.GetWallets().Values

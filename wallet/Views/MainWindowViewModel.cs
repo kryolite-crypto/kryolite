@@ -140,7 +140,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             });
         } else {
             Wallets[Wallets.IndexOf(existing)].Balance = wallet.Balance;
-            Wallets[Wallets.IndexOf(existing)].WalletTransactions = wallet.WalletTransactions;
+            Wallets[Wallets.IndexOf(existing)].WalletTransactions.AddRange(wallet.WalletTransactions);
         }
 
         Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
