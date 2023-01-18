@@ -68,7 +68,16 @@ public class MeshNetwork : IMeshNetwork
         wsServer.ClientConnected += (object? sender, ConnectionEventArgs args) => {
             try
             {
-                logger.LogInformation($"Received connection from {args.Client.IpPort} connected");
+                var forwardedFor = args.HttpRequest.Headers["X-Forwarded-For"];
+
+                if (string.IsNullOrEmpty(forwardedFor))
+                {
+                    // something went wrong, this should be set with builtin reverse proxy
+                    wsServer.DisconnectClient(args.Client.Guid);
+                    return;
+                }
+
+                logger.LogInformation($"Received connection from {forwardedFor}");
 
                 if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
                 {
@@ -84,13 +93,6 @@ public class MeshNetwork : IMeshNetwork
                     return;
                 }
 
-                if (args.HttpRequest.Headers["X-Forwarded-For"] is null) 
-                {
-                    // something went wrong, this should be set with builtin reverse proxy
-                    wsServer.DisconnectClient(args.Client.Guid);
-                    return;
-                }
-
                 Uri? url = null;
 
                 if (!int.TryParse(args.HttpRequest.Headers["kryo-connect-to-port"], out var port))
@@ -100,8 +102,12 @@ public class MeshNetwork : IMeshNetwork
 
                 if (!Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out url))
                 {
-                    var builder = new UriBuilder(args.HttpRequest.Headers["X-Forwarded-For"]!);
-                    builder.Port = port;
+                    var builder = new UriBuilder()
+                    {
+                        Host = forwardedFor,
+                        Port = port
+                    };
+
                     url = builder.Uri;
                 }
 
@@ -124,8 +130,10 @@ public class MeshNetwork : IMeshNetwork
         };
 
         wsServer.ClientDisconnected += (object? sender, DisconnectionEventArgs args) => {
-            logger.LogInformation($"{args.Client.Ip} disconnected");
-            Peers.TryRemove(args.Client.Guid, out var _);
+            if(Peers.TryRemove(args.Client.Guid, out var client))
+            {
+                logger.LogInformation($"Client {client.Url.Host} disconnected");
+            }
 
             ClientDisconnected?.Invoke(sender, args);
             ConnectedChanged?.Invoke(this, Peers.Count);
@@ -227,7 +235,7 @@ public class MeshNetwork : IMeshNetwork
             }
         }
 
-        logger.LogInformation($"Connecting to {url}");
+        logger.LogInformation($"Connecting to {url.ToHostname()}");
 
         var peer = new LocalClient(url, configuration.GetValue<string>("PublicUrl"), RemotePort);
 
@@ -274,7 +282,7 @@ public class MeshNetwork : IMeshNetwork
 
         if (await peer.StartWithTimeoutAsync())
         {
-            logger.LogInformation($"Connected to {url}");
+            logger.LogInformation($"Connected to {url.ToHostname()}");
             Peers.TryAdd(peer.ConnectionId, peer);
             ConnectedChanged?.Invoke(this, Peers.Count);
             return true;

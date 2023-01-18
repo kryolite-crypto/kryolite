@@ -19,4 +19,9 @@ public static class Extensions
             address++;
         }
     }
+
+    public static string ToHostname(this Uri uri)
+    {
+        return uri.ToString().TrimEnd('/');
+    }
 }

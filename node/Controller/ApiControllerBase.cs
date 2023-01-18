@@ -46,7 +46,7 @@ public class ApiControllerBase : Controller
     public List<string> GetPeers()
     {
         return networkManager.GetHosts()
-            .Select(x => x.Url.ToString())
+            .Select(x => x.Url.ToHostname())
             .ToList();
     }
 
