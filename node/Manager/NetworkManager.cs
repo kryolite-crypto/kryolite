@@ -112,28 +112,6 @@ public class NetworkManager : INetworkManager
 }
 
 [MessagePackObject]
-public class NodeInfo
-{
-    [Key(0)]
-    public DateTime CurrentTime { get; init; } // TODO unixtime
-    [Key(1)]
-    public long Height { get; init; }
-    [Key(2)]
-    public BigInteger TotalWork { get; init; }
-    [Key(3)]
-    public SHA256Hash LastHash { get; init; }
-    [Key(4)]
-    public int ConnectedPeers { get; init; }
-}
-
-[MessagePackObject]
-public class NodeList
-{
-    [Key(0)]
-    public List<NodeCandidate> Nodes { get; set; } = new();
-}
-
-[MessagePackObject]
 public class NodeCandidate
 {
     [Key(0)]

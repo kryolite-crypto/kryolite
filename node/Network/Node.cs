@@ -2,7 +2,7 @@ using Kryolite.Shared;
 using MessagePack;
 using WatsonWebsocket;
 
-namespace Kryolite;
+namespace Kryolite.Node;
 
 public abstract class Peer
 {

@@ -46,8 +46,7 @@ public class NetworkService : BackgroundService
 
         var discoveryBuffer = new BufferBlock<NodeCandidate>();
         var voteBuffer = new BufferBlock<Vote>();
-
-        var uri = configuration.GetSection("Kestrel").GetSection("Endpoints").GetSection("Http").GetValue<Uri>("Url") ?? new Uri("http://127.0.0.1:5000");
+        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer, discoveryBuffer);
 
         meshNetwork.ClientDropped += async (object? sender, EventArgs args) => {
             if (sender is not LocalClient client) {
@@ -89,247 +88,32 @@ public class NetworkService : BackgroundService
 
         meshNetwork.MessageReceived += async (object? sender, MessageEventArgs args) =>
         {
-            if (args.Message.Payload is null) 
+            try
             {
-                logger.LogError("Empty payload received");
-                return;
+                if (sender is not Peer peer) 
+                {
+                    logger.LogWarning("Message received from unknown source");
+                    return;
+                }
+
+                if (args.Message.Payload is not IPacket packet) 
+                {
+                    logger.LogWarning("Invalid payload type received {}", args.Message.Payload?.GetType());
+                    return;
+                }
+
+                await packet.Handle(peer, args, context);
             }
-
-            if (sender is not Peer peer) 
+            catch (Exception ex)
             {
-                logger.LogError("Message received from unknown source");
-                return;
-            }
-
-            switch (args.Message.Payload) 
-            {
-                case NodeInfo nodeInfo:
-                    logger.LogInformation($"Received NodeInfo from {args.Message.NodeId}");
-                    var chainState2 = blockchainManager.GetChainState();
-
-                    var nodeHost = new NodeHost(peer.Url)
-                    {
-                        NodeInfo = nodeInfo,
-                        LastSeen = DateTime.Now
-                    };
-
-                    networkManager.AddHost(nodeHost);
-
-                    var msg = new Message
-                    {
-                        Payload = new RequestChainSync
-                        {
-                            StartBlock = chainState2.POS.Height,
-                            StartHash = chainState2.POS.LastHash
-                        }
-                    };
-
-                    var totalWork = blockchainManager.GetTotalWork();
-
-                    if (nodeInfo.TotalWork > totalWork)
-                    {
-                        logger.LogInformation($"{args.Message.NodeId} has greater TotalWork ({nodeInfo.TotalWork}) compared to local ({totalWork}). Requesting chain sync");
-                        await peer.SendAsync(msg);
-                    }
-
-                    break;
-                case Blockchain blockchain:
-                    logger.LogInformation($"Received blockchain from {args.Message.NodeId}");
-
-                    if (blockchain.Blocks != null) 
-                    {
-                        peer.Blockchain = blockchain.Blocks;
-                        SyncBuffer.Post<Peer>(peer);
-                    }
-
-                    break;
-                case PosBlock newBlock:
-                    logger.LogInformation($"Received block {newBlock.Height} from {args.Message.NodeId}");
-                    var chainState = blockchainManager.GetChainState();
-
-                    if (chainState.POS.Height > newBlock.Height)
-                    {
-                        return;
-                    }
-
-                    if (chainState.POS.Height < (newBlock.Height - 1))
-                    {
-                        logger.LogInformation($"Chain is behind received block (local = {chainState.POS.Height}, received = {newBlock.Height}), requesting chain sync...");
-                        var msg2 = new Message
-                        {
-                            Payload = new RequestChainSync
-                            {
-                                StartBlock = chainState.POS.Height,
-                                StartHash = chainState.POS.LastHash
-                            }
-                        };
-
-                        await peer.SendAsync(msg2);
-                        return;
-                    }
-
-                    if (blockchainManager.AddBlock(newBlock, false, true)) 
-                    {
-                        args.Rebroadcast = true;
-                    }
-
-                    break;
-                case QueryNodeInfo queryNodeInfo:
-                    logger.LogInformation($"Node query received from {args.Message.NodeId}");
-
-                    var chainState3 = blockchainManager.GetChainState();
-                    var response = new Message
-                    {
-                        Payload = new NodeInfo
-                        {
-                            Height = chainState3.POS.Height,
-                            TotalWork = chainState3.POW.TotalWork,
-                            LastHash = blockchainManager.GetLastBlockhash() ?? new SHA256Hash(),
-                            CurrentTime = DateTime.UtcNow,
-                            ConnectedPeers = meshNetwork.GetPeers().Count
-                        }
-                    };
-
-                    await peer.SendAsync(response);
-
-                    networkManager.AddHost(new NodeHost(peer.Url)
-                    {
-                        ClientId = args.Message.NodeId,
-                        LastSeen = DateTime.Now
-                    });
-
-                    break;
-                case RequestChainSync syncParams:
-                    logger.LogInformation($"Chain sync requested from {args.Message.NodeId}");
-
-                    var block = blockchainManager.GetPosBlock(syncParams.StartBlock);
-
-                    var chain = new Blockchain();
-
-                    if (block == null) {
-                        chain.Blocks = blockchainManager.GetPosFrom(0);
-                        goto answer;
-                    }
-
-                    if (!Enumerable.SequenceEqual(block.GetHash().Buffer, syncParams.StartHash!)) {
-                        chain.Blocks = blockchainManager.GetPosFrom(0);
-                        goto answer;
-                    }
-
-                    if (syncParams.StartBlock == blockchainManager.GetCurrentHeight()) {
-                        return;
-                    }
-
-                    chain.Blocks = blockchainManager.GetPosFrom(syncParams.StartBlock);
-    answer:
-                    var answer = new Message()
-                    {
-                        Payload = chain
-                    };
-
-                    await peer.SendAsync(answer);
-                    break;
-                case TransactionData transactionData:
-                    if (transactionData.Transactions.Count == 0) {
-                        return;
-                    }
-
-                    logger.LogInformation($"Received {transactionData.Transactions.Count} transactions from {args.Message.NodeId}");
-
-                    var valid = blockchainManager.AddTransactionsToQueue(transactionData.Transactions);
-
-                    args.Message.Payload = new TransactionData
-                    {
-                        Transactions = valid
-                    };
-
-                    if (valid.Count > 0)
-                    {
-                        args.Rebroadcast = true;
-                    }
-                    break;
-                case VoteBatch voteBatch:
-                    logger.LogDebug($"Received {voteBatch.Votes.Count} votes from {args.Message.NodeId}");
-
-                    var validVotes = blockchainManager.AddVotes(voteBatch.Votes);
-
-                    foreach (var vote in validVotes)
-                    {
-                        voteBuffer.Post(vote);
-                    }
-
-                    break;
-                case NodeDiscovery dicovery:
-                    logger.LogInformation($"Received NodeDiscovery from {args.Message.NodeId}");
-
-                    var elapsed = DateTime.UtcNow - networkManager.GetNetworkTime();
-                    if (elapsed.TotalMinutes < 60 || networkManager.GetHosts().Count > 50) {
-                        // send cached hosts
-                        var answer2 = new Message
-                        {
-                            Payload = new NodeList
-                            {
-                                Nodes = networkManager.GetHosts().Select(x => new NodeCandidate(x.Url)
-                                {
-                                    ClientId = x.ClientId,
-                                    ConnectedPeers = x.NodeInfo?.ConnectedPeers ?? 0
-                                }).ToList()
-                            }
-                        };
-
-                        await peer.SendAsync(answer2);
-                        return;
-                    }
-
-                    var hostname2 = $"http://{uri.Host}:{uri.Port}";
-
-                    var publicUrl = configuration.GetValue<Uri?>("PublicUrl");
-
-                    if (publicUrl == null)
-                    {
-                        var endpoints = configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable();
-
-                        publicUrl = endpoints.Where(x => !string.IsNullOrEmpty(x.Value))
-                            .Select(x => new Uri(x.Value!))
-                            .FirstOrDefault(new Uri("http://localhost:5000"));
-                    }
-
-                    // continue with fresh discovery
-                    var selfHost = new NodeCandidate(publicUrl)
-                    {
-                        ClientId = MeshNetwork.ServerId,
-                        ConnectedPeers = meshNetwork.GetPeers().Count
-                    };
-
-                    var adMsg = new Message
-                    {
-                        Payload = new NodeList { 
-                            Nodes = new List<NodeCandidate> { selfHost }
-                        }
-                    };
-
-                    await meshNetwork.BroadcastAsync(adMsg);
-                    args.Rebroadcast = true;
-                    break;
-                case NodeList nodeList:
-                    logger.LogInformation($"Received NodeList from ${args.Message.NodeId}");
-
-                    foreach (var node2 in nodeList.Nodes)
-                    {
-                        discoveryBuffer.Post(node2);
-                    }
-
-                    break;
-                default:
-                    logger.LogError($"Invalid payload type: {args.Message.Payload.GetType()}");
-                    break;
+                logger.LogWarning(ex, "Error while handling packet {}", args.Message.Payload?.GetType());
             }
         };
 
         blockchainManager.OnBlockAdded(new ActionBlock<PosBlock>(async block => {
             var msg = new Message
             {
-                Payload = block
+                Payload = new NewBlock(block)
             };
 
             await meshNetwork.BroadcastAsync(msg);
@@ -504,27 +288,6 @@ public class NetworkService : BackgroundService
 
         return blockchainManager.AddBlock(posBlock, true, true);
     }
-}
-
-[MessagePackObject]
-public class Blockchain
-{
-    [Key(0)]
-    public List<PosBlock>? Blocks { get; set; }
-}
-
-[MessagePackObject]
-public class TransactionData
-{
-    [Key(0)]
-    public IList<Transaction> Transactions { get; set; } = new List<Transaction>();
-}
-
-[MessagePackObject]
-public class VoteBatch
-{
-    [Key(0)]
-    public IList<Vote> Votes { get; set; } = new List<Vote>();
 }
 
 public class ChainObserver : IObserver<Peer>
