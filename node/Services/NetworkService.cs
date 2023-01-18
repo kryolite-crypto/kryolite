@@ -2,14 +2,12 @@ using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
 using DnsClient;
-using DnsClient.Protocol;
 using Kryolite.Shared;
-using MessagePack;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using NSec.Cryptography;
-using static Kryolite.Node.NetworkManager;
+using Open.Nat;
 
 namespace Kryolite.Node;
 
@@ -217,6 +215,48 @@ public class NetworkService : BackgroundService
             });
 
         meshNetwork.Start();
+
+        var upnp = configuration.GetValue<bool>("EnableUPNP");
+
+        var ports = configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable()
+            .Where(x => x.Value is not null)
+            .Select(x => new Uri(x.Value!))
+            .Where(x => !x.IsLoopback)
+            .Select(x => x.Port)
+            .Distinct();
+        
+        if (upnp && ports.Count() == 0)
+        {
+            logger.LogWarning("No external http(s) endpoints configured, skipping UPNP discovery...");
+        }
+
+        if (upnp && ports.Count() > 0)
+        {
+            try
+            {
+                logger.LogInformation("UPNP enabled, performing NAT discovery");
+                var discoverer = new NatDiscoverer();
+
+                var cts = new CancellationTokenSource(10000);
+                var device = await discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts);
+
+                Console.WriteLine($"UPNP: External IP ={await device.GetExternalIPAsync()}");
+
+                foreach (var port in ports)
+                {
+                    Console.WriteLine($"UPNP: Mapping port TCP {port}:{port}");
+                    await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port));
+                }
+            }
+            catch (NatDeviceNotFoundException)
+            {
+                logger.LogWarning("NAT device not found, disabling UPNP");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Error with UPNP discovery");
+            }
+        }
 
         var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
 
