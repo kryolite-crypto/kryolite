@@ -33,9 +33,9 @@ public partial class MainWindow : Window
 
         AvaloniaXamlLoader.Load(this);
 
-//#if DEBUG
+#if DEBUG
         this.AttachDevTools();
-//#endif
+#endif
 
         DataContext = Model;
 
