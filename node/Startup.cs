@@ -52,7 +52,7 @@ public class Startup
 
         PacketFormatter.Register<NodeInfo>(Packet.NodeInfo);
         PacketFormatter.Register<Blockchain>(Packet.Blockchain);
-        PacketFormatter.Register<PosBlock>(Packet.PosBlock);
+        PacketFormatter.Register<NewBlock>(Packet.NewBlock);
         PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
         PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);
         PacketFormatter.Register<TransactionData>(Packet.TransactionData);

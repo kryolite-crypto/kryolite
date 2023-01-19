@@ -19,7 +19,7 @@ rootCmd.AddGlobalOption(walletOption);
 var throttleOption = new Option<int?>(name: "--throttle", description: "Milliseconds to sleep between hashes");
 rootCmd.AddGlobalOption(throttleOption);
 
-rootCmd.SetHandler(async (url, address, throttle) => { 
+rootCmd.SetHandler(async (url, address, throttle) => {
     Console.WriteLine($"Connectiong to {url}");
 
     while (true) {

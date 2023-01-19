@@ -1,10 +1,13 @@
 using Kryolite.Shared;
+using MessagePack;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
+[MessagePackObject]
 public class NewBlock : IPacket
 {
+    [Key(0)]
     public PosBlock Block { get; }
 
     public NewBlock(PosBlock block)

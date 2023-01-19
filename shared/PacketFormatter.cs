@@ -14,7 +14,7 @@ public enum Packet : byte
 {
     NodeInfo,
     Blockchain,
-    PosBlock,
+    NewBlock,
     QueryNodeInfo,
     RequestChainSync,
     TransactionData,
