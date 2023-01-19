@@ -20,6 +20,8 @@ var throttleOption = new Option<int?>(name: "--throttle", description: "Millisec
 rootCmd.AddGlobalOption(throttleOption);
 
 rootCmd.SetHandler(async (url, address, throttle) => { 
+    Console.WriteLine($"Connectiong to {url}");
+
     while (true) {
         var httpClient = new HttpClient();
 

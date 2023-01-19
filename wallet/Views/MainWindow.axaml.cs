@@ -39,7 +39,7 @@ public partial class MainWindow : Window
 
         DataContext = Model;
 
-        this.Initialized += OnInitialized;
+        this.Opened += OnInitialized;
 
         var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
 

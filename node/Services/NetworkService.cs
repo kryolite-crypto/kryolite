@@ -280,12 +280,12 @@ public class NetworkService : BackgroundService
             }
         }
 
-        foreach (var peer in peers)
+        var task = Parallel.ForEachAsync(peers, async (peer, cancellationToken) =>
         {
             if (!Uri.TryCreate(peer, new UriCreationOptions(), out var peerUri))
             {
                 logger.LogWarning("Invalid uri format {}", peer);
-                continue;
+                return;
             }
 
             if (await meshNetwork.AddNode(peerUri, Guid.Empty))
@@ -296,7 +296,7 @@ public class NetworkService : BackgroundService
 
                 await meshNetwork.BroadcastAsync(msg);
             }
-        };
+        });
 
         if (peers.Count == 0)
         {

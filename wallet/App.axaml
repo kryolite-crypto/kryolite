@@ -11,5 +11,7 @@
         <vm:CurrencyConverter x:Key="CurrencyConverter"/>
         <vm:TimestampConverter x:Key="TimestampConverter"/>
         <vm:NotNullConverter x:Key="NotNullConverter"/>
+        <vm:NotEmptyConverter x:Key="NotEmptyConverter"/>
+        <vm:EmptyConverter x:Key="EmptyConverter"/>
     </Application.Resources>
 </Application>

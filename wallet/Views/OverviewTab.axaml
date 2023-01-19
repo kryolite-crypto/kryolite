@@ -11,8 +11,8 @@
     <DockPanel Margin="20">
         <StackPanel Spacing="20" DockPanel.Dock="Left">
             <Border BorderBrush="#66ffffff"
-                    BorderThickness="0.5"
-                    CornerRadius="3"
+                    BorderThickness="0.51"
+                    CornerRadius="0"
                     Padding="4">
                 <StackPanel Margin="10" Width="250">
                     <TextBlock FontWeight="Bold">Balance</TextBlock>
@@ -22,14 +22,14 @@
                     <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Pending, Converter={StaticResource CurrencyConverter}}" />
                 </StackPanel>
             </Border>
-            <Border BorderBrush="#66ffffff"
-                    BorderThickness="0.5"
-                    CornerRadius="3"
+            <!--Border BorderBrush="#66ffffff"
+                    BorderThickness="0.51"
+                    CornerRadius="0"
                     Padding="4">
                 <StackPanel Margin="10" Width="250">
                     <TextBlock FontWeight="Bold">SAMPO</TextBlock>
                     <TextBlock Margin="0, 20, 0, 0">Collateral</TextBlock>
-                    <TextBlock FontWeight="Bold" Text="1000000 / 1000000 FIMC" />
+                    <TextBlock FontWeight="Bold" Text="1000000 / 1000000 KRYO" />
                     <DockPanel Margin="0, 20, 0, 0" DockPanel.Dock="Left">
                         <Button HorizontalAlignment="Right" DockPanel.Dock="Right">Disable</Button>
                         <StackPanel>
@@ -38,12 +38,12 @@
                         </StackPanel>
                     </DockPanel>
                 </StackPanel>
-            </Border>
+            </Border-->
         </StackPanel>
         <StackPanel DockPanel.Dock="Right">
             <Border BorderBrush="#66ffffff"
-                    BorderThickness="0.5"
-                    CornerRadius="3"
+                    BorderThickness="0.51"
+                    CornerRadius="0"
                     Padding="4"
                     HorizontalAlignment="Right">
                 <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="450">
