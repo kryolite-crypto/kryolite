@@ -4,7 +4,7 @@ namespace Kryolite.Wallet;
 
 public class ApiController : ApiControllerBase
 {
-    public ApiController(IBlockchainManager blockchainManager, INetworkManager networkManager) : base(blockchainManager, networkManager)
+    public ApiController(IBlockchainManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork) : base(blockchainManager, networkManager, meshNetwork)
     {
     }
 }

@@ -11,11 +11,13 @@ public class ApiControllerBase : Controller
 {
     private readonly IBlockchainManager blockchainManager;
     private readonly INetworkManager networkManager;
+    private readonly IMeshNetwork meshNetwork;
 
-    public ApiControllerBase(IBlockchainManager blockchainManager, INetworkManager networkManager)
+    public ApiControllerBase(IBlockchainManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork)
     {
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
+        this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
     }
 
     [HttpGet("blocktemplate")]
@@ -45,8 +47,8 @@ public class ApiControllerBase : Controller
     [HttpGet("peers")]
     public List<string> GetPeers()
     {
-        return networkManager.GetHosts()
-            .Select(x => x.Url.ToHostname())
+        return meshNetwork.GetPeers()
+            .Select(x => x.Key)
             .ToList();
     }
 

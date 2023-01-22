@@ -1,8 +1,11 @@
+using System.Net;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
 using DnsClient;
 using Kryolite.Shared;
+using Makaretu.Dns;
+using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
@@ -13,6 +16,7 @@ namespace Kryolite.Node;
 
 public class NetworkService : BackgroundService
 {
+    private readonly IServer server;
     private readonly IMeshNetwork meshNetwork;
     private readonly IConfiguration configuration;
     private readonly StartupSequence startup;
@@ -22,9 +26,12 @@ public class NetworkService : BackgroundService
     private readonly ILogger<NetworkService> logger;
     private readonly BufferBlock<Peer> SyncBuffer = new BufferBlock<Peer>();
     private readonly ILookupClient LookupClient;
+    private readonly MulticastService mdns;
+    private readonly ServiceDiscovery serviceDiscovery;
 
-    public NetworkService(IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager, ILookupClient lookupClient)
+    public NetworkService(IServer server, IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager, ILookupClient lookupClient)
     {
+        this.server = server ?? throw new ArgumentNullException(nameof(server));
         this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
@@ -33,12 +40,16 @@ public class NetworkService : BackgroundService
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         LookupClient = lookupClient ?? throw new ArgumentNullException(nameof(lookupClient));
+
+        MulticastService.IncludeLoopbackInterfaces = true;
+        mdns = new MulticastService();
+        serviceDiscovery = new ServiceDiscovery(mdns);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Run(() => startup.Blockchain.WaitOne());
-        await Task.Run(() => startup.Mempool.WaitOne());
+        await startup.Blockchain.WaitOneAsync();
+        await startup.Mempool.WaitOneAsync();
 
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(meshNetwork, blockchainManager, logger));
 
@@ -216,48 +227,6 @@ public class NetworkService : BackgroundService
 
         meshNetwork.Start();
 
-        var upnp = configuration.GetValue<bool>("EnableUPNP");
-
-        var ports = configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable()
-            .Where(x => x.Value is not null)
-            .Select(x => new Uri(x.Value!))
-            .Where(x => !x.IsLoopback)
-            .Select(x => x.Port)
-            .Distinct();
-        
-        if (upnp && ports.Count() == 0)
-        {
-            logger.LogWarning("No external http(s) endpoints configured, skipping UPNP discovery...");
-        }
-
-        if (upnp && ports.Count() > 0)
-        {
-            try
-            {
-                logger.LogInformation("UPNP enabled, performing NAT discovery");
-                var discoverer = new NatDiscoverer();
-
-                var cts = new CancellationTokenSource(10000);
-                var device = await discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts);
-
-                Console.WriteLine($"UPNP: External IP ={await device.GetExternalIPAsync()}");
-
-                foreach (var port in ports)
-                {
-                    Console.WriteLine($"UPNP: Mapping port TCP {port}:{port}");
-                    await device.CreatePortMapAsync(new Mapping(Protocol.Tcp, port, port));
-                }
-            }
-            catch (NatDeviceNotFoundException)
-            {
-                logger.LogWarning("NAT device not found, disabling UPNP");
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Error with UPNP discovery");
-            }
-        }
-
         var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
 
         if (peers.Count == 0)
@@ -280,7 +249,7 @@ public class NetworkService : BackgroundService
             }
         }
 
-        var task = Parallel.ForEachAsync(peers, async (peer, cancellationToken) =>
+        _ = Parallel.ForEachAsync(peers, async (peer, cancellationToken) =>
         {
             if (!Uri.TryCreate(peer, new UriCreationOptions(), out var peerUri))
             {
