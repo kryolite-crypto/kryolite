@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Sockets;
 using Kryolite.Shared;
 using MessagePack;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
@@ -16,40 +18,38 @@ public class MeshNetwork : IMeshNetwork
     public event EventHandler<DisconnectionEventArgs>? ClientDisconnected;
     public event EventHandler? ClientDropped;
     public event EventHandler<MessageEventArgs>? MessageReceived;
+
+    public string? PublicAddress { get; set; }
     
     // TODO: better implementation
     public static event EventHandler<int>? ConnectedChanged;
     public static Guid ServerId { get; } = Guid.NewGuid();
 
     private int LocalPort { get; init; }
-    private int RemotePort { get; init; }
+    private List<Uri> Endpoints { get; set; } = new();
 
     private WatsonWsServer wsServer;
     private ConcurrentDictionary<Guid, Peer> Peers = new();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+    private readonly IServer server;
     private readonly IConfiguration configuration;
     private readonly ILogger<MeshNetwork> logger;
+    private readonly StartupSequence startup;
     private MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray)
                 .WithOmitAssemblyVersion(true);
 
     private TcpListener listener;
 
-    public MeshNetwork(IConfiguration configuration, ILogger<MeshNetwork> logger)
+    public MeshNetwork(IServer server, IConfiguration configuration, ILogger<MeshNetwork> logger, StartupSequence startup)
     {
         logger.LogInformation("Initializing WebSocket server");
 
+        this.server = server ?? throw new ArgumentNullException(nameof(server));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-        var endpoints = configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable();
-
-        var endpoint = endpoints.Where(x => !string.IsNullOrEmpty(x.Value))
-            .Select(x => new Uri(x.Value!))
-            .FirstOrDefault(new Uri("http://localhost:5000"));
-
-        RemotePort = endpoint.Port;
+        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
         // Reserve port for WsServer
         listener = new TcpListener(IPAddress.Any, 0)
@@ -68,17 +68,6 @@ public class MeshNetwork : IMeshNetwork
         wsServer.ClientConnected += (object? sender, ConnectionEventArgs args) => {
             try
             {
-                var forwardedFor = args.HttpRequest.Headers["X-Forwarded-For"];
-
-                if (string.IsNullOrEmpty(forwardedFor))
-                {
-                    // something went wrong, this should be set with builtin reverse proxy
-                    wsServer.DisconnectClient(args.Client.Guid);
-                    return;
-                }
-
-                logger.LogInformation($"Received connection from {forwardedFor}");
-
                 if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
                 {
                     logger.LogInformation("Received connection without client-id, forcing disconnect...");
@@ -93,34 +82,91 @@ public class MeshNetwork : IMeshNetwork
                     return;
                 }
 
-                Uri? url = null;
-
-                if (!int.TryParse(args.HttpRequest.Headers["kryo-connect-to-port"], out var port))
+                if (guid == MeshNetwork.ServerId)
                 {
-                    port = 5000;
+                    wsServer.DisconnectClient(args.Client.Guid);
+                    return;
                 }
 
-                if (!Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out url))
+                var forwardedFor = args.HttpRequest.Headers["X-Forwarded-For"] ?? string.Empty;
+
+                if (string.IsNullOrEmpty(forwardedFor))
                 {
-                    var builder = new UriBuilder()
+                    // something went wrong, this should always be set with builtin reverse proxy
+                    wsServer.DisconnectClient(args.Client.Guid);
+                    return;
+                }
+
+                var address = forwardedFor
+                    .Split(",")
+                    .Select(x => IPAddress.Parse(x.Trim()))
+                    .Reverse()
+                    .Where(x => x.IsPublic())
+                    .FirstOrDefault();
+
+                if (address == null)
+                {
+                    // something went wrong, this should always be set with builtin reverse proxy
+                    logger.LogDebug($"Failed to parse address from X-Forwarded-For header (value = {forwardedFor})");
+                    return;
+                }
+
+                logger.LogInformation($"Received connection from {address}");
+
+                List<Uri> hosts = new List<Uri>();
+
+                var ports = args.HttpRequest.Headers["kryo-connect-to-ports"] ?? string.Empty;
+
+                foreach (var portStr in ports.Split(','))
+                {
+                    if (int.TryParse(portStr, out var port))
                     {
-                        Host = forwardedFor,
-                        Port = port
-                    };
+                        var builder = new UriBuilder()
+                        {
+                            Host = address.ToString(),
+                            Port = port
+                        };
 
-                    url = builder.Uri;
+                        hosts.Add(builder.Uri);
+                    }
                 }
 
-                var peer = new RemoteClient(wsServer, url, ServerId, args.Client.Guid);
+                if (Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out var uri))
+                {
+                    hosts.Prepend(uri);
+                }
 
-                peer.LastSeen = DateTime.UtcNow;
-                peer.ConnectedSince = DateTime.UtcNow;
-                peer.ClientId = guid;
+                foreach (var host in hosts)
+                {
+                    try
+                    {
+                        using var tcp = new TcpClient();
+                        tcp.Connect(host.Host, host.Port);
 
-                Peers.TryAdd(args.Client.Guid, peer);
+                        if (!tcp.Connected) 
+                        {
+                            logger.LogDebug($"Failed to open connection to {host}, skipping host...");
+                            continue;
+                        }
 
-                ClientConnected?.Invoke(peer, args);
-                ConnectedChanged?.Invoke(this, Peers.Count);
+                        tcp.Close();
+
+                        var peer = new RemoteClient(wsServer, host, ServerId, args.Client.Guid);
+
+                        peer.LastSeen = DateTime.UtcNow;
+                        peer.ConnectedSince = DateTime.UtcNow;
+                        peer.ClientId = guid;
+
+                        Peers.TryAdd(args.Client.Guid, peer);
+
+                        ClientConnected?.Invoke(peer, args);
+                        ConnectedChanged?.Invoke(this, Peers.Count);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger.LogDebug(ex, $"Connection failure: {host}");
+                    }
+                }
             }
             catch (Exception ex)
             {
@@ -173,6 +219,15 @@ public class MeshNetwork : IMeshNetwork
 
     public void Start()
     {
+        startup.Application.WaitOne();
+
+        var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
+
+        Endpoints = addresses
+            .Where(x => x is not null)
+            .Select(x => new Uri(x))
+            .ToList();
+
         logger.LogInformation("Starting Websocket server");
         try
         {
@@ -209,6 +264,11 @@ public class MeshNetwork : IMeshNetwork
     {
         using(var _ = rwlock.EnterWriteLockEx())
         {
+            if (clientId == ServerId)
+            {
+                return false;
+            }
+
             if (Peers.Any(x => x.Value.Url == url))
             {
                 return false;
@@ -237,7 +297,7 @@ public class MeshNetwork : IMeshNetwork
 
         logger.LogInformation($"Connecting to {url.ToHostname()}");
 
-        var peer = new LocalClient(url, configuration.GetValue<string>("PublicUrl"), RemotePort);
+        var peer = new LocalClient(url, configuration.GetValue<string>("PublicUrl"), Endpoints);
 
         peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => 
         {
@@ -294,8 +354,8 @@ public class MeshNetwork : IMeshNetwork
     public Dictionary<string, Peer> GetPeers()
     {
         return Peers.Values
-            .Where(x => x is LocalClient)
-            .ToDictionary(x => x.Url.ToString(), x => x);
+            .DistinctBy(x => x.Url)
+            .ToDictionary(x => x.Url.ToHostname(), x => x);
     }
 
     public int GetLocalPort()
@@ -303,8 +363,8 @@ public class MeshNetwork : IMeshNetwork
         return LocalPort;
     }
 
-    public int GetRemotePort()
+    public List<Uri> GetEndpoints()
     {
-        return RemotePort;
+        return Endpoints;
     }
 }

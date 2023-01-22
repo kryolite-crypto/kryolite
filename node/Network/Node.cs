@@ -1,3 +1,6 @@
+using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using Kryolite.Shared;
 using MessagePack;
 using WatsonWebsocket;
@@ -76,7 +79,7 @@ public class LocalClient : Peer
 
     private WatsonWsClient wsClient;
 
-    public LocalClient(Uri client, string? publicUrl, int serverPort) : base(client)
+    public LocalClient(Uri client, string? publicUrl, List<Uri> endpoints) : base(client)
     {
         var url = new UriBuilder(client);
         url.Scheme = client.Scheme == Uri.UriSchemeHttps ?
@@ -93,7 +96,7 @@ public class LocalClient : Peer
             }
             else
             {
-                opts.SetRequestHeader("kryo-connect-to-port", serverPort.ToString());
+                opts.SetRequestHeader("kryo-connect-to-ports", String.Join(',', endpoints.Select(x => x.Port).Distinct().ToArray()));
             }
         });
 
@@ -168,3 +171,4 @@ public class LocalClient : Peer
         }
     }
 }
+

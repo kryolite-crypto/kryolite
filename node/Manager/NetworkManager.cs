@@ -83,6 +83,7 @@ public class NetworkManager : INetworkManager
 
     public List<NodeHost> GetHosts()
     {
+        using var _ = rwlock.EnterReadLockEx();
         return Hosts;
     }
 

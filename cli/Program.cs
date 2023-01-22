@@ -26,7 +26,7 @@ public class Program
 
         var rootCmd = new RootCommand("Kryolite CLI");
 
-        var nodeOption = new Option<string>(name: "--node", description: "Node url", getDefaultValue: () => "http://localhost:5000");
+        var nodeOption = new Option<string?>(name: "--node", description: "Node url");
         rootCmd.AddGlobalOption(nodeOption);
 
         rootCmd.Add(BuildWalletCommand());
@@ -107,7 +107,7 @@ public class Program
         return walletCmd;
     }
 
-    private static Command BuildSendCommand(Option<string> nodeOption)
+    private static Command BuildSendCommand(Option<string?> nodeOption)
     {
         var sendCmd = new Command("send", "Send funds / assets to address");
 
@@ -160,6 +160,8 @@ public class Program
             var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
 
+            node = node ?? await ZeroConf.DiscoverNodeAsync();
+
             if(!wallets.TryGetValue(from, out var wallet))
             {
                 Console.WriteLine("Wallet not found from wallet.dat");
@@ -211,7 +213,7 @@ public class Program
         return sendCmd;
     }
 
-    private static Command BuildContractCommand(Option<string> nodeOption)
+    private static Command BuildContractCommand(Option<string?> nodeOption)
     {
         var contractCmd = new Command("contract", "Manage Contracts");
         var uploadCmd = new Command("upload", "Upload contract");
@@ -241,6 +243,8 @@ public class Program
         {
             var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
+
+            node = node ?? await ZeroConf.DiscoverNodeAsync();
 
             if(!wallets.TryGetValue(from, out var wallet))
             {

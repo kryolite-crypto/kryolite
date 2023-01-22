@@ -24,8 +24,6 @@ public class Startup
 
     public void Configure(IApplicationBuilder app)
     {
-        app.UseForwardedHeaders();
-
         if (Configuration.GetSection("Kestrel").GetSection("Endpoints").AsEnumerable().Any(x => x.Value is not null && x.Value.StartsWith(Uri.UriSchemeHttps)))
         {
             app.UseHttpsRedirection();
@@ -61,12 +59,6 @@ public class Startup
         PacketFormatter.Register<NodeList>(Packet.NodeList);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
 
-        services.Configure<ForwardedHeadersOptions>(options =>
-          {
-              options.ForwardedHeaders =
-                  ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
-        });
-
         if(Configuration.GetSection("LettuceEncrypt").Exists())
         {
             services.AddLettuceEncrypt(c => c.AllowedChallengeTypes = ChallengeType.Http01);
@@ -85,6 +77,8 @@ public class Startup
                 .AddHostedService<BlockchainService>()
                 .AddHostedService<MempoolService>()
                 .AddHostedService<SampoService>()
+                .AddHostedService<UPnPService>()
+                .AddHostedService<MDNSService>()
                 .AddSingleton<StartupSequence>()
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddRouting()

@@ -30,6 +30,11 @@ namespace Kryolite.Node;
                 }
             };
 
+            wsRouteConfig.WithTransformXForwarded(
+                xDefault: ForwardedTransformActions.Off,
+                xFor: ForwardedTransformActions.Append
+            );
+
             var routeConfigs = new[] {
                 wsRouteConfig
             };

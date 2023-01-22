@@ -1,5 +1,8 @@
 
 
+using System.Net;
+using System.Net.Sockets;
+
 namespace Kryolite.Shared;
     
 public static class Extensions
@@ -27,6 +30,20 @@ public static class Extensions
     public static string ToHexString(this Signature bytes)
     {
         return BitConverter.ToString(bytes).Replace("-", "");
+    }
+
+    public static bool TestConnection(this TcpClient client, IPEndPoint endpoint)
+    {
+        using var tcp = new TcpClient();
+        tcp.Connect(endpoint);
+
+        if (!tcp.Connected)
+        {
+            return false;
+        }
+
+        tcp.Close();
+        return true;
     }
 
     public static IEnumerable<TElement> PeekTail<TElement, TPriority>(this PriorityQueue<TElement, TPriority> queue, int count) 
