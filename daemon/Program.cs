@@ -44,7 +44,7 @@ internal class Program
 
         await app.StartAsync();
 
-        app.Services.GetService<StartupSequence>()?
+        app.Services.GetService<StartupSequence>()
             .Application.Set();
 
         await app.WaitForShutdownAsync();

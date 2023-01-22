@@ -106,6 +106,15 @@ public class MeshNetwork : IMeshNetwork
 
                 if (address == null)
                 {
+                    address = forwardedFor
+                        .Split(",")
+                        .Select(x => IPAddress.Parse(x.Trim()))
+                        .Reverse()
+                        .LastOrDefault();
+                }
+
+                if (address == null)
+                {
                     // something went wrong, this should always be set with builtin reverse proxy
                     logger.LogDebug($"Failed to parse address from X-Forwarded-For header (value = {forwardedFor})");
                     return;

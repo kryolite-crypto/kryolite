@@ -31,11 +31,6 @@ namespace Kryolite.Wallet
                     .AddCommandLine(args))
                 .ConfigureLogging(logging => logging.AddProvider(new InMemoryLoggerProvider()))
                 .UseStartup<Startup>()
-                .ConfigureServices(services => services
-                    .AddHostedService<NetworkService>()
-                    .AddHostedService<BlockchainService>()
-                    .AddHostedService<MempoolService>()
-                    .AddHostedService<SampoService>())
                 .Build();
 
             ServiceCollection = Host.Services;
