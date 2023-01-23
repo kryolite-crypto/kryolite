@@ -93,7 +93,7 @@ public class Startup
                 .AddHostedService<NetworkService>()
                 .AddHostedService<BlockchainService>()
                 .AddHostedService<MempoolService>()
-                .AddHostedService<SampoService>()
+                .AddHostedService<POSService>()
                 .AddHostedService<UPnPService>()
                 .AddHostedService<MDNSService>()
                 .AddSingleton<StartupSequence>()
