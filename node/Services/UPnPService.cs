@@ -54,26 +54,24 @@ public class UPnPService : BackgroundService
 
             var discoverer = new NatDiscoverer();
 
-            var cts = new CancellationTokenSource(10000);
-            var device = await discoverer.DiscoverDeviceAsync(PortMapper.Upnp, cts);
+            var cts = new CancellationTokenSource(5000);
+            var devices = await discoverer.DiscoverDevicesAsync(PortMapper.Upnp, cts);
 
-            logger.LogInformation($"UPnP: External IP = {await device.GetExternalIPAsync()}");
-
-            foreach (var port in ports)
+            foreach (var device in devices)
             {
-                logger.LogInformation($"UPnP: Mapping port TCP {port}:{port}");
+                logger.LogInformation($"UPnP: External IP = {await device.GetExternalIPAsync()}");
 
-                var mapping = new Mapping(Protocol.Tcp, port, port);
-                await device.CreatePortMapAsync(mapping);
+                foreach (var port in ports)
+                {
+                    logger.LogInformation($"UPnP: Mapping port TCP {port}:{port}");
 
-                mappings.Add(mapping);
+                    var mapping = new Mapping(Protocol.Tcp, port, port);
+                    await device.CreatePortMapAsync(mapping);
+
+                    mappings.Add(mapping);
+                }
             }
-
             logger.LogInformation("UPnP          \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
-        }
-        catch (NatDeviceNotFoundException)
-        {
-            logger.LogWarning("NAT device not found, disabling UPnP");
         }
         catch (MappingException mEx)
         {

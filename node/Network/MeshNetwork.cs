@@ -73,7 +73,7 @@ public class MeshNetwork : IMeshNetwork
 
                     if(args.HttpRequest.Headers["kryo-network"] != network) 
                     {
-                        logger.LogDebug($"Wrong network: {network}");
+                        logger.LogDebug($"Wrong network: '{args.HttpRequest.Headers["kryo-network"]}'");
                         wsServer.DisconnectClient(args.Client.Guid);
                         return;
                     }
@@ -157,37 +157,45 @@ public class MeshNetwork : IMeshNetwork
                         hosts.Prepend(uri);
                     }
 
+                    Uri? reachable = null;
+
                     foreach (var host in hosts)
                     {
                         try
                         {
                             using var tcp = new TcpClient();
-                            tcp.Connect(host.Host, host.Port);
+                            var ok = tcp.TestConnection(host.Host, host.Port);
 
-                            if (!tcp.Connected) 
+                            if (!ok) 
                             {
                                 logger.LogDebug($"Failed to open connection to {host}, skipping host...");
                                 continue;
                             }
 
-                            tcp.Close();
-
-                            var peer = new RemoteClient(wsServer, host, ServerId, args.Client.Guid);
-
-                            peer.LastSeen = DateTime.UtcNow;
-                            peer.ConnectedSince = DateTime.UtcNow;
-                            peer.ClientId = guid;
-
-                            Peers.TryAdd(args.Client.Guid, peer);
-
-                            ClientConnected?.Invoke(peer, args);
-                            ConnectedChanged?.Invoke(this, Peers.Count);
+                            reachable = uri;
+                            break;
                         }
                         catch (Exception ex)
                         {
                             logger.LogDebug(ex, $"Connection failure: {host}");
                         }
                     }
+
+                    if (reachable == null)
+                    {
+                        reachable = hosts.Last();
+                    }
+
+                    var peer = new RemoteClient(wsServer, reachable, ServerId, args.Client.Guid);
+
+                    peer.LastSeen = DateTime.UtcNow;
+                    peer.ConnectedSince = DateTime.UtcNow;
+                    peer.ClientId = guid;
+
+                    Peers.TryAdd(args.Client.Guid, peer);
+
+                    ClientConnected?.Invoke(peer, args);
+                    ConnectedChanged?.Invoke(this, Peers.Count);
                 }
                 catch (Exception ex)
                 {

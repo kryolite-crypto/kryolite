@@ -34,16 +34,44 @@ public static class Extensions
 
     public static bool TestConnection(this TcpClient client, IPEndPoint endpoint)
     {
-        using var tcp = new TcpClient();
-        tcp.Connect(endpoint);
+        try
+        {
+            using var tcp = new TcpClient();
+            tcp.Connect(endpoint);
 
-        if (!tcp.Connected)
+            if (!tcp.Connected)
+            {
+                return false;
+            }
+
+            tcp.Close();
+            return true;
+        }
+        catch (Exception)
         {
             return false;
         }
+    }
 
-        tcp.Close();
-        return true;
+    public static bool TestConnection(this TcpClient client, string host, int port)
+    {
+        try
+        {
+            using var tcp = new TcpClient();
+            tcp.Connect(host, port);
+
+            if (!tcp.Connected)
+            {
+                return false;
+            }
+
+            tcp.Close();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 
     public static IEnumerable<TElement> PeekTail<TElement, TPriority>(this PriorityQueue<TElement, TPriority> queue, int count) 
