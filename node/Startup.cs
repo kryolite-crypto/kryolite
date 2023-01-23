@@ -1,8 +1,13 @@
 using System.Net;
+using System.Xml.Linq;
 using DnsClient;
 using Kryolite.Shared;
 using LettuceEncrypt.Acme;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
+using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
+using Microsoft.AspNetCore.DataProtection.XmlEncryption;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -59,6 +64,18 @@ public class Startup
         PacketFormatter.Register<NodeList>(Packet.NodeList);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
 
+        services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(dataDir))
+            .AddKeyManagementOptions(options =>
+            {
+                options.XmlEncryptor = new DummyXmlEncryptor();
+            })
+            .UseCryptographicAlgorithms(new AuthenticatedEncryptorConfiguration
+            {
+                EncryptionAlgorithm = EncryptionAlgorithm.AES_256_CBC,
+                ValidationAlgorithm = ValidationAlgorithm.HMACSHA256
+            });
+
         if(Configuration.GetSection("LettuceEncrypt").Exists())
         {
             services.AddLettuceEncrypt(c => c.AllowedChallengeTypes = ChallengeType.Http01);
@@ -86,5 +103,21 @@ public class Startup
                 .AddNewtonsoftJson(options => {
                     options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
                 });
+    }
+
+    class DummyXmlEncryptor : IXmlEncryptor
+    {
+        public EncryptedXmlInfo Encrypt(XElement plaintextElement)
+        {
+            return new EncryptedXmlInfo(plaintextElement, typeof(DummyXmlDecryptor));
+        }
+    }
+
+    class DummyXmlDecryptor : IXmlDecryptor
+    {
+        public XElement Decrypt(XElement encryptedElement)
+        {
+            return encryptedElement;
+        }
     }
 }
