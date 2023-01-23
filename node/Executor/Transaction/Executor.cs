@@ -799,7 +799,7 @@ public class VerifyParentHash : BaseStep<PowBlock, BlockchainExContext>
     {
         var lastBlock = ctx.LastBlocks.Last();
 
-        if (!Enumerable.SequenceEqual((byte[])block.ParentHash, (byte[])lastBlock.GetHash()))
+        if (block.ParentHash != lastBlock.GetHash())
         {
             throw new ExecutionException(ExecutionResult.INVALID_PARENT_HASH);
         }
