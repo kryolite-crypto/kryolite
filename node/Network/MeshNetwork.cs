@@ -66,131 +66,135 @@ public class MeshNetwork : IMeshNetwork
         logger.LogDebug($"Binding WebSocket to localhost port {LocalPort}");
 
         wsServer.ClientConnected += (object? sender, ConnectionEventArgs args) => {
-            try
-            {
-                var network = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
-
-                if(args.HttpRequest.Headers["kryo-network"] != network) 
+            _ = Task.Run(() => {
+                try
                 {
-                    logger.LogDebug("Wrong network");
-                    wsServer.DisconnectClient(args.Client.Guid);
-                    return;
-                }
+                    var network = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
 
-                if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
-                {
-                    logger.LogInformation("Received connection without client-id, forcing disconnect...");
-                    wsServer.DisconnectClient(args.Client.Guid);
-                    return;
-                }
+                    if(args.HttpRequest.Headers["kryo-network"] != network) 
+                    {
+                        logger.LogDebug($"Wrong network: {network}");
+                        wsServer.DisconnectClient(args.Client.Guid);
+                        return;
+                    }
 
-                if (!Guid.TryParse(args.HttpRequest.Headers["kryo-client-id"], out var guid)) 
-                {
-                    logger.LogInformation("Received connection with invalid client-id, forcing disconnect...");
-                    wsServer.DisconnectClient(args.Client.Guid);
-                    return;
-                }
+                    if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
+                    {
+                        logger.LogDebug("Received connection without client-id, forcing disconnect...");
+                        wsServer.DisconnectClient(args.Client.Guid);
+                        return;
+                    }
 
-                if (guid == MeshNetwork.ServerId)
-                {
-                    wsServer.DisconnectClient(args.Client.Guid);
-                    return;
-                }
+                    if (!Guid.TryParse(args.HttpRequest.Headers["kryo-client-id"], out var guid)) 
+                    {
+                        logger.LogDebug("Received connection with invalid client-id, forcing disconnect...");
+                        wsServer.DisconnectClient(args.Client.Guid);
+                        return;
+                    }
 
-                var forwardedFor = args.HttpRequest.Headers["X-Forwarded-For"] ?? string.Empty;
+                    if (guid == MeshNetwork.ServerId)
+                    {
+                        logger.LogDebug("Self connection, disconnecting client...");
+                        wsServer.DisconnectClient(args.Client.Guid);
+                        return;
+                    }
 
-                if (string.IsNullOrEmpty(forwardedFor))
-                {
-                    // something went wrong, this should always be set with builtin reverse proxy
-                    wsServer.DisconnectClient(args.Client.Guid);
-                    return;
-                }
+                    var forwardedFor = args.HttpRequest.Headers["X-Forwarded-For"] ?? string.Empty;
 
-                var address = forwardedFor
-                    .Split(",")
-                    .Select(x => IPAddress.Parse(x.Trim()))
-                    .Reverse()
-                    .Where(x => x.IsPublic())
-                    .LastOrDefault();
+                    if (string.IsNullOrEmpty(forwardedFor))
+                    {
+                        logger.LogDebug("X-Forwarded-For missing, disconnecting client...");
+                        // something went wrong, this should always be set with builtin reverse proxy
+                        wsServer.DisconnectClient(args.Client.Guid);
+                        return;
+                    }
 
-                if (address == null)
-                {
-                    address = forwardedFor
+                    var address = forwardedFor
                         .Split(",")
                         .Select(x => IPAddress.Parse(x.Trim()))
                         .Reverse()
+                        .Where(x => x.IsPublic())
                         .LastOrDefault();
-                }
 
-                if (address == null)
-                {
-                    // something went wrong, this should always be set with builtin reverse proxy
-                    logger.LogDebug($"Failed to parse address from X-Forwarded-For header (value = {forwardedFor})");
-                    return;
-                }
-
-                logger.LogInformation($"Received connection from {address}");
-
-                List<Uri> hosts = new List<Uri>();
-
-                var ports = args.HttpRequest.Headers["kryo-connect-to-ports"] ?? string.Empty;
-
-                foreach (var portStr in ports.Split(','))
-                {
-                    if (int.TryParse(portStr, out var port))
+                    if (address == null)
                     {
-                        var builder = new UriBuilder()
-                        {
-                            Host = address.ToString(),
-                            Port = port
-                        };
-
-                        hosts.Add(builder.Uri);
+                        address = forwardedFor
+                            .Split(",")
+                            .Select(x => IPAddress.Parse(x.Trim()))
+                            .Reverse()
+                            .LastOrDefault();
                     }
-                }
 
-                if (Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out var uri))
-                {
-                    hosts.Prepend(uri);
-                }
-
-                foreach (var host in hosts)
-                {
-                    try
+                    if (address == null)
                     {
-                        using var tcp = new TcpClient();
-                        tcp.Connect(host.Host, host.Port);
+                        // something went wrong, this should always be set with builtin reverse proxy
+                        logger.LogDebug($"Failed to parse address from X-Forwarded-For header (value = {forwardedFor})");
+                        return;
+                    }
 
-                        if (!tcp.Connected) 
+                    logger.LogInformation($"Received connection from {address}");
+
+                    List<Uri> hosts = new List<Uri>();
+
+                    var ports = args.HttpRequest.Headers["kryo-connect-to-ports"] ?? string.Empty;
+
+                    foreach (var portStr in ports.Split(','))
+                    {
+                        if (int.TryParse(portStr, out var port))
                         {
-                            logger.LogDebug($"Failed to open connection to {host}, skipping host...");
-                            continue;
+                            var builder = new UriBuilder()
+                            {
+                                Host = address.ToString(),
+                                Port = port
+                            };
+
+                            hosts.Add(builder.Uri);
                         }
-
-                        tcp.Close();
-
-                        var peer = new RemoteClient(wsServer, host, ServerId, args.Client.Guid);
-
-                        peer.LastSeen = DateTime.UtcNow;
-                        peer.ConnectedSince = DateTime.UtcNow;
-                        peer.ClientId = guid;
-
-                        Peers.TryAdd(args.Client.Guid, peer);
-
-                        ClientConnected?.Invoke(peer, args);
-                        ConnectedChanged?.Invoke(this, Peers.Count);
                     }
-                    catch (Exception ex)
+
+                    if (Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out var uri))
                     {
-                        logger.LogDebug(ex, $"Connection failure: {host}");
+                        hosts.Prepend(uri);
+                    }
+
+                    foreach (var host in hosts)
+                    {
+                        try
+                        {
+                            using var tcp = new TcpClient();
+                            tcp.Connect(host.Host, host.Port);
+
+                            if (!tcp.Connected) 
+                            {
+                                logger.LogDebug($"Failed to open connection to {host}, skipping host...");
+                                continue;
+                            }
+
+                            tcp.Close();
+
+                            var peer = new RemoteClient(wsServer, host, ServerId, args.Client.Guid);
+
+                            peer.LastSeen = DateTime.UtcNow;
+                            peer.ConnectedSince = DateTime.UtcNow;
+                            peer.ClientId = guid;
+
+                            Peers.TryAdd(args.Client.Guid, peer);
+
+                            ClientConnected?.Invoke(peer, args);
+                            ConnectedChanged?.Invoke(this, Peers.Count);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogDebug(ex, $"Connection failure: {host}");
+                        }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Invalid connection params from {}", args.Client.IpPort);
-                wsServer.DisconnectClient(args.Client.Guid);
-            }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Invalid connection params from {}", args.Client.IpPort);
+                    wsServer.DisconnectClient(args.Client.Guid);
+                }
+            });
         };
 
         wsServer.ClientDisconnected += (object? sender, DisconnectionEventArgs args) => {
