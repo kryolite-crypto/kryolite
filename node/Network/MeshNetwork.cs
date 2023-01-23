@@ -102,7 +102,7 @@ public class MeshNetwork : IMeshNetwork
                     .Select(x => IPAddress.Parse(x.Trim()))
                     .Reverse()
                     .Where(x => x.IsPublic())
-                    .FirstOrDefault();
+                    .LastOrDefault();
 
                 if (address == null)
                 {
