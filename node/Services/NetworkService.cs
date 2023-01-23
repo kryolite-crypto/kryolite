@@ -272,7 +272,7 @@ public class NetworkService : BackgroundService
             logger.LogInformation("No peers resolved. Manually add peers in configuration.");
         }
 
-        logger.LogInformation("Network \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+        logger.LogInformation("Network       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Network.Set();
     }
 

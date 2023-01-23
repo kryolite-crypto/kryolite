@@ -5,13 +5,13 @@ using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-public class SampoService : BackgroundService
+public class POSService : BackgroundService
 {
     private readonly IWalletManager walletManager;
     private readonly IBlockchainManager blockchainManager;
-    private readonly ILogger<SampoService> logger;
+    private readonly ILogger<POSService> logger;
 
-    public SampoService(IWalletManager walletManager, IBlockchainManager blockchainManager, ILogger<SampoService> logger)
+    public POSService(IWalletManager walletManager, IBlockchainManager blockchainManager, ILogger<POSService> logger)
     {
         this.walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
@@ -47,11 +47,11 @@ public class SampoService : BackgroundService
 
     private void PromoteNode()
     {
-        logger.LogInformation("SAMPO \t\x1B[32m[ACTIVE]\x1B[37m");
+        logger.LogInformation("POS           \x1B[32m[ACTIVE]\x1B[37m");
     }
 
     private void DemoteNode()
     {
-        logger.LogInformation("SAMPO \t\x1B[90m[INACTIVE]\x1B[37m");
+        logger.LogInformation("POS           \x1B[90m[INACTIVE]\x1B[37m");
     }
 }

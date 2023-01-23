@@ -26,7 +26,7 @@ public class BlockchainService : BackgroundService
             InitializeGenesisBlock();
         }
 
-        Logger.LogInformation("Blockchain \t\x1B[1m\x1B[32m[UP][TESTNET]\x1B[39m\x1B[22m");
+        Logger.LogInformation("Blockchain    \x1B[1m\x1B[32m[UP][TESTNET]\x1B[39m\x1B[22m");
         startup.Blockchain.Set();
         await Task.CompletedTask;
     }

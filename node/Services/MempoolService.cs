@@ -18,7 +18,7 @@ public class MempoolService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await startup.Blockchain.WaitOneAsync();
-        Logger.LogInformation("Mempool \t\x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+        Logger.LogInformation("Mempool       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Mempool.Set();
         await Task.CompletedTask;
     }
