@@ -79,7 +79,7 @@ public class LocalClient : Peer
 
     private WatsonWsClient wsClient;
 
-    public LocalClient(Uri client, string? publicUrl, List<Uri> endpoints) : base(client)
+    public LocalClient(Uri client, string? publicUrl, string networkName, List<Uri> endpoints) : base(client)
     {
         var url = new UriBuilder(client);
         url.Scheme = client.Scheme == Uri.UriSchemeHttps ?
@@ -89,6 +89,7 @@ public class LocalClient : Peer
 
         wsClient.ConfigureOptions(opts => {
             opts.SetRequestHeader("kryo-client-id", Kryolite.Node.MeshNetwork.ServerId.ToString());
+            opts.SetRequestHeader("kryo-network", networkName);
 
             if (!string.IsNullOrEmpty(publicUrl))
             {

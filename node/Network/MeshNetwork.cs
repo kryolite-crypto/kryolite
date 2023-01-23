@@ -68,6 +68,15 @@ public class MeshNetwork : IMeshNetwork
         wsServer.ClientConnected += (object? sender, ConnectionEventArgs args) => {
             try
             {
+                var network = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
+
+                if(args.HttpRequest.Headers["kryo-network"] != network) 
+                {
+                    logger.LogDebug("Wrong network");
+                    wsServer.DisconnectClient(args.Client.Guid);
+                    return;
+                }
+
                 if(string.IsNullOrEmpty(args.HttpRequest.Headers["kryo-client-id"])) 
                 {
                     logger.LogInformation("Received connection without client-id, forcing disconnect...");
@@ -306,7 +315,10 @@ public class MeshNetwork : IMeshNetwork
 
         logger.LogInformation($"Connecting to {url.ToHostname()}");
 
-        var peer = new LocalClient(url, configuration.GetValue<string>("PublicUrl"), Endpoints);
+        var networkName = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
+        var publicUrl = configuration.GetValue<string>("PublicUrl");
+
+        var peer = new LocalClient(url, publicUrl, networkName, Endpoints);
 
         peer.MessageReceived += async (object? sender, MessageReceivedEventArgs args) => 
         {

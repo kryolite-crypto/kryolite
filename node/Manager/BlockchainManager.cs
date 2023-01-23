@@ -806,6 +806,15 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetPosFrom(id);
     }
 
+    public void ResetChain()
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        blockchainRepository.Context.Database.EnsureDeleted();
+        blockchainRepository.Context.Database.EnsureCreated();
+    }
+
     public IDisposable OnBlockAdded(ITargetBlock<PosBlock> action)
     {
         return BlockBroadcast.LinkTo(action);
