@@ -26,6 +26,7 @@ public interface IBlockchainManager
     List<Vote> AddVotes(IList<Vote> votes);
     void ResetChain();
 
+    IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
     IDisposable OnVoteAdded(ITargetBlock<Vote> action);

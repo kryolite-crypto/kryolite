@@ -13,6 +13,7 @@ public class BlockchainManager : IBlockchainManager
     private readonly ILogger<BlockchainManager> logger;
     private readonly ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
+    private BroadcastBlock<ChainState> ChainStateBroadcast = new(i => i);
     private BroadcastBlock<PosBlock> BlockBroadcast = new(i => i);
     private BroadcastBlock<Wallet> WalletBroadcast = new(i => i);
     private BroadcastBlock<Vote> VoteBroadcast = new(i => i);
@@ -226,6 +227,8 @@ public class BlockchainManager : IBlockchainManager
 
             logger.LogInformation($"Added block {block.Height}");
 
+            ChainStateBroadcast.Post(chainState);
+
             foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated)) {
                 WalletBroadcast.Post(wallet);
             }
@@ -351,6 +354,8 @@ public class BlockchainManager : IBlockchainManager
         blockchainRepository.Add(blocks, chainState);
 
         mempoolManager.RemoveTransactions(blocks.SelectMany(x => x.Transactions).Where(x => x.TransactionType == TransactionType.PAYMENT));
+
+        ChainStateBroadcast.Post(chainState);
 
         foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated)) {
             WalletBroadcast.Post(wallet);
@@ -813,6 +818,11 @@ public class BlockchainManager : IBlockchainManager
 
         blockchainRepository.Context.Database.EnsureDeleted();
         blockchainRepository.Context.Database.EnsureCreated();
+    }
+
+    public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
+    {
+        return ChainStateBroadcast.LinkTo(action);
     }
 
     public IDisposable OnBlockAdded(ITargetBlock<PosBlock> action)

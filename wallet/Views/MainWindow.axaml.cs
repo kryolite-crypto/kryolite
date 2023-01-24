@@ -21,6 +21,7 @@ public partial class MainWindow : Window
     private IMempoolManager MempoolManager;
     private INetworkManager NetworkManager;
     private IWalletManager WalletManager;
+    private IMeshNetwork MeshNetwork;
 
     private MainWindowViewModel Model = new MainWindowViewModel();
 
@@ -29,7 +30,7 @@ public partial class MainWindow : Window
         BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
         MempoolManager = Program.ServiceCollection.GetService<IMempoolManager>() ?? throw new ArgumentNullException(nameof(IMempoolManager));
         NetworkManager = Program.ServiceCollection.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
-        WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
+        MeshNetwork = Program.ServiceCollection.GetService<IMeshNetwork>() ?? throw new ArgumentNullException(nameof(IMeshNetwork));
 
         AvaloniaXamlLoader.Load(this);
 
@@ -85,11 +86,9 @@ public partial class MainWindow : Window
             });
         };
 
-        BlockchainManager.OnBlockAdded(new ActionBlock<PosBlock>(async block => {
+        BlockchainManager.OnChainUpdated(new ActionBlock<ChainState>(async state => {
             await Dispatcher.UIThread.InvokeAsync(() => {
-                if (block.Pow is not null) {
-                    Model.Blocks = block.Pow.Height;
-                }
+                Model.Blocks = state.POW.Height;
             });
         }));
 
@@ -141,14 +140,14 @@ public partial class MainWindow : Window
         });
 
         Task.Run(async () => {
-            var blocks = BlockchainManager.GetCurrentHeight();
+            var state = BlockchainManager.GetChainState();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Blocks = blocks;
+                Model.Blocks = state.POS.Height;
             });
         });
 
-        Model.ConnectedPeers = NetworkManager.GetHostCount();
+        Model.ConnectedPeers = MeshNetwork.GetPeers().Count;
     }
 
     private async Task OnWalletUpdated(Kryolite.Shared.Wallet wallet)
