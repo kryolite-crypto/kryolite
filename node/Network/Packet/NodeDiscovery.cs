@@ -18,7 +18,9 @@ public class NodeDiscovery : IPacket
             {
                 Payload = new NodeList
                 {
-                    Nodes = context.NetworkManager.GetHosts().Select(x => new NodeCandidate(x.Url)
+                    Nodes = context.NetworkManager.GetHosts()
+                    .Where(x => x.IsReachable)
+                    .Select(x => new NodeCandidate(x.Url)
                     {
                         ClientId = x.ClientId,
                         ConnectedPeers = x.NodeInfo?.ConnectedPeers ?? 0

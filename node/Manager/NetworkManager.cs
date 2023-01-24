@@ -54,6 +54,9 @@ public class NetworkManager : INetworkManager
             existing.ClientId = host.ClientId;
             existing.NodeInfo = host.NodeInfo;
             existing.LastSeen = host.LastSeen;
+            existing.IsReachable = host.IsReachable;
+
+            logger.LogInformation($"Updated status for host {host.Url}");
         }
     }
 
@@ -104,6 +107,7 @@ public class NetworkManager : INetworkManager
         public Guid ClientId { get; set; }
         public NodeInfo? NodeInfo { get; set; }
         public DateTime LastSeen { get; set; } // TODO unixtime
+        public bool IsReachable { get; set; }
         
         public NodeHost(Uri url)
         {

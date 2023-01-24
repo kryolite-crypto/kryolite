@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using System.Numerics;
 using Kryolite.Shared;
 using MessagePack;
@@ -25,10 +26,13 @@ public class NodeInfo : IPacket
         context.Logger.LogInformation($"Received NodeInfo from {args.Message.NodeId}");
         var chainState2 = context.BlockchainManager.GetChainState();
 
+        using var tcpClient = new TcpClient();
+
         var nodeHost = new NodeHost(peer.Url)
         {
             NodeInfo = this,
-            LastSeen = DateTime.Now
+            LastSeen = DateTime.Now,
+            IsReachable = tcpClient.TestConnection(peer.Url.Host, peer.Url.Port)
         };
 
         context.NetworkManager.AddHost(nodeHost);

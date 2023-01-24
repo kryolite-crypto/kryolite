@@ -55,7 +55,7 @@ public class UPnPService : BackgroundService
             var discoverer = new NatDiscoverer();
 
             var cts = new CancellationTokenSource(5000);
-            var devices = await discoverer.DiscoverDevicesAsync(PortMapper.Upnp, cts);
+            var devices = await discoverer.DiscoverDevicesAsync(PortMapper.Upnp | PortMapper.Pmp, cts);
 
             foreach (var device in devices)
             {

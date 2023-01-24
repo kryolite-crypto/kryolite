@@ -1,3 +1,4 @@
+using System.Net.Sockets;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
@@ -27,10 +28,13 @@ public class QueryNodeInfo : IPacket
 
         await peer.SendAsync(response);
 
+        using var tcpClient = new TcpClient();
+
         context.NetworkManager.AddHost(new NodeHost(peer.Url)
         {
             ClientId = args.Message.NodeId,
-            LastSeen = DateTime.Now
+            LastSeen = DateTime.Now,
+            IsReachable = tcpClient.TestConnection(peer.Url.Host, peer.Url.Port)
         });
     }
 }

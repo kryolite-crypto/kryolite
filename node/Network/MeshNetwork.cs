@@ -109,6 +109,8 @@ public class MeshNetwork : IMeshNetwork
                         return;
                     }
 
+                    logger.LogDebug("X-Forwarded-For = " + forwardedFor);
+
                     var address = forwardedFor
                         .Split(",")
                         .Select(x => IPAddress.Parse(x.Trim()))
@@ -158,6 +160,7 @@ public class MeshNetwork : IMeshNetwork
                     }
 
                     Uri? reachable = null;
+                    bool isReachable = false;
 
                     foreach (var host in hosts)
                     {
@@ -172,7 +175,8 @@ public class MeshNetwork : IMeshNetwork
                                 continue;
                             }
 
-                            reachable = uri;
+                            reachable = host;
+                            isReachable = true;
                             break;
                         }
                         catch (Exception ex)
@@ -191,6 +195,7 @@ public class MeshNetwork : IMeshNetwork
                     peer.LastSeen = DateTime.UtcNow;
                     peer.ConnectedSince = DateTime.UtcNow;
                     peer.ClientId = guid;
+                    peer.IsReachable = isReachable;
 
                     Peers.TryAdd(args.Client.Guid, peer);
 
@@ -375,6 +380,7 @@ public class MeshNetwork : IMeshNetwork
 
         if (await peer.StartWithTimeoutAsync())
         {
+            peer.IsReachable = true;
             logger.LogInformation($"Connected to {url.ToHostname()}");
             Peers.TryAdd(peer.ConnectionId, peer);
             ConnectedChanged?.Invoke(this, Peers.Count);

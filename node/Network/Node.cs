@@ -14,6 +14,7 @@ public abstract class Peer
     public DateTime ConnectedSince { get; set; }
     public List<PosBlock> Blockchain { get; set; } = new List<PosBlock>();
     public Guid ClientId = Guid.Empty;
+    public bool IsReachable { get; set; }
 
     public Peer(Uri url)
     {
@@ -123,9 +124,6 @@ public class LocalClient : Peer
         };
 
         wsClient.ServerDisconnected += (object? sender, EventArgs e) => {
-            // TODO: Logger
-            Console.WriteLine($"Disconnected from {Url}");
-
             Dropped?.Invoke(this, EventArgs.Empty);
             wsClient.Dispose();
         };

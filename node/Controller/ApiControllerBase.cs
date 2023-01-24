@@ -48,6 +48,7 @@ public class ApiControllerBase : Controller
     public List<string> GetPeers()
     {
         return meshNetwork.GetPeers()
+            .Where(x => x.Value.IsReachable)
             .Select(x => x.Key)
             .ToList();
     }
