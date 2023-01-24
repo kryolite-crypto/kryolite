@@ -18,6 +18,7 @@ public class Program
     private static async Task Main(string[] args)
     {
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
+        PacketFormatter.Register<NewContract>(Packet.NewContract);
 
         var dataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         Directory.CreateDirectory(dataDir);

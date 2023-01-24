@@ -63,6 +63,7 @@ public class Startup
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<NodeList>(Packet.NodeList);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
+        PacketFormatter.Register<NewContract>(Packet.NewContract);
 
         services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(dataDir))

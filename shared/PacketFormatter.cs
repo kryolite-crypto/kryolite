@@ -21,7 +21,8 @@ public enum Packet : byte
     VoteBatch,
     NodeDiscovery,
     NodeList,
-    CallMethod
+    CallMethod,
+    NewContract
 }
 
 public class PacketFormatter : IMessagePackFormatter<object>

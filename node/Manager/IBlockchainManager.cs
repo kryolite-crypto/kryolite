@@ -25,6 +25,8 @@ public interface IBlockchainManager
     bool AddVote(Vote vote);
     List<Vote> AddVotes(IList<Vote> votes);
     void ResetChain();
+    Contract? GetContract(Address address);
+    string? GetContractState(Address address);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);

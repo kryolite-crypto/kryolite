@@ -237,6 +237,14 @@ public class BlockchainRepository : IDisposable
             .FirstOrDefault();
     }
 
+    public string? GetContractState(Address address)
+    {
+        return Context.Contracts
+            .Where(x => x.Address == address)
+            .Select(x => x.State)
+            .FirstOrDefault();
+    }
+
     public void AddContract(Contract contract)
     {
         Context.Contracts.Add(contract);

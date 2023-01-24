@@ -820,6 +820,22 @@ public class BlockchainManager : IBlockchainManager
         blockchainRepository.Context.Database.EnsureCreated();
     }
 
+    public Contract? GetContract(Address address)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetContract(address);
+    }
+
+    public string? GetContractState(Address address)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetContractState(address);
+    }
+
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
     {
         return ChainStateBroadcast.LinkTo(action);
