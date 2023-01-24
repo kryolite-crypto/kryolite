@@ -131,7 +131,35 @@ public class ApiControllerBase : Controller
         return Ok(blockchainManager.GetRichList(count));
     }
 
-    [HttpGet("tx/{address}")]
+    [HttpGet("tx/{hash}")]
+    public IActionResult GetTransactionForHash(string hash)
+    {
+        return Ok(blockchainManager.GetTransactionForHash(hash));
+    }
+
+    [HttpGet("ledger/{address}")]
+    public IActionResult GetWalletForAddress(string address)
+    {
+        if (!Address.IsValid(address))
+        {
+            return BadRequest();
+        }
+
+        return Ok(blockchainManager.GetLedgerWallet(address));
+    }
+
+    [HttpGet("ledger/{address}/balance")]
+    public IActionResult GetBalanceForAddress(string address)
+    {
+        if (!Address.IsValid(address))
+        {
+            return BadRequest();
+        }
+
+        return Ok(blockchainManager.GetBalance(address));
+    }
+
+    [HttpGet("ledger/{address}/transactions")]
     public IActionResult GetTransactionsForAddress(string address)
     {
         if (!Address.IsValid(address))

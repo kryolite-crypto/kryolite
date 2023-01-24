@@ -29,6 +29,8 @@ public interface IBlockchainManager
     string? GetContractState(Address address);
     List<LedgerWallet> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
+    Transaction? GetTransactionForHash(SHA256Hash hash);
+    LedgerWallet? GetLedgerWallet(Address address);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);

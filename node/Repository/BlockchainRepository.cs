@@ -288,6 +288,13 @@ public class BlockchainRepository : IDisposable
             .ToList();
     }
 
+    public Transaction? GetTransaction(SHA256Hash hash)
+    {
+        return Context.Transactions
+            .Where(x => x.Hash == hash)
+            .FirstOrDefault();
+    }
+
     public void Dispose()
     {
         // Context.Dispose();

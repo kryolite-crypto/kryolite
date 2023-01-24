@@ -851,6 +851,22 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetTransactions(address);
     }
 
+    public Transaction? GetTransactionForHash(SHA256Hash hash)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetTransaction(hash);
+    }
+
+    public LedgerWallet? GetLedgerWallet(Address address)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetWallet(address);
+    }
+
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
     {
         return ChainStateBroadcast.LinkTo(action);
