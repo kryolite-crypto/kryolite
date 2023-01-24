@@ -30,6 +30,7 @@ public partial class MainWindow : Window
         BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
         MempoolManager = Program.ServiceCollection.GetService<IMempoolManager>() ?? throw new ArgumentNullException(nameof(IMempoolManager));
         NetworkManager = Program.ServiceCollection.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
+        WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
         MeshNetwork = Program.ServiceCollection.GetService<IMeshNetwork>() ?? throw new ArgumentNullException(nameof(IMeshNetwork));
 
         AvaloniaXamlLoader.Load(this);
@@ -163,7 +164,7 @@ public partial class MainWindow : Window
         var pending = Model.Pending;
 
         foreach (var tx in transactions) {
-            if (wallets.Contains(tx.PublicKey!.Value.ToAddress().ToString())) {
+            if (wallets.Contains(tx.PublicKey!.ToAddress().ToString())) {
                 pending += tx.Value;
             }
         }
@@ -179,7 +180,7 @@ public partial class MainWindow : Window
         var pending = Model.Pending;
 
         foreach (var tx in transactions) {
-            if (wallets.Contains(tx.PublicKey!.Value.ToAddress().ToString())) {
+            if (wallets.Contains(tx.PublicKey!.ToAddress().ToString())) {
                 pending -= tx.Value;
             }
         }

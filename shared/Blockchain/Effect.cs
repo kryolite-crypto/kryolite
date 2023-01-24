@@ -1,7 +1,10 @@
+using System.Text.Json.Serialization;
+
 namespace Kryolite.Shared;
 
 public class Effect
 {
+    [JsonIgnore]
     public Guid Id { get; set; }
     public Guid TransactionId { get; set; }
     public Address To { get; set; }

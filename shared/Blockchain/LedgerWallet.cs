@@ -1,10 +1,12 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using MessagePack;
 
 namespace Kryolite.Shared;
 
 public class LedgerWallet
 {
+    [JsonIgnore]
     public Guid Id { get; set; }
 
     public Address Address { get; set; }

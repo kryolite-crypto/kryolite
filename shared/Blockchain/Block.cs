@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 using MessagePack;
 
 namespace Kryolite.Shared;
@@ -21,6 +22,7 @@ public struct Concat
 public class PowBlock
 {
     [IgnoreMember]
+    [JsonIgnore]
     public Guid Id { get; set; }
     [IgnoreMember]
     public Guid PosBlockId { get; set; }
@@ -76,6 +78,7 @@ public class PowBlock
 public class PosBlock
 {
     [IgnoreMember]
+    [JsonIgnore]
     public Guid Id { get; set; }
 
     [Key(0)]

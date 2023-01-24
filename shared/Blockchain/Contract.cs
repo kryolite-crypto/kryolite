@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using Crypto.RIPEMD;
 using MessagePack;
 
@@ -7,6 +8,7 @@ namespace Kryolite.Shared;
 
 public class Contract
 {
+    [JsonIgnore]
     public Guid Id { get; set; }
     public Address Address { get; set; }
     public Address Owner { get; set; }

@@ -565,7 +565,7 @@ public class BlockchainManager : IBlockchainManager
                     {
                         if(tx.PublicKey != null) 
                         {
-                            var senderAddr = tx.PublicKey.Value.ToAddress();
+                            var senderAddr = tx.PublicKey.ToAddress();
                             if (!ledgerWallets.ContainsKey(senderAddr.ToString())) 
                             {
                                 ledgerWallets.Add(senderAddr.ToString(), blockchainRepository.GetWallet(senderAddr));
@@ -647,7 +647,7 @@ public class BlockchainManager : IBlockchainManager
                 {
                     if(tx.PublicKey != null) 
                     {
-                        var senderAddr = tx.PublicKey.Value.ToAddress();
+                        var senderAddr = tx.PublicKey.ToAddress();
                         if (!ledgerWallets.ContainsKey(senderAddr.ToString())) 
                         {
                             ledgerWallets.Add(senderAddr.ToString(), blockchainRepository.GetWallet(senderAddr));
@@ -834,6 +834,21 @@ public class BlockchainManager : IBlockchainManager
         using var blockchainRepository = new BlockchainRepository();
 
         return blockchainRepository.GetContractState(address);
+    }
+
+    public List<LedgerWallet> GetRichList(int count)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetRichList(count);
+    }
+    public List<Transaction> GetTransactionsForAddress(Address address)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetTransactions(address);
     }
 
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)

@@ -1,9 +1,11 @@
+using System.Text.Json.Serialization;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared;
 
 public class Wallet
 {
+    [JsonIgnore]
     public Guid Id { get; set; }
     public string? Description { get; set; }
     public string Address { get; set; }

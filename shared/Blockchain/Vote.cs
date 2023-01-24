@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using MessagePack;
 using NSec.Cryptography;
 
@@ -7,6 +8,7 @@ namespace Kryolite.Shared;
 public class Vote
 {
     [IgnoreMember]
+    [JsonIgnore]
     public long Id { get; set; }
 
     [Key(0)]

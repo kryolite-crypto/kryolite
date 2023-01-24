@@ -71,7 +71,7 @@ public class MempoolManager : IMempoolManager
             var txHash = BitConverter.ToString(transaction.CalculateHash());
             PendingHashes.Remove(txHash);
 
-            var address = transaction.PublicKey!.Value.ToAddress().ToString();
+            var address = transaction.PublicKey!.ToAddress().ToString();
             if(PendingAmount.ContainsKey(address)) {
                 PendingAmount[address] -= transaction.Value;
 
@@ -103,7 +103,7 @@ public class MempoolManager : IMempoolManager
         if (MempoolQueue.Count >= Constant.MAX_MEMPOOL_TX) {
             var removed = MempoolQueue.EnqueueDequeue(transaction, transaction.MaxFee);
             
-            string addr = removed.PublicKey!.Value.ToAddress().ToString();
+            string addr = removed.PublicKey!.ToAddress().ToString();
 
             PendingAmount[addr] -= removed.Value;
             PendingHashes.Remove(BitConverter.ToString(removed.CalculateHash()));
@@ -115,7 +115,7 @@ public class MempoolManager : IMempoolManager
 
         MempoolQueue.Enqueue(transaction, transaction.MaxFee);
 
-        var from = transaction.PublicKey.Value.ToAddress().ToString();
+        var from = transaction.PublicKey.ToAddress().ToString();
 
         if(!PendingAmount.TryAdd(from, transaction.Value)) {
             PendingAmount[from] += transaction.Value;

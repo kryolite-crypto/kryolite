@@ -20,17 +20,21 @@ public class WalletContext : DbContext
 
      protected override void OnModelCreating(ModelBuilder builder)
      {
-        var addrConverter = new ValueConverter<Address, byte[]>(
-            v => v.Buffer,
+        var addrConverter = new ValueConverter<Address, string>(
+            v => v.ToString(),
             v => v);
 
-        var pubKeyConverter = new ValueConverter<PublicKey, byte[]>(
-            v => v.Buffer,
-            v => new PublicKey { Buffer = v });
+        var pubKeyConverter = new ValueConverter<PublicKey, string>(
+            v => v.ToString(),
+            v => v);
 
-        var privateKeyConverter = new ValueConverter<PrivateKey, byte[]>(
-            v => v.Buffer,
-            v => new PrivateKey { Buffer = v });
+        var privateKeyConverter = new ValueConverter<PrivateKey, string>(
+            v => v.ToString(),
+            v => v);
+
+        var ulongConverter = new ValueConverter<ulong, long>(
+            v => (long)v,
+            v => (ulong)v);
 
         builder.Entity<Wallet>(entity => {
             entity.ToTable("Wallets")
@@ -56,6 +60,9 @@ public class WalletContext : DbContext
 
             entity.Property(x => x.PublicKey)
                 .HasConversion(pubKeyConverter);
+
+            entity.Property(x => x.Balance)
+                .HasConversion(ulongConverter);
 
             entity.Ignore(x => x.Updated);
         });

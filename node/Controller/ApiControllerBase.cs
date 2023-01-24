@@ -124,4 +124,21 @@ public class ApiControllerBase : Controller
 
         blockchainManager.AddTransactionsToQueue(tx);
     }
+
+    [HttpGet("richlist")]
+    public IActionResult GetSmartContractState([FromQuery] int count = 25)
+    {
+        return Ok(blockchainManager.GetRichList(count));
+    }
+
+    [HttpGet("tx/{address}")]
+    public IActionResult GetTransactionsForAddress(string address)
+    {
+        if (!Address.IsValid(address))
+        {
+            return BadRequest();
+        }
+
+        return Ok(blockchainManager.GetTransactionsForAddress(address));
+    }
 }

@@ -27,6 +27,8 @@ public interface IBlockchainManager
     void ResetChain();
     Contract? GetContract(Address address);
     string? GetContractState(Address address);
+    List<LedgerWallet> GetRichList(int count);
+    List<Transaction> GetTransactionsForAddress(Address address);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);

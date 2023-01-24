@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 using MessagePack;
 using NSec.Cryptography;
 
@@ -8,6 +9,7 @@ namespace Kryolite.Shared;
 public class Transaction : IComparable<Transaction>
 {
     [IgnoreMember]
+    [JsonIgnore]
     public Guid Id { get; set; }
 
     [Key(0)]
@@ -31,6 +33,8 @@ public class Transaction : IComparable<Transaction>
     public List<Effect> Effects { get; set; } = new();
     [IgnoreMember]
     public SHA256Hash Hash { get => CalculateHash(); private set {} }
+    [IgnoreMember]
+    public Address? From { get => this.PublicKey?.ToAddress(); private set {} }
 
     public void Sign(PrivateKey privateKey)
     {
@@ -68,7 +72,7 @@ public class Transaction : IComparable<Transaction>
 
         stream.Flush();
 
-        var key = NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, PublicKey.Value, KeyBlobFormat.RawPublicKey);
+        var key = NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, PublicKey, KeyBlobFormat.RawPublicKey);
         return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
     }
 

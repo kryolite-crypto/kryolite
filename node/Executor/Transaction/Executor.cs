@@ -563,7 +563,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
         var memory = instance.GetMemory("memory") ?? throw new Exception("memory not found");
         var tx = (int)(instance.GetGlobal("Transaction")?.GetValue() ?? throw new Exception("Transaction global not found"));
 
-        memory.WriteBuffer(memory.ReadInt32(tx), item.PublicKey!.Value.ToAddress());
+        memory.WriteBuffer(memory.ReadInt32(tx), item.PublicKey!.ToAddress());
         memory.WriteBuffer(memory.ReadInt32(tx + 4), item.To);
         memory.WriteInt64(tx + 8, (long)item.Value);
 
@@ -714,7 +714,7 @@ public class UpdateSenderWallet : BaseStep<Transaction, TransactionContext>
         wallet.Balance = ledgerWallet.Balance;
         wallet.WalletTransactions.Add(new WalletTransaction
         {
-            Recipient = item.PublicKey!.Value.ToAddress(),
+            Recipient = item.PublicKey!.ToAddress(),
             Value = (long)item.Value * -1,
             Timestamp = ctx.Timestamp
         });
@@ -798,6 +798,7 @@ public class VerifyParentHash : BaseStep<PowBlock, BlockchainExContext>
     protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         var lastBlock = ctx.LastBlocks.Last();
+        var hash = lastBlock.GetHash();
 
         if (block.ParentHash != lastBlock.GetHash())
         {
@@ -869,7 +870,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
         }
 
-        var contract = new Contract(item.PublicKey.Value.ToAddress(), newContract.Name, newContract.Code);
+        var contract = new Contract(item.PublicKey.ToAddress(), newContract.Name, newContract.Code);
 
         var ctr = ctx.BlockRepository.GetContract(contract.Address);
 

@@ -1,28 +1,67 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using MessagePack;
+using Newtonsoft.Json;
+using SimpleBase;
 
 namespace Kryolite.Shared;
 
 [MessagePackObject]
-public struct SHA256Hash
+public class SHA256Hash
 {
     [Key(0)]
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst=32)]
-    public byte[] Buffer;
+    [JsonProperty]
+    public byte[] Buffer { get; private init; }
 
     public SHA256Hash()
     {
-        Buffer = new byte[32];
+        Buffer = new byte[HASH_SZ];
     }
 
+    public SHA256Hash(byte[] buffer)
+    {
+        if (buffer is null)
+        {
+            throw new ArgumentNullException(nameof(buffer));
+        }
+
+        if (buffer.Length != HASH_SZ)
+        {
+            throw new ArgumentOutOfRangeException(nameof(buffer));
+        }
+
+        Buffer = buffer;
+    }
+
+    public override string ToString() => Base58.Flickr.Encode(Buffer);
     public static implicit operator byte[] (SHA256Hash hash) => hash.Buffer;
     public static implicit operator ReadOnlySpan<byte> (SHA256Hash hash) => hash.Buffer;
     public static implicit operator SHA256Hash(byte[] buffer) => new SHA256Hash { Buffer = buffer };
+    public static implicit operator SHA256Hash(string hash) => new SHA256Hash(Base58.Flickr.Decode(hash));
 
     public override bool Equals(object? obj) 
     {
-        return obj is SHA256Hash c && c.Buffer is not null && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
+        return obj is SHA256Hash c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
+    }
+
+    public static bool operator ==(SHA256Hash a, SHA256Hash b)
+    {
+        if (System.Object.ReferenceEquals(a, b))
+        {
+            return true;
+        }
+
+        if (((object)a == null) || ((object)b == null))
+        {
+            return false;
+        }
+
+        return a.Equals(b);
+    }
+
+    public static bool operator !=(SHA256Hash a, SHA256Hash b)
+    {
+        return !(a == b);
     }
 
     public override int GetHashCode()
@@ -35,15 +74,7 @@ public struct SHA256Hash
         return hash;
     }
 
-    public static bool operator ==(SHA256Hash x, SHA256Hash y) 
-    {
-        return x.Equals(y);
-    }
-
-    public static bool operator !=(SHA256Hash x, SHA256Hash y) 
-    {
-        return !x.Equals(y);
-    }
+    public static int HASH_SZ = 32;
 }
 
 public static class SHA256HashExtensions

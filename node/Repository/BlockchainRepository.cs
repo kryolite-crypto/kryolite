@@ -38,7 +38,7 @@ public class BlockchainRepository : IDisposable
 
         var pendingVotes = Context.Votes
             .Where(x => x.Height == block.Height)
-            .Where(x => Enumerable.SequenceEqual((byte[])x.Hash, (byte[])block.GetHash()))
+            .Where(x => x.Hash == block.GetHash())
             .ToList();
 
         block.Votes.AddRange(pendingVotes);
@@ -230,11 +230,35 @@ public class BlockchainRepository : IDisposable
         return Context.Votes.Any(x => x.Signature == signature);
     }
 
-    public Contract? GetContract(Address address)
+    public Contract? GetContract(Address address, bool noCode = false)
     {
+        if (noCode)
+        {
+            return Context.Contracts
+                .Where(x => x.Address == address)
+                .Select(x => new Contract
+                    {
+                        Id = x.Id,
+                        Address = x.Address,
+                        Owner = x.Owner,
+                        Name = x.Name,
+                        Balance = x.Balance
+                    }
+                )
+                .FirstOrDefault();
+        }
+
         return Context.Contracts
             .Where(x => x.Address == address)
             .FirstOrDefault();
+    }
+
+    public List<LedgerWallet> GetRichList(int count)
+    {
+        return Context.LedgerWallets
+            .OrderByDescending(x => x.Balance)
+            .Take(count)
+            .ToList();
     }
 
     public string? GetContractState(Address address)
@@ -255,6 +279,13 @@ public class BlockchainRepository : IDisposable
     {
         Context.Contracts.UpdateRange(contracts);
         Context.SaveChanges();
+    }
+
+    public List<Transaction> GetTransactions(Address address)
+    {
+        return Context.Transactions
+            .Where(x => (x.From != null && x.From == address) || x.To == address)
+            .ToList();
     }
 
     public void Dispose()

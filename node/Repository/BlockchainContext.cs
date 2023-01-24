@@ -1,12 +1,13 @@
 using System.Numerics;
 using Kryolite.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node;
 
-public class BlockchainContext : DbContext
+public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<BlockchainContext>
 {
     public DbSet<PosBlock> PosBlocks => Set<PosBlock>();
     public DbSet<PowBlock> PowBlocks => Set<PowBlock>();
@@ -17,6 +18,11 @@ public class BlockchainContext : DbContext
     public DbSet<ChainState> ChainState => Set<ChainState>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<Effect> Effects => Set<Effect>();
+
+    public BlockchainContext() : base()
+    {
+
+    }
 
     public BlockchainContext(DbContextOptions<BlockchainContext> options)
       :base(options)
@@ -30,29 +36,33 @@ public class BlockchainContext : DbContext
             v => v.Value,
             v => new Difficulty() { Value = v });
 
-        var sha256Converter = new ValueConverter<SHA256Hash, byte[]>(
-            v => v.Buffer,
-            v => new SHA256Hash() { Buffer = v });
-
         var bigIntConverter = new ValueConverter<BigInteger, byte[]>(
             v => v.ToByteArray(),
             v => new BigInteger(v));
 
-        var addrConverter = new ValueConverter<Address, byte[]>(
-            v => v.Buffer,
+        var sha256Converter = new ValueConverter<SHA256Hash, string>(
+            v => v.ToString(),
             v => v);
 
-        var signConverter = new ValueConverter<Signature, byte[]>(
-            v => v.Buffer,
-            v => new Signature { Buffer = v });
+        var addrConverter = new ValueConverter<Address, string>(
+            v => v.ToString(),
+            v => v);
 
-        var pubKeyConverter = new ValueConverter<PublicKey, byte[]>(
-            v => v.Buffer,
-            v => new PublicKey { Buffer = v });
+        var signConverter = new ValueConverter<Signature, string>(
+            v => v.ToString(),
+            v => v);
 
-        var nonceConverter = new ValueConverter<Nonce, byte[]>(
-            v => v.Buffer,
-            v => new Nonce { Buffer = v });
+        var pubKeyConverter = new ValueConverter<PublicKey, string>(
+            v => v.ToString(),
+            v => v);
+
+        var nonceConverter = new ValueConverter<Nonce, string>(
+            v => v.ToString(),
+            v => v);
+
+        var ulongConverter = new ValueConverter<ulong, long>(
+            v => (long)v,
+            v => (ulong)v);
 
         builder.Entity<PosBlock>(entity => {
             entity.ToTable("PosBlocks")
@@ -61,7 +71,7 @@ public class BlockchainContext : DbContext
 
             entity.HasIndex(x => x.Height)
                 .HasDatabaseName("ix_pos_height");
-            
+
             entity.HasOne(e => e.Pow)
                 .WithOne(e => e.Pos)
                 .HasForeignKey<PowBlock>(x => x.PosBlockId)
@@ -111,11 +121,17 @@ public class BlockchainContext : DbContext
                 .HasKey(e => e.Id)
                 .HasName("pk_tx");
             
+            entity.HasIndex(x => x.From)
+                .HasDatabaseName("ix_tx_from");
+
             entity.HasIndex(x => x.To)
                 .HasDatabaseName("ix_tx_to");
 
             entity.HasIndex(x => x.Hash)
                 .HasDatabaseName("ix_tx_hash");
+
+            entity.Property(x => x.From)
+                .HasConversion(addrConverter);
 
             entity.Property(x => x.To)
                 .HasConversion(addrConverter);
@@ -128,6 +144,12 @@ public class BlockchainContext : DbContext
 
             entity.Property(x => x.Hash)
                 .HasConversion(sha256Converter);
+
+            entity.Property(x => x.Value)
+                .HasConversion(ulongConverter);
+
+            entity.Property(x => x.MaxFee)
+                .HasConversion(ulongConverter);
 
             entity.HasMany(e => e.Effects)
                 .WithOne()
@@ -142,6 +164,9 @@ public class BlockchainContext : DbContext
 
             entity.Property(x => x.To)
                 .HasConversion(addrConverter);
+
+            entity.Property(x => x.Value)
+                .HasConversion(ulongConverter);
         });
 
         builder.Entity<Vote>(entity => {
@@ -172,6 +197,12 @@ public class BlockchainContext : DbContext
 
             entity.Property(x => x.Address)
                 .HasConversion(addrConverter);
+
+            entity.Property(x => x.Balance)
+                .HasConversion(ulongConverter);
+
+            entity.Property(x => x.Pending)
+                .HasConversion(ulongConverter);
 
             /*entity.HasMany(x => x.Assets)
                 .WithOne()
@@ -245,6 +276,19 @@ public class BlockchainContext : DbContext
 
             entity.Property(x => x.Owner)
                 .HasConversion(addrConverter);
+
+            entity.Property(x => x.Balance)
+                .HasConversion(ulongConverter);
         });
      }
+
+    public BlockchainContext CreateDbContext(string[] args)
+    {
+        var path = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite", "blocks.dat");
+
+        var optionsBuilder = new DbContextOptionsBuilder<BlockchainContext>();
+        optionsBuilder.UseSqlite($"Data Source={path}");
+
+        return new BlockchainContext(optionsBuilder.Options);
+    }
 }

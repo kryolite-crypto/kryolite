@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using MessagePack;
+using Newtonsoft.Json;
 using SimpleBase;
 
 namespace Kryolite.Shared;
@@ -10,7 +11,13 @@ namespace Kryolite.Shared;
 public class Address
 {
     [Key(0)]
-    public byte[] Buffer { get; private init; } = new byte[ADDRESS_SZ];
+    [JsonProperty]
+    public byte[] Buffer { get; private init; }
+
+    public Address()
+    {
+        Buffer = new byte[ADDRESS_SZ];
+    }
 
     public Address(byte[] buffer)
     {
@@ -29,12 +36,36 @@ public class Address
 
     public bool IsContract() => Buffer[1] == (byte)AddressType.CONTRACT;
     public bool IsWallet() => Buffer[1] == (byte)AddressType.WALLET;
-
     public override string ToString() => Constant.ADDR_PREFIX + Base58.Flickr.Encode(Buffer);
+    public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
+    public static implicit operator byte[] (Address address) => address.Buffer;
+    public static implicit operator Address(byte[] buffer) => new Address(buffer);
+    public static implicit operator Address(Span<byte> buffer) => new Address(buffer.ToArray());
+    public static implicit operator Address(string address) => new Address(Base58.Flickr.Decode(address.Split(':').Last()));
 
     public override bool Equals(object? obj) 
     {
-        return obj is Address c && c.Buffer is not null && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
+        return obj is Address c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
+    }
+
+    public static bool operator ==(Address? a, Address? b)
+    {
+        if (System.Object.ReferenceEquals(a, b))
+        {
+            return true;
+        }
+
+        if (((object)a! == null) || ((object)b! == null))
+        {
+            return false;
+        }
+
+        return a.Equals(b);
+    }
+
+    public static bool operator !=(Address a, Address b)
+    {
+        return !(a == b);
     }
 
     public override int GetHashCode()
@@ -46,22 +77,6 @@ public class Address
         }
         return hash;
     }
-
-    public static bool operator ==(Address x, Address y) 
-    {
-        return x.Equals(y);
-    }
-
-    public static bool operator !=(Address x, Address y) 
-    {
-        return !x.Equals(y);
-    }
-
-    public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
-    public static implicit operator byte[] (Address address) => address.Buffer;
-    public static implicit operator Address(byte[] buffer) => new Address(buffer);
-    public static implicit operator Address(Span<byte> buffer) => new Address(buffer.ToArray());
-    public static implicit operator Address(string address) => IsValid(address) ? new Address(Base58.Flickr.Decode(address.Split(':').Last())) : throw new Exception($"invalid address {address}");
 
     public static bool IsValid(string address)
     {
