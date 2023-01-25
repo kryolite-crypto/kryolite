@@ -133,6 +133,7 @@ public class LocalClient : Peer
     {
         try
         {
+            ConnectionId = Guid.NewGuid();
             return await wsClient.StartWithTimeoutAsync();
         }
         catch (Exception ex)
