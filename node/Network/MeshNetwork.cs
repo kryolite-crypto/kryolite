@@ -158,6 +158,10 @@ public class MeshNetwork : IMeshNetwork
                     {
                         hosts.Prepend(uri);
                     }
+                    else
+                    {
+                        logger.LogInformation($"Received invalid kryo-connect-to-url: '{args.HttpRequest.Headers["kryo-connect-to-url"]}'");
+                    }
 
                     Uri? reachable = null;
                     bool isReachable = false;
@@ -187,7 +191,11 @@ public class MeshNetwork : IMeshNetwork
 
                     if (reachable == null)
                     {
-                        reachable = hosts.Last();
+                        reachable = hosts.LastOrDefault(new UriBuilder
+                        {
+                            Host = address.ToString(),
+                            Port = 80
+                        }.Uri);
                     }
 
                     var peer = new RemoteClient(wsServer, reachable, ServerId, args.Client.Guid);
