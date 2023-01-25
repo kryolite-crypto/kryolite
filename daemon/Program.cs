@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Net.Sockets;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 
 namespace Kryolite.Daemon;
 
@@ -44,7 +45,15 @@ internal class Program
 
         await app.StartAsync();
 
-        app.Services.GetService<StartupSequence>()
+        var logger = app.Services.GetService<ILogger<Program>>();
+        var addresses = app.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
+
+        foreach (var address in addresses)
+        {
+            logger!.LogInformation($"Now listening on {address}");
+        }
+
+        app.Services.GetService<StartupSequence>()!
             .Application.Set();
 
         await app.WaitForShutdownAsync();
