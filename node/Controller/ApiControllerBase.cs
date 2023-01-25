@@ -53,6 +53,15 @@ public class ApiControllerBase : Controller
             .ToList();
     }
 
+    [HttpGet("peers/unreachable")]
+    public List<string> GetUnreachablePeers()
+    {
+        return meshNetwork.GetPeers()
+            .Where(x => !x.Value.IsReachable)
+            .Select(x => x.Key)
+            .ToList();
+    }
+
     [HttpGet("block/pos")]
     public PosBlock? GetPosBlock([BindRequired, FromQuery] long height)
     {
