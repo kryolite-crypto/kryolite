@@ -59,6 +59,12 @@ for COMPONENT in $COMPONENTS; do
 
     docker rm "$id"
 
+    case "$COMPONENT" in
+      wallet)
+        cp wallet/appsettings.json "$output"
+      ;;
+    esac
+
     zip -jpr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" "$output"
   ) 2>&1 | sed -le "s#^#${COMPONENT}: #;" &
   pids[$COMPONENT]=$!
