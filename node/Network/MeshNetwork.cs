@@ -156,7 +156,7 @@ public class MeshNetwork : IMeshNetwork
 
                     if (Uri.TryCreate(args.HttpRequest.Headers["kryo-connect-to-url"], new UriCreationOptions(), out var uri))
                     {
-                        hosts.Prepend(uri);
+                        hosts.Insert(0, uri);
                     }
                     else
                     {
