@@ -9,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Net.Sockets;
 using Microsoft.AspNetCore.Hosting.Server.Features;
+using System.Reflection;
 
 namespace Kryolite.Daemon;
 
@@ -16,15 +17,18 @@ internal class Program
 {
     static async Task Main(string[] args)
     {
+        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly(), typeof(AssemblyInformationalVersionAttribute)) 
+            as AssemblyInformationalVersionAttribute;
+
         Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine(@"
+        Console.WriteLine($@"
  __                         .__  .__  __
 |  | _________ ___.__. ____ |  | |__|/  |_  ____
 |  |/ /\_  __ <   |  |/  _ \|  | |  \   __\/ __ \
 |    <  |  | \/\___  (  <_> )  |_|  ||  | \  ___/
 |__|_ \ |__|   / ____|\____/|____/__||__|  \___  >
      \/        \/                              \/
-                            node
+                            {attr?.InformationalVersion}
                                          ");
         Console.ForegroundColor = ConsoleColor.Gray;
 
