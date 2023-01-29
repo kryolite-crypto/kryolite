@@ -2,5 +2,5 @@ namespace Kryolite.Node;
 
 public interface IPacket
 {
-    public Task Handle(Peer peer, MessageEventArgs args, PacketContext context);
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context);
 }

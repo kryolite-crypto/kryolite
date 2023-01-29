@@ -15,9 +15,9 @@ public class NewBlock : IPacket
         Block = block;
     }
 
-    public async Task Handle(Peer peer, MessageEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogInformation($"Received block {Block.Height} from {args.Message.NodeId}");
+        context.Logger.LogInformation($"Received block {Block.Height} from {peer.Uri.ToHostname()}");
         var chainState = context.BlockchainManager.GetChainState();
 
         if (chainState.POS.Height > Block.Height)
@@ -28,16 +28,13 @@ public class NewBlock : IPacket
         if (chainState.POS.Height < (Block.Height - 1))
         {
             context.Logger.LogInformation($"Chain is behind received block (local = {chainState.POS.Height}, received = {Block.Height}), requesting chain sync...");
-            var msg2 = new Message
+            var sync = new RequestChainSync
             {
-                Payload = new RequestChainSync
-                {
-                    StartBlock = chainState.POS.Height,
-                    StartHash = chainState.POS.LastHash
-                }
+                StartBlock = chainState.POS.Height,
+                StartHash = chainState.POS.LastHash
             };
 
-            await peer.SendAsync(msg2);
+            _ = peer.SendAsync(sync);
             return;
         }
 

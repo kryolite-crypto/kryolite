@@ -1,7 +1,6 @@
-using System.Net.Sockets;
-using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
+using Kryolite.Shared;
 using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
@@ -9,32 +8,26 @@ namespace Kryolite.Node;
 [MessagePackObject]
 public class QueryNodeInfo : IPacket
 {
-    public async Task Handle(Peer peer, MessageEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogInformation($"Node query received from {args.Message.NodeId}");
+        context.Logger.LogInformation($"Node query received from {peer.Uri.ToHostname()}");
 
         var chainState3 = context.BlockchainManager.GetChainState();
-        var response = new Message
+        var response = new NodeInfo
         {
-            Payload = new NodeInfo
-            {
-                Height = chainState3.POS.Height,
-                TotalWork = chainState3.POW.TotalWork,
-                LastHash = context.BlockchainManager.GetLastBlockhash() ?? new SHA256Hash(),
-                CurrentTime = DateTime.UtcNow,
-                ConnectedPeers = context.MeshNetwork.GetPeers().Count
-            }
+            Height = chainState3.POS.Height,
+            TotalWork = chainState3.POW.TotalWork,
+            LastHash = context.BlockchainManager.GetLastBlockhash() ?? new SHA256Hash(),
+            CurrentTime = DateTime.UtcNow
         };
 
-        await peer.SendAsync(response);
-
-        using var tcpClient = new TcpClient();
-
-        context.NetworkManager.AddHost(new NodeHost(peer.Url)
+        context.NetworkManager.AddHost(new NodeHost(peer.Uri)
         {
-            ClientId = args.Message.NodeId,
-            LastSeen = DateTime.Now,
-            IsReachable = tcpClient.TestConnection(peer.Url.Host, peer.Url.Port)
+            ClientId = peer.Id,
+            LastSeen = DateTime.UtcNow,
+            IsReachable = Connection.TestConnection(peer.Uri)
         });
+
+        _ = peer.SendAsync(response);
     }
 }

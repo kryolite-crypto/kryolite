@@ -49,7 +49,7 @@ public class ApiControllerBase : Controller
     {
         return meshNetwork.GetPeers()
             .Where(x => x.Value.IsReachable)
-            .Select(x => x.Key)
+            .Select(x => x.Value.Uri.ToHostname())
             .ToList();
     }
 
@@ -58,7 +58,7 @@ public class ApiControllerBase : Controller
     {
         return meshNetwork.GetPeers()
             .Where(x => !x.Value.IsReachable)
-            .Select(x => x.Key)
+            .Select(x => x.Value.Uri.ToHostname())
             .ToList();
     }
 

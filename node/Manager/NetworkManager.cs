@@ -3,6 +3,7 @@ using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
+using Newtonsoft.Json;
 using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
@@ -11,17 +12,6 @@ public class NetworkManager : INetworkManager
 {
     private List<NodeHost> Hosts = new List<NodeHost>();
     private DateTime _lastDiscovery = DateTime.MinValue;
-    public DateTime LastDiscovery
-    {
-        get {
-            using var _ = rwlock.EnterReadLockEx();
-            return _lastDiscovery;
-        }
-        set {
-            using var _ = rwlock.EnterWriteLockEx();
-            _lastDiscovery = value;
-        }
-    }
 
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly ILogger<INetworkManager> logger;
@@ -47,7 +37,7 @@ public class NetworkManager : INetworkManager
         if (existing == null)
         {
             Hosts.Add(host);
-            logger.LogInformation($"Added host {host.Url}");
+            logger.LogInformation($"Added host {host.Url.ToHostname()}");
         }
         else
         {
@@ -104,7 +94,7 @@ public class NetworkManager : INetworkManager
     public class NodeHost
     {
         public Uri Url { get; init; }
-        public Guid ClientId { get; set; }
+        public ulong ClientId { get; set; }
         public NodeInfo? NodeInfo { get; set; }
         public DateTime LastSeen { get; set; } // TODO unixtime
         public bool IsReachable { get; set; }
@@ -122,12 +112,11 @@ public class NodeCandidate
     [Key(0)]
     public Uri Url { get; init; }
     [Key(1)]
-    public Guid ClientId { get; init; }
-    [Key(2)]
-    public int ConnectedPeers { get; set; }
+    public ulong ClientId { get; init; }
 
-    public NodeCandidate(Uri url)
+    public NodeCandidate(Uri url, ulong clientId)
     {
         Url = url;
+        ClientId = clientId;
     }
 }

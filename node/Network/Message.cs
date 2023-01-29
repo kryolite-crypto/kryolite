@@ -1,16 +1,26 @@
 using Kryolite.Shared;
 using MessagePack;
 
-namespace Kryolite;
+namespace Kryolite.Node;
 
 [MessagePackObject]
 public class Message
 {
     [Key(0)]
-    public Guid Id { get; set; } = Guid.NewGuid();
+    public ulong Id { get; set; }
+
     [Key(1)]
-    public Guid NodeId { get; set; }
-    [Key(2)]
     [MessagePackFormatter(typeof(PacketFormatter))]
     public object? Payload { get; set; }
+
+    public Message()
+    {
+
+    }
+
+    public Message(ulong id, IPacket packet)
+    {
+        Id = id;
+        Payload = packet;
+    }
 }

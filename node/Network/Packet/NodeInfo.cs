@@ -18,40 +18,34 @@ public class NodeInfo : IPacket
     public BigInteger TotalWork { get; init; }
     [Key(3)]
     public SHA256Hash LastHash { get; init; }
-    [Key(4)]
-    public int ConnectedPeers { get; init; }
 
-    public async Task Handle(Peer peer, MessageEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogInformation($"Received NodeInfo from {args.Message.NodeId}");
+        context.Logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
         var chainState2 = context.BlockchainManager.GetChainState();
 
-        using var tcpClient = new TcpClient();
-
-        var nodeHost = new NodeHost(peer.Url)
+        var nodeHost = new NodeHost(peer.Uri)
         {
             NodeInfo = this,
-            LastSeen = DateTime.Now,
-            IsReachable = tcpClient.TestConnection(peer.Url.Host, peer.Url.Port)
+            LastSeen = DateTime.UtcNow,
+            IsReachable = Connection.TestConnection(peer.Uri)
         };
 
-        context.NetworkManager.AddHost(nodeHost);
-
-        var msg = new Message
-        {
-            Payload = new RequestChainSync
-            {
-                StartBlock = chainState2.POS.Height,
-                StartHash = chainState2.POS.LastHash
-            }
-        };
+        //context.NetworkManager.AddHost(nodeHost);
 
         var totalWork = context.BlockchainManager.GetTotalWork();
 
         if (TotalWork > totalWork)
         {
-            context.Logger.LogInformation($"{args.Message.NodeId} has greater TotalWork ({TotalWork}) compared to local ({totalWork}). Requesting chain sync");
-            await peer.SendAsync(msg);
+            var msg = new RequestChainSync
+            {
+                StartBlock = chainState2.POS.Height,
+                StartHash = chainState2.POS.LastHash
+            };
+
+            context.Logger.LogInformation($"{peer.Uri.ToHostname()} has greater TotalWork ({TotalWork}) compared to local ({totalWork}). Requesting chain sync");
+
+            _ = peer.SendAsync(msg);
         }
     }
 }

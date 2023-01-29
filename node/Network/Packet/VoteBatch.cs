@@ -11,9 +11,9 @@ public class VoteBatch : IPacket
     [Key(0)]
     public IList<Vote> Votes { get; set; } = new List<Vote>();
 
-    public Task Handle(Peer peer, MessageEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogDebug($"Received {Votes.Count} votes from {args.Message.NodeId}");
+        context.Logger.LogDebug($"Received {Votes.Count} votes from {peer.Uri.ToHostname()}");
 
         var validVotes = context.BlockchainManager.AddVotes(Votes);
 
@@ -21,7 +21,5 @@ public class VoteBatch : IPacket
         {
             context.VoteBuffer.Post(vote);
         }
-
-        return Task.CompletedTask;
     }
 }

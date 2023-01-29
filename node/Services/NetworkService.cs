@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.NetworkInformation;
+using System.Net.Sockets;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
@@ -23,7 +25,7 @@ public class NetworkService : BackgroundService
     private readonly IBlockchainManager blockchainManager;
     private readonly IMempoolManager mempoolManager;
     private readonly ILogger<NetworkService> logger;
-    private readonly BufferBlock<Peer> SyncBuffer = new BufferBlock<Peer>();
+    private readonly BufferBlock<Chain> SyncBuffer = new BufferBlock<Chain>();
     private readonly ILookupClient LookupClient;
     private readonly MulticastService mdns;
     private readonly ServiceDiscovery serviceDiscovery;
@@ -52,49 +54,45 @@ public class NetworkService : BackgroundService
 
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(meshNetwork, blockchainManager, logger));
 
-        var discoveryBuffer = new BufferBlock<NodeCandidate>();
         var voteBuffer = new BufferBlock<Vote>();
-        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer, discoveryBuffer);
+        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer);
 
-        meshNetwork.ClientDropped += async (object? sender, EventArgs args) => {
-            if (sender is not LocalClient client) {
-                // we only care about outgoing connections
-                return;
-            }
-
-            if (client.ForceDisconnect)
+        meshNetwork.PeerDisconnected += async (object? sender, PeerDisconnectedEventArgs args) => {
+            if (sender is not Peer client) 
             {
-                // Peer got disconnected by action made within node, do not reconnect to new node
                 return;
             }
+
+            var peerCount = meshNetwork.GetOutgoingConnections().Count();
+
+            if (peerCount >= Constant.MAX_PEERS)
+            {
+                return;
+            }
+
+            var peers = meshNetwork.GetPeers();
 
             var randomized = networkManager.GetHosts()
+                .Where(x => !peers.ContainsKey(x.ClientId))
+                .Where(x => x.IsReachable)
                 .OrderBy(x => Guid.NewGuid())
                 .ToList();
 
-            bool success = false;
-
-            foreach (var host in randomized)
+            foreach (var peer in randomized)
             {
-                if (await meshNetwork.AddNode(host.Url, host.ClientId))
+                if (await meshNetwork.ConnectToAsync(peer.Url))
                 {
-                    success = true;
+                    peerCount++;
+                }
+
+                if (peerCount >= Constant.MAX_PEERS)
+                {
                     break;
                 }
             }
-
-            if (!success)
-            {
-                var msg = new Message
-                {
-                    Payload = new NodeDiscovery()
-                };
-
-                await meshNetwork.BroadcastAsync(msg);
-            }
         };
 
-        meshNetwork.MessageReceived += async (object? sender, MessageEventArgs args) =>
+        meshNetwork.MessageReceived += (object? sender, MessageReceivedEventArgs args) =>
         {
             try
             {
@@ -110,7 +108,7 @@ public class NetworkService : BackgroundService
                     return;
                 }
 
-                await packet.Handle(peer, args, context);
+                packet.Handle(peer, args, context);
             }
             catch (Exception ex)
             {
@@ -119,21 +117,13 @@ public class NetworkService : BackgroundService
         };
 
         blockchainManager.OnBlockAdded(new ActionBlock<PosBlock>(async block => {
-            var msg = new Message
-            {
-                Payload = new NewBlock(block)
-            };
-
-            await meshNetwork.BroadcastAsync(msg);
+            await meshNetwork.BroadcastAsync(new NewBlock(block));
         }));
 
         blockchainManager.OnVoteAdded(new ActionBlock<Vote>(async vote => {
-            var msg = new Message
+            var msg = new VoteBatch
             {
-                Payload = new VoteBatch
-                {
-                    Votes = new List<Vote> { vote }
-                }
+                Votes = new List<Vote> { vote }
             };
 
             await meshNetwork.BroadcastAsync(msg);
@@ -153,57 +143,15 @@ public class NetworkService : BackgroundService
                     return;
                 }
 
-                var msg = new Message
+                var msg = new TransactionData
                 {
-                    Payload = new TransactionData
-                    {
-                        Transactions = transactions
-                    }
+                    Transactions = transactions
                 };
 
                 await meshNetwork.BroadcastAsync(msg);
             });
 
         mempoolManager.OnTransactionAdded(transactionBuffer);
-
-        discoveryBuffer.AsObservable()
-            .Buffer(TimeSpan.FromSeconds(1))
-            .Subscribe(async nodes => {
-                if (nodes.Count == 0)
-                {
-                    return;
-                }
-
-                logger.LogInformation($"Discovery found {nodes.Count} nodes");
-
-                var current = networkManager.GetHosts().Select(x => new NodeCandidate(x.Url)
-                {
-                    ClientId = x.ClientId,
-                    ConnectedPeers = x.NodeInfo?.ConnectedPeers ?? 0
-                }).ToList();
-
-                current.AddRange(nodes);
-
-                var randomized = nodes.Select(x => x.Url).Distinct().OrderBy(arg => Guid.NewGuid());
-
-                var connected = 0;
-                
-                foreach (var url in randomized)
-                {
-                    Console.WriteLine($"Connecting to {url}");
-                    if(!await meshNetwork.AddNode(url, Guid.Empty))
-                    {
-                        continue;
-                    }
-
-                    connected++;
-
-                    if (connected == 6) // TODO: max peers
-                    {
-                        break;
-                    }
-                }
-            });
 
         voteBuffer.AsObservable()
             .Buffer(TimeSpan.FromMilliseconds(100))
@@ -213,18 +161,13 @@ public class NetworkService : BackgroundService
                     return;
                 }
 
-                var msg = new Message
+                var msg = new VoteBatch
                 {
-                    Payload = new VoteBatch
-                    {
-                        Votes = votes
-                    }
+                    Votes = votes
                 };
 
                 await meshNetwork.BroadcastAsync(msg);
             });
-
-        meshNetwork.Start();
 
         var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
 
@@ -248,31 +191,70 @@ public class NetworkService : BackgroundService
             }
         }
 
-        _ = Parallel.ForEachAsync(peers, async (peer, cancellationToken) =>
+        await startup.Application.WaitOneAsync();
+
+        foreach (var url in peers)
         {
-            if (!Uri.TryCreate(peer, new UriCreationOptions(), out var peerUri))
+            logger.LogInformation("Connecting to peer {}", url);
+
+            if (!Uri.TryCreate(url, new UriCreationOptions(), out var peerUri))
             {
-                logger.LogWarning("Invalid uri format {}", peer);
+                logger.LogWarning("Invalid uri format {}", url);
                 return;
             }
 
-            if (await meshNetwork.AddNode(peerUri, Guid.Empty))
+            if (await meshNetwork.ConnectToAsync(peerUri))
             {
-                var msg = new Message {
-                    Payload = new NodeDiscovery()
-                };
+                var peer = meshNetwork.GetPeer(peerUri);
 
-                await meshNetwork.BroadcastAsync(msg);
+                if (peer != null)
+                {
+                    await peer.SendAsync(new QueryNodeList());
+                }
+
+                break;
             }
-        });
+        }
 
         if (peers.Count == 0)
         {
             logger.LogInformation("No peers resolved. Manually add peers in configuration.");
         }
 
+        NetworkChange.NetworkAvailabilityChanged += new
+            NetworkAvailabilityChangedEventHandler(NetworkAvailabilityChanged);
+
         logger.LogInformation("Network       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Network.Set();
+    }
+
+    private async void NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        logger.LogInformation($"Network status changed, new status: {e.IsAvailable}");
+
+        if (e.IsAvailable)
+        {
+            logger.LogInformation($"Network connected, restoring peer connections");
+
+            var count = meshNetwork.GetOutgoingConnections().Count();
+            var peers = networkManager.GetHosts()
+                .Where(x => x.IsReachable)
+                .OrderBy(x => Guid.NewGuid())
+                .ToList();
+
+            foreach (var peer in peers)
+            {
+                if(await meshNetwork.ConnectToAsync(peer.Url))
+                {
+                    count++;
+                }
+
+                if (count >= Constant.MAX_PEERS)
+                {
+                    break;
+                }
+            }
+        }
     }
 
     public bool ProposeBlock(PowBlock block)
@@ -298,7 +280,19 @@ public class NetworkService : BackgroundService
     }
 }
 
-public class ChainObserver : IObserver<Peer>
+public class Chain
+{
+    public Peer Peer { get; set; }
+    public List<PosBlock> Blocks { get; set; }
+
+    public Chain(Peer peer, List<PosBlock> blocks)
+    {
+        Peer = peer;
+        Blocks = blocks;
+    }
+}
+
+public class ChainObserver : IObserver<Chain>
 {
     private readonly IMeshNetwork nodeNetwork;
     private readonly IBlockchainManager blockchainManager;
@@ -331,17 +325,17 @@ public class ChainObserver : IObserver<Peer>
         logger.LogError(error, "Chain sync failed");
     }
 
-    public async void OnNext(Peer node)
+    public async void OnNext(Chain chain)
     {
-        if (node.Blockchain == null || node.Blockchain.Count == 0) {
+        if (chain.Blocks.Count == 0) {
             return;
         }
 
-        logger.LogInformation($"Starting chain sync (blocks={node.Blockchain.Count}) (chain from node {node.ClientId})");
+        logger.LogInformation($"Starting chain sync (blocks={chain.Blocks.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
 
-        BeginSync?.Invoke(this, node.Blockchain.Count);
+        BeginSync?.Invoke(this, chain.Blocks.Count);
 
-        var sortedBlocks = node.Blockchain.OrderBy(x => x.Height).ToList();
+        var sortedBlocks = chain.Blocks.OrderBy(x => x.Height).ToList();
 
         var min = sortedBlocks.Min(x => x.Height);
 
@@ -409,12 +403,7 @@ public class ChainObserver : IObserver<Peer>
                 return;
             }
 
-            var msg = new Message
-            {
-                Payload = new QueryNodeInfo()
-            };
-
-            await node.SendAsync(msg);
+            await chain.Peer.SendAsync(new QueryNodeInfo());
         }
 
         logger.LogInformation($"Chain sync finished");

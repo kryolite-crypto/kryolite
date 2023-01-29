@@ -11,9 +11,9 @@ public class RequestChainSync : IPacket
     [Key(1)]
     public byte[]? StartHash { get; init; }
 
-    public async Task Handle(Peer peer, MessageEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogInformation($"Chain sync requested from {args.Message.NodeId}");
+        context.Logger.LogInformation($"Chain sync requested from {peer.Uri.ToHostname()}");
 
         var block = context.BlockchainManager.GetPosBlock(StartBlock);
 
@@ -36,11 +36,8 @@ public class RequestChainSync : IPacket
         chain.Blocks = context.BlockchainManager.GetPosFrom(StartBlock);
 
 answer:
-        var answer = new Message()
-        {
-            Payload = chain
-        };
+        var answer = chain;
 
-        await peer.SendAsync(answer);
+        _ = peer.SendAsync(answer);
     }
 }

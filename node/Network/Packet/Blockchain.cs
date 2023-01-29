@@ -11,16 +11,14 @@ public class Blockchain : IPacket
     [Key(0)]
     public List<PosBlock>? Blocks { get; set; }
 
-    public Task Handle(Peer peer, MessageEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogInformation($"Received blockchain from {args.Message.NodeId}");
+        context.Logger.LogInformation($"Received blockchain from {peer.Uri.ToHostname()}");
 
         if (Blocks != null) 
         {
-            peer.Blockchain = Blocks;
-            context.SyncBuffer.Post<Peer>(peer);
+            var chain = new Chain(peer, Blocks);
+            context.SyncBuffer.Post<Chain>(chain);
         }
-
-        return Task.CompletedTask;
     }
 }

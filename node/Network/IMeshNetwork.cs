@@ -1,20 +1,20 @@
-using WatsonWebsocket;
+using System.Net.WebSockets;
 
 namespace Kryolite.Node;
 
 public interface IMeshNetwork
 {
-    string? PublicAddress { get; set; }
+    Task BroadcastAsync(IPacket packet);
+    Task<bool> ConnectToAsync(Uri uri);
+    Task AddSocketAsync(WebSocket webSocket, Peer peer);
 
-    void Start();
-    Task BroadcastAsync(Message msg);
-    Task<bool> AddNode(Uri host, Guid clientId);
-    Dictionary<string, Peer> GetPeers();
-    int GetLocalPort();
     List<Uri> GetEndpoints();
+    Dictionary<ulong, Peer> GetPeers();
+    List<Peer> GetOutgoingConnections();
+    ulong GetServerId();
+    Peer? GetPeer(Uri uri);
 
-    event EventHandler<ConnectionEventArgs>? ClientConnected;
-    event EventHandler<DisconnectionEventArgs>? ClientDisconnected;
-    event EventHandler? ClientDropped;
-    event EventHandler<MessageEventArgs>? MessageReceived;
+    event EventHandler<PeerConnectedEventArgs>? PeerConnected;
+    event EventHandler<PeerDisconnectedEventArgs>? PeerDisconnected;
+    event EventHandler<MessageReceivedEventArgs>? MessageReceived;
 }

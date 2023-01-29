@@ -10,13 +10,13 @@ public class TransactionData : IPacket
     [Key(0)]
     public IList<Transaction> Transactions { get; set; } = new List<Transaction>();
 
-    public Task Handle(Peer peer, MessageEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
         if (Transactions.Count == 0) {
-            return Task.CompletedTask;
+            return;
         }
 
-        context.Logger.LogInformation($"Received {Transactions.Count} transactions from {args.Message.NodeId}");
+        context.Logger.LogInformation($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
 
         var valid = context.BlockchainManager.AddTransactionsToQueue(Transactions);
 
@@ -29,7 +29,5 @@ public class TransactionData : IPacket
         {
             args.Rebroadcast = true;
         }
-
-        return Task.CompletedTask;
     }
 }

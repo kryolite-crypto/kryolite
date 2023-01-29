@@ -21,6 +21,7 @@ public enum Packet : byte
     VoteBatch,
     NodeDiscovery,
     NodeList,
+    QueryNodeList,
     CallMethod,
     NewContract
 }
