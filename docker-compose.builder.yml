@@ -22,7 +22,7 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
         GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}
-        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-dev}
+        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-0.0.0}
         RUNTIME: ${RUNTIME:-linux-x64}
       cache_from:
         - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:daemon-${VARIANT:-linux-x64}"
@@ -40,7 +40,7 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
         GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}
-        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-dev}
+        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-0.0.0}
         RUNTIME: ${RUNTIME:-linux-x64}
       cache_from:
         - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:miner-${VARIANT:-linux-x64}"
@@ -60,7 +60,7 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
         GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}
-        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-dev}
+        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-0.0.0}
         RUNTIME: ${RUNTIME:-linux-x64}
       cache_from:
         - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:kryolite-${VARIANT:-linux-x64}"
@@ -80,7 +80,7 @@ services:
       args:
         BUILDKIT_INLINE_CACHE: 1
         GITHUB_REPOSITORY: ${GITHUB_REPOSITORY:-kryolite-crypto/kryolite}
-        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-dev}
+        GITHUB_REF_NAME: ${GITHUB_REF_NAME:-0.0.0}
         RUNTIME: ${RUNTIME:-linux-x64}
       cache_from:
         - "ghcr.io/${GITHUB_REPOSITORY:-kryolite-krypto}/builder:wallet-${VARIANT:-linux-x64}"

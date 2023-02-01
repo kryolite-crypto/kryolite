@@ -1,7 +1,7 @@
 ARG GITHUB_REPOSITORY
 FROM ghcr.io/${GITHUB_REPOSITORY}/builder:base
 
-ARG GITHUB_REF_NAME=dev
+ARG GITHUB_REF_NAME
 
 COPY shared shared
 COPY node node
