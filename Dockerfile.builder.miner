@@ -1,6 +1,8 @@
 ARG GITHUB_REPOSITORY
 FROM ghcr.io/${GITHUB_REPOSITORY}/builder:base
 
+ARG GITHUB_REF_NAME=dev
+
 COPY shared shared
 
 COPY miner miner
@@ -9,6 +11,7 @@ ARG RUNTIME
 RUN dotnet publish miner \
   -c Release \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
+  -p:Version="${GITHUB_REF_NAME}" -p:InformationalVersion="${GITHUB_REF_NAME}" \
   --self-contained --runtime="$RUNTIME" \
   -o /build \
   && if [ "$RUNTIME" != "win-x64" ]; then mv /build/miner /usr/local/bin/kryolite-miner && rm -rf /build; fi
