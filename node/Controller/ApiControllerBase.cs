@@ -137,7 +137,20 @@ public class ApiControllerBase : Controller
     [HttpGet("richlist")]
     public IActionResult GetSmartContractState([FromQuery] int count = 25)
     {
-        return Ok(blockchainManager.GetRichList(count));
+        List<LedgerWallet> wallets = blockchainManager.GetRichList(count);
+        // This shoudldn't mess with any internal code as the logic is handled in the wrong place as close to the request as possible
+        // Feel free to make an actual structured fix for this, but this makes the API easier to interact with :>
+        String walletString = "";
+        walletString += "[";
+        foreach (var wallet in wallets)
+        {
+            walletString += $"{{\"id\":\"{wallet.Id}\",\"address\":\"{wallet.Address.ToString()}\",\"balance\":{wallet.Balance},\"pending\":{wallet.Pending}}},";
+        }
+        if (walletString.Contains(",")) {
+            walletString = walletString.Remove(walletString.LastIndexOf(","));
+        }
+        walletString += "]";
+        return Ok(walletString);
     }
 
     [HttpGet("tx/{hash}")]
