@@ -1,7 +1,8 @@
 ARG GITHUB_REPOSITORY
 FROM ghcr.io/${GITHUB_REPOSITORY}/builder:base
 
-ARG GITHUB_REF_NAME
+ARG VERSION
+ARG INFORMATIONAL_VERSION
 
 COPY shared shared
 COPY node node
@@ -12,7 +13,7 @@ ARG RUNTIME
 RUN dotnet publish cli \
   -c Release \
   -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:Version="${GITHUB_REF_NAME}" -p:InformationalVersion="${GITHUB_REF_NAME}" \
+  -p:Version="${VERSION}" -p:InformationalVersion="${INFORMATIONAL_VERSION}" \
   --self-contained --runtime="$RUNTIME" \
   -o /build \
   && if [ "$RUNTIME" != "win-x64" ]; then mv /build/cli /usr/local/bin/kryolite && rm -rf /build; fi

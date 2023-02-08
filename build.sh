@@ -15,6 +15,15 @@ _on_error() {
 }
 trap '_on_error $?' ERR
 
+_echoerr() {
+  1>&2 echo "$*"
+}
+
+_err() {
+  _echoerr "err: $*"
+  exit 1
+}
+
 export VARIANT=$1
 export COMPONENTS=${*:2}
 
@@ -36,6 +45,22 @@ case "$VARIANT" in
   ;;
 esac
 export RUNTIME
+
+case "$GITHUB_REF_TYPE" in
+  tag)
+    VERSION=$GITHUB_REF_NAME
+    INFORMATIONAL_VERSION="$GITHUB_REF_NAME"
+  ;;
+  branch)
+    VERSION=0.0.0
+    INFORMATIONAL_VERSION="$GITHUB_REF_NAME"
+  ;;
+  *)
+    _err "GITHUB_REF_TYPE='$GITHUB_REF_TYPE' is unknown"
+  ;;
+esac
+export VERSION
+export INFORMATIONAL_VERSION
 
 docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:base" || true
 docker-compose -f docker-compose.builder.yml build base
