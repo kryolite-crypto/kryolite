@@ -24,6 +24,13 @@ _err() {
   exit 1
 }
 
+_log() {
+  _echoerr "-- ${SECONDS}s -- $*"
+}
+
+_log "export:"
+export
+
 export VARIANT=$1
 export COMPONENTS=${*:2}
 
@@ -62,9 +69,13 @@ esac
 export VERSION
 export INFORMATIONAL_VERSION
 
+_log "pulling ghcr.io/${GITHUB_REPOSITORY}/builder:base"
 docker pull "ghcr.io/${GITHUB_REPOSITORY}/builder:base" || true
+
+_log "building base"
 docker-compose -f docker-compose.builder.yml build base
 
+_log "building $COMPONENTS"
 declare -A pids
 for COMPONENT in $COMPONENTS
 do
@@ -96,15 +107,15 @@ done
 failed=no
 for COMPONENT in "${!statuses[@]}"; do
   status=${statuses[$COMPONENT]}
-  echo "component $COMPONENT build ${status}"
+  _log "component $COMPONENT build ${status}"
 
   [[ "$status" == "fail" ]] && failed=yes
 done
 
 if [[ "$failed" == "yes" ]]
 then
-  echo "BUILD FAILED"
+  _log "BUILD FAILED"
   exit 1
 else
-  echo "BUILD OK"
+  _log "BUILD OK"
 fi
