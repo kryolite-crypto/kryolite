@@ -43,6 +43,7 @@ public class Startup
 
         app.UseWebSockets();
         app.UseRouting();
+        app.UseCors();
         app.UseEndpoints(endpoints =>
         {
             // for let's encrypt
@@ -258,6 +259,11 @@ public class Startup
                 .AddSingleton<StartupSequence>()
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddRouting()
+                .AddCors(opts => opts.AddDefaultPolicy(policy => policy
+                    .AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader()
+                ))
                 .AddControllers()
                 .AddNewtonsoftJson(options => {
                     options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
