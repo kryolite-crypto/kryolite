@@ -264,9 +264,16 @@ public class Startup
                     .AllowAnyMethod()
                     .AllowAnyHeader()
                 ))
-                .AddControllers()
-                .AddNewtonsoftJson(options => {
-                    options.SerializerSettings.ReferenceLoopHandling = ReferenceLoopHandling.Ignore;
+                .AddControllers().AddJsonOptions(options =>
+                {
+                    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+                    options.JsonSerializerOptions.Converters.Add(new AddressConverter());
+                    options.JsonSerializerOptions.Converters.Add(new NonceConverter());
+                    options.JsonSerializerOptions.Converters.Add(new PrivateKeyConverter());
+                    options.JsonSerializerOptions.Converters.Add(new PublicKeyConverter());
+                    options.JsonSerializerOptions.Converters.Add(new SHA256HashConverter());
+                    options.JsonSerializerOptions.Converters.Add(new SignatureConverter());
+                    options.JsonSerializerOptions.Converters.Add(new DifficultyConverter());
                 });
     }
 

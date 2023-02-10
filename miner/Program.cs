@@ -2,11 +2,21 @@
 using System.Security.Cryptography;
 using System.Text;
 using Kryolite.Shared;
-using Newtonsoft.Json;
 using System.CommandLine;
 using Zeroconf;
 using System.Net.Sockets;
 using System.Net;
+using System.Text.Json;
+
+var serializerOpts = new JsonSerializerOptions();
+serializerOpts.PropertyNameCaseInsensitive = true;
+serializerOpts.Converters.Add(new AddressConverter());
+serializerOpts.Converters.Add(new NonceConverter());
+serializerOpts.Converters.Add(new PrivateKeyConverter());
+serializerOpts.Converters.Add(new PublicKeyConverter());
+serializerOpts.Converters.Add(new SHA256HashConverter());
+serializerOpts.Converters.Add(new SignatureConverter());
+serializerOpts.Converters.Add(new DifficultyConverter());
 
 Blocktemplate current = new Blocktemplate();
 var tokenSource = new CancellationTokenSource();
@@ -31,6 +41,12 @@ rootCmd.SetHandler(async (node, address, throttle) => {
         return;
     }
 
+    if (address == null || !Address.IsValid(address))
+    {
+        Console.WriteLine("Invalid address");
+        return;
+    }
+
     Console.WriteLine($"Connecting to {url}");
 
     bool restart = false;
@@ -47,11 +63,11 @@ rootCmd.SetHandler(async (node, address, throttle) => {
 
             if (request.StatusCode == HttpStatusCode.BadRequest)
             {
-                Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request.StatusCode}). Invalid address?");
+                Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request.StatusCode}).");
                 return;
             }
         } 
-        catch (Exception) { }
+        catch (Exception) {}
 
         if (request == null || !request.IsSuccessStatusCode) 
         {
@@ -73,7 +89,7 @@ rootCmd.SetHandler(async (node, address, throttle) => {
         attempts = 0;
 
         var json = await request.Content.ReadAsStringAsync();
-        var blocktemplate = JsonConvert.DeserializeObject<Blocktemplate>(json);
+        var blocktemplate = JsonSerializer.Deserialize<Blocktemplate>(json, serializerOpts);
 
         if (!restart && (blocktemplate == null || blocktemplate.ParentHash == current.ParentHash)) 
         {
@@ -120,7 +136,7 @@ rootCmd.SetHandler(async (node, address, throttle) => {
 
                     solution.Solution = bytes;
 
-                    var json = JsonConvert.SerializeObject(blocktemplate);
+                    var json = JsonSerializer.Serialize(blocktemplate, serializerOpts);
     
                     using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
@@ -136,7 +152,7 @@ rootCmd.SetHandler(async (node, address, throttle) => {
                                 break;
                             }
 
-                            Console.WriteLine($"Failed to send solution to node (HTTP_ERR = {res.StatusCode}), retry attempt ${attempts++}/5");
+                            Console.WriteLine($"Failed to send solution to node (HTTP_ERR = {res.StatusCode}), retry attempt {attempts++}/5");
                         }
                         catch (Exception ex)
                         {

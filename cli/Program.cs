@@ -5,18 +5,25 @@ using System.Text.Json;
 using Kryolite.Node;
 using Kryolite.Shared;
 using MessagePack;
-using Newtonsoft.Json;
-using JsonSerializer = System.Text.Json.JsonSerializer;
 
 public class Program
 {
     private static JsonSerializerOptions serializerOpts = new JsonSerializerOptions
     {
-        WriteIndented = true
+        WriteIndented = true,
     };
 
     private static async Task Main(string[] args)
     {
+        serializerOpts.PropertyNameCaseInsensitive = true;
+        serializerOpts.Converters.Add(new AddressConverter());
+        serializerOpts.Converters.Add(new NonceConverter());
+        serializerOpts.Converters.Add(new PrivateKeyConverter());
+        serializerOpts.Converters.Add(new PublicKeyConverter());
+        serializerOpts.Converters.Add(new SHA256HashConverter());
+        serializerOpts.Converters.Add(new SignatureConverter());
+        serializerOpts.Converters.Add(new DifficultyConverter());
+
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
 
@@ -179,7 +186,7 @@ public class Program
                     Payload = new CallMethod
                     {
                         Method = contractMethod,
-                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonConvert.DeserializeObject<object[]>(contractParams)
+                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<object[]>(contractParams, serializerOpts)
                     }
                 };
             }
@@ -201,7 +208,7 @@ public class Program
 
             tx.Sign(wallet.PrivateKey);
 
-            var json = JsonConvert.SerializeObject(tx);
+            var json = JsonSerializer.Serialize(tx);
             Console.WriteLine(json);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
@@ -290,7 +297,7 @@ public class Program
 
             tx.Sign(wallet.PrivateKey);
             
-            var json = JsonConvert.SerializeObject(tx);
+            var json = JsonSerializer.Serialize(tx, serializerOpts);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
             using var http = new HttpClient();
