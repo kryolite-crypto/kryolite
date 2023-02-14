@@ -13,7 +13,7 @@ public class Program
         WriteIndented = true,
     };
 
-    private static async Task Main(string[] args)
+    private static async Task<int> Main(string[] args)
     {
         serializerOpts.PropertyNameCaseInsensitive = true;
         serializerOpts.Converters.Add(new AddressConverter());
@@ -41,7 +41,7 @@ public class Program
         rootCmd.Add(BuildSendCommand(nodeOption));
         rootCmd.Add(BuildContractCommand(nodeOption));
 
-        await rootCmd.InvokeAsync(args);
+        return await rootCmd.InvokeAsync(args);
     }
 
     private static Command BuildWalletCommand()
