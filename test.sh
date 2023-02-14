@@ -62,7 +62,7 @@ echo "wallet_miner: $wallet_miner"
 echo "wallet_other: $wallet_other"
 
 (
-  docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_miner" || _fatal "miner does not stay on"
+  exec docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_miner"
 ) 2>&1 | sed -le "s#^#miner: #;" &
 
 while true
