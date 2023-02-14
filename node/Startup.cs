@@ -97,6 +97,28 @@ public class Startup
                         return;
                     }
 
+                    var url = context.Request.Headers["kryo-connect-to-url"];
+
+                    if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, new UriCreationOptions(), out var uri))
+                    {
+                        logger.LogInformation($"Received connection from {url}");
+
+                        var success = await Connection.TestConnectionAsync(uri);
+
+                        if (!success) 
+                        {
+                            logger.LogInformation($"Force disconnect {uri}, reason: url not reachable");
+                            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+
+                            return;
+                        }
+
+                        var urlPeer = new Peer(webSocket, clientId, uri, ConnectionType.IN, true);
+                        await mesh.AddSocketAsync(webSocket, urlPeer);
+
+                        return;
+                    }
+
                     IPAddress? address = null;
                     var forwardedFor = context.Request.Headers["X-Forwarded-For"].ToString();
 
@@ -146,13 +168,6 @@ public class Startup
 
                             hosts.Add(builder.Uri);
                         }
-                    }
-
-                    var url = context.Request.Headers["kryo-connect-to-url"];
-
-                    if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, new UriCreationOptions(), out var uri))
-                    {
-                        hosts.Insert(0, uri);
                     }
 
                     Uri? bestUri = null;

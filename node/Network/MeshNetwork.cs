@@ -254,8 +254,7 @@ public class MeshNetwork : IMeshNetwork
     public async Task AddSocketAsync(WebSocket webSocket, Peer peer)
     {
         var token = tokenSource.Token;
-        var buffer = new byte[32 * 1024];
-        var segment = new ArraySegment<byte>(buffer);
+        var buffer = new byte[64 * 1024];
 
         if(Peers.TryAdd(peer.Id, peer))
         {
