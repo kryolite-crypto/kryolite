@@ -82,6 +82,20 @@ public class ApiControllerBase : Controller
         return blockchainManager.GetPowBlock(height);
     }
 
+    [HttpGet("block/latest")]
+    public PosBlock? GetLatestBlock()
+    {
+        var height = blockchainManager.GetChainState().POS.Height;
+        return blockchainManager.GetPosBlock(height);
+    }
+
+    [HttpGet("block/latest/pow")]
+    public PowBlock? GetLatestPowBlock()
+    {
+        var height = blockchainManager.GetChainState().POW.Height;
+        return blockchainManager.GetPowBlock(height);
+    }
+
     [HttpGet("contract/{address}")]
     public IActionResult GetSmartContract(string address)
     {
