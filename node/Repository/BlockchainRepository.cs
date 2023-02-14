@@ -78,15 +78,6 @@ public class BlockchainRepository : IDisposable
         return Context.PowBlocks
             .Where(x => x.Height == height)
             .Include(x => x.Transactions)
-            .Include(x => x.Pos)
-                .ThenInclude(x => x.Votes)
-            .AsEnumerable()
-            .GroupBy(x => x.Height, (key, values) => new 
-            {
-                Height = key,
-                Blocks = values
-            })
-            .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
             .FirstOrDefault();
     }
 
@@ -140,16 +131,7 @@ public class BlockchainRepository : IDisposable
         var results = Context.PowBlocks
             .Where(x => x.Height >= start - count)
             .Include(x => x.Transactions)
-            .Include(x => x.Pos)
-                .ThenInclude(x => x.Votes)
-            .AsEnumerable()
-            .GroupBy(x => x.Height, (key, values) => new 
-            {
-                Height = key,
-                Blocks = values
-            })
-            .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
-            .OrderBy(x => x!.Height)
+            .OrderBy(x => x.Height)
             .ToList();
 
         return results!;
@@ -160,16 +142,7 @@ public class BlockchainRepository : IDisposable
         var results = Context.PowBlocks
             .Where(x => x.Height < start && x.Height >= start - count)
             .Include(x => x.Transactions)
-            .Include(x => x.Pos)
-                .ThenInclude(x => x.Votes)
-            .AsEnumerable()
-            .GroupBy(x => x.Height, (key, values) => new 
-            {
-                Height = key,
-                Blocks = values
-            })
-            .Select(x => x.Blocks.MaxBy(x => x.Pos.Votes.Count))
-            .OrderBy(x => x!.Height)
+            .OrderBy(x => x.Height)
             .ToList();
 
         return results!;

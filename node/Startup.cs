@@ -282,7 +282,6 @@ public class Startup
                 ))
                 .AddControllers().AddJsonOptions(options =>
                 {
-                    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve;
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
                     options.JsonSerializerOptions.Converters.Add(new AddressConverter());
                     options.JsonSerializerOptions.Converters.Add(new NonceConverter());

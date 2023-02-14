@@ -73,7 +73,7 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasDatabaseName("ix_pos_height");
 
             entity.HasOne(e => e.Pow)
-                .WithOne(e => e.Pos)
+                .WithOne()
                 .HasForeignKey<PowBlock>(x => x.PosBlockId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_pos_pow");

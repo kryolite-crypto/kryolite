@@ -39,8 +39,6 @@ public class PowBlock
     public Difficulty Difficulty { get; set; }
     [Key(5)]
     public List<Transaction> Transactions { get; set; } = new();
-    [IgnoreMember]
-    public PosBlock Pos { get; set; } = default!;
 
     public SHA256Hash GetHash()
     {
