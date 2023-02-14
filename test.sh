@@ -52,9 +52,6 @@ _cleanup
 
 docker-compose -f docker-compose.builder.yml up -d --force-recreate daemon kryolite miner
 
-# TODO: hotfix tests https://github.com/kryolite-crypto/kryolite/issues/7
-docker-compose -f docker-compose.builder.yml exec -T kryolite mkdir data
-
 wallet_miner=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
 wallet_other=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
 echo "wallet_miner: $wallet_miner"
