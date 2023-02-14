@@ -208,7 +208,7 @@ public class Program
 
             tx.Sign(wallet.PrivateKey);
 
-            var json = JsonSerializer.Serialize(tx);
+            var json = JsonSerializer.Serialize(tx, serializerOpts);
             Console.WriteLine(json);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
