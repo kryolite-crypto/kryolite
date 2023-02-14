@@ -54,8 +54,6 @@ export VARIANT
 
 _cleanup
 
-
-docker-compose -f docker-compose.builder.yml build --parallel
 docker-compose -f docker-compose.builder.yml up -d --force-recreate daemon kryolite miner
 
 wallet_miner=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
