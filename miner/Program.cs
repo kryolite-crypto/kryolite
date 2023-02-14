@@ -96,7 +96,7 @@ rootCmd.SetHandler(async (node, address, throttle) => {
             Thread.Sleep(TimeSpan.FromSeconds(1));
             continue;
         }
-        
+
         restart = false;
         current = blocktemplate;
 
@@ -175,4 +175,4 @@ rootCmd.SetHandler(async (node, address, throttle) => {
     }
 }, nodeOption, walletOption, throttleOption);
 
-await rootCmd.InvokeAsync(args);
+return await rootCmd.InvokeAsync(args);

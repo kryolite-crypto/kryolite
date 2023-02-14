@@ -9,11 +9,9 @@ public class DifficultyConverter : JsonConverter<Difficulty>
 {
     public override Difficulty Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
     {
-        var bytes = reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.ValueSpan.ToArray();
-
         return new Difficulty
         {
-            Value = BitConverter.ToUInt32(bytes)
+            Value = (uint)reader.GetInt32()
         };
     }
 
