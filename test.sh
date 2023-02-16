@@ -17,6 +17,11 @@ _on_error() {
 }
 trap '_on_error $?' ERR
 
+_fatal() {
+  echo "FATAL $*"
+  kill $$
+}
+
 _cleanup() {
   docker-compose -f docker-compose.builder.yml down --remove-orphans -v -t 0
 }
@@ -49,19 +54,16 @@ export VARIANT
 
 _cleanup
 
-
 docker-compose -f docker-compose.builder.yml up -d --force-recreate daemon kryolite miner
-
-# TODO: hotfix tests https://github.com/kryolite-crypto/kryolite/issues/7
-docker-compose -f docker-compose.builder.yml exec -T kryolite mkdir data
 
 wallet_miner=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
 wallet_other=$(docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite wallet create)
 echo "wallet_miner: $wallet_miner"
 echo "wallet_other: $wallet_other"
 
->/dev/null 2>&1 docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_miner" &
-echo "started mining"
+(
+  exec docker-compose -f docker-compose.builder.yml exec -T miner kryolite-miner --url http://daemon:5000 --address "$wallet_miner"
+) 2>&1 | sed -le "s#^#miner: #;" &
 
 while true
 do
