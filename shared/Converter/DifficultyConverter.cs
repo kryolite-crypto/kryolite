@@ -11,7 +11,7 @@ public class DifficultyConverter : JsonConverter<Difficulty>
     {
         return new Difficulty
         {
-            Value = (uint)reader.GetInt32()
+            Value = reader.GetUInt32()
         };
     }
 
