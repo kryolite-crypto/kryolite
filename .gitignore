@@ -3,3 +3,4 @@ obj/
 data/
 .vscode/
 /dist
+/.vs

@@ -1,16 +1,21 @@
 using Kryolite.Shared;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node;
 
-public class WalletContext : DbContext
-{
+public class WalletContext : DbContext, IDesignTimeDbContextFactory<WalletContext> {
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<WalletTransaction> Transactions => Set<WalletTransaction>();
     //public DbSet<WalletAsset> Assets => Set<WalletAsset>();
+
+    public WalletContext() : base() 
+    {
+
+    }
 
     public WalletContext(DbContextOptions<WalletContext> options)
       :base(options)
@@ -77,4 +82,13 @@ public class WalletContext : DbContext
                 .HasConversion(addrConverter);
         });
      }
+
+    public WalletContext CreateDbContext(string[] args) {
+        var path = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite", "wallet.dat");
+
+        var optionsBuilder = new DbContextOptionsBuilder<WalletContext>();
+        optionsBuilder.UseSqlite($"Data Source={path}");
+
+        return new WalletContext(optionsBuilder.Options);
+    }
 }
