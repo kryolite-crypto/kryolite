@@ -486,7 +486,7 @@ public class BlockchainManager : IBlockchainManager
         var elapsed = epochEnd.Timestamp - epochStart.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
 
-        var newDiff = (BigInteger)(chainState.POW.CurrentDifficulty.ToWork() * new BigRational(expected / (double)elapsed));
+        var newDiff = chainState.POW.CurrentDifficulty.ToWork() * new BigInteger(expected / (double)elapsed);
         chainState.POW.CurrentDifficulty = newDiff.ToDifficulty();
 
         logger.LogInformation($"Epoch {epochEnd.Height / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");

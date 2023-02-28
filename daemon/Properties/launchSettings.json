@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "daemon": {
+      "commandName": "Project",
+      "commandLineArgs": "--environment development",
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "development"
+      }
+    }
+  }
+}
