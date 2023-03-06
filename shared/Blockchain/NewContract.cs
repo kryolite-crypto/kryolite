@@ -6,13 +6,13 @@ namespace Kryolite.Shared;
 public class NewContract
 {
     [Key(0)]
-    public string Name { get; set; }
+    public ContractManifest Manifest { get; set; }
     [Key(1)]
     public byte[] Code { get; set; }
 
-    public NewContract(string name, byte[] code)
+    public NewContract(ContractManifest manifest, byte[] code)
     {
-        Name = name;
+        Manifest = manifest;
         Code = code;
     }
 }

@@ -1,4 +1,6 @@
 using System.Numerics;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using Kryolite.Shared;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -17,6 +19,7 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
     //public DbSet<LedgerAsset> LedgerAssets => Set<LedgerAsset>();
     public DbSet<ChainState> ChainState => Set<ChainState>();
     public DbSet<Contract> Contracts => Set<Contract>();
+    public DbSet<ContractSnapshot> ContractSnapshots => Set<ContractSnapshot>();
     public DbSet<Effect> Effects => Set<Effect>();
 
     public BlockchainContext() : base()
@@ -64,6 +67,10 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             v => (long)v,
             v => (ulong)v);
 
+        var manifestConverter = new ValueConverter<ContractManifest, string>(
+            v => JsonSerializer.Serialize(v, new JsonSerializerOptions()),
+            v => JsonSerializer.Deserialize<ContractManifest>(v, new JsonSerializerOptions())!);
+
         builder.Entity<PosBlock>(entity => {
             entity.ToTable("PosBlocks")
                 .HasKey(e => e.Id)
@@ -105,6 +112,11 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             
             entity.HasIndex(x => x.Height)
                 .HasDatabaseName("ix_pow_height");
+
+            entity.HasMany(e => e.Transactions)
+                .WithOne()
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_pow_tx");
 
             entity.Property(x => x.Difficulty)
                 .HasConversion(diffConverter);
@@ -271,6 +283,11 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.HasIndex(x => x.Address)
                 .HasDatabaseName("ix_contract_address");
 
+            entity.HasMany(e => e.Snapshots)
+                .WithOne()
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_contract_snapshot");
+
             entity.Property(x => x.Address)
                 .HasConversion(addrConverter);
 
@@ -279,6 +296,15 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
 
             entity.Property(x => x.Balance)
                 .HasConversion(ulongConverter);
+        });
+
+        builder.Entity<ContractSnapshot>(entity => {
+            entity.ToTable("ContractSnapshots")
+                .HasKey(x => x.Id)
+                .HasName("pk_contract_snapshots");
+
+            entity.HasIndex(x => x.Height)
+                .HasDatabaseName("ix_snapshot_height");
         });
      }
 

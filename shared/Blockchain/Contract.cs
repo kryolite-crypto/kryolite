@@ -15,21 +15,15 @@ public class Contract
     public string Name { get; set; }
     public ulong Balance { get; set; }
     public byte[] Code { get; set; }
-    public string State { get; set; }
+    public ContractManifest Manifest { get; set; }
+    public List<ContractSnapshot> Snapshots { get; set; } = new();
 
-    public Contract()
-    {
-        Name = String.Empty;
-        Code = new byte[0];
-        State = String.Empty;
-    }
-
-    public Contract(Address owner, string name, byte[] code)
+    public Contract(Address owner, ContractManifest manifest, byte[] code)
     {
         Owner = owner;
-        Name = name;
+        Name = manifest.Name;
         Code = code;
-        State = String.Empty;
+        Manifest = manifest;
 
         Address = ToAddress();
     }
@@ -59,4 +53,48 @@ public class Contract
 
         return addressBytes.ToArray();
     }
+}
+
+public class ContractSnapshot
+{
+    public Guid Id { get; set; }
+    public long Height { get; set; }
+    public byte[] Snapshot { get; init; }
+
+    public ContractSnapshot(long height, byte[] snapshot)
+    {
+        Height = height;
+        Snapshot = snapshot;
+    }
+}
+
+public class ContractManifest
+{
+    public string Name { get; init; } = string.Empty;
+    public IReadOnlyCollection<ContractMethod> Methods { get; init; } = Array.Empty<ContractMethod>();
+}
+
+public class ContractMethod
+{
+    public string Name { get; init; } = string.Empty;
+    public bool IsReadonly { get; init; }
+
+    [JsonPropertyName("method_params")]
+    public IReadOnlyCollection<ContractParam> Params { get; init; } = Array.Empty<ContractParam>();
+
+    [JsonPropertyName("return_value")]
+    public ReturnValue Returns { get; init; } = new();
+}
+
+public class ContractParam
+{
+    public string Name { get; init; } = string.Empty;
+
+    [JsonPropertyName("param_type")]
+    public string Type { get; init; } = string.Empty;
+}
+
+public class ReturnValue
+{
+    public string value_type { get; set; }
 }

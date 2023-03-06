@@ -209,13 +209,11 @@ public class BlockchainRepository : IDisposable
         {
             return Context.Contracts
                 .Where(x => x.Address == address)
-                .Select(x => new Contract
+                .Select(x => new Contract(x.Owner, x.Name, x.Manifest, Array.Empty<byte>())
                     {
                         Id = x.Id,
-                        Address = x.Address,
-                        Owner = x.Owner,
-                        Name = x.Name,
-                        Balance = x.Balance
+                        Balance = x.Balance,
+                        Manifest = x.Manifest
                     }
                 )
                 .FirstOrDefault();
@@ -232,14 +230,6 @@ public class BlockchainRepository : IDisposable
             .OrderByDescending(x => x.Balance)
             .Take(count)
             .ToList();
-    }
-
-    public string? GetContractState(Address address)
-    {
-        return Context.Contracts
-            .Where(x => x.Address == address)
-            .Select(x => x.State)
-            .FirstOrDefault();
     }
 
     public void AddContract(Contract contract)

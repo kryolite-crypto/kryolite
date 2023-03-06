@@ -341,24 +341,22 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.INVALID_PAYLOAD);
         }
 
-        var methodName = $"_c_{call.Method}";
+        var methodName = $"{call.Method}";
 
         if (!module.Exports.Any(x => x.Name == methodName))
         {
             throw new ExecutionException(ExecutionResult.INVALID_METHOD);
         }
 
-        var _params = new object[4] {"foo", 69, true, "420"};
-        var _dict = new Dictionary<string, object>();
-        var _start = 'a';
+        var _params = new object[0];
 
-        for(int i = 0; i < _params.Length; i++)
+        if (call.Params is not null)
         {
-            _dict.Add(_start.ToString(), _params[i]);
-            _start++;
+            foreach (var param in call.Params)
+            {
+                // TODO
+            }
         }
-
-        var methodParams = JsonSerializer.Serialize(_dict);
 
         if (!ctx.LedgerWalletCache.TryGetValue(contract.Owner.ToString(), out var ownerWallet))
         {
@@ -375,188 +373,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
         ulong start = 1000000;
         store.AddFuel(start + item.MaxFee);
 
-        linker.Define("kryolite", "get_balance",
-            Function.FromCallback<int, long>(store,  (Caller caller, int address) => 
-            {
-                var memory = caller.GetMemory("memory");
 
-                if (memory is null)
-                {
-                    return 0;
-                }
-
-                var addr = memory.ReadAddress(address);
-
-                if (addr.IsContract())
-                {
-                    if(!ctx.ContractCache.TryGetValue(addr.ToString(), out var ctract))
-                    {
-                        return 0;
-                    }
-
-                    Console.WriteLine($"Get balance for '{addr.ToString()}': {ctract.Balance / 1000000} kryo");
-                    return (long)ctract.Balance;
-                }
-
-                if(!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
-                {
-                    return 0;
-                }
-
-                Console.WriteLine($"Get balance for '{addr.ToString()}': {wallet.Balance / 1000000} kryo");
-
-                return (long)wallet.Balance;
-            })
-        );
-
-        linker.Define("kryolite", "transfer",
-            Function.FromCallback<int, long>(store,  (Caller caller, int address, long value) => 
-            {
-                var memory = caller.GetMemory("memory");
-
-                if (memory is null)
-                {
-                    return;
-                }
-
-                var addr = memory.ReadAddress(address);
-
-                if (addr.Equals(contract.Address))
-                {
-                    Console.WriteLine($"Cannot transfer to contract address");
-                    return;
-                }
-
-                if(!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
-                {
-                    wallet = ctx.BlockRepository.GetWallet(addr);
-                    
-                    if (wallet == null) 
-                    {
-                        wallet = new LedgerWallet(addr);
-                    }
-
-                    ctx.LedgerWalletCache.Add(wallet.Address.ToString(), wallet);
-                }
-
-                Console.WriteLine($"Set balance for '{addr.ToString()}': {wallet.Balance / 1000000} -> {(wallet.Balance + (ulong)value) / 1000000} kryo");
-                contract.Balance = checked(contract.Balance - (ulong)value);
-                wallet.Balance = checked(wallet.Balance + (ulong)value);
-
-                item.Effects.Add(new Effect(addr, (ulong)value));
-            })
-        );
-
-        linker.Define("kryolite", "get_params_sz",
-            Function.FromCallback<int>(store,  (Caller caller) => 
-            {
-                return methodParams.Length * 2;
-            })
-        );
-
-        linker.Define("kryolite", "get_params",
-            Function.FromCallback<int>(store,  (Caller caller, int ptr) => 
-            {
-                caller.GetMemory("memory")!.WriteString(ptr, methodParams, Encoding.Unicode);
-            })
-        );
-
-        linker.Define("kryolite", "get_state_sz",
-            Function.FromCallback<int>(store,  (Caller caller) => 
-            {
-                return contract.State.Length * 2;
-            })
-        );
-
-        linker.Define("kryolite", "get_state",
-            Function.FromCallback<int>(store,  (Caller caller, int ptr) => 
-            {
-                caller.GetMemory("memory")!.WriteString(ptr, contract.State, Encoding.Unicode);
-            })
-        );
-
-        linker.Define("kryolite", "set_state",
-            Function.FromCallback<int>(store,  (Caller caller, int ptr) => 
-            {
-                var memory = caller.GetMemory("memory");
-
-                if (memory is null)
-                {
-                    return;
-                }
-
-                var keyLen = memory.ReadInt32(ptr - 4);
-                var state = memory.ReadString(ptr, keyLen, Encoding.Unicode);
-
-                Console.WriteLine(state);
-                contract.State = state;
-            })
-        );
-
-        linker.Define(
-            "env",
-            "console.log",
-            Function.FromCallback(store, (Caller caller, int message) =>
-            {
-                var mem = caller.GetMemory("memory");
-
-                if (mem is null)
-                {
-                    return;
-                }
-
-                var msgLen = mem.ReadInt32(message - 4);
-                var msg = mem.ReadString(message, msgLen, Encoding.Unicode);
-                Console.WriteLine("LOG: " + msg);
-            })
-        );
-
-        linker.Define(
-            "env",
-            "abort",
-            Function.FromCallback(store, (Caller caller, int message, int filename, int linenum, int colnum) =>
-            {
-                var mem = caller.GetMemory("memory");
-
-                if (mem is null)
-                {
-                    return;
-                }
-
-                var filenameStr = string.Empty;
-                var messageStr = string.Empty;
-
-                if (filename > 0) 
-                {
-                    filenameStr = mem.ReadString(filename, mem.ReadInt32(filename - 4), Encoding.Unicode);
-                }
-
-                if (message > 0)
-                {
-                    messageStr = mem.ReadString(message, mem.ReadInt32(message - 4), Encoding.Unicode);
-                }
-
-                throw new Exception($"{messageStr} ({filenameStr}:{linenum}:{colnum})");
-            })
-        );
-
-        linker.Define(
-            "env",
-            "seed",
-            Function.FromCallback<double>(store, (Caller caller) =>
-            {
-                return ctx.Timestamp;
-            })
-        );
-
-        linker.Define(
-            "env",
-            "process.exit",
-            Function.FromCallback<int>(store, (Caller caller, int exitCode) =>
-            {
-                throw new ExitException(exitCode);
-            })
-        );
 
         var instance = linker.Instantiate(store, module);
 
@@ -870,13 +687,126 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
         }
 
-        var contract = new Contract(item.PublicKey.ToAddress(), newContract.Name, newContract.Code);
+        var contract = new Contract(item.PublicKey.ToAddress(), newContract.Manifest, newContract.Code);
 
         var ctr = ctx.BlockRepository.GetContract(contract.Address);
 
         if (ctr != null) 
         {
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
+        }
+
+        using var module = Module.FromBytes(engine, "kryolite", newContract.Code);
+        using var linker = new Linker(engine);
+        using var store = new Store(engine);
+
+        var eventData = new List<object>();
+
+        linker.Define("env", "__transfer", Function.FromCallback<int, long>(store, (Caller caller, int address, long value) => {
+            var memory = caller.GetMemory("memory");
+
+            if (memory is null) 
+            {
+                return;
+            }
+
+            var addr = memory.ReadAddress(address);
+
+            if (addr.Equals(contract.Address))
+            {
+                Console.WriteLine($"Cannot transfer to contract address");
+                return;
+            }
+
+            if (!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
+            {
+                wallet = ctx.BlockRepository.GetWallet(addr);
+
+                if (wallet == null) 
+                {
+                    wallet = new LedgerWallet(addr);
+                }
+
+                ctx.LedgerWalletCache.Add(wallet.Address.ToString(), wallet);
+            }
+
+            Console.WriteLine($"Set balance for '{addr.ToString()}': {wallet.Balance / 1000000} -> {(wallet.Balance + (ulong)value) / 1000000} kryo");
+            contract.Balance = checked(contract.Balance - (ulong)value);
+            wallet.Balance = checked(wallet.Balance + (ulong)value);
+
+            item.Effects.Add(new Effect(addr, (ulong)value));
+        }));
+
+        linker.Define("env", "__export_state", Function.FromCallback<int, int>(store, (Caller caller, int ptr, int sz) => {
+            var memory = caller.GetMemory("memory");
+
+            if (memory is null) {
+                return;
+            }
+
+            var keyLen = memory.ReadInt32(ptr);
+            var keyStr = memory.GetSpan(ptr, sz);
+
+            Console.WriteLine("STATE_EXPORT: " + MessagePackSerializer.ConvertToJson(keyStr.ToArray()));
+            store.SetData(MessagePackSerializer.ConvertToJson(keyStr.ToArray()));
+        })
+        );
+
+        linker.Define("env", "__println", Function.FromCallback(store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
+            var mem = caller.GetMemory("memory");
+
+            if (mem is null) {
+                return;
+            }
+
+            var type = mem.GetSpan(type_ptr, type_len);
+            var msg = mem.GetSpan(ptr, len);
+            Console.WriteLine("LOG: " + ConvertToValue(type, msg));
+        })
+        );
+
+        linker.Define("env", "__append_event", Function.FromCallback(store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
+            var mem = caller.GetMemory("memory");
+
+            if (mem is null) {
+                return;
+            }
+
+            var type = mem.GetSpan(type_ptr, type_len);
+            var msg = mem.GetSpan(ptr, len);
+            eventData.Add(ConvertToValue(type, msg));
+        })
+        );
+
+        linker.Define("env", "__publish_event", Function.FromCallback(store, (Caller caller) => {
+            Console.WriteLine("EVENT: " + JsonSerializer.Serialize(eventData));
+            eventData.Clear();
+        })
+        );
+
+        linker.Define("env", "__return", Function.FromCallback(store, (Caller caller, int ptr, int len) => {
+            var mem = caller.GetMemory("memory");
+
+            if (mem is null) {
+                return;
+            }
+
+            Console.WriteLine("Returns: " + mem.ReadString(ptr, len, Encoding.UTF8));
+        })
+        );
+
+        linker.Define("env", "__rand", Function.FromCallback<float>(store, (Caller caller) => {
+            return rand.NextSingle();
+        })
+        );
+
+        linker.Define("env", "__exit", Function.FromCallback<int>(store, (Caller caller, int exitCode) => {
+            throw new ExitException(exitCode);
+        })
+        );
+
+        if (init != null) {
+            ctx.ProgramPtr = (int)init.Invoke();
         }
 
         ctx.BlockRepository.AddContract(contract);
