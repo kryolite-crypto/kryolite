@@ -15,6 +15,7 @@ public class Contract
     public string Name { get; set; }
     public ulong Balance { get; set; }
     public byte[] Code { get; set; }
+    public IntPtr? EntryPoint { get; set; }
     public ContractManifest Manifest { get; set; }
     public List<ContractSnapshot> Snapshots { get; set; } = new();
 
