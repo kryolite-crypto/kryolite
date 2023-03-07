@@ -4,6 +4,7 @@ using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
+using node;
 using Wasmtime;
 
 namespace Kryolite.Node;
@@ -696,119 +697,13 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
         }
 
-        using var module = Module.FromBytes(engine, "kryolite", newContract.Code);
-        using var linker = new Linker(engine);
-        using var store = new Store(engine);
+        var vmContext = new VMContext(contract);
 
-        var eventData = new List<object>();
+        using var vm = KryoVM.LoadFromCode(contract.Code)
+            .WithContext(vmContext);
 
-        linker.Define("env", "__transfer", Function.FromCallback<int, long>(store, (Caller caller, int address, long value) => {
-            var memory = caller.GetMemory("memory");
-
-            if (memory is null) 
-            {
-                return;
-            }
-
-            var addr = memory.ReadAddress(address);
-
-            if (addr.Equals(contract.Address))
-            {
-                Console.WriteLine($"Cannot transfer to contract address");
-                return;
-            }
-
-            if (!ctx.LedgerWalletCache.TryGetValue(addr.ToString(), out var wallet))
-            {
-                wallet = ctx.BlockRepository.GetWallet(addr);
-
-                if (wallet == null) 
-                {
-                    wallet = new LedgerWallet(addr);
-                }
-
-                ctx.LedgerWalletCache.Add(wallet.Address.ToString(), wallet);
-            }
-
-            Console.WriteLine($"Set balance for '{addr.ToString()}': {wallet.Balance / 1000000} -> {(wallet.Balance + (ulong)value) / 1000000} kryo");
-            contract.Balance = checked(contract.Balance - (ulong)value);
-            wallet.Balance = checked(wallet.Balance + (ulong)value);
-
-            item.Effects.Add(new Effect(addr, (ulong)value));
-        }));
-
-        linker.Define("env", "__export_state", Function.FromCallback<int, int>(store, (Caller caller, int ptr, int sz) => {
-            var memory = caller.GetMemory("memory");
-
-            if (memory is null) {
-                return;
-            }
-
-            var keyLen = memory.ReadInt32(ptr);
-            var keyStr = memory.GetSpan(ptr, sz);
-
-            Console.WriteLine("STATE_EXPORT: " + MessagePackSerializer.ConvertToJson(keyStr.ToArray()));
-            store.SetData(MessagePackSerializer.ConvertToJson(keyStr.ToArray()));
-        })
-        );
-
-        linker.Define("env", "__println", Function.FromCallback(store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
-            var mem = caller.GetMemory("memory");
-
-            if (mem is null) {
-                return;
-            }
-
-            var type = mem.GetSpan(type_ptr, type_len);
-            var msg = mem.GetSpan(ptr, len);
-            Console.WriteLine("LOG: " + ConvertToValue(type, msg));
-        })
-        );
-
-        linker.Define("env", "__append_event", Function.FromCallback(store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
-            var mem = caller.GetMemory("memory");
-
-            if (mem is null) {
-                return;
-            }
-
-            var type = mem.GetSpan(type_ptr, type_len);
-            var msg = mem.GetSpan(ptr, len);
-            eventData.Add(ConvertToValue(type, msg));
-        })
-        );
-
-        linker.Define("env", "__publish_event", Function.FromCallback(store, (Caller caller) => {
-            Console.WriteLine("EVENT: " + JsonSerializer.Serialize(eventData));
-            eventData.Clear();
-        })
-        );
-
-        linker.Define("env", "__return", Function.FromCallback(store, (Caller caller, int ptr, int len) => {
-            var mem = caller.GetMemory("memory");
-
-            if (mem is null) {
-                return;
-            }
-
-            Console.WriteLine("Returns: " + mem.ReadString(ptr, len, Encoding.UTF8));
-        })
-        );
-
-        linker.Define("env", "__rand", Function.FromCallback<float>(store, (Caller caller) => {
-            return rand.NextSingle();
-        })
-        );
-
-        linker.Define("env", "__exit", Function.FromCallback<int>(store, (Caller caller, int exitCode) => {
-            throw new ExitException(exitCode);
-        })
-        );
-
-        if (init != null) {
-            ctx.ProgramPtr = (int)init.Invoke();
-        }
-
+        contract.EntryPoint = vm.Initialize();
+        
         ctx.BlockRepository.AddContract(contract);
     }
 }
