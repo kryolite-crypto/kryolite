@@ -26,7 +26,6 @@ public interface IBlockchainManager
     List<Vote> AddVotes(IList<Vote> votes);
     void ResetChain();
     Contract? GetContract(Address address);
-    string? GetContractState(Address address);
     List<LedgerWallet> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
     Transaction? GetTransactionForHash(SHA256Hash hash);

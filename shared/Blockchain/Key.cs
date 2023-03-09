@@ -1,16 +1,13 @@
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
 using MessagePack;
-using Newtonsoft.Json;
 using SimpleBase;
 
 namespace Kryolite.Shared;
 
 public class PrivateKey
 {
-    [JsonProperty]
     public byte[] Buffer { get; private init; }
 
     public PrivateKey()
@@ -81,7 +78,6 @@ public class PrivateKey
 public class PublicKey
 {
     [Key(0)]
-    [JsonProperty]
     public byte[] Buffer { get; private init; }
 
     public PublicKey()

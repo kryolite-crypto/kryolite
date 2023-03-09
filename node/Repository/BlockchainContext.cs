@@ -67,6 +67,10 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             v => (long)v,
             v => (ulong)v);
 
+        var intPtrConverter = new ValueConverter<IntPtr, long>(
+            v => (long)v,
+            v => (IntPtr)v);
+
         var manifestConverter = new ValueConverter<ContractManifest, string>(
             v => JsonSerializer.Serialize(v, new JsonSerializerOptions()),
             v => JsonSerializer.Deserialize<ContractManifest>(v, new JsonSerializerOptions())!);
@@ -296,6 +300,12 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
 
             entity.Property(x => x.Balance)
                 .HasConversion(ulongConverter);
+
+            entity.Property(x => x.EntryPoint)
+                .HasConversion(intPtrConverter);
+
+            entity.Property(x => x.Manifest)
+                .HasConversion(manifestConverter);
         });
 
         builder.Entity<ContractSnapshot>(entity => {

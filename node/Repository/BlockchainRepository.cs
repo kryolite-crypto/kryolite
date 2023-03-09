@@ -209,7 +209,7 @@ public class BlockchainRepository : IDisposable
         {
             return Context.Contracts
                 .Where(x => x.Address == address)
-                .Select(x => new Contract(x.Owner, x.Name, x.Manifest, Array.Empty<byte>())
+                .Select(x => new Contract(x.Owner, x.Manifest, Array.Empty<byte>())
                     {
                         Id = x.Id,
                         Balance = x.Balance,

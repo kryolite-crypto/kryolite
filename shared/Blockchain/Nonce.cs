@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using MessagePack;
-using Newtonsoft.Json;
 using SimpleBase;
 
 namespace Kryolite.Shared;
@@ -9,7 +8,6 @@ namespace Kryolite.Shared;
 public class Nonce
 {
     [Key(0)]
-    [JsonProperty]
     public byte[] Buffer { get; private init; }
 
     public Nonce()
