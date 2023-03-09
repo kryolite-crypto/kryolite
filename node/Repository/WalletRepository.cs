@@ -17,7 +17,7 @@ public class WalletRepository : IDisposable
             .Options;
 
         Context = new WalletContext(options);
-        Context.Database.EnsureCreated();
+        Context.Database.Migrate();
     }
 
     public void Add(Wallet wallet)

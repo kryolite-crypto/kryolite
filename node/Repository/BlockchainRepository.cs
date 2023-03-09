@@ -21,7 +21,8 @@ public class BlockchainRepository : IDisposable
                 .Options;
 
             Factory = new PooledDbContextFactory<BlockchainContext>(options);
-            Factory.CreateDbContext().Database.EnsureCreated();
+            var db = Factory.CreateDbContext().Database;
+            db.Migrate();
         }
 
         Context = Factory.CreateDbContext();
