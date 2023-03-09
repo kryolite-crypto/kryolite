@@ -107,18 +107,6 @@ public class ApiControllerBase : Controller
         return Ok(blockchainManager.GetContract(address));
     }
 
-    [HttpGet("contract/{address}/state")]
-    public IActionResult GetSmartContractState(string address)
-    {
-        if (!Address.IsValid(address))
-        {
-            return BadRequest();
-        }
-
-        var state = blockchainManager.GetContractState(address) ?? string.Empty;
-        return Content(state, "application/json");
-    }
-
     [HttpPost("solution")]
     public bool PostSolution([FromBody] Blocktemplate blocktemplate)
     {

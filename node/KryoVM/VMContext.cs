@@ -7,6 +7,7 @@ public class VMContext
 {
     public Contract Contract { get; set; }
     public Transaction Transaction { get; set; }
+    public Random Rand { get; set; }
 
     public VMContext(Contract contract, Transaction transaction)
     {

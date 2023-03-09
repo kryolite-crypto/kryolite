@@ -828,14 +828,6 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetContract(address);
     }
 
-    public string? GetContractState(Address address)
-    {
-        using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.GetContractState(address);
-    }
-
     public List<LedgerWallet> GetRichList(int count)
     {
         using var _ = rwlock.EnterWriteLockEx();

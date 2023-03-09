@@ -2,7 +2,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using MessagePack;
-using Newtonsoft.Json;
 using SimpleBase;
 
 namespace Kryolite.Shared;
@@ -11,7 +10,6 @@ namespace Kryolite.Shared;
 public class Address
 {
     [Key(0)]
-    [JsonProperty]
     public byte[] Buffer { get; private init; }
 
     public Address()

@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using MessagePack;
-using Newtonsoft.Json;
 using SimpleBase;
 
 namespace Kryolite.Shared;
@@ -10,7 +9,6 @@ namespace Kryolite.Shared;
 public class SHA256Hash
 {
     [Key(0)]
-    [JsonProperty]
     public byte[] Buffer { get; private init; }
 
     public SHA256Hash()

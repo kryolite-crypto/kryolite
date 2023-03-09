@@ -697,7 +697,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
         }
 
-        var vmContext = new VMContext(contract);
+        var vmContext = new VMContext(contract, item);
 
         using var vm = KryoVM.LoadFromCode(contract.Code)
             .WithContext(vmContext);

@@ -42,6 +42,9 @@ public class KryoVM : IDisposable
         RegisterAPI();
 
         Instance = Linker.Instantiate(Store, Module);
+
+        _ = Instance.GetFunction("__malloc") ?? throw new Exception($"method not found [__malloc]");
+        _ = Instance.GetFunction("__free") ?? throw new Exception($"method not found [__free]");
     }
 
     public static KryoVM LoadFromCode(ReadOnlySpan<byte> code)
@@ -92,7 +95,29 @@ public class KryoVM : IDisposable
 
     public object CallMethod(string method, object[] methodParams)
     {
-        // TODO check context
+        if (Context is null)
+        {
+            throw new Exception("Context not set");
+        }
+
+        var malloc = Instance.GetFunction("__malloc") ?? throw new Exception($"method not found [__malloc]");
+        var free = Instance.GetFunction("__free") ?? throw new Exception($"method not found [__free]");
+        var run = Instance.GetFunction(method) ?? throw new Exception($"method not found [{method}]");
+
+        var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
+
+        var ctr = Instance.GetGlobal("_CONTRACT") ?? throw new Exception("Context global not found");
+        var ctrPtr = (int?)ctr.GetValue() ?? throw new Exception("Context global ptr not found");
+        memory.WriteBuffer(ctrPtr, Context.Contract.Address);
+        memory.WriteBuffer(ctrPtr + 26, Context.Contract.Owner);
+        memory.WriteInt64(ctrPtr + 52, (long)Context.Contract.Balance);
+
+        var tx = Instance.GetGlobal("_TRANSACTION") ?? throw new Exception("Transaction global not found");
+        var txPtr = (int?)tx.GetValue() ?? throw new Exception("Transaction global ptr not found");
+        memory.WriteBuffer(txPtr, Context.Transaction.From ?? new Address());
+        memory.WriteBuffer(txPtr + 26, Context.Transaction.To);
+        memory.WriteInt64(txPtr + 52, (long)Context.Transaction.Value);
+
         return null;
     }
 
@@ -145,7 +170,7 @@ public class KryoVM : IDisposable
 
             var type = mem.GetSpan(type_ptr, type_len);
             var msg = mem.GetSpan(ptr, len);
-            Console.WriteLine("LOG: " + ConvertToValue(type, msg));
+            Console.WriteLine("LOG: " + ValueConverter.ConvertToValue(type, msg));
         }));
 
         Linker.Define("env", "__append_event", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
@@ -158,7 +183,7 @@ public class KryoVM : IDisposable
 
             var type = mem.GetSpan(type_ptr, type_len);
             var msg = mem.GetSpan(ptr, len);
-            eventData.Add(ConvertToValue(type, msg));
+            eventData.Add(ValueConverter.ConvertToValue(type, msg));
         }));
 
         Linker.Define("env", "__publish_event", Function.FromCallback(Store, (Caller caller) => {
@@ -178,7 +203,7 @@ public class KryoVM : IDisposable
         }));
 
         Linker.Define("env", "__rand", Function.FromCallback<float>(Store, (Caller caller) => {
-            return rand.NextSingle();
+            return Context!.Rand.NextSingle();
         }));
 
         Linker.Define("env", "__exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) => {
