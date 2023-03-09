@@ -825,7 +825,7 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetContract(address);
+        return blockchainRepository.GetContract(address, true);
     }
 
     public List<LedgerWallet> GetRichList(int count)

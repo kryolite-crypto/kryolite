@@ -69,33 +69,46 @@ public class ContractSnapshot
     }
 }
 
+[MessagePackObject]
 public class ContractManifest
 {
+    [Key(0)]
     public string Name { get; init; } = string.Empty;
+    [Key(1)]
     public IReadOnlyCollection<ContractMethod> Methods { get; init; } = Array.Empty<ContractMethod>();
 }
 
+[MessagePackObject]
 public class ContractMethod
 {
+    [Key(0)]
     public string Name { get; init; } = string.Empty;
+    [Key(1)]
     public bool IsReadonly { get; init; }
 
+    [Key(2)]
     [JsonPropertyName("method_params")]
     public IReadOnlyCollection<ContractParam> Params { get; init; } = Array.Empty<ContractParam>();
 
+    [Key(3)]
     [JsonPropertyName("return_value")]
     public ReturnValue Returns { get; init; } = new();
 }
 
+[MessagePackObject]
 public class ContractParam
 {
+    [Key(0)]
     public string Name { get; init; } = string.Empty;
 
+    [Key(1)]
     [JsonPropertyName("param_type")]
     public string Type { get; init; } = string.Empty;
 }
 
+[MessagePackObject]
 public class ReturnValue
 {
-    public string value_type { get; set; }
+    [Key(2)]
+    public string Type { get; set; }
 }
