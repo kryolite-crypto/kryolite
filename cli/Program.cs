@@ -226,11 +226,6 @@ public class Program
         var contractCmd = new Command("contract", "Manage Contracts");
         var uploadCmd = new Command("upload", "Upload contract");
 
-        var nameOption = new Argument<string>(name: "NAME", description: "Contract name")
-        {
-
-        };
-
         var fromOption = new Argument<string>(name: "ADDRESS", description: "Address to send contract from (Contract Owner)")
         {
             
@@ -243,11 +238,10 @@ public class Program
 
         uploadCmd.AddArgument(fileOption);
         uploadCmd.AddArgument(fromOption);
-        uploadCmd.AddArgument(nameOption);
 
         contractCmd.AddCommand(uploadCmd);
 
-        uploadCmd.SetHandler(async (name, from, file, node) =>
+        uploadCmd.SetHandler(async (from, file, node) =>
         {
             var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
@@ -264,20 +258,38 @@ public class Program
             if(!File.Exists(file)) 
             {
                 Console.WriteLine($"File does not exist {file}");
+                Environment.Exit(-1);
+            }
+
+            var manifestFile = Path.Combine(Path.GetDirectoryName(file), "manifest.json");
+
+            if (!File.Exists(manifestFile))
+            {
+                Console.WriteLine($"Manifest does not exist {manifestFile}");
             }
 
             var bytes = File.ReadAllBytes(file);
 
+            var manifestJson = await File.ReadAllTextAsync(manifestFile, Encoding.UTF8);
+
+            var manifest = JsonSerializer.Deserialize<ContractManifest>(manifestJson, serializerOpts);
+
+            if (manifest == null)
+            {
+                Console.WriteLine($"Failed to deserialize {manifestFile}");
+                Environment.Exit(-1);
+            }
+
             var contract = new Contract(
                 wallet.PublicKey.ToAddress(),
-                name,
+                manifest,
                 bytes
             );
 
             Console.WriteLine(contract.ToAddress());
 
             var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
-            var newContract = new NewContract(name, bytes);
+            var newContract = new NewContract(manifest, bytes);
 
             var payload = new TransactionPayload
             {
@@ -304,7 +316,7 @@ public class Program
             await http.PostAsync($"{node}/tx", stringContent);
 
             Console.WriteLine($"Contract sent to {node}");
-        }, nameOption, fromOption, fileOption, nodeOption);
+        }, fromOption, fileOption, nodeOption);
 
         return contractCmd;
     }
