@@ -222,6 +222,7 @@ public class BlockchainRepository : IDisposable
 
         return Context.Contracts
             .Where(x => x.Address == address)
+            .Include(x => x.Snapshots)
             .FirstOrDefault();
     }
 
