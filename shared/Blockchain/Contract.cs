@@ -67,6 +67,12 @@ public class ContractSnapshot
         Height = height;
         Snapshot = snapshot;
     }
+
+    public ContractSnapshot(long height, ReadOnlySpan<byte> snapshot)
+    {
+        Height = height;
+        Snapshot = snapshot.ToArray();
+    }
 }
 
 [MessagePackObject]

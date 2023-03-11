@@ -118,7 +118,15 @@ public class KryoVM : IDisposable
         memory.WriteBuffer(txPtr + 26, Context.Transaction.To);
         memory.WriteInt64(txPtr + 52, (long)Context.Transaction.Value);
 
+        // TODO: Call method
+
         return null;
+    }
+
+    public ReadOnlySpan<byte> TakeSnapshot()
+    {
+        var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
+        return memory.GetSpan(0, (int)memory.GetLength()).Compress();
     }
 
     public void Dispose()

@@ -94,6 +94,7 @@ public class BlockchainManager : IBlockchainManager
 
             var txContext = new TransactionContext(blockchainRepository, wallets)
             {
+                Height = block.Height,
                 Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
                 FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
                 Timestamp = block.Timestamp
@@ -138,6 +139,7 @@ public class BlockchainManager : IBlockchainManager
             {
                 txContext = new TransactionContext(blockchainRepository, wallets)
                 {
+                    Height = block.Pow.Height,
                     Fee = block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
                     FeeTotal = (ulong)block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
                     Timestamp = block.Timestamp
@@ -305,6 +307,7 @@ public class BlockchainManager : IBlockchainManager
                     return false;
                 }
 
+                txContext.Height = block.Pow.Height;
                 txContext.Fee = block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min();
                 txContext.FeeTotal = (ulong)block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum();
                 txContext.Timestamp = block.Pow.Timestamp;
@@ -330,6 +333,7 @@ public class BlockchainManager : IBlockchainManager
                 blockchainContext.LastBlocks.Add(block.Pow);
             }
 
+            txContext.Height = block.Height;
             txContext.Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min();
             txContext.FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum();
             txContext.Timestamp = block.Timestamp;

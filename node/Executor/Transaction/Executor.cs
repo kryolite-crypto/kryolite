@@ -128,11 +128,14 @@ public enum ExecutionResult
     INVALID_PAYLOAD,
     TX_IS_BLOCK_REWARD,
     NULL_PAYLOAD,
-    INVALID_METHOD
+    INVALID_METHOD,
+    CONTRACT_ENTRYPOINT_MISSING,
+    CONTRACT_SNAPSHOT_MISSING
 }
 
 public class TransactionContext : IContext
 {
+    public long Height;
     public ulong Fee;
     public ulong FeeTotal;
     public long Timestamp;
@@ -318,18 +321,14 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
         }
 
-        using var engine = new Engine(new Config()
-            .WithFuelConsumption(true)
-            .WithReferenceTypes(true));
+        var snapshot = contract.Snapshots
+            .OrderByDescending(x => x.Height)
+            .FirstOrDefault();
 
-        var errors = Module.Validate(engine, contract.Code);
-        if(errors != null)
+        if (snapshot == null)
         {
-            Console.WriteLine(errors);
-            throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+            throw new ExecutionException(ExecutionResult.CONTRACT_SNAPSHOT_MISSING);
         }
-
-        using var module = Module.FromBytes(engine, contract.Name, contract.Code);
 
         var lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray)
@@ -343,13 +342,16 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
         }
 
         var methodName = $"{call.Method}";
+        var method = contract.Manifest.Methods
+            .Where(x => x.Name == methodName)
+            .FirstOrDefault();
 
-        if (!module.Exports.Any(x => x.Name == methodName))
+        if (method == null)
         {
             throw new ExecutionException(ExecutionResult.INVALID_METHOD);
         }
 
-        var _params = new object[0];
+        var methodParams = new object[1] { contract.EntryPoint ?? throw new ExecutionException(ExecutionResult.CONTRACT_ENTRYPOINT_MISSING) };
 
         if (call.Params is not null)
         {
@@ -368,36 +370,15 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             }
         }
 
-        using var linker = new Linker(engine);
-        using var store = new Store(engine);
+        var vmContext = new VMContext(contract, item);
 
-        ulong start = 1000000;
-        store.AddFuel(start + item.MaxFee);
+        using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
+            .WithContext(vmContext);
 
-
-
-        var instance = linker.Instantiate(store, module);
-
-        var memory = instance.GetMemory("memory") ?? throw new Exception("memory not found");
-        var tx = (int)(instance.GetGlobal("Transaction")?.GetValue() ?? throw new Exception("Transaction global not found"));
-
-        memory.WriteBuffer(memory.ReadInt32(tx), item.PublicKey!.ToAddress());
-        memory.WriteBuffer(memory.ReadInt32(tx + 4), item.To);
-        memory.WriteInt64(tx + 8, (long)item.Value);
-
-        var ctr = (int)(instance.GetGlobal("Contract")?.GetValue() ?? throw new Exception("Contract global not found"));
-        memory.WriteBuffer(memory.ReadInt32(ctr), contract.Owner);
-        memory.WriteBuffer(memory.ReadInt32(ctr + 4), contract.Address);
-
-        var run = instance.GetAction(methodName);
-
-        if (run == null)
-        {
-            throw new ExecutionException(ExecutionResult.FAILURE);
-        }
-
-        var exitCode = 0;
         Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
+        vm.CallMethod(methodName, methodParams);
+
+        /*var exitCode = 0;
 
         try
         {
@@ -439,15 +420,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
                 }
             }
             return;
-        }
-
-        var save = instance.GetAction("__save");
-
-        if (save != null)
-        {
-            Console.WriteLine($"Saving state for contract {contract.Name}");
-            save();
-        }
+        }*/
     }
 }
 
@@ -680,14 +653,6 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.INVALID_PAYLOAD);
         }
 
-        using var engine = new Engine(new Config()
-            .WithReferenceTypes(true));
-
-        if(Module.Validate(engine, newContract.Code) != null)
-        {
-            throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
-        }
-
         var contract = new Contract(item.PublicKey.ToAddress(), newContract.Manifest, newContract.Code);
 
         var ctr = ctx.BlockRepository.GetContract(contract.Address);
@@ -703,6 +668,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             .WithContext(vmContext);
 
         contract.EntryPoint = vm.Initialize();
+        contract.Snapshots.Add(new ContractSnapshot(ctx.Height, vm.TakeSnapshot()));
         
         ctx.BlockRepository.AddContract(contract);
     }
