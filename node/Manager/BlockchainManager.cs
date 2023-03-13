@@ -2,6 +2,7 @@ using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Microsoft.Extensions.Logging;
+using node;
 
 namespace Kryolite.Node;
 
@@ -73,25 +74,10 @@ public class BlockchainManager : IBlockchainManager
                 return false;
             }
 
-            // POS
-            // Verify Id
-            // Verify ParentHash
-            // Verify Timestamp (must be more then median of 11 last pos blocks?)
-            
-            // If has POW
-            // Verify Transactions as votes
-            // Credit Block Reward to Miner (create transaction)
-            // Credit Verifier reward to signers (create transaction)
-            // Credit Dev Fee (create transaction)
-
-            // If not has POW
-            // Verify Transactions
-            // Execute transactions
-            // Credit tx fees to pos node
-            // Sign block and collect transaction fees
-
             var wallets = walletManager.GetWallets();
-            var seed = blockchainContext.LastBlocks.TakeLast(11).Average(x => x.Timestamp);
+            var seed = blockchainContext.LastBlocks.DefaultIfEmpty()
+                .TakeLast(11)
+                .Average(x => x?.Timestamp ?? 0);
 
             var txContext = new TransactionContext(blockchainRepository, wallets)
             {
@@ -833,7 +819,7 @@ public class BlockchainManager : IBlockchainManager
 
     public Contract? GetContract(Address address)
     {
-        using var _ = rwlock.EnterWriteLockEx();
+        using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         return blockchainRepository.GetContract(address, true);
@@ -841,14 +827,14 @@ public class BlockchainManager : IBlockchainManager
 
     public List<LedgerWallet> GetRichList(int count)
     {
-        using var _ = rwlock.EnterWriteLockEx();
+        using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         return blockchainRepository.GetRichList(count);
     }
     public List<Transaction> GetTransactionsForAddress(Address address)
     {
-        using var _ = rwlock.EnterWriteLockEx();
+        using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         return blockchainRepository.GetTransactions(address);
@@ -856,7 +842,7 @@ public class BlockchainManager : IBlockchainManager
 
     public Transaction? GetTransactionForHash(SHA256Hash hash)
     {
-        using var _ = rwlock.EnterWriteLockEx();
+        using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         return blockchainRepository.GetTransaction(hash);
@@ -864,10 +850,60 @@ public class BlockchainManager : IBlockchainManager
 
     public LedgerWallet? GetLedgerWallet(Address address)
     {
-        using var _ = rwlock.EnterWriteLockEx();
+        using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         return blockchainRepository.GetWallet(address);
+    }
+
+    public string? CallContractMethod(Address address, CallMethod call)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        var contract = blockchainRepository.GetContract(address) ?? throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+
+        var snapshot = contract.Snapshots
+            .OrderByDescending(x => x.Height)
+            .FirstOrDefault();
+
+        if (snapshot == null)
+        {
+            throw new ExecutionException(ExecutionResult.CONTRACT_SNAPSHOT_MISSING);
+        }
+
+        var methodName = $"{call.Method}";
+        var method = contract.Manifest.Methods
+            .Where(x => x.Name == methodName)
+            .FirstOrDefault();
+
+        if (method == null)
+        {
+            throw new ExecutionException(ExecutionResult.INVALID_METHOD);
+        }
+
+        if (!method.IsReadonly)
+        {
+            throw new Exception("only readonly methods can be called without transaction");
+        }
+
+        var methodParams = new List<object> { contract.EntryPoint ?? throw new ExecutionException(ExecutionResult.CONTRACT_ENTRYPOINT_MISSING) };
+
+        if (call.Params is not null)
+        {
+            methodParams.AddRange(call.Params);
+        }
+
+        var vmContext = new VMContext(contract, new Transaction { To = address }, 0);
+
+        using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
+            .WithContext(vmContext);
+
+        Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
+        var ret = vm.CallMethod(methodName, methodParams.ToArray(), out var json);
+        Console.WriteLine($"Contract result = {ret}");
+
+        return json;
     }
 
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)

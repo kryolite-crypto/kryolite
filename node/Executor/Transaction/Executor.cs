@@ -404,6 +404,9 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
                 contract.Balance = balance;
             }
         }
+
+        // TODO: take snapshot and commit at the end of block execution
+        contract.Snapshots.Add(new ContractSnapshot(ctx.Height, vm.TakeSnapshot()));
     }
 }
 
@@ -640,7 +643,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
 
         var ctr = ctx.BlockRepository.GetContract(contract.Address);
 
-        if (ctr != null) 
+        if (ctr != null)
         {
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
         }

@@ -213,6 +213,7 @@ public class BlockchainRepository : IDisposable
                 .Select(x => new Contract(x.Owner, x.Manifest, Array.Empty<byte>())
                     {
                         Id = x.Id,
+                        Address = x.Address,
                         Balance = x.Balance,
                         Manifest = x.Manifest
                     }
