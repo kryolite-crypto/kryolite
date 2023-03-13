@@ -115,6 +115,6 @@ public class ContractParam
 [MessagePackObject]
 public class ReturnValue
 {
-    [Key(2)]
-    public string Type { get; set; }
+    [Key(0)]
+    public string Type { get; set; } = string.Empty;
 }

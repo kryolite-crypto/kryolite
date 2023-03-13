@@ -139,6 +139,7 @@ public class TransactionContext : IContext
     public ulong Fee;
     public ulong FeeTotal;
     public long Timestamp;
+    public int Seed;
     public Dictionary<string, Wallet> Wallets;
     public BlockchainRepository BlockRepository;
     public IMempoolManager MempoolManager;
@@ -351,14 +352,11 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.INVALID_METHOD);
         }
 
-        var methodParams = new object[1] { contract.EntryPoint ?? throw new ExecutionException(ExecutionResult.CONTRACT_ENTRYPOINT_MISSING) };
+        var methodParams = new List<object> { contract.EntryPoint ?? throw new ExecutionException(ExecutionResult.CONTRACT_ENTRYPOINT_MISSING) };
 
         if (call.Params is not null)
         {
-            foreach (var param in call.Params)
-            {
-                // TODO
-            }
+            methodParams.AddRange(call.Params);
         }
 
         if (!ctx.LedgerWalletCache.TryGetValue(contract.Owner.ToString(), out var ownerWallet))
@@ -370,13 +368,13 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             }
         }
 
-        var vmContext = new VMContext(contract, item, 69); // TODO: Implement seed
+        var vmContext = new VMContext(contract, item, ctx.Seed);
 
         using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
             .WithContext(vmContext);
 
         Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
-        var ret = vm.CallMethod(methodName, methodParams, out _);
+        var ret = vm.CallMethod(methodName, methodParams.ToArray(), out _);
         Console.WriteLine($"Contract result = {ret}");
 
         if (ret != 0)
@@ -647,7 +645,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
         }
 
-        var vmContext = new VMContext(contract, item, 69); // TODO: Implement seed
+        var vmContext = new VMContext(contract, item, ctx.Seed);
 
         using var vm = KryoVM.LoadFromCode(contract.Code)
             .WithContext(vmContext);

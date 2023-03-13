@@ -91,13 +91,15 @@ public class BlockchainManager : IBlockchainManager
             // Sign block and collect transaction fees
 
             var wallets = walletManager.GetWallets();
+            var seed = blockchainContext.LastBlocks.TakeLast(11).Average(x => x.Timestamp);
 
             var txContext = new TransactionContext(blockchainRepository, wallets)
             {
                 Height = block.Height,
                 Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
                 FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
-                Timestamp = block.Timestamp
+                Timestamp = block.Timestamp,
+                Seed = (int)seed
             };
 
             var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
@@ -142,7 +144,8 @@ public class BlockchainManager : IBlockchainManager
                     Height = block.Pow.Height,
                     Fee = block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
                     FeeTotal = (ulong)block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
-                    Timestamp = block.Timestamp
+                    Timestamp = block.Timestamp,
+                    Seed = (int)seed
                 };
 
                 txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
@@ -300,6 +303,8 @@ public class BlockchainManager : IBlockchainManager
         int progress = 0;
         foreach (var block in blocks)
         {
+            var seed = blockchainContext.LastBlocks.TakeLast(11).Average(x => x.Timestamp);
+
             if (block.Pow != null)
             {
                 if (!powExcecutor.Execute(block.Pow, out var result)) {
@@ -311,6 +316,7 @@ public class BlockchainManager : IBlockchainManager
                 txContext.Fee = block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min();
                 txContext.FeeTotal = (ulong)block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum();
                 txContext.Timestamp = block.Pow.Timestamp;
+                txContext.Seed = (int)seed;
 
                 if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res)) {
                     logger.LogWarning($"AddBlock failed with: {res}");
@@ -337,6 +343,7 @@ public class BlockchainManager : IBlockchainManager
             txContext.Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min();
             txContext.FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum();
             txContext.Timestamp = block.Timestamp;
+            txContext.Seed = (int)seed;
 
             if (!txExecutor.ExecuteBatch(block.Transactions, out var txresult)) {
                 logger.LogError(txContext.Ex, $"AddBlock failed with: {txresult}");
