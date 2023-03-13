@@ -107,6 +107,19 @@ public class ApiControllerBase : Controller
         return Ok(blockchainManager.GetContract(address));
     }
 
+    [HttpPost("contract/{address}/call")]
+    public IActionResult CallContractMethod([FromRoute] string address, [FromBody] CallMethod callMethod)
+    {
+        if (!Address.IsValid(address))
+        {
+            return BadRequest();
+        }
+
+        var json = blockchainManager.CallContractMethod(address, callMethod);
+
+        return Content(json ?? string.Empty, "application/json");
+    }
+
     [HttpPost("solution")]
     public bool PostSolution([FromBody] Blocktemplate blocktemplate)
     {

@@ -30,6 +30,7 @@ public interface IBlockchainManager
     List<Transaction> GetTransactionsForAddress(Address address);
     Transaction? GetTransactionForHash(SHA256Hash hash);
     LedgerWallet? GetLedgerWallet(Address address);
+    string? CallContractMethod(Address address, CallMethod call);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);

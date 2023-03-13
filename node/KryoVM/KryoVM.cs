@@ -123,7 +123,7 @@ public class KryoVM : IDisposable
 
         try
         {
-            var values = new List<ValueBox>();
+            var values = new List<ValueBox>() { (IntPtr)methodParams[0] };
             var toFree = new List<(int ptr, int length)>();
 
             var manifest = Context.Contract.Manifest.Methods.Where(x => x.Name == method).First();
@@ -135,7 +135,7 @@ public class KryoVM : IDisposable
 
             var mParams = manifest.Params.ToArray();
 
-            for (int i = 0; i < methodParams.Length; i++)
+            for (int i = 0; i < methodParams.Length - 1; i++)
             {
                 var param = mParams[i];
                 var value = ValueConverter.ConvertFromValue(param.Type, methodParams[i]);

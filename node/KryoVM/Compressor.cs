@@ -12,9 +12,10 @@ public static class Compressor
     public static ReadOnlySpan<byte> Compress(this Span<byte> data)
     {
         using var output = new MemoryStream();
-        using var dstream = new DeflateStream(output, CompressionLevel.Optimal);
-
-        dstream.Write(data);
+        using (var dstream = new DeflateStream(output, CompressionLevel.Optimal))
+        {
+            dstream.Write(data);
+        }
 
         return output.ToArray();
     }
@@ -23,9 +24,10 @@ public static class Compressor
     {
         using var input = new MemoryStream(data.ToArray());
         using var output = new MemoryStream();
-        using var dstream = new DeflateStream(input, CompressionMode.Decompress);
-
-        dstream.CopyTo(output);
+        using (var dstream = new DeflateStream(input, CompressionMode.Decompress))
+        {
+            dstream.CopyTo(output);
+        }
 
         return output.ToArray();
     }

@@ -90,6 +90,7 @@ public class ContractMethod
     [Key(0)]
     public string Name { get; init; } = string.Empty;
     [Key(1)]
+    [JsonPropertyName("readonly")]
     public bool IsReadonly { get; init; }
 
     [Key(2)]
