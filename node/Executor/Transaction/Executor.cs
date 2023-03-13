@@ -370,57 +370,42 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             }
         }
 
-        var vmContext = new VMContext(contract, item);
+        var vmContext = new VMContext(contract, item, 69); // TODO: Implement seed
 
         using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
             .WithContext(vmContext);
 
         Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
-        vm.CallMethod(methodName, methodParams);
+        var ret = vm.CallMethod(methodName, methodParams, out _);
+        Console.WriteLine($"Contract result = {ret}");
 
-        /*var exitCode = 0;
-
-        try
+        if (ret != 0)
         {
-            run();
-        }
-        catch (WasmtimeException waEx)
-        {
-            if (waEx.InnerException is ExitException eEx)
-            {
-                exitCode = eEx.ExitCode;
-            }
-            else
-            {
-                Console.WriteLine(waEx);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex);
-        }
-
-        Console.WriteLine($"{contract.Name}:{call.Method} return with exit code {exitCode}");
-
-        if (exitCode != 0) 
-        {
-            foreach (var effect in item.Effects)
-            {
-                if (!ctx.LedgerWalletCache.ContainsKey(effect.To.ToString())) 
-                {
-                    continue;
-                }
-
-                var eWallet = ctx.LedgerWalletCache[effect.To.ToString()];
-
-                checked
-                {
-                    eWallet.Balance -= effect.Value;
-                    contract.Balance += effect.Value;
-                }
-            }
+            item.Effects.Clear();
             return;
-        }*/
+        }
+
+        foreach (var effect in item.Effects)
+        {
+            if (!ctx.LedgerWalletCache.TryGetValue(effect.To.ToString(), out var wallet))
+            {
+                wallet = ctx.BlockRepository.GetWallet(effect.To) ?? new LedgerWallet(effect.To);
+                ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
+            }
+
+            checked
+            {
+                wallet.Balance += effect.Value;
+
+                var balance = contract.Balance - effect.Value;
+                if (balance < 0)
+                {
+                    throw new ExecutionException(ExecutionResult.TOO_LOW_BALANCE);
+                }
+
+                contract.Balance = balance;
+            }
+        }
     }
 }
 
@@ -662,7 +647,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
         }
 
-        var vmContext = new VMContext(contract, item);
+        var vmContext = new VMContext(contract, item, 69); // TODO: Implement seed
 
         using var vm = KryoVM.LoadFromCode(contract.Code)
             .WithContext(vmContext);

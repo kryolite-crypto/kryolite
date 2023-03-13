@@ -3,6 +3,7 @@ using Kryolite.Shared;
 using Makaretu.Dns.Resolving;
 using MessagePack;
 using System;
+using System.Diagnostics.Contracts;
 using System.Text;
 using System.Text.Json;
 using Wasmtime;
@@ -93,7 +94,7 @@ public class KryoVM : IDisposable
         return (int?)init.Invoke() ?? throw new Exception("Contract initialization failed, pointer to EntryPoint missing");
     }
 
-    public object CallMethod(string method, object[] methodParams)
+    public int CallMethod(string method, object[] methodParams, out string? returns)
     {
         if (Context is null)
         {
@@ -118,9 +119,73 @@ public class KryoVM : IDisposable
         memory.WriteBuffer(txPtr + 26, Context.Transaction.To);
         memory.WriteInt64(txPtr + 52, (long)Context.Transaction.Value);
 
-        // TODO: Call method
+        var exitCode = 0;
 
-        return null;
+        try
+        {
+            var values = new List<ValueBox>();
+            var toFree = new List<(int ptr, int length)>();
+
+            var manifest = Context.Contract.Manifest.Methods.Where(x => x.Name == method).First();
+
+            if (manifest == null)
+            {
+                throw new Exception($"method manifest not found ({method})");
+            }
+
+            var mParams = manifest.Params.ToArray();
+
+            for (int i = 0; i < methodParams.Length; i++)
+            {
+                var param = mParams[i];
+                var value = ValueConverter.ConvertFromValue(param.Type, methodParams[i]);
+
+                if (value is byte[] arr)
+                {
+                    var ptr = (int?)malloc.Invoke(arr.Length);
+
+                    if (ptr == null)
+                    {
+                        throw new Exception($"failed to allocate memory");
+                    }
+
+                    memory.WriteBuffer((int)ptr, arr);
+                    values.Add((int)ptr);
+                    toFree.Add(((int)ptr, arr.Length));
+                }
+                else
+                {
+                    values.Add((ValueBox)methodParams[i]);
+                }
+            }
+
+            run.Invoke(values.ToArray());
+
+            foreach (var ptr in toFree)
+            {
+                free.Invoke(ptr.ptr, ptr.length);
+            }
+        }
+        catch (WasmtimeException waEx)
+        {
+            if (waEx.InnerException is ExitException eEx)
+            {
+                exitCode = eEx.ExitCode;
+            }
+            else
+            {
+                exitCode = 20;
+                Console.WriteLine(waEx);
+            }
+        }
+        catch (Exception ex)
+        {
+            exitCode = 1;
+            Console.WriteLine(ex);
+        }
+
+        returns = Context!.Returns;
+        return exitCode;
     }
 
     public ReadOnlySpan<byte> TakeSnapshot()
@@ -138,8 +203,6 @@ public class KryoVM : IDisposable
     }
     private void RegisterAPI() 
     {
-        var eventData = new List<object>();
-
         Linker.Define("env", "__transfer", Function.FromCallback<int, long>(Store, (Caller caller, int address, long value) => {
             var memory = caller.GetMemory("memory");
 
@@ -150,22 +213,23 @@ public class KryoVM : IDisposable
 
             var addr = memory.ReadAddress(address);
 
-            Context!.Transaction.Effects.Add(new Effect(addr, (ulong)value));
-        }));
-
-        Linker.Define("env", "__export_state", Function.FromCallback<int, int>(Store, (Caller caller, int ptr, int sz) => {
-            var memory = caller.GetMemory("memory");
-
-            if (memory is null)
+            if (addr is null) 
             {
-                return;
+                //throw new Exception("unable to transfer, null 'to' address");
+                throw new ExitException(101);
+
             }
 
-            var keyLen = memory.ReadInt32(ptr);
-            var keyStr = memory.GetSpan(ptr, sz);
+            var balance = checked(Context!.Balance - value);
 
-            Console.WriteLine("STATE_EXPORT: " + MessagePackSerializer.ConvertToJson(keyStr.ToArray()));
-            Store.SetData(MessagePackSerializer.ConvertToJson(keyStr.ToArray()));
+            if (balance < 0)
+            {
+                //throw new Exception("unable to transfer, contract balance negative");
+                throw new ExitException(102);
+            }
+
+            Context!.Balance = balance;
+            Context!.Transaction.Effects.Add(new Effect(addr, (ulong)value));
         }));
 
         Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
@@ -191,12 +255,12 @@ public class KryoVM : IDisposable
 
             var type = mem.GetSpan(type_ptr, type_len);
             var msg = mem.GetSpan(ptr, len);
-            eventData.Add(ValueConverter.ConvertToValue(type, msg));
+            Context!.EventData.Add(ValueConverter.ConvertToValue(type, msg));
         }));
 
         Linker.Define("env", "__publish_event", Function.FromCallback(Store, (Caller caller) => {
-            Console.WriteLine("EVENT: " + JsonSerializer.Serialize(eventData));
-            eventData.Clear();
+            Console.WriteLine("EVENT: " + JsonSerializer.Serialize(Context!.EventData));
+            Context!.EventData.Clear();
         }));
 
         Linker.Define("env", "__return", Function.FromCallback(Store, (Caller caller, int ptr, int len) => {
@@ -207,7 +271,9 @@ public class KryoVM : IDisposable
                 return;
             }
 
-            Console.WriteLine("Returns: " + mem.ReadString(ptr, len, Encoding.UTF8));
+            var str = mem.ReadString(ptr, len, Encoding.UTF8);
+            Context!.Returns = str;
+            Console.WriteLine("Returns: " + str);
         }));
 
         Linker.Define("env", "__rand", Function.FromCallback<float>(Store, (Caller caller) => {
