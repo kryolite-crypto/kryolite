@@ -64,4 +64,39 @@ public static class ValueConverter
                 return valBytes.ToArray();
         }
     }
+
+    public static object ConvertFromValue(string type, object value)
+    {
+        if (value.GetType().IsPrimitive)
+        {
+            // TODO: Do we need to limit some primitives?
+            return value;
+        }
+
+        switch (value)
+        {
+            case string str:
+                return ConvertFromString(type, str);
+            case byte[] bytes:
+                return bytes;
+            default:
+                throw new ArgumentException("Unknown argument type: " + value.GetType());
+        }
+    }
+
+    public static byte[] ConvertFromString(string type, string str)
+    {
+        // cleanup lifetimes, references etc
+        var cleaned_type = type.Contains("Address") ? "Address" : type;
+
+        switch (cleaned_type)
+        {
+            case "Address":
+                return ((Address)str).Buffer;
+            case "U256":
+                return ((SHA256Hash)str).Buffer;
+            default:
+                return Encoding.UTF8.GetBytes(str);
+        }
+    }
 }
