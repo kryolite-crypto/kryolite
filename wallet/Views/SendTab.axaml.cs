@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
@@ -36,5 +37,36 @@ public partial class SendTab : UserControl
             Model.Recipient = "";
             Model.Amount = "";
         };
+    }
+    public void RecipientChanged(object sender, TextChangedEventArgs args)
+    {
+        var container = this.GetControl<GroupBox>("MethodContainer");
+
+        if (Model.Recipient == null || !Address.IsValid(Model.Recipient))
+        {
+            container.IsVisible = false;
+            return;
+        }
+
+        var addr = (Address)Model.Recipient;
+
+        if (!addr.IsContract())
+        {
+            container.IsVisible = false;
+            return;
+        }
+
+        var contract = BlockchainManager.GetContract(addr);
+
+        Model.Manifest = new ContractManifest()
+        {
+            Name = contract?.Manifest.Name ?? string.Empty,
+            Methods = contract?.Manifest.Methods
+                .Where(x => !x.IsReadonly)
+                .DistinctBy(x => x.Name)
+                .ToList() ?? new()
+        };
+
+        container.IsVisible = true;
     }
 }

@@ -7,9 +7,70 @@
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
                 x:Class="Kryolite.Wallet.SendTab">
 
+  <UserControl.Styles>
+    <Style Selector="vm|GroupBox">
+      <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush}" />
+      <Setter Property="BorderBrush" Value="#66ffffff" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeNormal}" />
+      <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundBrush}" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Margin" Value="1" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Grid x:Name="GroupBoxRoot">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+              </Grid.RowDefinitions>
+              <Border Grid.Row="0"
+                HorizontalAlignment="Left"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="0, 0.51, 0, 0"
+                Margin="0, 8, 0, 0"
+                Width="5"/>
+              <ContentControl Grid.Row="0"
+                Name="HeaderContent"
+                Margin="10,0,0,0"
+                Content="{TemplateBinding Header}"
+                ContentTemplate="{TemplateBinding HeaderTemplate}"
+                HorizontalAlignment="Left"
+                FontFamily="{TemplateBinding FontFamily}"
+                FontSize="{TemplateBinding FontSize}"
+                FontWeight="{TemplateBinding FontWeight}"
+                UseLayoutRounding="False"
+                ZIndex="1"/>
+
+              <Border Grid.Row="0"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="0, 0.51, 0, 0"
+                Margin="{Binding Width, ElementName=HeaderContent, Path=Bounds, Converter={StaticResource WidthToMarginConverter}}"/>
+              
+              <Border Grid.Row="1"
+                      Margin="0,-9,0,0"
+                      Padding="5,15,5,5"
+                      BorderThickness="0.51, 0, 0.51, 0.51"
+                      Background="Transparent"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      UseLayoutRounding="True">
+                  <ContentPresenter Margin="{TemplateBinding Padding}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    Cursor="{TemplateBinding Cursor}"
+                                    UseLayoutRounding="False" />
+                </Border>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Styles>
+
     <DockPanel Margin="20">
-        <StackPanel Spacing="20">
-            <!--StackPanel.Styles>
+      <StackPanel Spacing="20">
+        <!--StackPanel.Styles>
                 <Style Selector="TextBox.floating">
                     <Setter Property="Margin" Value="0, -18, 0, 0"/>
                 </Style>
@@ -26,33 +87,56 @@
                     <Setter Property="Margin" Value="0, 0, 0, 0"/>
                 </Style>
             </StackPanel.Styles-->
-            <ComboBox Width="420" Items="{Binding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">
-                            <TextBlock Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" Grid.Row="0" Grid.Column="0"/>
-                            <TextBlock Text="{Binding Description}" IsVisible="{Binding Description, Converter={StaticResource NotEmptyConverter}}" Grid.Row="1" Grid.Column="0"/>
-                            <TextBlock Text="{Binding Address}" IsVisible="{Binding Description, Converter={StaticResource EmptyConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
-                        </Grid>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <TextBox Classes="floating" Width="420" Text="{Binding Recipient}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
-            <StackPanel Orientation="Horizontal" Spacing="10">
-                <TextBox Classes="floating" Width="200" Text="{Binding Amount}" Watermark="Amount to send" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
-                <StackPanel>
-                    <TextBlock VerticalAlignment="Center">Available</TextBlock>
-                    <TextBlock VerticalAlignment="Center" Text="{Binding Path=SelectedWallet.Balance, Converter={StaticResource CurrencyConverter}}"/>
-                </StackPanel>
-            </StackPanel>
-            <StackPanel Orientation="Horizontal">
-                <Button IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" Command="{Binding OnSendTransactionCommand}">Send</Button>
-            </StackPanel>
+        <ComboBox Width="420" Items="{Binding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
+          <ComboBox.ItemTemplate>
+            <DataTemplate>
+              <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">
+                <TextBlock Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" Grid.Row="0" Grid.Column="0"/>
+                <TextBlock Text="{Binding Description}" IsVisible="{Binding Description, Converter={StaticResource NotEmptyConverter}}" Grid.Row="1" Grid.Column="0"/>
+                <TextBlock Text="{Binding Address}" IsVisible="{Binding Description, Converter={StaticResource EmptyConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+              </Grid>
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <TextBox Width="420" Text="{Binding Recipient}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" TextChanged="RecipientChanged" />
+        <StackPanel Orientation="Horizontal" Spacing="10">
+          <TextBox Width="200" Text="{Binding Amount}" Watermark="Amount to send" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
+          <StackPanel>
+            <TextBlock VerticalAlignment="Center">Available</TextBlock>
+            <TextBlock VerticalAlignment="Center" Text="{Binding Path=SelectedWallet.Balance, Converter={StaticResource CurrencyConverter}}"/>
+          </StackPanel>
         </StackPanel>
-        <DataGrid Name="PendingGrid" AutoGenerateColumns="False" DockPanel.Dock="Bottom">
-            <DataGrid.Columns>
 
-            </DataGrid.Columns>
-        </DataGrid>
+        <vm:GroupBox Name="MethodContainer" Header="{Binding Path=Manifest.Name, Converter={StaticResource CapitalToSentenceConverter}}" IsVisible="False">
+          <StackPanel Orientation="Horizontal">
+            <ComboBox Width="200" Items="{Binding Path=Manifest.Methods}" SelectedItem="{Binding Method}" Margin="0,0,10,0">
+              <ComboBox.ItemTemplate>
+                <DataTemplate>
+                  <TextBlock Text="{Binding Name, Converter={StaticResource SnakeCaseConverter}}"/>
+                </DataTemplate>
+              </ComboBox.ItemTemplate>
+            </ComboBox>
+            <ItemsRepeater Items="{Binding Path=Method.Params}">
+              <ItemsRepeater.Layout>
+                <StackLayout Spacing="10" Orientation="Horizontal" />
+              </ItemsRepeater.Layout>
+              <ItemsRepeater.ItemTemplate>
+                <DataTemplate>
+                  <TextBox Width="160" Watermark="{Binding Name, Converter={StaticResource SnakeCaseConverter}}"/>
+                </DataTemplate>
+              </ItemsRepeater.ItemTemplate>
+            </ItemsRepeater>
+          </StackPanel>
+        </vm:GroupBox>
+
+        <StackPanel Orientation="Horizontal">
+          <Button IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" Command="{Binding OnSendTransactionCommand}">Send</Button>
+        </StackPanel>
+      </StackPanel>
+      <DataGrid Name="PendingGrid" AutoGenerateColumns="False" DockPanel.Dock="Bottom">
+        <DataGrid.Columns>
+
+        </DataGrid.Columns>
+      </DataGrid>
     </DockPanel>
-</UserControl>
+  </UserControl>

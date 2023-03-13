@@ -13,5 +13,8 @@
         <vm:NotNullConverter x:Key="NotNullConverter"/>
         <vm:NotEmptyConverter x:Key="NotEmptyConverter"/>
         <vm:EmptyConverter x:Key="EmptyConverter"/>
+        <vm:SnakeCaseConverter x:Key="SnakeCaseConverter"/>
+        <vm:WidthToMarginConverter x:Key="WidthToMarginConverter"/>
+        <vm:CapitalToSentenceConverter x:Key="CapitalToSentenceConverter" />
     </Application.Resources>
 </Application>
