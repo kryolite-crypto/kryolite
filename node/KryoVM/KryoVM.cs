@@ -138,24 +138,52 @@ public class KryoVM : IDisposable
             for (int i = 0; i < methodParams.Length - 1; i++)
             {
                 var param = mParams[i];
-                var value = ValueConverter.ConvertFromValue(param.Type, methodParams[i]);
+                var value = ValueConverter.ConvertFromValue(param.Type, methodParams[i + 1]);
 
-                if (value is byte[] arr)
+                switch (value)
                 {
-                    var ptr = (int?)malloc.Invoke(arr.Length);
+                    case byte[] arr:
+                        var ptr = (int?)malloc.Invoke(arr.Length);
 
-                    if (ptr == null)
-                    {
-                        throw new Exception($"failed to allocate memory");
-                    }
+                        if (ptr == null)
+                        {
+                            throw new Exception($"failed to allocate memory");
+                        }
 
-                    memory.WriteBuffer((int)ptr, arr);
-                    values.Add((int)ptr);
-                    toFree.Add(((int)ptr, arr.Length));
-                }
-                else
-                {
-                    values.Add((ValueBox)methodParams[i]);
+                        memory.WriteBuffer((int)ptr, arr);
+                        values.Add((int)ptr);
+                        toFree.Add(((int)ptr, arr.Length));
+                        break;
+                    case bool val:
+                        values.Add(val == true ? 1 : 0);
+                        break;
+                    case byte val:
+                        values.Add(val);
+                        break;
+                    case short val:
+                        values.Add(val);
+                        break;
+                    case ushort val:
+                        values.Add(val);
+                        break;
+                    case int val:
+                        values.Add(val);
+                        break;
+                    case uint val:
+                        values.Add(val);
+                        break;
+                    case long val:
+                        values.Add(val);
+                        break;
+                    case ulong val:
+                        values.Add(val);
+                        break;
+                    case float val:
+                        values.Add(val);
+                        break;
+                    case double val:
+                        values.Add(val);
+                        break;
                 }
             }
 
