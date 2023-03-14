@@ -1,6 +1,7 @@
 ﻿using Kryolite.Shared;
 using System;
 using System.Collections.Generic;
+using System.Data.SqlTypes;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,10 +12,10 @@ public static class ValueConverter
 {
     public static object ConvertToValue(Span<byte> typeBytes, Span<byte> valBytes)
     {
-        var type = Encoding.UTF8.GetString(typeBytes)
+        var cleaned_type = Encoding.UTF8.GetString(typeBytes)
             .Replace("&", string.Empty);
 
-        switch (type)
+        switch (cleaned_type)
         {
             case "Address":
                 return ((Address)valBytes).ToString();
@@ -28,8 +29,10 @@ public static class ValueConverter
             case "u16":
                 return BitConverter.ToUInt16(valBytes);
             case "i32":
+            case "isize":
                 return BitConverter.ToInt32(valBytes);
             case "u32":
+            case "usize":
                 return BitConverter.ToUInt32(valBytes);
             case "i64":
                 return BitConverter.ToInt64(valBytes);
@@ -39,24 +42,6 @@ public static class ValueConverter
                 return BitConverter.ToSingle(valBytes);
             case "f64":
                 return BitConverter.ToDouble(valBytes);
-            case "isize":
-                if (valBytes.Length == 8)
-                {
-                    return BitConverter.ToInt64(valBytes);
-                }
-                else
-                {
-                    return BitConverter.ToInt32(valBytes);
-                }
-            case "usize":
-                if (valBytes.Length == 8)
-                {
-                    return BitConverter.ToUInt64(valBytes);
-                }
-                else
-                {
-                    return BitConverter.ToUInt32(valBytes);
-                }
             case "str":
             case "& str":
                 return Encoding.UTF8.GetString(valBytes);
@@ -84,7 +69,7 @@ public static class ValueConverter
         }
     }
 
-    public static byte[] ConvertFromString(string type, string str)
+    public static object ConvertFromString(string type, string str)
     {
         // cleanup lifetimes, references etc
         var cleaned_type = type.Contains("Address") ? "Address" : type;
@@ -95,6 +80,29 @@ public static class ValueConverter
                 return ((Address)str).Buffer;
             case "U256":
                 return ((SHA256Hash)str).Buffer;
+            case "bool":
+                return bool.Parse(str);
+            case "i8":
+            case "u8":
+                return byte.Parse(str);
+            case "i16":
+                return short.Parse(str);
+            case "u16":
+                return ushort.Parse(str);
+            case "i32":
+            case "isize":
+                return int.Parse(str);
+            case "u32":
+            case "usize":
+                return uint.Parse(str);
+            case "i64":
+                return long.Parse(str);
+            case "u64":
+                return ulong.Parse(str);
+            case "f32":
+                return float.Parse(str);
+            case "f64":
+                return double.Parse(str);
             default:
                 return Encoding.UTF8.GetBytes(str);
         }

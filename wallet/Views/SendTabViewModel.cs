@@ -78,8 +78,8 @@ public class SendTabViewModel : INotifyPropertyChanged
         }
     }
 
-    private ContractManifest? _Manifest;
-    public ContractManifest? Manifest
+    private ManifestView? _Manifest;
+    public ManifestView? Manifest
     {
         get
         {
@@ -95,8 +95,8 @@ public class SendTabViewModel : INotifyPropertyChanged
         }
     }
 
-    private ContractMethod? _Method;
-    public ContractMethod? Method
+    private MethodView? _Method;
+    public MethodView? Method
     {
         get
         {
@@ -116,4 +116,22 @@ public class SendTabViewModel : INotifyPropertyChanged
     {
         SendTransactionClicked?.Invoke(this, null!);
     }
+}
+
+public class ManifestView
+{
+    public string Name { get; set; } = string.Empty;
+    public List<MethodView> Methods { get; set; } = new();
+}
+
+public class MethodView
+{
+    public string Name { get; set; } = string.Empty;
+    public List<ParamView> Params { get; set; } = new();
+}
+
+public class ParamView
+{
+    public string Name { get; set; } = string.Empty;
+    public string Value { get; set; } = string.Empty;
 }

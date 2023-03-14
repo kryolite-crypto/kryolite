@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
 using Kryolite.Shared;
+using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Wallet;
@@ -30,6 +31,24 @@ public partial class SendTab : UserControl
                 Nonce = (new Random()).Next()
             };
 
+            if (transaction.To.IsContract())
+            {
+                var transactionPayload = new TransactionPayload
+                {
+                    Payload = new CallMethod
+                    {
+                        Method = Model.Method.Name,
+                        Params = Model.Method.Params.Select(x => x.Value).ToArray()
+                    }
+                };
+
+                var lz4Options = MessagePackSerializerOptions.Standard
+                    .WithCompression(MessagePackCompression.Lz4BlockArray)
+                    .WithOmitAssemblyVersion(true);
+
+                transaction.Data = MessagePackSerializer.Serialize(transactionPayload, lz4Options)
+            }
+
             transaction.Sign(Model.SelectedWallet!.PrivateKey);
 
             BlockchainManager.AddTransactionsToQueue(transaction);
@@ -38,6 +57,7 @@ public partial class SendTab : UserControl
             Model.Amount = "";
         };
     }
+
     public void RecipientChanged(object sender, TextChangedEventArgs args)
     {
         var container = this.GetControl<GroupBox>("MethodContainer");
@@ -58,12 +78,21 @@ public partial class SendTab : UserControl
 
         var contract = BlockchainManager.GetContract(addr);
 
-        Model.Manifest = new ContractManifest()
+        Model.Manifest = new ManifestView()
         {
             Name = contract?.Manifest.Name ?? string.Empty,
             Methods = contract?.Manifest.Methods
                 .Where(x => !x.IsReadonly)
                 .DistinctBy(x => x.Name)
+                .Select(x => new MethodView
+                {
+                    Name = x.Name,
+                    Params = x.Params.Select(y => new ParamView
+                    {
+                        Name = y.Name
+                    })
+                    .ToList()
+                })
                 .ToList() ?? new()
         };
 
