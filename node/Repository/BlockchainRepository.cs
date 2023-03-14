@@ -114,6 +114,14 @@ public class BlockchainRepository : IDisposable
         Context.SaveChanges();
     }
 
+    public void DeleteContractSnapshot(long height)
+    {
+        var snapshots = Context.ContractSnapshots.Where(x => x.Height > height);
+
+        Context.ContractSnapshots.RemoveRange(snapshots);
+        Context.SaveChanges();
+    }
+
     public ChainState GetChainState()
     {
         return Context.ChainState

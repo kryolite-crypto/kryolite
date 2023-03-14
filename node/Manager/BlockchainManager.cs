@@ -604,6 +604,7 @@ public class BlockchainManager : IBlockchainManager
                                     }
 
                                     var eWallet = ledgerWallets[effect.To.ToString()];
+
                                     checked
                                     {
                                         eWallet.Balance -= effect.Value;
@@ -611,7 +612,7 @@ public class BlockchainManager : IBlockchainManager
                                     }
                                 }
                             }
-                        } 
+                        }
                         else
                         {
                             var recipient = ledgerWallets[recipientAddr];
@@ -727,6 +728,7 @@ public class BlockchainManager : IBlockchainManager
                 walletManager.RollbackWallets(wallets.Values.ToList(), min);
             }
 
+            blockchainRepository.DeleteContractSnapshot(chainState.POS.Height);
             blockchainRepository.SaveState(chainState);
 
             progress = 0;
