@@ -46,7 +46,7 @@ public partial class SendTab : UserControl
                     .WithCompression(MessagePackCompression.Lz4BlockArray)
                     .WithOmitAssemblyVersion(true);
 
-                transaction.Data = MessagePackSerializer.Serialize(transactionPayload, lz4Options)
+                transaction.Data = MessagePackSerializer.Serialize(transactionPayload, lz4Options);
             }
 
             transaction.Sign(Model.SelectedWallet!.PrivateKey);
