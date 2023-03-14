@@ -122,7 +122,7 @@
               </ItemsRepeater.Layout>
               <ItemsRepeater.ItemTemplate>
                 <DataTemplate>
-                  <TextBox Width="160" Watermark="{Binding Name, Converter={StaticResource SnakeCaseConverter}}"/>
+                  <TextBox Width="160" Text="{Binding Value}" Watermark="{Binding Name, Converter={StaticResource SnakeCaseConverter}}"/>
                 </DataTemplate>
               </ItemsRepeater.ItemTemplate>
             </ItemsRepeater>
