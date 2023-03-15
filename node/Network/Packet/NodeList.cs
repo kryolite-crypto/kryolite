@@ -35,11 +35,12 @@ public class NodeList : IPacket
                 .OrderBy(x => Guid.NewGuid())
                 .Take(50);
 
-            var connected = 0; //context.MeshNetwork.GetOutgoingConnections().Count;
+            var connected = context.MeshNetwork.GetOutgoingConnections().Count;
+            var allowedConnections = Constant.MAX_PEERS * 1.5;
 
             foreach (var node in randomized)
             {
-                if (connected >= Constant.MAX_PEERS)
+                if (connected >= allowedConnections)
                 {
                     break;
                 }
@@ -48,10 +49,24 @@ public class NodeList : IPacket
                 {
                     connected++;
 
-                    var peer = context.MeshNetwork.GetPeer(node.Url);
-                    await peer.SendAsync(new QueryNodeInfo());
+                    var nextPeer = context.MeshNetwork.GetPeer(node.Url);
+
+                    if (nextPeer != null)
+                    {
+                        await nextPeer.SendAsync(new QueryNodeInfo());
+                    }
                 }
             }
+
+            var chainState = context.BlockchainManager.GetChainState();
+
+            var sync = new RequestChainSync
+            {
+                StartBlock = chainState.POS.Height,
+                StartHash = chainState.POS.LastHash
+            };
+
+            await peer.SendAsync(sync);
         });
     }
 }

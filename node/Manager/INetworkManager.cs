@@ -12,4 +12,5 @@ public interface INetworkManager
     DateTimeOffset GetNetworkTime();
     bool ProposeBlock(PowBlock block);
     IDisposable OnBlockProposed(ITargetBlock<PowBlock> action);
+    void RemoveHost (NetworkManager.NodeHost host);
 }

@@ -91,6 +91,12 @@ public class NetworkManager : INetworkManager
         return BlockProposedBroadcast.LinkTo(action);
     }
 
+    public void RemoveHost(NodeHost host)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        Hosts.Remove(host);
+    }
+
     public class NodeHost
     {
         public Uri Url { get; init; }

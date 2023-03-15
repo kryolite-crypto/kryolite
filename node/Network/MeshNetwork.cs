@@ -165,10 +165,12 @@ public class MeshNetwork : IMeshNetwork
 
         var outgoing = GetOutgoingConnections();
 
-        if (outgoing.Count() >= Constant.MAX_PEERS)
+        if (outgoing.Count >= Constant.MAX_PEERS)
         {
             var peer = outgoing.OrderBy(x => x.ConnectedSince)
                 .First();
+
+            logger.LogInformation($"Disconnecting from {peer.Uri}");
 
             await peer.DisconnectAsync();
         }
@@ -303,7 +305,7 @@ public class MeshNetwork : IMeshNetwork
                     peer.LastSeen = DateTime.UtcNow;
                     MessageReceived?.Invoke(peer, messageArgs);
 
-                    if (messageArgs.Rebroadcast) 
+                    if (messageArgs.Rebroadcast)
                     {
                         await BroadcastAsync(message.Bytes.Array!);
                     }

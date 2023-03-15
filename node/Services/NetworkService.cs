@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
+using System.Timers;
 using DnsClient;
 using Kryolite.Shared;
 using Makaretu.Dns;
@@ -89,6 +90,12 @@ public class NetworkService : BackgroundService
                 {
                     break;
                 }
+            }
+
+            if (meshNetwork.GetPeers().Count == 0)
+            {
+                logger.LogWarning("All peers disconnected, trying to reconnect..");
+                ReconnectToNetwork();
             }
         };
 
@@ -224,8 +231,68 @@ public class NetworkService : BackgroundService
         NetworkChange.NetworkAvailabilityChanged += new
             NetworkAvailabilityChangedEventHandler(NetworkAvailabilityChanged);
 
+        var timer = new System.Timers.Timer(TimeSpan.FromHours(1));
+
+        timer.AutoReset = true;
+        timer.Elapsed += HostCleanup;
+        timer.Enabled = true;
+
         logger.LogInformation("Network       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Network.Set();
+    }
+
+    private void HostCleanup(object? sender, ElapsedEventArgs e)
+    {
+        if (meshNetwork.GetPeers().Count == 0)
+        {
+            // not connected to network, do ping hosts
+            return;
+        }
+
+        logger.LogInformation("Cleaning up stale nodes");
+        var hosts = networkManager.GetHosts();
+
+        foreach (var host in hosts)
+        {
+            if(!Connection.TestConnection(host.Url))
+            {
+                logger.LogDebug($"Host {host.Url} not reachable, removing host");
+                networkManager.RemoveHost(host);
+            }
+        }
+    }
+
+    private void ReconnectToNetwork()
+    {
+        _ = Task.Run(async () => {
+            var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+
+            while (await timer.WaitForNextTickAsync())
+            {
+                if (meshNetwork.GetPeers().Count > 0)
+                {
+                    break;
+                }
+
+                var hosts = networkManager.GetHosts()
+                    .Where(x => x.IsReachable);
+
+                foreach (var host in hosts)
+                {
+                    if (await meshNetwork.ConnectToAsync(host.Url))
+                    {
+                        var newPeer = meshNetwork.GetPeer(host.Url);
+
+                        if (newPeer != null)
+                        {
+                            logger.LogInformation($"Established connection to {host.Url}");
+                            await newPeer.SendAsync(new QueryNodeList());
+                            break;
+                        }
+                    }
+                }
+            }
+        });
     }
 
     private async void NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
