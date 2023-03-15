@@ -7,6 +7,30 @@ using Zeroconf;
 using System.Net.Sockets;
 using System.Net;
 using System.Text.Json;
+using System.Diagnostics;
+
+/*var sw = Stopwatch.StartNew();
+var hashes = 1_000;
+
+for (int i = 0; i < hashes; i++)
+{
+    var test = new byte[64];
+    var concat = new Concat()
+    {
+        Buffer = test
+    };
+
+    Random.Shared.NextBytes(test);
+
+    var result = KryoBWT.Test(concat);
+}
+
+sw.Stop();
+
+Console.WriteLine($"Run took {sw.Elapsed.TotalSeconds}");
+Console.WriteLine($"Hashrate {hashes / sw.Elapsed.TotalSeconds}");
+
+Console.ReadKey();*/
 
 var serializerOpts = new JsonSerializerOptions();
 serializerOpts.PropertyNameCaseInsensitive = true;
@@ -125,7 +149,7 @@ rootCmd.SetHandler(async (node, address, throttle) => {
                 rd.NextBytes(nonce);
                 Array.Copy(nonce, 0, concat.Buffer, 32, 32);
 
-                var sha256Hash = (SHA256Hash)sha256.ComputeHash(concat.Buffer);
+                var sha256Hash = KryoBWT.Hash(concat);
                 var result = sha256Hash.ToBigInteger();
 
                 if (result.CompareTo(target) <= 0) {

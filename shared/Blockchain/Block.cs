@@ -58,12 +58,13 @@ public class PowBlock
 
     public bool VerifyNonce()
     {
-        using var sha256 = SHA256.Create();
-
         var basehash = GetHash();
-        var concat = basehash.Buffer.Concat(Nonce.Buffer).ToArray();
+        var concat = new Concat
+        {
+            Buffer = basehash.Buffer.Concat(Nonce.Buffer).ToArray()
+        };
 
-        var hash = (SHA256Hash)sha256.ComputeHash(concat);
+        var hash = KryoBWT.Hash(concat);
 
         var target = Difficulty.ToTarget();
         var result = hash.ToBigInteger();
