@@ -8,6 +8,7 @@ using System.Net.Sockets;
 using System.Net;
 using System.Text.Json;
 using System.Diagnostics;
+using System.Timers;
 
 /*var sw = Stopwatch.StartNew();
 var hashes = 1_000;
@@ -22,7 +23,7 @@ for (int i = 0; i < hashes; i++)
 
     Random.Shared.NextBytes(test);
 
-    var result = KryoBWT.Test(concat);
+    var result = KryoBWT.Hash(concat);
 }
 
 sw.Stop();
@@ -75,6 +76,19 @@ rootCmd.SetHandler(async (node, address, throttle) => {
 
     bool restart = false;
     var attempts = 0;
+
+    var hashes = 0UL;
+    var sw = Stopwatch.StartNew();
+
+    var timer = new System.Timers.Timer(TimeSpan.FromMinutes(2));
+    timer.AutoReset = true;
+    timer.Elapsed += (object? sender, ElapsedEventArgs e) => {
+        if (sw.Elapsed.TotalSeconds > 0)
+        {
+            Console.WriteLine($"Hashrate (1T): {hashes / sw.Elapsed.TotalSeconds}");
+        }
+    };
+    timer.Start();
 
     while (true) {
         var httpClient = new HttpClient();
@@ -150,6 +164,7 @@ rootCmd.SetHandler(async (node, address, throttle) => {
                 Array.Copy(nonce, 0, concat.Buffer, 32, 32);
 
                 var sha256Hash = KryoBWT.Hash(concat);
+                hashes++;
                 var result = sha256Hash.ToBigInteger();
 
                 if (result.CompareTo(target) <= 0) {
