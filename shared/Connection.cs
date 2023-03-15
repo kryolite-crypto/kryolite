@@ -7,6 +7,7 @@ public static class Connection
         try
         {
             using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(5);
 
             var pingUri = new UriBuilder(uri)
             {
@@ -29,6 +30,7 @@ public static class Connection
         try
         {
             using var httpClient = new HttpClient();
+            httpClient.Timeout = TimeSpan.FromSeconds(5);
 
             var pingUri = new UriBuilder(uri)
             {
