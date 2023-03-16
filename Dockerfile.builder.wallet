@@ -10,14 +10,7 @@ COPY node node
 COPY wallet wallet
 
 ARG RUNTIME
-RUN dotnet publish wallet \
-  -c Release \
-  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
-  -p:Version="${VERSION}" -p:InformationalVersion="${INFORMATIONAL_VERSION}" \
-  --self-contained --runtime="$RUNTIME" \
-  -o /build \
-  && if [ "$RUNTIME" != "win-x64" ]; then mv /build/wallet /usr/local/bin/kryolite-wallet && rm -rf /build; fi
-
+RUN wallet/build.sh
 
 WORKDIR /kryolite
 ENTRYPOINT [ "/usr/local/bin/kryolite-wallet" ]

@@ -50,6 +50,16 @@ for COMPONENT in $COMPONENTS; do
           kryolite)
             docker cp "$id:/usr/local/bin/kryolite" "$output"
           ;;
+          wallet)
+            case "$VARIANT" in
+              osx-*)
+                docker cp "$id:/build/Kryolite Wallet.app" "$output"
+              ;;
+              *)
+                docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"
+              ;;
+            esac
+          ;;
           *)
             docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"
           ;;
