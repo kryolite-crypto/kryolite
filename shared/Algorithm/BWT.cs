@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,6 +14,7 @@ public static class Bwt
     /// </summary>
     /// <param name="input">Type byte[], should return transformed byte[]</param>
     /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static byte[] Transform(byte[] input)
     {
         var output = new byte[input.Length + 4];
@@ -37,7 +39,7 @@ public static class Bwt
             outputInd++;
         }
 
-        var endByte = IntToByteArr(end);
+        var endByte = BitConverter.GetBytes(end);
         endByte.CopyTo(output, input.Length);
 
         return output;
@@ -50,7 +52,7 @@ public static class Bwt
     public static byte[] InverseTransform(byte[] input)
     {
         var length = input.Length - 4;
-        var I = ByteArrToInt(input, input.Length - 4);
+        var I = BitConverter.ToInt32(input, input.Length - 4);
         var freq = new int[256];
         Array.Clear(freq, 0, freq.Length);
         // T1: Number of Preceding Symbols Matching Symbol in Current Position.
@@ -88,13 +90,5 @@ public static class Bwt
             }
         }
         return output;
-    }
-    private static byte[] IntToByteArr(int i)
-    {
-        return BitConverter.GetBytes(i);
-    }
-    private static int ByteArrToInt(byte[] input, int startIndex)
-    {
-        return BitConverter.ToInt32(input, startIndex);
     }
 }

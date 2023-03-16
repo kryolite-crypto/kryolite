@@ -10,7 +10,7 @@ using System.Text.Json;
 using System.Diagnostics;
 using System.Timers;
 
-/*var sw = Stopwatch.StartNew();
+var sw = Stopwatch.StartNew();
 var hashes = 1_000;
 
 for (int i = 0; i < hashes; i++)
@@ -31,7 +31,7 @@ sw.Stop();
 Console.WriteLine($"Run took {sw.Elapsed.TotalSeconds}");
 Console.WriteLine($"Hashrate {hashes / sw.Elapsed.TotalSeconds}");
 
-Console.ReadKey();*/
+Console.ReadKey();
 
 var serializerOpts = new JsonSerializerOptions();
 serializerOpts.PropertyNameCaseInsensitive = true;

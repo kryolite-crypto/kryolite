@@ -31,11 +31,14 @@ public static class KryoBWT
             extract1.CopyTo(explode);
             explode[load_sz + concat_sz - 1] = concat.Buffer[i % concat_sz];
 
-            sha256.TryComputeHash(explode, extract1.Slice(i * hash_sz), out _);
+            var destination = extract1.Slice(i * hash_sz);
+            sha256.TryComputeHash(explode, destination, out _);
         }
 
+        var iv1 = extract1.Slice(0, 16);
+
         aes.Key = sha256.ComputeHash(concat.Buffer);
-        var stage1 = aes.EncryptEcb(extract1, PaddingMode.None);
+        var stage1 = aes.EncryptCbc(extract1, iv1);
 
         var result1 = Bwt.Transform(stage1);
 
@@ -57,11 +60,14 @@ public static class KryoBWT
 
             var hash = sha256.ComputeHash(explode);
 
-            sha256.TryComputeHash(explode, extract2.Slice(i * hash_sz), out _);
+            var destination = extract2.Slice(i * hash_sz);
+            sha256.TryComputeHash(explode, destination, out _);
         }
 
+        var iv2 = extract2.Slice(0, 16);
+
         aes.Key = sha256.ComputeHash(result1);
-        var stage2 = aes.EncryptEcb(extract2, PaddingMode.None);
+        var stage2 = aes.EncryptCbc(extract2, iv2);
 
         var result2 = Bwt.Transform(stage2);
 
@@ -70,8 +76,14 @@ public static class KryoBWT
         result1.CopyTo(final_key, 0);
         result2.CopyTo(final_key, result1.Length);
 
+        var final_iv = new byte[16];
+        iv1.Slice(0, 8).ToArray().CopyTo(final_iv, 0);
+        iv2.Slice(0, 8).ToArray().CopyTo(final_iv, 8);
+
         aes.Key = sha256.ComputeHash(final_key);
-        var final = aes.EncryptEcb(mine, PaddingMode.None);
+        var final_stage = aes.EncryptCbc(mine, final_iv);
+
+        var final = Bwt.Transform(final_stage);
 
         return sha256.ComputeHash(final);
     }

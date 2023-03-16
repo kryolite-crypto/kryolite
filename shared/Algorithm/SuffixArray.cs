@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -13,6 +14,7 @@ public static class SuffixArray
     /// </summary>
     /// <param name="str">Type short[] sort suffixArray based on rankArray. Returns int[]</param>
     /// <returns></returns>
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public static int[] Construct(short[] str)
     {
         var suffixArray = new int[str.Length];
@@ -62,6 +64,7 @@ public static class SuffixArray
     /// sort suffixArray based on rankArray
     /// suffixArray[i] mapped to rankArray[i+rankArrayOffset]
     /// time Complexity  : O(N)
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     private static void CountSort(int[] suffixArray, int[] rankArray, int rankArrayOffset)
     {
         var freqLength = Math.Max(rankArray.Max() + 1, rankArray.Length);
