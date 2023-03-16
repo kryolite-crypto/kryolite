@@ -75,7 +75,14 @@ for COMPONENT in $COMPONENTS; do
 
     case "$COMPONENT" in
       wallet)
-        cp wallet/appsettings.json "$output"
+        case "$VARIANT" in
+          mac-*)
+            :
+          ;;
+          *)
+            cp wallet/appsettings.json "$output"
+          ;;
+        esac
       ;;
       daemon)
         cp daemon/appsettings.json "$output"

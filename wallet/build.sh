@@ -29,6 +29,9 @@ case "$RUNTIME" in
 
     popd
 
+    # save docker layer space before somebody figures out -o flag for msbuild
+    rm -rf bin obj
+
     set +x
     popd
   ;;
