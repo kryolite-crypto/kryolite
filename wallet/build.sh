@@ -11,7 +11,7 @@ else
 fi
 
 case "$RUNTIME" in
-  osx-*)
+  osx.*)
     pushd wallet
     set -x
 
@@ -50,7 +50,7 @@ case "$RUNTIME" in
   win-*)
     :
   ;;
-  osx-*)
+  osx.*)
     :
   ;;
   *)
