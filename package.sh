@@ -89,7 +89,9 @@ for COMPONENT in $COMPONENTS; do
       ;;
     esac
 
-    zip -jpr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" "$output"
+    pushd "$output"
+    zip -pr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" .
+    popd
   ) 2>&1 | sed -le "s#^#${COMPONENT}: #;" &
   pids[$COMPONENT]=$!
 done
