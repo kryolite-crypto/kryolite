@@ -10,6 +10,7 @@ on:
       - "node/**"
       - "shared/**"
       - "build.sh"
+      - "package.sh"
       - "test.sh"
       - ".build"
 jobs:
