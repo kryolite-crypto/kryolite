@@ -23,9 +23,11 @@ namespace Kryolite.Wallet
 
             using var fileStream = new FileStream(Path.Join(dataDir, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
+            var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+
             Host = WebHost.CreateDefaultBuilder()
                 .ConfigureAppConfiguration((hostingContext, config) => config
-                    .AddJsonFile($"appsettings.json", optional: true, reloadOnChange: true)
+                    .AddJsonFile(configPath, optional: true, reloadOnChange: true)
                     .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
                     .AddEnvironmentVariables(prefix: "KRYOLITE__")
                     .AddCommandLine(args))
