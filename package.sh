@@ -52,7 +52,7 @@ for COMPONENT in $COMPONENTS; do
           ;;
           wallet)
             case "$VARIANT" in
-              osx-*)
+              mac-*)
                 docker cp "$id:/build/kryolite-wallet.zip" "$output"
                 pushd "$output"
                 unzip kryolite-wallet.zip
