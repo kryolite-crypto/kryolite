@@ -282,7 +282,7 @@ public class BlockchainManager : IBlockchainManager
             .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
             .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
             // Add contract
-            .Link<AddContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract());
+            .Link<AddContract>(x => x.TransactionType == TransactionType.CONTRACT && x.To.IsContract());
 
         var epochStart = blockchainRepository.GetPowBlock(chainState.POW.Height - (chainState.POW.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
 
