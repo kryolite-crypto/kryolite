@@ -53,7 +53,11 @@ for COMPONENT in $COMPONENTS; do
           wallet)
             case "$VARIANT" in
               osx-*)
-                docker cp "$id:/build/Kryolite Wallet.app" "$output"
+                docker cp "$id:/build/kryolite-wallet.zip" "$output"
+                pushd "$output"
+                unzip kryolite-wallet.zip
+                rm kryolite-wallet.zip
+                popd
               ;;
               *)
                 docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"

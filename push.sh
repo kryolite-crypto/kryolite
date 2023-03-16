@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
+# shellcheck disable=SC2317
 _on_error() {
   set +x
 
