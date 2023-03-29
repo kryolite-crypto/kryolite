@@ -4,10 +4,14 @@
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<Optimize>True</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
+    <PackageReference Include="Konscious.Security.Cryptography.Argon2" Version="1.1.0" />
+    <PackageReference Include="LibChaCha20" Version="1.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.1" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="MessagePack" Version="2.4.59" />

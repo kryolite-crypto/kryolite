@@ -1,41 +1,39 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using System;
+using System.Linq;
+using static System.Net.Mime.MediaTypeNames;
+using System.Xml.Linq;
+using System.Runtime.CompilerServices;
 
 namespace Kryolite.Shared;
 
-public static class Bwt
+public static class BWT
 {
-    /// <summary>
-    /// Transforms input bytes using Bwt
-    /// </summary>
-    /// <param name="input">Type byte[], should return transformed byte[]</param>
-    /// <returns></returns>
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static byte[] Transform(byte[] input)
+    public static byte[] Encode(byte[] input)
     {
-        var output = new byte[input.Length + 4];
-        var newInput = new short[input.Length + 1];
+        var newInput = input.Select(x => (int)x).ToArray();
+        var sortedSuffixes = SuffixArray.BuildSuffixArray(newInput, 256);
 
-        for (var i = 0; i < input.Length; i++)
-            newInput[i] = (short)(input[i] + 1);
-
-        newInput[input.Length] = 0;
-        var suffixArray = SuffixArray.Construct(newInput);
         var end = 0;
         var outputInd = 0;
-        for (var i = 0; i < suffixArray.Length; i++)
+        var output = new byte[input.Length + 4];
+
+        for (var i = 0; i < sortedSuffixes.Length; i++)
         {
-            if (suffixArray[i] == 0)
+            if (sortedSuffixes[i] == 0)
             {
                 end = i;
                 continue;
             }
 
-            output[outputInd] = (byte)(newInput[suffixArray[i] - 1] - 1);
+            int idx = sortedSuffixes[i];
+
+            output[outputInd] = (idx > 0 ? input[idx - 1] : input[input.Length - 1]);
             outputInd++;
         }
 
@@ -44,12 +42,8 @@ public static class Bwt
 
         return output;
     }
-    /// <summary>
-    /// transforms bwt to initial byte array
-    /// </summary>
-    /// <param name="input">Type byte[] should return inverse transformed byte[]</param>
-    /// <returns></returns>
-    public static byte[] InverseTransform(byte[] input)
+
+    public static byte[] Decode(byte[] input)
     {
         var length = input.Length - 4;
         var I = BitConverter.ToInt32(input, input.Length - 4);
@@ -89,6 +83,7 @@ public static class Bwt
                 nxt--;
             }
         }
+
         return output;
     }
 }
