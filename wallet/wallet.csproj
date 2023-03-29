@@ -9,6 +9,7 @@
   </PropertyGroup>
   <ItemGroup>
     <None Remove=".gitignore" />
+    <None Remove="appsettings.development.json" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\shared\shared.csproj" />
@@ -50,8 +51,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="appsettings.development.json">
+    <Content Include="appsettings.development.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    </Content>
+    <Content Include="appsettings.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>
 </Project>

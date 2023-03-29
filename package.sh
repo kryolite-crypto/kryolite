@@ -50,6 +50,20 @@ for COMPONENT in $COMPONENTS; do
           kryolite)
             docker cp "$id:/usr/local/bin/kryolite" "$output"
           ;;
+          wallet)
+            case "$VARIANT" in
+              mac-*)
+                docker cp "$id:/build/kryolite-wallet.zip" "$output"
+                pushd "$output"
+                unzip kryolite-wallet.zip
+                rm kryolite-wallet.zip
+                popd
+              ;;
+              *)
+                docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"
+              ;;
+            esac
+          ;;
           *)
             docker cp "$id:/usr/local/bin/kryolite-${COMPONENT}" "$output"
           ;;
@@ -61,14 +75,23 @@ for COMPONENT in $COMPONENTS; do
 
     case "$COMPONENT" in
       wallet)
-        cp wallet/appsettings.json "$output"
+        case "$VARIANT" in
+          mac-*)
+            :
+          ;;
+          *)
+            cp wallet/appsettings.json "$output"
+          ;;
+        esac
       ;;
       daemon)
         cp daemon/appsettings.json "$output"
       ;;
     esac
 
-    zip -jpr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" "$output"
+    pushd "$output"
+    zip -pr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" .
+    popd
   ) 2>&1 | sed -le "s#^#${COMPONENT}: #;" &
   pids[$COMPONENT]=$!
 done
