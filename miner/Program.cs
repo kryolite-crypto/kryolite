@@ -3,215 +3,295 @@ using System.Security.Cryptography;
 using System.Text;
 using Kryolite.Shared;
 using System.CommandLine;
-using Zeroconf;
-using System.Net.Sockets;
 using System.Net;
 using System.Text.Json;
 using System.Diagnostics;
 using System.Timers;
+using System.CommandLine.Parsing;
+using System.Threading;
+using System;
+using System.Collections.ObjectModel;
+using System.Collections.Concurrent;
 
-/*var sw = Stopwatch.StartNew();
-var hashes = 1_000;
-
-for (int i = 0; i < hashes; i++)
+public class Program
 {
-    var test = new byte[64];
-    var concat = new Concat()
+    private static JsonSerializerOptions SerializerOpts = new JsonSerializerOptions();
+    private static ManualResetEvent Pause = new ManualResetEvent(false);
+    private static CancellationTokenSource TokenSource = new CancellationTokenSource();
+
+    public static async Task<int> Main(string[] args)
     {
-        Buffer = test
-    };
+        SerializerOpts.PropertyNameCaseInsensitive = true;
+        SerializerOpts.Converters.Add(new NonceConverter());
+        SerializerOpts.Converters.Add(new PrivateKeyConverter());
+        SerializerOpts.Converters.Add(new PublicKeyConverter());
+        SerializerOpts.Converters.Add(new SHA256HashConverter());
+        SerializerOpts.Converters.Add(new SignatureConverter());
+        SerializerOpts.Converters.Add(new DifficultyConverter());
+        SerializerOpts.Converters.Add(new AddressConverter());
 
-    Random.Shared.NextBytes(test);
+        var rootCmd = new RootCommand("Kryolite Miner");
 
-    var result = KryoBWT.Hash(concat);
-}
+        var nodeOption = new Option<string?>(name: "--url", description: "Node url");
+        rootCmd.AddGlobalOption(nodeOption);
 
-sw.Stop();
+        var walletOption = new Option<string>(name: "--address", description: "Wallet address");
+        rootCmd.AddGlobalOption(walletOption);
 
-Console.WriteLine($"Run took {sw.Elapsed.TotalSeconds}");
-Console.WriteLine($"Hashrate {hashes / sw.Elapsed.TotalSeconds}");
+        var throttleOption = new Option<int?>(name: "--throttle", description: "Milliseconds to sleep between hashes");
+        rootCmd.AddGlobalOption(throttleOption);
 
-Console.ReadKey();*/
+        var threadsOption = new Option<int>(name: "--threads", description: "Thread count", getDefaultValue: () => 1);
+        rootCmd.AddGlobalOption(threadsOption);
 
-var serializerOpts = new JsonSerializerOptions();
-serializerOpts.PropertyNameCaseInsensitive = true;
-serializerOpts.Converters.Add(new AddressConverter());
-serializerOpts.Converters.Add(new NonceConverter());
-serializerOpts.Converters.Add(new PrivateKeyConverter());
-serializerOpts.Converters.Add(new PublicKeyConverter());
-serializerOpts.Converters.Add(new SHA256HashConverter());
-serializerOpts.Converters.Add(new SignatureConverter());
-serializerOpts.Converters.Add(new DifficultyConverter());
+        rootCmd.SetHandler(async (node, address, throttle, threads) => {
+            var url = node ?? await ZeroConf.DiscoverNodeAsync();
 
-Blocktemplate current = new Blocktemplate();
-var tokenSource = new CancellationTokenSource();
-
-var rootCmd = new RootCommand("Kryolite Miner");
-
-var nodeOption = new Option<string?>(name: "--url", description: "Node url");
-rootCmd.AddGlobalOption(nodeOption);
-
-var walletOption = new Option<string>(name: "--address", description: "Wallet address");
-rootCmd.AddGlobalOption(walletOption);
-
-var throttleOption = new Option<int?>(name: "--throttle", description: "Milliseconds to sleep between hashes");
-rootCmd.AddGlobalOption(throttleOption);
-
-rootCmd.SetHandler(async (node, address, throttle) => {
-    var url = node ?? await ZeroConf.DiscoverNodeAsync();
-
-    if (node == null && url == null)
-    {
-        Console.WriteLine("Failed to discover Kryolite node, specify --url parameter");
-        return;
-    }
-
-    if (address == null || !Address.IsValid(address))
-    {
-        Console.WriteLine("Invalid address");
-        return;
-    }
-
-    Console.WriteLine($"Connecting to {url}");
-
-    bool restart = false;
-    var attempts = 0;
-
-    var hashes = 0UL;
-    var sw = Stopwatch.StartNew();
-
-    var timer = new System.Timers.Timer(TimeSpan.FromMinutes(2));
-    timer.AutoReset = true;
-    timer.Elapsed += (object? sender, ElapsedEventArgs e) => {
-        if (sw.Elapsed.TotalSeconds > 0)
-        {
-            Console.WriteLine($"Hashrate (1T): {hashes / sw.Elapsed.TotalSeconds}");
-        }
-    };
-    timer.Start();
-
-    while (true) {
-        var httpClient = new HttpClient();
-
-        HttpResponseMessage? request = null;
-
-        try
-        {
-            request = await httpClient.GetAsync($"{url}/blocktemplate?wallet={address}");
-
-            if (request.StatusCode == HttpStatusCode.BadRequest)
+            if (node == null && url == null)
             {
-                Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request.StatusCode}).");
+                Console.WriteLine("Failed to discover Kryolite node, use --url parameter");
                 return;
             }
-        } 
-        catch (Exception) {}
 
-        if (request == null || !request.IsSuccessStatusCode) 
-        {
-            restart = true;
-            var seconds = Math.Pow(Math.Min(++attempts, 5), 2);
-
-            Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request?.StatusCode ?? HttpStatusCode.RequestTimeout}), trying again in {seconds} seconds");
-            
-            var newNode = await ZeroConf.DiscoverNodeAsync();
-            if (newNode != null)
+            if (address == null || !Address.IsValid(address))
             {
-                url = newNode;
+                Console.WriteLine("Invalid --address");
+                return;
             }
 
-            Thread.Sleep(TimeSpan.FromSeconds(seconds));
-            continue;
-        }
+            Console.WriteLine($"Address: {address}");
+            Console.WriteLine($"Threads: {threads}");
 
-        attempts = 0;
+            Console.WriteLine($"Connecting to {url}");
 
-        var json = await request.Content.ReadAsStringAsync();
-        var blocktemplate = JsonSerializer.Deserialize<Blocktemplate>(json, serializerOpts);
+            var hashes = 0UL;
+            var sw = Stopwatch.StartNew();
 
-        if (!restart && (blocktemplate == null || blocktemplate.ParentHash == current.ParentHash)) 
-        {
-            Thread.Sleep(TimeSpan.FromSeconds(1));
-            continue;
-        }
-
-        restart = false;
-        current = blocktemplate;
-
-        Console.WriteLine($"{DateTime.Now}: New job {blocktemplate.Height}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
-
-        tokenSource.Cancel();
-        tokenSource = new CancellationTokenSource();
-        
-        new Thread(async () => {
-            var token = tokenSource.Token;
-
-            using var sha256 = SHA256.Create();
-            Random rd = new Random();
-
-            var nonce = new byte[32];
-            var concat = new Concat
-            {
-                Buffer = new byte[64]
+            var timer = new System.Timers.Timer(TimeSpan.FromMinutes(2));
+            timer.AutoReset = true;
+            timer.Elapsed += (sender, e) => {
+                if (sw.Elapsed.TotalSeconds > 0)
+                {
+                    Console.WriteLine($"Hashrate: {hashes / sw.Elapsed.TotalSeconds} h/s");
+                }
             };
+            timer.Start();
 
-            Array.Copy(current.Nonce, 0, concat.Buffer, 0, 32);
+            var httpClient = new HttpClient();
 
-            var target = current.Difficulty.ToTarget();
+            var jobQueue = new List<BlockingCollection<Blocktemplate>>();
 
-            while (!token.IsCancellationRequested) {
-                rd.NextBytes(nonce);
-                Array.Copy(nonce, 0, concat.Buffer, 32, 32);
+            for (var i = 0; i < threads; i++)
+            {
+                var observer = new BlockingCollection<Blocktemplate>();
 
-                var sha256Hash = KryoBWT.Hash(concat);
-                hashes++;
-                var result = sha256Hash.ToBigInteger();
+                jobQueue.Add(observer);
 
-                if (result.CompareTo(target) <= 0) {
-                    Console.WriteLine($"{DateTime.Now}: Block found");
-                    var solution = current;
-                    var bytes = new byte[32];
-                    Array.Copy(concat.Buffer, 32, bytes, 0, 32);
-
-                    solution.Solution = bytes;
-
-                    var json = JsonSerializer.Serialize(blocktemplate, serializerOpts);
-    
-                    using var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    int attempts = 0;
-                    do
+                new Thread(() => {
+                    while (true)
                     {
-                        try
-                        {
-                            var res = await httpClient.PostAsync($"{url}/solution", content);
+                        var blocktemplate = observer.Take();
+                        var token = TokenSource.Token;
 
-                            if (res.IsSuccessStatusCode)
+                        using var sha256 = SHA256.Create();
+
+                        var concat = new Concat
+                        {
+                            Buffer = new byte[64]
+                        };
+
+                        var nonce = new Span<byte>(concat.Buffer, 32, 32);
+
+                        Array.Copy(blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
+
+                        var target = blocktemplate.Difficulty.ToTarget();
+
+                        while (!token.IsCancellationRequested)
+                        {
+                            Random.Shared.NextBytes(nonce);
+
+                            var sha256Hash = KryoHash.Hash(concat);
+                            var result = sha256Hash.ToBigInteger();
+
+                            if (result.CompareTo(target) <= 0)
                             {
-                                break;
+                                Console.WriteLine($"{DateTime.Now}: Block found");
+
+                                var bytes = new byte[32];
+                                Array.Copy(concat.Buffer, 32, bytes, 0, 32);
+
+                                var solution = new Blocktemplate
+                                {
+                                    Height = blocktemplate.Height,
+                                    Difficulty = blocktemplate.Difficulty,
+                                    Nonce = blocktemplate.Nonce,
+                                    Solution = bytes,
+                                    Timestamp = blocktemplate.Timestamp,
+                                    ParentHash = blocktemplate.ParentHash,
+                                    Transactions = blocktemplate.Transactions
+                                };
+
+                                _ = Task.Run(async () => {
+                                    var json = JsonSerializer.Serialize(solution, SerializerOpts);
+                                    using var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                                    int attempts = 0;
+
+                                    do
+                                    {
+                                        try
+                                        {
+                                            var res = await httpClient.PostAsync($"{url}/solution", content);
+
+                                            if (res.IsSuccessStatusCode)
+                                            {
+                                                TokenSource.Cancel();
+                                                break;
+                                            }
+
+                                            Console.WriteLine($"Failed to send solution to node (HTTP_ERR = {res.StatusCode}), retry attempt {attempts++}/5");
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Console.WriteLine($"Failed to send solution to node ({ex.Message}), retry attempt {++attempts}/5");
+                                        }
+
+                                    } while (attempts < 5);
+                                });
                             }
 
-                            Console.WriteLine($"Failed to send solution to node (HTTP_ERR = {res.StatusCode}), retry attempt {attempts++}/5");
-                        }
-                        catch (Exception ex)
-                        {
-                            Console.WriteLine($"Failed to send solution to node ({ex.Message}), retry attempt {++attempts}/5");
-                        }
-                        
-                    } while (attempts < 5);
+                            hashes++;
 
-                    // solution found, wait for new job from node
-                    tokenSource.Cancel();
-                }
+                            if (throttle is not null)
+                            {
+                                Thread.Sleep(throttle.Value);
+                            }
+                        }
+                    }
+                }).UnsafeStart();
+            }
 
-                if (throttle is not null) {
-                    Thread.Sleep(throttle.Value);
+            await HandleConnectionAsync(jobQueue, httpClient, url, address);
+        }, nodeOption, walletOption, throttleOption, threadsOption);
+
+        return await rootCmd.InvokeAsync(args);
+    }
+
+    public static async Task HandleConnectionAsync(List<BlockingCollection<Blocktemplate>> queue, HttpClient httpClient, string url, string address)
+    {
+        var current = new Blocktemplate();
+        var restart = false;
+        var attempts = 0;
+
+        while (true)
+        {
+            HttpResponseMessage? request = null;
+
+            try
+            {
+                request = await httpClient.GetAsync($"{url}/blocktemplate?wallet={address}");
+
+                if (request.StatusCode == HttpStatusCode.BadRequest)
+                {
+                    Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request.StatusCode}).");
+                    return;
                 }
             }
-        }).UnsafeStart();
+            catch (Exception) { }
 
-        Thread.Sleep(TimeSpan.FromSeconds(1));
+            if (request == null || !request.IsSuccessStatusCode)
+            {
+                if (!TokenSource.IsCancellationRequested)
+                {
+                    TokenSource.Cancel();
+                }
+                restart = true;
+                var seconds = Math.Pow(Math.Min(++attempts, 5), 2);
+
+                Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request?.StatusCode ?? HttpStatusCode.RequestTimeout}), trying again in {seconds} seconds");
+
+                var newNode = await ZeroConf.DiscoverNodeAsync();
+                if (newNode != null)
+                {
+                    url = newNode;
+                }
+
+                Thread.Sleep(TimeSpan.FromSeconds(seconds));
+                continue;
+            }
+
+            attempts = 0;
+
+            var json = await request.Content.ReadAsStringAsync();
+            var blocktemplate = JsonSerializer.Deserialize<Blocktemplate>(json, SerializerOpts);
+
+            if (!restart && (blocktemplate == null || blocktemplate.ParentHash == current.ParentHash))
+            {
+                Thread.Sleep(TimeSpan.FromSeconds(1));
+                continue;
+            }
+
+            restart = false;
+            current = blocktemplate;
+
+            Console.WriteLine($"{DateTime.Now}: New job {blocktemplate.Height}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
+
+            TokenSource = new CancellationTokenSource();
+
+            Parallel.ForEach(queue, worker => {
+                worker.Add(blocktemplate);
+            });
+
+            Thread.Sleep(TimeSpan.FromSeconds(1));
+        }
     }
-}, nodeOption, walletOption, throttleOption);
 
-return await rootCmd.InvokeAsync(args);
+    public static void RunTest(int threads)
+    {
+        var done = 0;
+
+        var tasks = new List<Thread>();
+        var stokenSource = new CancellationTokenSource();
+
+        for (int x = 0; x < threads; x++)
+        {
+            var t = new Thread(() => {
+                var token = stokenSource.Token;
+                var test = new byte[64];
+                var concat = new Concat()
+                {
+                    Buffer = test
+                };
+
+                while (!token.IsCancellationRequested)
+                {
+                    Random.Shared.NextBytes(concat.Buffer);
+
+                    var result = KryoHash.Hash(concat);
+                    Interlocked.Increment(ref done);
+                }
+            });
+
+            tasks.Add(t);
+            t.IsBackground = true;
+            t.Priority = ThreadPriority.Normal;
+        }
+
+        var sw = Stopwatch.StartNew();
+
+        foreach (var task in tasks)
+        {
+            task.Start();
+        }
+
+        Thread.Sleep(TimeSpan.FromSeconds(10));
+        stokenSource.Cancel();
+
+        sw.Stop();
+
+        Console.WriteLine($"Run took {sw.Elapsed.TotalSeconds}");
+        Console.WriteLine($"Hashrate {done / sw.Elapsed.TotalSeconds}");
+
+        Console.ReadKey();
+    }
+}
