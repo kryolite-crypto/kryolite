@@ -18,6 +18,11 @@ public static class Extensions
         return (Address)memory.GetSpan(address, Address.ADDRESS_SZ);
     }
 
+    public static SHA256Hash ReadU256(this Memory memory, int address)
+    {
+        return (SHA256Hash)memory.GetSpan(address, SHA256Hash.HASH_SZ);
+    }
+
     public static void WriteBuffer(this Memory memory, int address, byte[] buffer)
     {
         foreach (var b in buffer) 

@@ -179,7 +179,6 @@ public class BlockchainRepository : IDisposable
     {
         return Context.LedgerWallets
             .Where(x => x.Address == address)
-            //.Include(x => x.Assets)
             .FirstOrDefault();
     }
 
@@ -267,6 +266,27 @@ public class BlockchainRepository : IDisposable
         return Context.Transactions
             .Where(x => x.Hash == hash)
             .FirstOrDefault();
+    }
+
+    public Token? GetToken(SHA256Hash tokenId)
+    {
+        return Context.Tokens
+            .Where(x => x.TokenId == tokenId)
+            .FirstOrDefault();
+    }
+
+    public Token? GetToken(Address from, SHA256Hash tokenId)
+    {
+        return Context.Tokens
+            .Where(x => x.Wallet.Address == from && x.TokenId == tokenId)
+            .FirstOrDefault();
+    }
+
+    public List<Token> GetTokens(Address from)
+    {
+        return Context.Tokens
+            .Where(x => x.Wallet.Address == from)
+            .ToList();
     }
 
     public void Dispose()

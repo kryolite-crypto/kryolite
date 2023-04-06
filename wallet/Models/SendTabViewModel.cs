@@ -8,16 +8,9 @@ using Kryolite.Shared;
 
 namespace Kryolite.Wallet;
 
-public class SendTabViewModel : INotifyPropertyChanged
+public class SendTabViewModel : NotifyPropertyChanged
 {
-    public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? SendTransactionClicked;
-
-    private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
-
 
     private WalletModel? _SelectedWallet;
     public WalletModel? SelectedWallet

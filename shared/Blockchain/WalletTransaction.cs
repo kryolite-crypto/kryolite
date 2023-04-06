@@ -8,7 +8,7 @@ public class WalletTransaction
     public Guid Id { get; set; }
     public Guid WalletId { get; set; }
     public long Height { get; set; }
-    public Address Recipient { get; set; }
+    public Address Recipient { get; set; } = new Address();
     public long Value { get; set; }
     public long Timestamp { get; set; }
 }

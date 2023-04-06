@@ -17,25 +17,25 @@
         ExtendClientAreaToDecorationsHint="True">
     <NativeMenu.Menu>
         <NativeMenu>
-            <NativeMenuItem Header="_File">
+            <NativeMenuItem Header="File">
                 <NativeMenuItem.Menu>
                     <NativeMenu>
-                        <NativeMenuItem Header="_Exit"/>
+                        <NativeMenuItem Header="Exit"/>
                     </NativeMenu>
                 </NativeMenuItem.Menu>
             </NativeMenuItem>
-            <NativeMenuItem Header="_Settings">
+            <NativeMenuItem Header="Settings">
                 <NativeMenuItem.Menu>
                     <NativeMenu>
-                        <NativeMenuItem Header="_Preferences"/>
+                        <NativeMenuItem Header="Preferences"/>
                     </NativeMenu>
                 </NativeMenuItem.Menu>
             </NativeMenuItem>
-            <NativeMenuItem Header="_Help">
+            <NativeMenuItem Header="Help">
                 <NativeMenuItem.Menu>
                     <NativeMenu>
-                        <NativeMenuItem Header="_View Log" Command="{Binding ViewLogCommand}"/>
-                        <NativeMenuItem Header="_About"/>
+                        <NativeMenuItem Header="View Log" Command="{Binding ViewLogCommand}"/>
+                        <NativeMenuItem Header="About"/>
                     </NativeMenu>
                 </NativeMenuItem.Menu>
             </NativeMenuItem>
@@ -67,15 +67,18 @@
                 <ProgressBar Name="SyncProgress" IsEnabled="False" IsVisible="False" Minimum="0" Maximum="100" ShowProgressText="True" DockPanel.Dock="Left"/>
             </DockPanel>
             <TabControl DockPanel.Dock="Top">
-                <TabItem Header="Overview" VerticalContentAlignment="Center">
-                    <vm:OverviewTab/>
-                </TabItem>
-                <TabItem Header="Addresses" VerticalContentAlignment="Center">
-                    <vm:AddressesTab/>
-                </TabItem>
-                <TabItem Header="Send" VerticalContentAlignment="Center">
-                    <vm:SendTab/>
-                </TabItem>
+              <TabItem Header="Overview" VerticalContentAlignment="Center">
+                <vm:OverviewTab/>
+              </TabItem>
+              <TabItem Header="Addresses" VerticalContentAlignment="Center">
+                <vm:AddressesTab/>
+              </TabItem>
+              <TabItem Header="Tokens" VerticalContentAlignment="Center">
+                <vm:TokensTab/>
+              </TabItem>
+              <TabItem Header="Send" VerticalContentAlignment="Center">
+                <vm:SendTab/>
+              </TabItem>
             </TabControl>
         </DockPanel>
     </Panel>

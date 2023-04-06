@@ -6,16 +6,10 @@ using System.Runtime.CompilerServices;
 
 namespace Kryolite.Wallet;
 
-public class AddressesTabViewModel : INotifyPropertyChanged
+public class AddressesTabViewModel : NotifyPropertyChanged
 {
-    public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? NewAddressClicked;
     public event EventHandler? CopyAddressClicked;
-
-    private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
 
     public void OnNewAddressCommand()
     {

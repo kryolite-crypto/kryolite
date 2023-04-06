@@ -9,15 +9,9 @@ using Kryolite.Shared;
 
 namespace Kryolite.Wallet;
 
-public class MainWindowViewModel : INotifyPropertyChanged
+public class MainWindowViewModel : NotifyPropertyChanged
 {
-    public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler? ViewLogClicked;
-
-    private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
 
     private long _Blocks;
 
@@ -122,6 +116,7 @@ public class MainWindowViewModel : INotifyPropertyChanged
             }
         }
     }
+
     public void SetWallet(Kryolite.Shared.Wallet wallet)
     {
         var existing = Wallets

@@ -16,11 +16,11 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Vote> Votes => Set<Vote>();
     public DbSet<LedgerWallet> LedgerWallets => Set<LedgerWallet>();
-    //public DbSet<LedgerAsset> LedgerAssets => Set<LedgerAsset>();
     public DbSet<ChainState> ChainState => Set<ChainState>();
     public DbSet<Contract> Contracts => Set<Contract>();
     public DbSet<ContractSnapshot> ContractSnapshots => Set<ContractSnapshot>();
     public DbSet<Effect> Effects => Set<Effect>();
+    public DbSet<Token> Tokens => Set<Token>();
 
     public BlockchainContext() : base()
     {
@@ -45,6 +45,10 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
 
         var sha256Converter = new ValueConverter<SHA256Hash, string>(
             v => v.ToString(),
+            v => v);
+
+        var sha256NullableConverter = new ValueConverter<SHA256Hash?, string>(
+            v => v!.ToString(),
             v => v);
 
         var addrConverter = new ValueConverter<Address, string>(
@@ -178,11 +182,17 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasKey(e => e.Id)
                 .HasName("pk_effect");
 
+            entity.Property(x => x.From)
+                .HasConversion(addrConverter);
+
             entity.Property(x => x.To)
                 .HasConversion(addrConverter);
 
             entity.Property(x => x.Value)
                 .HasConversion(ulongConverter);
+
+            entity.Property(x => x.TokenId)
+                .HasConversion(sha256NullableConverter);
         });
 
         builder.Entity<Vote>(entity => {
@@ -220,24 +230,11 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.Property(x => x.Pending)
                 .HasConversion(ulongConverter);
 
-            /*entity.HasMany(x => x.Assets)
-                .WithOne()
-                .HasForeignKey(x => x.Address)
+            entity.HasMany(e => e.Tokens)
+                .WithOne(x => x.Wallet)
                 .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("fk_lwallet_lassets");*/
+                .HasConstraintName("fk_wallet_token");
         });
-
-        /*builder.Entity<LedgerAsset>(entity => {
-            entity.ToTable("LedgerAssets")
-                .HasKey(e => e.Token)
-                .HasName("pk_ledger_asset");
-            
-            entity.Property(x => x.Address)
-                .HasConversion(addrConverter);
-
-            entity.Property(x => x.Token)
-                .HasConversion(sha256Converter);
-        });*/
 
         builder.Entity<ChainState>(entity => {
             entity.ToTable("ChainState")
@@ -292,6 +289,11 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_contract_snapshot");
 
+            entity.HasMany(e => e.Tokens)
+                .WithOne(t => t.Contract)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_contract_tokens");
+
             entity.Property(x => x.Address)
                 .HasConversion(addrConverter);
 
@@ -316,7 +318,19 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.HasIndex(x => x.Height)
                 .HasDatabaseName("ix_snapshot_height");
         });
-     }
+
+        builder.Entity<Token>(entity => {
+            entity.ToTable("Tokens")
+                .HasKey(e => e.Id)
+                .HasName("pk_token");
+
+            entity.HasIndex(x => x.TokenId)
+                .HasDatabaseName("ix_token_tokenid");
+
+            entity.Property(x => x.TokenId)
+                .HasConversion(sha256Converter);
+        });
+    }
 
     public BlockchainContext CreateDbContext(string[] args)
     {

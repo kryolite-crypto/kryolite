@@ -65,7 +65,7 @@ public partial class LogViewerDialog : Window
             }
         });
         
-        Closing += (object? sender, CancelEventArgs args) => {
+        Closing += (object? sender, WindowClosingEventArgs args) => {
             TokenSource.Cancel();
             InMemoryLogger.OnNewMessage -= MessageHandler;
         };

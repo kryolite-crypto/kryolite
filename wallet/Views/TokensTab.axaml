@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:Kryolite.Wallet"
+             xmlns:material="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="Kryolite.Wallet.TokensTab">
+  <DockPanel Margin="20">
+    <DataGrid Name="TokensGrid" Items="{Binding Tokens}" AutoGenerateColumns="False" DockPanel.Dock="Top">
+      <DataGrid.Styles>
+        <Style Selector="DataGridColumnHeader">
+          <Setter Property="Background" Value="Transparent"/>
+        </Style>
+        <Style Selector="DataGridRow.isConsumed">
+          <Setter Property="Foreground" Value="#66FFFFFF"/>
+        </Style>
+      </DataGrid.Styles>
+      <DataGrid.Columns>
+        <DataGridTemplateColumn Header="">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <StackPanel VerticalAlignment="Center">
+                <material:MaterialIcon Kind="Cash" IsVisible="{Binding !IsConsumed}" />
+                <material:MaterialIcon Kind="CashOff" IsVisible="{Binding IsConsumed}" />
+              </StackPanel>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTextColumn Header="Name" Binding="{Binding Name}" IsReadOnly="True"/>
+        <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True"/>
+      </DataGrid.Columns>
+    </DataGrid>
+  </DockPanel>
+</UserControl>

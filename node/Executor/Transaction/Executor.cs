@@ -143,22 +143,26 @@ public class TransactionContext : IContext
     public Dictionary<string, Wallet> Wallets;
     public BlockchainRepository BlockRepository;
     public IMempoolManager MempoolManager;
+    public readonly ILogger Logger;
     public Dictionary<string, LedgerWallet> LedgerWalletCache = new Dictionary<string, LedgerWallet>();
     public Dictionary<string, Contract> ContractCache = new Dictionary<string, Contract>();
+    public List<EventArgs> Events = new List<EventArgs>();
 
     public Exception? Ex { get; private set; }
 
-    public TransactionContext(BlockchainRepository blockRepository, IMempoolManager mempoolManager)
+    public TransactionContext(BlockchainRepository blockRepository, IMempoolManager mempoolManager, ILogger logger)
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         MempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
+        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Wallets = null!;
     }
 
-    public TransactionContext(BlockchainRepository blockRepository, Dictionary<string, Wallet> wallets)
+    public TransactionContext(BlockchainRepository blockRepository, Dictionary<string, Wallet> wallets, ILogger logger)
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
+        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         MempoolManager = null!;
     }
 
@@ -359,16 +363,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             methodParams.AddRange(call.Params);
         }
 
-        if (!ctx.LedgerWalletCache.TryGetValue(contract.Owner.ToString(), out var ownerWallet))
-        {
-            var wallet = ctx.BlockRepository.GetWallet(contract.Owner);
-            if (wallet != null) 
-            {
-                ctx.LedgerWalletCache.Add(contract.Owner.ToString(), wallet);
-            }
-        }
-
-        var vmContext = new VMContext(contract, item, ctx.Seed);
+        var vmContext = new VMContext(contract, item, ctx.Seed, ctx.Logger);
 
         using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
             .WithContext(vmContext);
@@ -383,12 +378,58 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             return;
         }
 
+        var getTokenName = $"get_token";
+        var hasGetToken = contract.Manifest.Methods.Any(x => x.Name == getTokenName);
+
         foreach (var effect in item.Effects)
         {
             if (!ctx.LedgerWalletCache.TryGetValue(effect.To.ToString(), out var wallet))
             {
                 wallet = ctx.BlockRepository.GetWallet(effect.To) ?? new LedgerWallet(effect.To);
                 ctx.LedgerWalletCache.TryAdd(wallet.Address.ToString(), wallet);
+            }
+
+            if (hasGetToken && effect.TokenId is not null)
+            {
+                var token = ctx.BlockRepository.GetToken(effect.TokenId);
+
+                if (token is null)
+                {
+                    var result = vm.CallMethod(getTokenName, new object[] { contract.EntryPoint, effect.TokenId }, out var json);
+
+                    if (result != 0)
+                    {
+                        ctx.Logger.LogError($"get_token failed for {effect.TokenId}, error code = {result}");
+                        continue;
+                    }
+
+                    if (json is null)
+                    {
+                        ctx.Logger.LogError($"get_token failed for {effect.TokenId}, error = json  output null");
+                        continue;
+                    }
+
+                    var tokenBase = JsonSerializer.Deserialize<TokenBase>(json);
+
+                    if (tokenBase is null)
+                    {
+                        ctx.Logger.LogError($"get_token failed for {effect.TokenId}, error = failed to parse json");
+                        continue;
+                    }
+                     
+                    token = new Token()
+                    {
+                        TokenId = effect.TokenId,
+                        Name = tokenBase.Name,
+                        Description = tokenBase.Description,
+                        Contract = contract
+                    };
+
+                    ctx.BlockRepository.Context.Add(token);
+                }
+
+                token.Wallet = wallet;
+                token.IsConsumed = effect.ConsumeToken;
             }
 
             checked
@@ -404,6 +445,8 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
                 contract.Balance = balance;
             }
         }
+
+        ctx.Events.AddRange(vmContext.Events);
 
         // TODO: take snapshot and commit at the end of block execution
         contract.Snapshots.Add(new ContractSnapshot(ctx.Height, vm.TakeSnapshot()));
@@ -648,7 +691,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
         }
 
-        var vmContext = new VMContext(contract, item, ctx.Seed);
+        var vmContext = new VMContext(contract, item, ctx.Seed, ctx.Logger);
 
         using var vm = KryoVM.LoadFromCode(contract.Code)
             .WithContext(vmContext);

@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace node;
+namespace Kryolite.Node;
 
 public static class Compressor
 {

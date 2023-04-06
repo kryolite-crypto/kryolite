@@ -12,12 +12,12 @@ public class LedgerWallet
     public Address Address { get; set; }
     public ulong Balance { get; set; }
     public ulong Pending { get; set; }
-    // public List<LedgerAsset> Assets { get; set; } = new();
+    public List<Token> Tokens { get; set; } = new();
 
 
     public LedgerWallet()
     {
-
+        Address = new Address();
     }
 
     public LedgerWallet(Address address)

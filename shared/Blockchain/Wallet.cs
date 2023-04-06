@@ -16,7 +16,6 @@ public class Wallet
     public bool Updated { get; set; }
 
     public List<WalletTransaction> WalletTransactions { get; set; } = new();
-    //public List<WalletAsset> WalletAssets { get; set; } = new();
 
     public Wallet()
     {

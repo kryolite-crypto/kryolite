@@ -2,7 +2,6 @@ using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Microsoft.Extensions.Logging;
-using node;
 
 namespace Kryolite.Node;
 
@@ -18,6 +17,8 @@ public class BlockchainManager : IBlockchainManager
     private BroadcastBlock<PosBlock> BlockBroadcast = new(i => i);
     private BroadcastBlock<Wallet> WalletBroadcast = new(i => i);
     private BroadcastBlock<Vote> VoteBroadcast = new(i => i);
+    private BroadcastBlock<TransferTokenEventArgs> TokenTransferredBroadcast = new(i => i);
+    private BroadcastBlock<ConsumeTokenEventArgs> TokenConsumedBroadcast = new(i => i);
 
     public BlockchainManager(INetworkManager discoveryManager, IMempoolManager mempoolManager, IWalletManager walletManager, ILogger<BlockchainManager> logger)
     {
@@ -68,7 +69,8 @@ public class BlockchainManager : IBlockchainManager
                 .Link<VerifyTimestampPast>(x => x.Height > 0)
                 .Link<VerifyTimestampFuture>(x => x.Height > 0);
 
-            if (block.Pow != null && !powExcecutor.Execute(block.Pow, out var result)) {
+            if (block.Pow != null && !powExcecutor.Execute(block.Pow, out var result))
+            {
                 logger.LogWarning($"AddBlock failed with: {result}");
                 txCtx.Rollback();
                 return false;
@@ -79,87 +81,44 @@ public class BlockchainManager : IBlockchainManager
                 .TakeLast(11)
                 .Average(x => x?.Timestamp ?? 0);
 
-            var txContext = new TransactionContext(blockchainRepository, wallets)
+            var txContext = new TransactionContext(blockchainRepository, wallets, logger)
             {
-                Height = block.Height,
-                Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
-                FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
+                Height = block.Pow?.Height ?? 0,
+                Fee = block.Pow?.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min() ?? 0,
+                FeeTotal = (ulong)(block.Pow?.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum() ?? 0L),
                 Timestamp = block.Timestamp,
                 Seed = (int)seed
             };
 
-            var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
-                // Miner fee
-                .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                // Payment, TODO: check for duplicate TX
-                .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
-                .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                // Payment to Contract
-                .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                // Add contract
-                .Link<AddContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract());
-
-            if (!txExecutor.ExecuteBatch(block.Transactions, out var txresult)) {
-                logger.LogWarning($"AddBlock failed with: {txresult}");
-                txCtx.Rollback();
-                return false;
-            }
-
-            walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
-            blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
-            blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
-
-            if (block.Pow is not null) 
+            if (block.Pow is not null)
             {
-                txContext = new TransactionContext(blockchainRepository, wallets)
+                var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
+                    // Miner fee
+                    .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
+                    .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
+                    .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
+                    .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
+                    // Payment, TODO: check for duplicate TX
+                    .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
+                    .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+                    .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+                    .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+                    .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+                    .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+                    .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
+                    // Payment to Contract
+                    .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+                    .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+                    .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+                    .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+                    .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+                    .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+                    .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
+                    // Add contract
+                    .Link<AddContract>(x => x.TransactionType == TransactionType.CONTRACT);
+
+                if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res))
                 {
-                    Height = block.Pow.Height,
-                    Fee = block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min(),
-                    FeeTotal = (ulong)block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum(),
-                    Timestamp = block.Timestamp,
-                    Seed = (int)seed
-                };
-
-                txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
-                // Miner fee
-                .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
-                .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                // Payment, TODO: check for duplicate TX
-                .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
-                .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                // Payment to Contract
-                .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                // Add contract
-                .Link<AddContract>(x => x.TransactionType == TransactionType.CONTRACT);
-
-                if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res)) {
                     logger.LogWarning($"AddBlock failed with: {res}");
                     txCtx.Rollback();
                     return false;
@@ -214,16 +173,37 @@ public class BlockchainManager : IBlockchainManager
                 mempoolManager.RemoveTransactions(block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT));
             }
 
-            mempoolManager.RemoveTransactions(block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT));
-
             logger.LogInformation($"Added block {block.Height}");
 
             ChainStateBroadcast.Post(chainState);
 
-            foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated)) {
+            foreach (var ev in txContext.Events)
+            {
+                // for some events we want to notify wallet
+                switch (ev)
+                {
+                    case TransferTokenEventArgs transfer:
+                        if (txContext.Wallets.ContainsKey(transfer.From.ToString()) || txContext.Wallets.ContainsKey(transfer.To.ToString()))
+                        {
+                            TokenTransferredBroadcast.Post(transfer);
+                        }
+                        break;
+                    case ConsumeTokenEventArgs consume:
+                        if (consume.Owner is not null && txContext.Wallets.ContainsKey(consume.Owner.ToString()))
+                        {
+                            TokenConsumedBroadcast.Post(consume);
+                        }
+                        break;
+                }
+
+                // TODO: Post events to websocket subscribers
+            }
+
+            foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated))
+            {
                 WalletBroadcast.Post(wallet);
             }
-        } 
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Add block failed");
@@ -254,10 +234,8 @@ public class BlockchainManager : IBlockchainManager
             .Link<VerifyTimestampPast>(x => x.Height > 0)
             .Link<VerifyTimestampFuture>(x => x.Height > 0);
         
-        var txContext = new TransactionContext(blockchainRepository, wallets);
+        var txContext = new TransactionContext(blockchainRepository, wallets, logger);
 
-        // .Link<VerifyValidatorReward>(x => x.TransactionType == TransactionType.VALIDATOR_FEE)
-        // .Link<VerifyDevFee>(x => x.TransactionType == TransactionType.DEV_FEE)
         // TODO: This needs refactoring
         var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
             // Miner fee
@@ -325,17 +303,6 @@ public class BlockchainManager : IBlockchainManager
                 blockchainContext.LastBlocks.Add(block.Pow);
             }
 
-            txContext.Height = block.Height;
-            txContext.Fee = block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min();
-            txContext.FeeTotal = (ulong)block.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum();
-            txContext.Timestamp = block.Timestamp;
-            txContext.Seed = (int)seed;
-
-            if (!txExecutor.ExecuteBatch(block.Transactions, out var txresult)) {
-                logger.LogError(txContext.Ex, $"AddBlock failed with: {txresult}");
-                return false;
-            }
-
             chainState.POS.Height = block.Height;
             chainState.POS.LastHash = block.GetHash();
 
@@ -354,8 +321,31 @@ public class BlockchainManager : IBlockchainManager
 
         ChainStateBroadcast.Post(chainState);
 
-        foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated)) {
+        foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated))
+        {
             WalletBroadcast.Post(wallet);
+        }
+
+        foreach (var ev in txContext.Events)
+        {
+            // for some events we want to notify wallet
+            switch (ev)
+            {
+                case TransferTokenEventArgs transfer:
+                    if (txContext.Wallets.ContainsKey(transfer.From.ToString()) || txContext.Wallets.ContainsKey(transfer.To.ToString()))
+                    {
+                        TokenTransferredBroadcast.Post(transfer);
+                    }
+                    break;
+                case ConsumeTokenEventArgs consume:
+                    if (txContext.Wallets.ContainsKey(consume.Owner.ToString()))
+                    {
+                        TokenConsumedBroadcast.Post(consume);
+                    }
+                    break;
+            }
+
+            // TODO: Post events to websocket subscribers
         }
 
         return true;
@@ -443,7 +433,7 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        var context = new TransactionContext(blockchainRepository, mempoolManager);
+        var context = new TransactionContext(blockchainRepository, mempoolManager, logger);
 
         var executor = Executor.Create<Transaction, TransactionContext>(context)
             .Link<NotReward>()
@@ -675,16 +665,14 @@ public class BlockchainManager : IBlockchainManager
                         {
                             foreach (var effect in tx.Effects)
                             {
-                                if (!ledgerWallets.ContainsKey(effect.To.ToString())) 
+                                if (effect.Value > 0)
                                 {
-                                    ledgerWallets.Add(effect.To.ToString(), blockchainRepository.GetWallet(effect.To));
+                                    RollbackEffectBalance(blockchainRepository, ledgerWallets, contract, effect);
                                 }
 
-                                var eWallet = ledgerWallets[effect.To.ToString()];
-                                checked
+                                if (effect.TokenId is not null)
                                 {
-                                    eWallet.Balance -= effect.Value;
-                                    contract.Balance += effect.Value;
+                                    RollbackEffectToken(blockchainRepository, ledgerWallets, contract, effect);
                                 }
                             }
                         }
@@ -743,7 +731,8 @@ public class BlockchainManager : IBlockchainManager
 
             txContext.Commit();
 
-            foreach (var wallet in wallets.Select(x => x.Value).Where(x => x.Updated)) {
+            foreach (var wallet in wallets.Select(x => x.Value).Where(x => x.Updated))
+            {
                 WalletBroadcast.Post(wallet);
             }
         }
@@ -896,7 +885,7 @@ public class BlockchainManager : IBlockchainManager
             methodParams.AddRange(call.Params);
         }
 
-        var vmContext = new VMContext(contract, new Transaction { To = address }, 0);
+        var vmContext = new VMContext(contract, new Transaction { To = address }, 0, logger);
 
         using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
             .WithContext(vmContext);
@@ -906,6 +895,62 @@ public class BlockchainManager : IBlockchainManager
         Console.WriteLine($"Contract result = {ret}");
 
         return json;
+    }
+
+    public Token? GetToken(SHA256Hash tokenId)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetToken(tokenId);
+    }
+
+    public List<Token> GetTokens(Address address)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetTokens(address);
+    }
+
+    private void RollbackEffectBalance(BlockchainRepository repository, Dictionary<string, LedgerWallet> walletCache, Contract contract, Effect effect)
+    {
+        if (!walletCache.ContainsKey(effect.To.ToString()))
+        {
+            walletCache.Add(effect.To.ToString(), repository.GetWallet(effect.To));
+        }
+
+        var toWallet = walletCache[effect.To.ToString()];
+
+        checked
+        {
+            toWallet.Balance -= effect.Value;
+            contract.Balance += effect.Value;
+        }
+    }
+
+    private void RollbackEffectToken(BlockchainRepository repository, Dictionary<string, LedgerWallet> walletCache, Contract contract, Effect effect)
+    {
+        if (!walletCache.ContainsKey(effect.From.ToString()))
+        {
+            walletCache.Add(effect.From.ToString(), repository.GetWallet(effect.From));
+        }
+
+        var fromWallet = walletCache[effect.From.ToString()];
+
+        var token = repository.GetToken(effect.TokenId);
+
+        if (effect.From == contract.Address)
+        {
+            if (token is not null)
+            {
+                repository.Context.Remove<Token>(token);
+            }
+        }
+        else
+        {
+            token.Wallet = fromWallet;
+        }
     }
 
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
@@ -926,5 +971,15 @@ public class BlockchainManager : IBlockchainManager
     public IDisposable OnVoteAdded(ITargetBlock<Vote> action)
     {
         return VoteBroadcast.LinkTo(action);
+    }
+
+    public IDisposable OnTokenTransferred(ITargetBlock<TransferTokenEventArgs> action)
+    {
+        return TokenTransferredBroadcast.LinkTo(action);
+    }
+
+    public IDisposable OnTokenConsumed(ITargetBlock<ConsumeTokenEventArgs> action)
+    {
+        return TokenConsumedBroadcast.LinkTo(action);
     }
 }

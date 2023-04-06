@@ -10,7 +10,6 @@ namespace Kryolite.Node;
 public class WalletContext : DbContext, IDesignTimeDbContextFactory<WalletContext> {
     public DbSet<Wallet> Wallets => Set<Wallet>();
     public DbSet<WalletTransaction> Transactions => Set<WalletTransaction>();
-    //public DbSet<WalletAsset> Assets => Set<WalletAsset>();
 
     public WalletContext() : base() 
     {
@@ -41,6 +40,10 @@ public class WalletContext : DbContext, IDesignTimeDbContextFactory<WalletContex
             v => (long)v,
             v => (ulong)v);
 
+        var sha256Converter = new ValueConverter<SHA256Hash, string>(
+            v => v.ToString(),
+            v => v);
+
         builder.Entity<Wallet>(entity => {
             entity.ToTable("Wallets")
                 .HasKey(e => e.Id)
@@ -54,11 +57,6 @@ public class WalletContext : DbContext, IDesignTimeDbContextFactory<WalletContex
                 .HasForeignKey(x => x.WalletId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_wallettx");
-
-            /*entity.HasMany(e => e.WalletAssets)
-                .WithOne()
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("fk_wallettx");*/
 
             entity.Property(x => x.PrivateKey)
                 .HasConversion(privateKeyConverter);
@@ -78,10 +76,13 @@ public class WalletContext : DbContext, IDesignTimeDbContextFactory<WalletContex
                 .HasKey(e => e.Id)
                 .HasName("pk_transaction");
 
+            entity.HasIndex(x => x.Height)
+                .HasDatabaseName("ix_tx_height");
+
             entity.Property(x => x.Recipient)
                 .HasConversion(addrConverter);
         });
-     }
+    }
 
     public WalletContext CreateDbContext(string[] args) {
         var path = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite", "wallet.dat");

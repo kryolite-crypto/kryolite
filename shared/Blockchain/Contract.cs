@@ -18,6 +18,12 @@ public class Contract
     public IntPtr? EntryPoint { get; set; }
     public ContractManifest Manifest { get; set; }
     public List<ContractSnapshot> Snapshots { get; set; } = new();
+    public List<Token> Tokens { get; set; } = new();
+
+    public Contract()
+    {
+
+    }
 
     public Contract(Address owner, ContractManifest manifest, byte[] code)
     {

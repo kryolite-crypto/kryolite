@@ -31,9 +31,13 @@ public interface IBlockchainManager
     Transaction? GetTransactionForHash(SHA256Hash hash);
     LedgerWallet? GetLedgerWallet(Address address);
     string? CallContractMethod(Address address, CallMethod call);
+    Token? GetToken(SHA256Hash tokenId);
+    List<Token> GetTokens(Address address);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
     IDisposable OnVoteAdded(ITargetBlock<Vote> action);
+    IDisposable OnTokenTransferred(ITargetBlock<TransferTokenEventArgs> action);
+    IDisposable OnTokenConsumed(ITargetBlock<ConsumeTokenEventArgs> action);
 }

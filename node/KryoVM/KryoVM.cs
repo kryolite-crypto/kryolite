@@ -1,14 +1,12 @@
-﻿using Kryolite;
-using Kryolite.Shared;
-using Makaretu.Dns.Resolving;
-using MessagePack;
+﻿using Kryolite.Shared;
+using Microsoft.Extensions.Logging;
+using Newtonsoft.Json.Linq;
 using System;
-using System.Diagnostics.Contracts;
 using System.Text;
 using System.Text.Json;
 using Wasmtime;
 
-namespace node;
+namespace Kryolite.Node;
 
 public class KryoVM : IDisposable
 {
@@ -196,6 +194,8 @@ public class KryoVM : IDisposable
         }
         catch (WasmtimeException waEx)
         {
+            Context.Logger.LogError(waEx, "contract execution failed");
+
             if (waEx.InnerException is ExitException eEx)
             {
                 exitCode = eEx.ExitCode;
@@ -203,13 +203,12 @@ public class KryoVM : IDisposable
             else
             {
                 exitCode = 20;
-                Console.WriteLine(waEx);
             }
         }
         catch (Exception ex)
         {
+            Context.Logger.LogError(ex, "contract execution failed");
             exitCode = 1;
-            Console.WriteLine(ex);
         }
 
         returns = Context!.Returns;
@@ -257,7 +256,66 @@ public class KryoVM : IDisposable
             }
 
             Context!.Balance = balance;
-            Context!.Transaction.Effects.Add(new Effect(addr, (ulong)value));
+            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, addr, (ulong)value));
+        }));
+
+        Linker.Define("env", "__approval", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {
+            var memory = caller.GetMemory("memory");
+
+            if (memory is null)
+            {
+                return;
+            }
+
+            var eventData = new ApprovalEventArgs
+            {
+                From = memory.ReadAddress(fromPtr) ?? throw new Exception("__approval: null 'from' address"),
+                To = memory.ReadAddress(toPtr) ?? throw new Exception("__approval: null 'to' address"),
+                TokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__approval: null 'tokenIdPtr' address")
+            };
+
+            Context!.Events.Add(eventData);
+        }));
+
+        Linker.Define("env", "__transfer_token", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {
+            var memory = caller.GetMemory("memory");
+
+            if (memory is null)
+            {
+                return;
+            }
+
+            var tokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address");
+            var from = memory.ReadAddress(fromPtr) ?? throw new Exception("__transfer_token: null 'from' address");
+            var to = memory.ReadAddress(toPtr) ?? throw new Exception("__transfer_token: null 'to' address");
+
+            var eventData = new TransferTokenEventArgs
+            {
+                From = memory.ReadAddress(fromPtr) ?? throw new Exception("__transfer_token: null 'from' address"),
+                To = memory.ReadAddress(toPtr) ?? throw new Exception("__transfer_token: null 'to' address"),
+                TokenId = tokenId
+            };
+
+            Context!.Events.Add(eventData);
+            Context!.Transaction.Effects.Add(new Effect(from, to, 0, tokenId));
+        }));
+
+        Linker.Define("env", "__consume_token", Function.FromCallback<int, int>(Store, (Caller caller, int ownerPtr, int tokenIdPtr) => {
+            var memory = caller.GetMemory("memory");
+
+            if (memory is null)
+            {
+                return;
+            }
+
+            var eventData = new ConsumeTokenEventArgs
+            {
+                Owner = memory.ReadAddress(ownerPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address"),
+                TokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address")
+            };
+
+            Context!.Events.Add(eventData);
+            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, eventData.Owner, 0, eventData.TokenId, true));
         }));
 
         Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
@@ -287,7 +345,19 @@ public class KryoVM : IDisposable
         }));
 
         Linker.Define("env", "__publish_event", Function.FromCallback(Store, (Caller caller) => {
-            Console.WriteLine("EVENT: " + JsonSerializer.Serialize(Context!.EventData));
+            var memory = caller.GetMemory("memory");
+
+            if (memory is null)
+            {
+                return;
+            }
+
+            var eventData = new GenericEventArgs
+            {
+                Json = JsonSerializer.Serialize(Context!.EventData)
+            };
+
+            Context!.Events.Add(eventData);
             Context!.EventData.Clear();
         }));
 

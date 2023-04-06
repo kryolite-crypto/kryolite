@@ -6,7 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace node;
+namespace Kryolite.Node;
 
 public static class ValueConverter
 {
@@ -64,6 +64,10 @@ public static class ValueConverter
                 return ConvertFromString(type, str);
             case byte[] bytes:
                 return bytes;
+            case Address addr:
+                return addr.Buffer;
+            case SHA256Hash hash:
+                return hash.Buffer;
             default:
                 throw new ArgumentException("Unknown argument type: " + value.GetType());
         }

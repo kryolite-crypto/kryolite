@@ -5,7 +5,7 @@ using Kryolite.Shared;
 
 namespace Kryolite.Wallet;
 
-public class WalletModel : INotifyPropertyChanged
+public class WalletModel : NotifyPropertyChanged
 {
     private string? _Description;
     public string? Description { 
@@ -39,11 +39,4 @@ public class WalletModel : INotifyPropertyChanged
     public Kryolite.Shared.Wallet Wallet { get; set; }
 
     public List<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
-
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    private void RaisePropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-    }
 }

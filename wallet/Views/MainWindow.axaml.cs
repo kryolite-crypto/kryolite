@@ -12,6 +12,7 @@ using System.Reactive.Linq;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
 using Kryolite.Shared;
+using Avalonia.Styling;
 
 namespace Kryolite.Wallet;
 
