@@ -33,6 +33,7 @@ public interface IBlockchainManager
     string? CallContractMethod(Address address, CallMethod call);
     Token? GetToken(SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
+    List<Token> GetContractTokens(Address contractAddress);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);

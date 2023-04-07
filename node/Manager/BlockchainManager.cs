@@ -913,6 +913,14 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetTokens(address);
     }
 
+    public List<Token> GetContractTokens(Address contractAddress)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetContractTokens(contractAddress);
+    }
+
     private void RollbackEffectBalance(BlockchainRepository repository, Dictionary<string, LedgerWallet> walletCache, Contract contract, Effect effect)
     {
         if (!walletCache.ContainsKey(effect.To.ToString()))

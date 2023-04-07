@@ -107,6 +107,17 @@ public class ApiControllerBase : Controller
         return Ok(blockchainManager.GetContract(address));
     }
 
+    [HttpGet("contract/{address}/tokens")]
+    public IActionResult GetSmartContractTokens(string address)
+    {
+        if (!Address.IsValid(address))
+        {
+            return BadRequest();
+        }
+
+        return Ok(blockchainManager.GetContractTokens(address));
+    }
+
     [HttpPost("contract/{address}/call")]
     public IActionResult CallContractMethod([FromRoute] string address, [FromBody] CallMethod callMethod)
     {
@@ -198,5 +209,22 @@ public class ApiControllerBase : Controller
         }
 
         return Ok(blockchainManager.GetTransactionsForAddress(address));
+    }
+
+    [HttpGet("ledger/{address}/tokens")]
+    public IActionResult GetTokens(string address)
+    {
+        if (!Address.IsValid(address))
+        {
+            return BadRequest();
+        }
+
+        return Ok(blockchainManager.GetTokens(address));
+    }
+
+    [HttpGet("token/{tokenId}")]
+    public Token? GetToken(string tokenId) 
+    { 
+        return blockchainManager.GetToken(tokenId);
     }
 }
