@@ -12,9 +12,6 @@
         <Style Selector="DataGridColumnHeader">
           <Setter Property="Background" Value="Transparent"/>
         </Style>
-        <Style Selector="DataGridRow.isConsumed">
-          <Setter Property="Foreground" Value="#66FFFFFF"/>
-        </Style>
       </DataGrid.Styles>
       <DataGrid.Columns>
         <DataGridTemplateColumn Header="">
@@ -22,13 +19,25 @@
             <DataTemplate>
               <StackPanel VerticalAlignment="Center">
                 <material:MaterialIcon Kind="Cash" IsVisible="{Binding !IsConsumed}" />
-                <material:MaterialIcon Kind="CashOff" IsVisible="{Binding IsConsumed}" />
+                <material:MaterialIcon Kind="CashOff" IsVisible="{Binding IsConsumed}" Foreground="{Binding ForegroundColor}"/>
               </StackPanel>
             </DataTemplate>
           </DataGridTemplateColumn.CellTemplate>
         </DataGridTemplateColumn>
-        <DataGridTextColumn Header="Name" Binding="{Binding Name}" IsReadOnly="True"/>
-        <DataGridTextColumn Header="Description" Binding="{Binding Description}" IsReadOnly="True"/>
+        <DataGridTemplateColumn Header="Name">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Name}" Foreground="{Binding ForegroundColor}" VerticalAlignment="Center" Margin="10, 0, 10, 0"/>
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
+        <DataGridTemplateColumn Header="Description">
+          <DataGridTemplateColumn.CellTemplate>
+            <DataTemplate>
+              <TextBlock Text="{Binding Description}" Foreground="{Binding ForegroundColor}" VerticalAlignment="Center" Margin="10, 0, 10, 0" />
+            </DataTemplate>
+          </DataGridTemplateColumn.CellTemplate>
+        </DataGridTemplateColumn>
       </DataGrid.Columns>
     </DataGrid>
   </DockPanel>

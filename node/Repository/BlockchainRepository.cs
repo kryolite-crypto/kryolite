@@ -280,6 +280,7 @@ public class BlockchainRepository : IDisposable
     {
         return Context.Tokens
             .Where(x => x.Wallet.Address == from && x.TokenId == tokenId)
+            .Include(x => x.Wallet)
             .FirstOrDefault();
     }
 
@@ -287,6 +288,7 @@ public class BlockchainRepository : IDisposable
     {
         return Context.Tokens
             .Where(x => x.Wallet.Address == from)
+            .Include(x => x.Wallet)
             .ToList();
     }
 
