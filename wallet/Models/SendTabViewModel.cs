@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-using Avalonia.Controls;
+using System.Collections.ObjectModel;
 using Avalonia.Data;
 using Kryolite.Shared;
 
@@ -34,7 +32,7 @@ public class SendTabViewModel : NotifyPropertyChanged
     {
         get 
         {
-            return _Recipient; 
+            return _Recipient;
         }
         set
         {
@@ -100,6 +98,23 @@ public class SendTabViewModel : NotifyPropertyChanged
             if (_Method != value)
             {
                 _Method = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    private ObservableCollection<string> _Addresses = new();
+    public ObservableCollection<string> Addresses
+    {
+        get
+        {
+            return _Addresses;
+        }
+        set
+        {
+            if (_Addresses != value)
+            {
+                _Addresses = value;
                 RaisePropertyChanged();
             }
         }

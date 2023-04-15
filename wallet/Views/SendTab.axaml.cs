@@ -1,7 +1,12 @@
 using System;
 using System.Linq;
+using System.Reflection;
+using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Kryolite.Node;
 using Kryolite.Shared;
 using MessagePack;
@@ -53,9 +58,25 @@ public partial class SendTab : UserControl
 
             BlockchainManager.AddTransactionsToQueue(transaction);
 
+            if (!Model.Addresses.Contains(Model.Recipient!))
+            {
+                Model.Addresses.Add(Model.Recipient!);
+            }
+
             Model.Recipient = "";
             Model.Amount = "";
         };
+    }
+
+    public void RecipientGotFocus(object sender, GotFocusEventArgs args)
+    {
+        var box = (AutoCompleteBox)sender;
+
+        if (string.IsNullOrEmpty(box.Text) && Model.Addresses.Count > 0)
+        {
+            var mInfo = sender.GetType().GetMethod("OpeningDropDown", BindingFlags.NonPublic | BindingFlags.Instance);
+            mInfo?.Invoke(sender, new object[] { false });
+        }
     }
 
     public void RecipientChanged(object sender, TextChangedEventArgs args)
@@ -67,6 +88,9 @@ public partial class SendTab : UserControl
             container.IsVisible = false;
             return;
         }
+
+        var mInfo = sender.GetType().GetMethod("ClosingDropDown", BindingFlags.NonPublic | BindingFlags.Instance);
+        mInfo?.Invoke(sender, new object[] { true });
 
         var addr = (Address)Model.Recipient;
 

@@ -99,7 +99,7 @@
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-        <TextBox Width="420" Text="{Binding Recipient}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" TextChanged="RecipientChanged" HorizontalAlignment="Left"/>
+        <AutoCompleteBox Name="RecipientBox" Width="420" Text="{Binding Recipient}" Items="{Binding Addresses}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" TextChanged="RecipientChanged" HorizontalAlignment="Left" FilterMode="StartsWith" MinimumPrefixLength="0" GotFocus="RecipientGotFocus"/>
         <StackPanel Orientation="Horizontal" Spacing="10">
           <TextBox Width="200" Text="{Binding Amount}" Watermark="Amount to send" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
           <StackPanel>
