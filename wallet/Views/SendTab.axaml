@@ -40,6 +40,7 @@
                 FontFamily="{TemplateBinding FontFamily}"
                 FontSize="{TemplateBinding FontSize}"
                 FontWeight="{TemplateBinding FontWeight}"
+                Foreground="#FFFFFFFF"
                 UseLayoutRounding="False"
                 ZIndex="1"/>
 
@@ -98,7 +99,7 @@
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-        <TextBox Width="420" Text="{Binding Recipient}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" TextChanged="RecipientChanged" />
+        <TextBox Width="420" Text="{Binding Recipient}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" TextChanged="RecipientChanged" HorizontalAlignment="Left"/>
         <StackPanel Orientation="Horizontal" Spacing="10">
           <TextBox Width="200" Text="{Binding Amount}" Watermark="Amount to send" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
           <StackPanel>
