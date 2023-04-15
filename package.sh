@@ -90,6 +90,7 @@ for COMPONENT in $COMPONENTS; do
     esac
 
     pushd "$output"
+    mkdir dist
     zip -pr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" .
     popd
   ) 2>&1 | sed -le "s#^#${COMPONENT}: #;" &
