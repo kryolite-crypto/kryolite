@@ -88,6 +88,8 @@ public class Program
                 jobQueue.Add(observer);
 
                 new Thread(() => {
+                    var scratchpad = new byte[KryoHash2.MAX_MEM];
+
                     while (true)
                     {
                         var blocktemplate = observer.Take();
@@ -110,7 +112,7 @@ public class Program
                         {
                             Random.Shared.NextBytes(nonce);
 
-                            var sha256Hash = KryoHash.Hash(concat);
+                            var sha256Hash = KryoHash2.Hash(concat, scratchpad);
                             var result = sha256Hash.ToBigInteger();
 
                             if (result.CompareTo(target) <= 0)
@@ -256,6 +258,7 @@ public class Program
         for (int x = 0; x < threads; x++)
         {
             var t = new Thread(() => {
+                var scratchpad = new byte[KryoHash2.MAX_MEM];
                 var token = stokenSource.Token;
                 var test = new byte[64];
                 var concat = new Concat()
@@ -267,7 +270,7 @@ public class Program
                 {
                     Random.Shared.NextBytes(concat.Buffer);
 
-                    var result = KryoHash.Hash(concat);
+                    var result = KryoHash2.Hash(concat, scratchpad);
                     Interlocked.Increment(ref done);
                 }
             });

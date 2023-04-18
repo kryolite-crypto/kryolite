@@ -64,7 +64,7 @@ public class PowBlock
             Buffer = basehash.Buffer.Concat(Nonce.Buffer).ToArray()
         };
 
-        var hash = KryoHash.Hash(concat);
+        var hash = KryoHash2.Hash(concat);
 
         var target = Difficulty.ToTarget();
         var result = hash.ToBigInteger();
