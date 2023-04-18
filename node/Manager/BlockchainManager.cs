@@ -375,7 +375,7 @@ public class BlockchainManager : IBlockchainManager
         transactions.Add(new Transaction {
             TransactionType = TransactionType.MINER_FEE,
             To = wallet,
-            Value = (ulong)(1000000000 * Constant.MINER_FEE),
+            Value = Constant.POW_REWARD,
             Nonce = rand.Next(int.MinValue, int.MaxValue)
         });
 

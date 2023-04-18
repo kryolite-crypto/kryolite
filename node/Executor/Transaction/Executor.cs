@@ -185,7 +185,7 @@ public class VerifyBlockReward : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext exCtx)
     {
-        if (item.Value != 750000000) {
+        if (item.Value != Constant.POW_REWARD) {
             throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
         }
 
@@ -199,7 +199,7 @@ public class VerifyValidatorReward : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext exCtx)
     {
-        if (item.Value != 200000000) {
+        if (item.Value != Constant.POS_REWARD) {
             throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
         }
 
@@ -213,7 +213,7 @@ public class VerifyDevFee : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext exCtx)
     {
-        if (item.Value != 50000000) {
+        if (item.Value != Constant.DEV_REWARD) {
             throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
         }
 
