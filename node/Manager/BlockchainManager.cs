@@ -317,8 +317,6 @@ public class BlockchainManager : IBlockchainManager
         blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
         blockchainRepository.Add(blocks, chainState);
 
-        mempoolManager.RemoveTransactions(blocks.SelectMany(x => x.Transactions).Where(x => x.TransactionType == TransactionType.PAYMENT));
-
         ChainStateBroadcast.Post(chainState);
 
         foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated))
@@ -611,7 +609,7 @@ public class BlockchainManager : IBlockchainManager
 
                             if (tx.TransactionType == TransactionType.MINER_FEE)
                             {
-                                recipient.Balance = checked(recipient.Balance - (powFee * (ulong)cBlock.Transactions.LongCount()));
+                                recipient.Balance = checked(recipient.Balance - powFee);
                             }
 
                             if(wallets.TryGetValue(tx.To.ToString(), out var rWallet))
@@ -627,80 +625,6 @@ public class BlockchainManager : IBlockchainManager
                     chainState.POW.TotalWork -= cBlock.Pow.Difficulty.ToWork();
                     chainState.POW.CurrentDifficulty = cBlock.Pow.Difficulty;
                     chainState.POW.LastHash = blockchainRepository.GetPowBlock(chainState.POW.Height)?.GetHash() ?? new SHA256Hash();
-                }
-
-                var fee = cBlock.Transactions.DefaultIfEmpty().Select(x => x?.MaxFee ?? 0UL).Min();
-
-                foreach (var tx in cBlock.Transactions) 
-                {
-                    if(tx.PublicKey != null) 
-                    {
-                        var senderAddr = tx.PublicKey.ToAddress();
-                        if (!ledgerWallets.ContainsKey(senderAddr.ToString())) 
-                        {
-                            ledgerWallets.Add(senderAddr.ToString(), blockchainRepository.GetWallet(senderAddr));
-                        }
-
-                        var sender = ledgerWallets[senderAddr.ToString()];
-
-                        checked
-                        {
-                            sender.Balance += tx.Value;
-                            sender.Balance += fee;
-                        }
-
-                        if (wallets.TryGetValue(senderAddr.ToString(), out var sWallet))
-                        {
-                            sWallet.Balance = sender.Balance;
-                            sWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
-                            sWallet.Updated = true;
-                        }
-                    }
-
-                    if (tx.To.IsContract()) 
-                    {
-                        var contract = blockchainRepository.GetContract(tx.To);
-
-                        if (contract is not null)
-                        {
-                            foreach (var effect in tx.Effects)
-                            {
-                                if (effect.Value > 0)
-                                {
-                                    RollbackEffectBalance(blockchainRepository, ledgerWallets, contract, effect);
-                                }
-
-                                if (effect.TokenId is not null)
-                                {
-                                    RollbackEffectToken(blockchainRepository, ledgerWallets, contract, effect);
-                                }
-                            }
-                        }
-                    }
-                    else
-                    {
-                        var recipientAddr = tx.To.ToString();
-                        if (!ledgerWallets.ContainsKey(recipientAddr)) 
-                        {
-                            ledgerWallets.Add(recipientAddr, blockchainRepository.GetWallet(tx.To));
-                        }
-
-                        var recipient = ledgerWallets[recipientAddr];
-
-                        recipient.Balance = checked(recipient.Balance - tx.Value);
-
-                        if (tx.TransactionType == TransactionType.MINER_FEE)
-                        {
-                            recipient.Balance = checked(recipient.Balance - (fee * (ulong)cBlock.Transactions.LongCount()));
-                        }
-
-                        if(wallets.TryGetValue(tx.To.ToString(), out var rWallet))
-                        {
-                            rWallet.Balance = recipient.Balance;
-                            rWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
-                            rWallet.Updated = true;
-                        }
-                    }
                 }
 
                 chainState.POS.Height = cBlock.Height - 1;

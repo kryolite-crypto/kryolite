@@ -93,13 +93,9 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_pos_pow");
 
-            entity.HasMany(e => e.Transactions)
-                .WithOne()
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("fk_pos_tx");
-
             entity.HasMany(e => e.Votes)
                 .WithOne()
+                .HasForeignKey(x => x.BlockId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_pos_vote");
 
@@ -117,7 +113,10 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.ToTable("PowBlocks")
                 .HasKey(e => e.Id)
                 .HasName("pk_pow");
-            
+
+            entity.HasIndex(x => x.PosBlockId)
+                .HasDatabaseName("ix_pow_posblockid");
+
             entity.HasIndex(x => x.Height)
                 .HasDatabaseName("ix_pow_height");
 
@@ -140,7 +139,10 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.ToTable("Transactions")
                 .HasKey(e => e.Id)
                 .HasName("pk_tx");
-            
+
+            entity.HasIndex(x => x.BlockId)
+                .HasDatabaseName("ix_tx_blockid");
+
             entity.HasIndex(x => x.From)
                 .HasDatabaseName("ix_tx_from");
 
@@ -173,6 +175,7 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
 
             entity.HasMany(e => e.Effects)
                 .WithOne()
+                .HasForeignKey(x => x.TransactionId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("fk_tx_effect");
         });
@@ -181,6 +184,9 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.ToTable("Effects")
                 .HasKey(e => e.Id)
                 .HasName("pk_effect");
+
+            entity.HasIndex(x => x.TransactionId)
+                .HasDatabaseName("ix_effect_txid");
 
             entity.Property(x => x.From)
                 .HasConversion(addrConverter);
@@ -199,7 +205,10 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.ToTable("Votes")
                 .HasKey(e => e.Id)
                 .HasName("pk_vote");
-            
+
+            entity.HasIndex(x => x.BlockId)
+                .HasDatabaseName("ix_vote_blockid");
+
             entity.HasIndex(x => x.Height)
                 .HasDatabaseName("ix_vote_height");
 

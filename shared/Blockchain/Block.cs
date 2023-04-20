@@ -89,12 +89,10 @@ public class PosBlock
     [Key(3)]
     public PowBlock? Pow { get; set; }
     [Key(4)]
-    public List<Transaction> Transactions { get; set; } = new();
-    [Key(5)]
     public PublicKey SignedBy { get; set; }
-    [Key(6)]
+    [Key(5)]
     public Signature Signature { get; set; }
-    [Key(7)]
+    [Key(6)]
     public List<Vote> Votes { get; set; } = new();
 
     public SHA256Hash GetHash()
@@ -108,8 +106,6 @@ public class PosBlock
         if (Pow is not null) {
             stream.Write(Pow.GetHash());
         }
-        
-        stream.Write(new MerkleTree(Transactions).RootHash);
 
         stream.Flush();
         stream.Position = 0;

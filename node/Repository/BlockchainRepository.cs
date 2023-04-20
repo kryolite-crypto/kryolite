@@ -86,8 +86,6 @@ public class BlockchainRepository : IDisposable
     {
         return Context.PosBlocks
             .Where(x => x.Height == height)
-            .Include(x => x.Transactions)
-                .ThenInclude(x => x.Effects)
             .Include(x => x.Votes)
             .Include(x => x.Pow)
                 .ThenInclude(x => x!.Transactions)
@@ -168,7 +166,6 @@ public class BlockchainRepository : IDisposable
     {
         return Context.PosBlocks
             .Where(x => x.Height > height)
-            .Include(x => x.Transactions)
             .Include(x => x.Votes)
             .Include(x => x.Pow)
                 .ThenInclude(x => x!.Transactions)

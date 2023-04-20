@@ -11,6 +11,9 @@ public class Transaction : IComparable<Transaction>
     [IgnoreMember]
     [JsonIgnore]
     public Guid Id { get; set; }
+    [IgnoreMember]
+    [JsonIgnore]
+    public Guid BlockId { get; set; }
 
     [Key(0)]
     public TransactionType TransactionType { get; set; }
