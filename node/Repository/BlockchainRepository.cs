@@ -26,6 +26,16 @@ public class BlockchainRepository : IDisposable
         }
 
         Context = Factory.CreateDbContext();
+
+        FormattableString cmd = $@"
+pragma threads = 4;
+pragma journal_mode = wal; 
+pragma synchronous = normal;
+pragma temp_store = memory; 
+pragma mmap_size = 30000000000;
+";
+
+        Context.Database.ExecuteSql(cmd);
     }
 
     public long Count()
@@ -82,22 +92,20 @@ public class BlockchainRepository : IDisposable
             .FirstOrDefault();
     }
 
+    private static readonly Func<BlockchainContext, long, PosBlock?> QueryPosBlock =
+        EF.CompileQuery((BlockchainContext context, long height) =>
+            context.PosBlocks
+                .Where(x => x.Height == height)
+                .Include(x => x.Votes)
+                .Include(x => x.Pow)
+                    .ThenInclude(x => x!.Transactions)
+                        .ThenInclude(x => x.Effects)
+                .OrderByDescending(x => x.Votes.Count)
+                .FirstOrDefault());
+
     public PosBlock? GetPosBlock(long height)
     {
-        return Context.PosBlocks
-            .Where(x => x.Height == height)
-            .Include(x => x.Votes)
-            .Include(x => x.Pow)
-                .ThenInclude(x => x!.Transactions)
-                    .ThenInclude(x => x.Effects)
-            .AsEnumerable()
-            .GroupBy(x => x.Height, (key, values) => new 
-            {
-                Height = key,
-                Blocks = values
-            })
-            .Select(x => x.Blocks.MaxBy(x => x.Votes.Count))
-            .FirstOrDefault();
+        return QueryPosBlock(Context, height);
     }
 
     public void Delete(PosBlock block)
