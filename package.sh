@@ -93,6 +93,7 @@ for COMPONENT in $COMPONENTS; do
     mkdir dist
     zip -pr "${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" .
     popd
+    cp "${output}/${DIST}/kryolite-${COMPONENT}-${VARIANT}.zip" ./dist
   ) 2>&1 | sed -le "s#^#${COMPONENT}: #;" &
   pids[$COMPONENT]=$!
 done
