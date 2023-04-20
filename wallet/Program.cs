@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Node;
 using System.IO;
+using Microsoft.AspNetCore.Hosting.Server.Features;
+using System.Collections.Generic;
 
 namespace Kryolite.Wallet
 {
@@ -41,6 +43,14 @@ namespace Kryolite.Wallet
 
             ServiceCollection.GetService<StartupSequence>()?
                 .Application.Set();
+
+            var logger = Host.Services.GetService<ILogger<Program>>();
+            var addresses = Host.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
+
+            foreach (var address in addresses)
+            {
+                logger!.LogInformation($"Now listening on {address}");
+            }
 
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         }
