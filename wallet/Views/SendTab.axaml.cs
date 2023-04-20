@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using Avalonia;
@@ -27,6 +28,11 @@ public partial class SendTab : UserControl
         DataContext = Model;
 
         Model.SendTransactionClicked += (object? sender, EventArgs args) => {
+            if (Model.Recipient == null || !Address.IsValid(Model.Recipient))
+            {
+                return;
+            }
+
             var transaction = new Transaction {
                 TransactionType = TransactionType.PAYMENT,
                 PublicKey = Model.SelectedWallet!.PublicKey,
