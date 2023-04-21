@@ -12,7 +12,7 @@ public class Vote
     public long Id { get; set; }
     [IgnoreMember]
     [JsonIgnore]
-    public Guid BlockId { get; set; }
+    public Guid? BlockId { get; set; }
 
     [Key(0)]
     public long Height { get; set; }
