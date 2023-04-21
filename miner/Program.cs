@@ -238,6 +238,7 @@ public class Program
 
             Console.WriteLine($"{DateTime.Now}: New job {blocktemplate.Height}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
 
+            TokenSource.Cancel();
             TokenSource = new CancellationTokenSource();
 
             Parallel.ForEach(queue, worker => {
