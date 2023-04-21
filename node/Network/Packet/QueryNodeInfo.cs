@@ -21,11 +21,13 @@ public class QueryNodeInfo : IPacket
             CurrentTime = DateTime.UtcNow
         };
 
-        context.NetworkManager.AddHost(new NodeHost(peer.Uri)
-        {
-            ClientId = peer.Id,
-            LastSeen = DateTime.UtcNow,
-            IsReachable = Connection.TestConnection(peer.Uri)
+        _ = Task.Run(() => {
+            context.NetworkManager.AddHost(new NodeHost(peer.Uri)
+            {
+                ClientId = peer.Id,
+                LastSeen = DateTime.UtcNow,
+                IsReachable = Connection.TestConnection(peer.Uri)
+            });
         });
 
         _ = peer.SendAsync(response);

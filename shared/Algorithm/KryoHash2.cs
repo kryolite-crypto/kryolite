@@ -25,18 +25,24 @@ public static class KryoHash2
 
         var iv = (new byte[32]).AsSpan();
         var nonce = iv.Slice(0, 12);
-        var tag = iv.Slice(0, 16);
 
-        var key = SHA256.HashData(concat.Buffer);
-        var enc = new ChaCha20Poly1305(key);
+        var keyHash = SHA256.HashData(concat.Buffer);
 
-        SHA256.TryHashData(key, iv, out var _);
+        var enc = new NSec.Cryptography.ChaCha20Poly1305();
+        var key = NSec.Cryptography.Key.Import(enc, keyHash, NSec.Cryptography.KeyBlobFormat.RawSymmetricKey);
+
+        SHA256.TryHashData(keyHash, iv, out var _);
 
         var cIX = 0;
         var nIX = BitConverter.ToInt32(nonce[0..4]) % (sbox.Length - expSz);
 
-        var payload = new byte[expSz];
-        enc.Encrypt(nonce, payload, payload, tag);
+        var payloadAndTag = new byte[expSz + enc.TagSize].AsSpan();
+        var payload = payloadAndTag.Slice(0, expSz);
+        var tag = payloadAndTag.Slice(expSz, enc.TagSize);
+
+        enc.Encrypt(key, nonce, null, payload, payloadAndTag);
+
+        nonce = tag.Slice(0, 12);
 
         for (var i = 0; i < rounds; i++)
         {
@@ -92,11 +98,15 @@ public static class KryoHash2
 
             if (op == 0)
             {
-                enc.Encrypt(nonce, payload, target, tag);
+                var result = new byte[payloadAndTag.Length];
+                enc.Encrypt(key, nonce, null, payload, result);
+                
+                result[0..payload.Length].CopyTo(target);
+                result[payload.Length..].CopyTo(tag);
             }
             else if (op == 1)
             {
-                var encoded = BWT.Encode(payload)[0..payload.Length];
+                var encoded = BWT.Encode(payload.ToArray())[0..payload.Length];
                 encoded.CopyTo(target);
             }
 

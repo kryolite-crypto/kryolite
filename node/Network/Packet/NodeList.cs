@@ -16,8 +16,7 @@ public class NodeList : IPacket
     {
         context.Logger.LogInformation($"Received NodeList from {peer.Uri.ToHostname()}");
 
-        foreach (var node in Nodes)
-        {
+        Parallel.ForEach(Nodes, node => {
             var host = new NodeHost(node.Url)
             {
                 ClientId = node.ClientId,
@@ -26,7 +25,7 @@ public class NodeList : IPacket
             };
 
             context.NetworkManager.AddHost(host);
-        }
+        });
 
         _ = Task.Run(async () => {
             var randomized = context.NetworkManager.GetHosts()
@@ -38,16 +37,15 @@ public class NodeList : IPacket
             var connected = context.MeshNetwork.GetOutgoingConnections().Count;
             var allowedConnections = Constant.MAX_PEERS * 1.5;
 
-            foreach (var node in randomized)
-            {
+            Parallel.ForEach(randomized, async node => {
                 if (connected >= allowedConnections)
                 {
-                    break;
+                    return;
                 }
 
                 if (await context.MeshNetwork.ConnectToAsync(node.Url))
                 {
-                    connected++;
+                    Interlocked.Increment(ref connected);
 
                     var nextPeer = context.MeshNetwork.GetPeer(node.Url);
 
@@ -56,7 +54,7 @@ public class NodeList : IPacket
                         await nextPeer.SendAsync(new QueryNodeInfo());
                     }
                 }
-            }
+            });
 
             var chainState = context.BlockchainManager.GetChainState();
 
