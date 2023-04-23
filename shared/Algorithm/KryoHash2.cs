@@ -29,7 +29,7 @@ public static class KryoHash2
         var keyHash = SHA256.HashData(concat.Buffer);
 
         var enc = new NSec.Cryptography.ChaCha20Poly1305();
-        var key = NSec.Cryptography.Key.Import(enc, keyHash, NSec.Cryptography.KeyBlobFormat.RawSymmetricKey);
+        using var key = NSec.Cryptography.Key.Import(enc, keyHash, NSec.Cryptography.KeyBlobFormat.RawSymmetricKey);
 
         SHA256.TryHashData(keyHash, iv, out var _);
 
