@@ -11,9 +11,9 @@ namespace Kryolite.Node;
 
 public class Executor
 {
-    public static ExecutorEngine<TItem, TContext> Create<TItem, TContext>(TContext context) where TContext : IContext
+    public static ExecutorEngine<TItem, TContext> Create<TItem, TContext>(TContext context, ILogger logger) where TContext : IContext
     {
-        return new ExecutorEngine<TItem, TContext>(context);
+        return new ExecutorEngine<TItem, TContext>(context, logger);
     }
 }
 
@@ -21,8 +21,13 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
 {
     private List<(BaseStep<TItem, TContext>, Func<TItem, bool>?)> Steps = new List<(BaseStep<TItem, TContext>, Func<TItem, bool>?)>();
     private TContext Context;
+    private ILogger Logger;
 
-    public ExecutorEngine(TContext context) => Context = context ?? throw new ArgumentNullException(nameof(context));
+    public ExecutorEngine(TContext context, ILogger logger)
+    {
+        Context = context ?? throw new ArgumentNullException(nameof(context));
+        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
 
     public ExecutorEngine<TItem, TContext> Link<TStep>(Func<TItem, bool>? shouldExecute = null) where TStep : BaseStep<TItem, TContext>
     {
@@ -35,7 +40,7 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
         result = ExecutionResult.UNKNOWN;
 
         foreach (var step in Steps.Where(step => step.Item2?.Invoke(item) ?? true)) {
-            if (!step.Item1.TryExecute(item, Context, out result)) {
+            if (!step.Item1.TryExecute(item, Context, Logger, out result)) {
                 return false;
             }
         }
@@ -62,7 +67,7 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
 
         foreach (var item in items) {
             if(!Execute(item, out var result)) {
-                Console.WriteLine($"Transaction failed: {result}");
+                Logger.LogError($"Transaction failed: {result}");
                 continue;
             }
 
@@ -75,11 +80,11 @@ public class ExecutorEngine<TItem, TContext> where TContext : IContext
 
 public abstract class BaseStep<TItem, TContext> where TContext : IContext
 {
-    protected abstract void Execute(TItem item, TContext ctx);
-    public bool TryExecute(TItem item, TContext ctx, out ExecutionResult result)
+    protected abstract void Execute(TItem item, TContext ctx, ILogger logger);
+    public bool TryExecute(TItem item, TContext ctx, ILogger logger, out ExecutionResult result)
     {
         try {
-            Execute(item, ctx);
+            Execute(item, ctx, logger);
         } catch (ExecutionException ex) {
             result = ex.Result;
             ctx.Fail(ex);
@@ -88,7 +93,7 @@ public abstract class BaseStep<TItem, TContext> where TContext : IContext
             result = ExecutionResult.FAILURE;
             ctx.Fail(ex);
 
-            Console.WriteLine(ex);
+            logger.LogError(ex, "TryExecute failed");
 
             return false;
         }
@@ -143,26 +148,23 @@ public class TransactionContext : IContext
     public Dictionary<string, Wallet> Wallets;
     public BlockchainRepository BlockRepository;
     public IMempoolManager MempoolManager;
-    public readonly ILogger Logger;
     public Dictionary<string, LedgerWallet> LedgerWalletCache = new Dictionary<string, LedgerWallet>();
     public Dictionary<string, Contract> ContractCache = new Dictionary<string, Contract>();
     public List<EventArgs> Events = new List<EventArgs>();
 
     public Exception? Ex { get; private set; }
 
-    public TransactionContext(BlockchainRepository blockRepository, IMempoolManager mempoolManager, ILogger logger)
+    public TransactionContext(BlockchainRepository blockRepository, IMempoolManager mempoolManager)
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         MempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Wallets = null!;
     }
 
-    public TransactionContext(BlockchainRepository blockRepository, Dictionary<string, Wallet> wallets, ILogger logger)
+    public TransactionContext(BlockchainRepository blockRepository, Dictionary<string, Wallet> wallets)
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         MempoolManager = null!;
     }
 
@@ -183,7 +185,7 @@ public class ExecutionException : Exception
 
 public class VerifyBlockReward : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx, ILogger logger)
     {
         if (item.Value != Constant.POW_REWARD) {
             throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
@@ -197,7 +199,7 @@ public class VerifyBlockReward : BaseStep<Transaction, TransactionContext>
 
 public class VerifyValidatorReward : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx, ILogger logger)
     {
         if (item.Value != Constant.POS_REWARD) {
             throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
@@ -211,7 +213,7 @@ public class VerifyValidatorReward : BaseStep<Transaction, TransactionContext>
 
 public class VerifyDevFee : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx, ILogger logger)
     {
         if (item.Value != Constant.DEV_REWARD) {
             throw new ExecutionException(ExecutionResult.INVALID_BLOCK_REWARD);
@@ -225,7 +227,7 @@ public class VerifyDevFee : BaseStep<Transaction, TransactionContext>
 
 public class NotReward : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx, ILogger logger)
     {
         if(item.TransactionType != TransactionType.PAYMENT && item.TransactionType != TransactionType.CONTRACT) {
             throw new ExecutionException(ExecutionResult.TX_IS_BLOCK_REWARD);
@@ -235,7 +237,7 @@ public class NotReward : BaseStep<Transaction, TransactionContext>
 
 public class CheckMinFee : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx, ILogger logger)
     {
         if(item.MaxFee <= 0) {
             throw new ExecutionException(ExecutionResult.LOW_FEE);
@@ -245,7 +247,7 @@ public class CheckMinFee : BaseStep<Transaction, TransactionContext>
 
 public class VerifySignature : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext exCtx)
+    protected override void Execute(Transaction item, TransactionContext exCtx, ILogger logger)
     {
         if(!item.Verify()) {
             throw new ExecutionException(ExecutionResult.SIGNATURE_VERIFICATION_FAILED);
@@ -255,7 +257,7 @@ public class VerifySignature : BaseStep<Transaction, TransactionContext>
 
 public class FetchSenderWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         var from = item.PublicKey ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
 
@@ -268,7 +270,7 @@ public class FetchSenderWallet : BaseStep<Transaction, TransactionContext>
 
 public class FetchRecipientWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if (!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var wallet)) {
             wallet = ctx.BlockRepository.GetWallet(item.To) ?? new LedgerWallet(item.To);
@@ -279,7 +281,7 @@ public class FetchRecipientWallet : BaseStep<Transaction, TransactionContext>
 
 public class FetchContract : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract))
         {
@@ -291,7 +293,7 @@ public class FetchContract : BaseStep<Transaction, TransactionContext>
 
 public class AddBalanceToContract : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract))
         {
@@ -304,7 +306,7 @@ public class AddBalanceToContract : BaseStep<Transaction, TransactionContext>
 
 public class FetchOwnerWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract)) {
             throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
@@ -319,7 +321,7 @@ public class FetchOwnerWallet : BaseStep<Transaction, TransactionContext>
 
 public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if (!ctx.ContractCache.TryGetValue(item.To.ToString(), out var contract)) 
         {
@@ -363,14 +365,14 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             methodParams.AddRange(call.Params);
         }
 
-        var vmContext = new VMContext(contract, item, ctx.Seed, ctx.Logger);
+        var vmContext = new VMContext(contract, item, ctx.Seed, logger);
 
         using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
             .WithContext(vmContext);
 
-        Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
+        logger.LogInformation($"Executing contract {contract.Name}:{call.Method}");
         var ret = vm.CallMethod(methodName, methodParams.ToArray(), out _);
-        Console.WriteLine($"Contract result = {ret}");
+        logger.LogInformation($"Contract result = {ret}");
 
         if (ret != 0)
         {
@@ -399,13 +401,13 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
                     if (result != 0)
                     {
-                        ctx.Logger.LogError($"get_token failed for {effect.TokenId}, error code = {result}");
+                        logger.LogError($"get_token failed for {effect.TokenId}, error code = {result}");
                         continue;
                     }
 
                     if (json is null)
                     {
-                        ctx.Logger.LogError($"get_token failed for {effect.TokenId}, error = json  output null");
+                        logger.LogError($"get_token failed for {effect.TokenId}, error = json  output null");
                         continue;
                     }
 
@@ -413,7 +415,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
                     if (tokenBase is null)
                     {
-                        ctx.Logger.LogError($"get_token failed for {effect.TokenId}, error = failed to parse json");
+                        logger.LogError($"get_token failed for {effect.TokenId}, error = failed to parse json");
                         continue;
                     }
                      
@@ -455,7 +457,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
 public class TakeBalanceFromSender : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         var address = item.PublicKey?.ToAddress() ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
         
@@ -473,7 +475,7 @@ public class TakeBalanceFromSender : BaseStep<Transaction, TransactionContext>
 
 public class HasFunds : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         var address = item.PublicKey?.ToAddress() ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
         
@@ -493,7 +495,7 @@ public class HasFunds : BaseStep<Transaction, TransactionContext>
 
 public class AddBalanceToRecipient : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if(!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var wallet)) {
             throw new ExecutionException(ExecutionResult.INVALID_SENDER);
@@ -505,7 +507,7 @@ public class AddBalanceToRecipient : BaseStep<Transaction, TransactionContext>
 
 public class AddBlockRewardToRecipient : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if(!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var wallet)) {
             throw new ExecutionException(ExecutionResult.INVALID_SENDER);
@@ -518,7 +520,7 @@ public class AddBlockRewardToRecipient : BaseStep<Transaction, TransactionContex
 
 public class UpdateSenderWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         var address = item.PublicKey ?? throw new ExecutionException(ExecutionResult.INVALID_PUBLIC_KEY);
         
@@ -543,7 +545,7 @@ public class UpdateSenderWallet : BaseStep<Transaction, TransactionContext>
 
 public class UpdateRecipientWallet : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if(!ctx.LedgerWalletCache.TryGetValue(item.To.ToString(), out var ledgerWallet)) {
             throw new ExecutionException(ExecutionResult.INVALID_SENDER);
@@ -580,7 +582,7 @@ public class BlockchainExContext : IContext
 
 public class VerifyDifficulty : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainExContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx, ILogger logger)
     {
         if (block.Difficulty != ctx.CurrentDifficulty) 
         {
@@ -591,7 +593,7 @@ public class VerifyDifficulty : BaseStep<PowBlock, BlockchainExContext>
 
 public class VerifyNonce : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainExContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx, ILogger logger)
     {
         if (!block.VerifyNonce()) 
         {
@@ -602,7 +604,7 @@ public class VerifyNonce : BaseStep<PowBlock, BlockchainExContext>
 
 public class VerifyId : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainExContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx, ILogger logger)
     {
         var lastBlock = ctx.LastBlocks.Last();
 
@@ -615,7 +617,7 @@ public class VerifyId : BaseStep<PowBlock, BlockchainExContext>
 
 public class VerifyParentHash : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainExContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx, ILogger logger)
     {
         var lastBlock = ctx.LastBlocks.Last();
 
@@ -628,7 +630,7 @@ public class VerifyParentHash : BaseStep<PowBlock, BlockchainExContext>
 
 public class VerifyTimestampPast : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainExContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx, ILogger logger)
     {
         // Get median of last 11 blocks
         var median = ctx.LastBlocks.TakeLast(11)
@@ -643,7 +645,7 @@ public class VerifyTimestampPast : BaseStep<PowBlock, BlockchainExContext>
 
 public class VerifyTimestampFuture : BaseStep<PowBlock, BlockchainExContext>
 {
-    protected override void Execute(PowBlock block, BlockchainExContext ctx)
+    protected override void Execute(PowBlock block, BlockchainExContext ctx, ILogger logger)
     {
         // Get median of last 11 blocks
         var median = ctx.LastBlocks.TakeLast(11)
@@ -658,7 +660,7 @@ public class VerifyTimestampFuture : BaseStep<PowBlock, BlockchainExContext>
 
 public class AddContract : BaseStep<Transaction, TransactionContext>
 {
-    protected override void Execute(Transaction item, TransactionContext ctx)
+    protected override void Execute(Transaction item, TransactionContext ctx, ILogger logger)
     {
         if (item.PublicKey == null)
         {
@@ -690,7 +692,7 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
             throw new ExecutionException(ExecutionResult.DUPLICATE_CONTRACT);
         }
 
-        var vmContext = new VMContext(contract, item, ctx.Seed, ctx.Logger);
+        var vmContext = new VMContext(contract, item, ctx.Seed, logger);
 
         using var vm = KryoVM.LoadFromCode(contract.Code)
             .WithContext(vmContext);

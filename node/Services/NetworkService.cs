@@ -426,7 +426,7 @@ public class ChainObserver : IObserver<Chain>
                 .ToList()
         };
 
-        var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext)
+        var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
             .Link<VerifyId>(x => x.Height > 0)
             .Link<VerifyParentHash>(x => x.Height > 0);
 

@@ -61,7 +61,7 @@ public class BlockchainManager : IBlockchainManager
                 NetworkTime = discoveryManager.GetNetworkTime()
             };
 
-            var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext)
+            var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
                 .Link<VerifyDifficulty>()
                 .Link<VerifyNonce>()
                 .Link<VerifyId>(x => x.Height > 0)
@@ -81,7 +81,7 @@ public class BlockchainManager : IBlockchainManager
                 .TakeLast(11)
                 .Average(x => x?.Timestamp ?? 0);
 
-            var txContext = new TransactionContext(blockchainRepository, wallets, logger)
+            var txContext = new TransactionContext(blockchainRepository, wallets)
             {
                 Height = block.Pow?.Height ?? 0,
                 Fee = block.Pow?.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min() ?? 0,
@@ -92,7 +92,7 @@ public class BlockchainManager : IBlockchainManager
 
             if (block.Pow is not null)
             {
-                var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
+                var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext, logger)
                     // Miner fee
                     .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
                     .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
@@ -227,17 +227,17 @@ public class BlockchainManager : IBlockchainManager
             NetworkTime = discoveryManager.GetNetworkTime()
         };
 
-        var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext)
+        var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
             .Link<VerifyDifficulty>()
             .Link<VerifyId>(x => x.Height > 0)
             .Link<VerifyParentHash>(x => x.Height > 0)
             .Link<VerifyTimestampPast>(x => x.Height > 0)
             .Link<VerifyTimestampFuture>(x => x.Height > 0);
         
-        var txContext = new TransactionContext(blockchainRepository, wallets, logger);
+        var txContext = new TransactionContext(blockchainRepository, wallets);
 
         // TODO: This needs refactoring
-        var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext)
+        var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext, logger)
             // Miner fee
             .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
             .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
@@ -285,7 +285,7 @@ public class BlockchainManager : IBlockchainManager
                 txContext.Seed = (int)seed;
 
                 if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res)) {
-                    logger.LogWarning($"AddBlock failed with: {res}");
+                    logger.LogWarning($"AddBlock transactions failed with: {res}");
                     return false;
                 }
 
@@ -433,9 +433,9 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        var context = new TransactionContext(blockchainRepository, mempoolManager, logger);
+        var context = new TransactionContext(blockchainRepository, mempoolManager);
 
-        var executor = Executor.Create<Transaction, TransactionContext>(context)
+        var executor = Executor.Create<Transaction, TransactionContext>(context, logger)
             .Link<NotReward>()
             .Link<CheckMinFee>()
             .Link<VerifySignature>()
