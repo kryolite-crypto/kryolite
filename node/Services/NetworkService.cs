@@ -431,8 +431,8 @@ public class ChainObserver : IObserver<Chain>
             {
                 if(!blockExecutor.Execute(block.Pow, out var result)) 
                 {
-                    // TODO: disconnect from node and ban from peers
                     logger.LogError($"Chain failed at {block.Height} ({result})");
+                    await chain.Peer.DisconnectAsync();
                     return;
                 }
 
@@ -467,6 +467,7 @@ public class ChainObserver : IObserver<Chain>
             {
                 logger.LogWarning("Failed to set chain, discarding...");
                 EndSync?.Invoke(this, EventArgs.Empty);
+                await chain.Peer.DisconnectAsync();
                 return;
             }
 
@@ -474,7 +475,6 @@ public class ChainObserver : IObserver<Chain>
         }
 
         logger.LogInformation($"Chain sync finished");
-
         EndSync?.Invoke(this, EventArgs.Empty);
     }
 }
