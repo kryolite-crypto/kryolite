@@ -214,6 +214,7 @@ public class BlockchainManager : IBlockchainManager
         return true;
     }
 
+    // Only use for chain sync!
     private bool AddBlocks(List<PosBlock> blocks, BlockchainRepository blockchainRepository)
     {
         var chainState = blockchainRepository.GetChainState();
@@ -228,7 +229,6 @@ public class BlockchainManager : IBlockchainManager
 
         var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext)
             .Link<VerifyDifficulty>()
-            .Link<VerifyNonce>()
             .Link<VerifyId>(x => x.Height > 0)
             .Link<VerifyParentHash>(x => x.Height > 0)
             .Link<VerifyTimestampPast>(x => x.Height > 0)
