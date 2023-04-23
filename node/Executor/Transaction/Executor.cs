@@ -618,7 +618,6 @@ public class VerifyParentHash : BaseStep<PowBlock, BlockchainExContext>
     protected override void Execute(PowBlock block, BlockchainExContext ctx)
     {
         var lastBlock = ctx.LastBlocks.Last();
-        var hash = lastBlock.GetHash();
 
         if (block.ParentHash != lastBlock.GetHash())
         {

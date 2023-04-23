@@ -67,9 +67,10 @@ public partial class MainWindow : Window
             });
         };
 
-        ChainObserver.SyncProgress += async (object? sender, double progress) => {
+        ChainObserver.SyncProgress += async (object? sender, SyncEventArgs e) => {
             await Dispatcher.UIThread.InvokeAsync(() => {
-                syncProgress.Value = progress;
+                syncProgress.ProgressTextFormat = $$"""{{e.Status}}: {1:0}%""";
+                syncProgress.Value = e.Progress;
                 syncProgress.Minimum = 0;
                 syncProgress.Maximum = 100;
 

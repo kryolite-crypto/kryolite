@@ -3,6 +3,8 @@ using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Numerics;
 using System.Reactive.Linq;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks.Dataflow;
 using System.Timers;
 using DnsClient;
@@ -359,6 +361,12 @@ public class Chain
     }
 }
 
+public class SyncEventArgs
+{
+    public string Status { get; set; } = string.Empty;
+    public double Progress { get; set; }
+}
+
 public class ChainObserver : IObserver<Chain>
 {
     private readonly IMeshNetwork nodeNetwork;
@@ -367,7 +375,7 @@ public class ChainObserver : IObserver<Chain>
 
     // TODO: quick hack, create proper events
     public static event EventHandler<long>? BeginSync;
-    public static event EventHandler<double>? SyncProgress;
+    public static event EventHandler<SyncEventArgs>? SyncProgress;
     public static event EventHandler<EventArgs>? EndSync;
 
     public ChainObserver(IMeshNetwork nodeNetwork, IBlockchainManager blockchainManager, ILogger<NetworkService> logger)
@@ -377,9 +385,12 @@ public class ChainObserver : IObserver<Chain>
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public static void ReportProgress(double progress, double total)
+    public static void ReportProgress(string status, double progress, double total)
     {
-        SyncProgress?.Invoke(null, progress / total * 100d);
+        SyncProgress?.Invoke(null, new SyncEventArgs { 
+            Status = status, 
+            Progress = progress / total * 100d }
+        );
     }
     
     public void OnCompleted()
@@ -392,7 +403,7 @@ public class ChainObserver : IObserver<Chain>
         logger.LogError(error, "Chain sync failed");
     }
 
-    public async void OnNext(Chain chain)
+    public void OnNext(Chain chain)
     {
         if (chain.Blocks.Count == 0) {
             return;
@@ -417,22 +428,47 @@ public class ChainObserver : IObserver<Chain>
 
         var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext)
             .Link<VerifyId>(x => x.Height > 0)
-            .Link<VerifyParentHash>(x => x.Height > 0)
-            .Link<VerifyNonce>();
+            .Link<VerifyParentHash>(x => x.Height > 0);
 
         long progress = 0;
-        ReportProgress(progress, sortedBlocks.Count);
+        ReportProgress("Comparing blocks with local db", progress, sortedBlocks.Count);
 
         logger.LogInformation($"Verifying blocks");
+
+        PosBlock[] current = blockchainManager.GetPosFrom(min).ToArray();
+        ref var iter = ref MemoryMarshal.GetArrayDataReference(current);
+        ref var end = ref Unsafe.Add(ref iter, current.Length);
+
+        var startIndex = 0;
+
+        foreach (var block in sortedBlocks)
+        {
+            if (Unsafe.IsAddressLessThan(ref iter, ref end) && block.GetHash() == iter.GetHash())
+            {
+                startIndex++;
+                continue;
+            }
+
+            iter = ref Unsafe.Add(ref iter, 1)!;
+        }
+
+        if (startIndex > 0)
+        {
+            logger.LogInformation($"{startIndex} blocks already exists in localdb, discarding..");
+            sortedBlocks = sortedBlocks.Skip(startIndex).ToList();
+        }
+
+        progress = 0;
+        ReportProgress("Verifying chain integrity", progress, sortedBlocks.Count);
 
         foreach (var block in sortedBlocks)
         {
             if (block.Pow is not null)
             {
-                if(!blockExecutor.Execute(block.Pow, out var result)) 
+                if (!blockExecutor.Execute(block.Pow, out var result))
                 {
                     logger.LogError($"Chain failed at {block.Height} ({result})");
-                    await chain.Peer.DisconnectAsync();
+                    _ = chain.Peer.DisconnectAsync();
                     return;
                 }
 
@@ -440,8 +476,33 @@ public class ChainObserver : IObserver<Chain>
                 blockchainContext.LastBlocks.Add(block.Pow);
             }
 
-            ReportProgress(++progress, sortedBlocks.Count);
+            ReportProgress("Verifying chain integrity", ++progress, sortedBlocks.Count);
         }
+
+        progress = 0;
+        ReportProgress("Verifying Proof-of-Work", progress, sortedBlocks.Count);
+
+        var source = new CancellationTokenSource();
+        var token = source.Token;
+
+        Parallel.ForEach(sortedBlocks, block => {
+            if (block.Pow is not null)
+            {
+                if (token.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (!block.Pow.VerifyNonce())
+                {
+                    logger.LogError($"Invalid nonce at {block.Height}");
+                    source.Cancel();
+                }
+            }
+
+            var p = Interlocked.Add(ref progress, 1);
+            ReportProgress("Verifying Proof-of-Work", p, sortedBlocks.Count);
+        });
 
         // Calculate how much work we would pop
         var height = blockchainManager.GetCurrentHeight();
@@ -467,11 +528,12 @@ public class ChainObserver : IObserver<Chain>
             {
                 logger.LogWarning("Failed to set chain, discarding...");
                 EndSync?.Invoke(this, EventArgs.Empty);
-                await chain.Peer.DisconnectAsync();
+                _ = chain.Peer.DisconnectAsync();
                 return;
             }
 
-            await chain.Peer.SendAsync(new QueryNodeInfo());
+            // Query for more blocks
+            _ = chain.Peer.SendAsync(new QueryNodeInfo());
         }
 
         logger.LogInformation($"Chain sync finished");

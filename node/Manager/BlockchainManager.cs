@@ -265,6 +265,8 @@ public class BlockchainManager : IBlockchainManager
         var epochStart = blockchainRepository.GetPowBlock(chainState.POW.Height - (chainState.POW.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
 
         int progress = 0;
+        ChainObserver.ReportProgress("Inserting new blocks", progress, blocks.Count);
+
         foreach (var block in blocks)
         {
             var seed = blockchainContext.LastBlocks.TakeLast(11).Average(x => x.Timestamp);
@@ -308,7 +310,7 @@ public class BlockchainManager : IBlockchainManager
 
             logger.LogInformation($"Added block {block.Height}");
 
-            ChainObserver.ReportProgress(++progress, blocks.Count);
+            ChainObserver.ReportProgress("Inserting new blocks", ++progress, blocks.Count);
         }
 
         walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
@@ -531,7 +533,7 @@ public class BlockchainManager : IBlockchainManager
             var wallets = walletManager.GetWallets();
 
             long progress = 0;
-            ChainObserver.ReportProgress(progress, sortedBlocks.Count);
+            ChainObserver.ReportProgress("Rolling back current chain", progress, sortedBlocks.Count);
 
             for (long i = max; i >= min; i--)
             {
@@ -630,7 +632,7 @@ public class BlockchainManager : IBlockchainManager
                 blockchainRepository.UpdateWallets(ledgerWallets.Values);
                 blockchainRepository.Delete(cBlock);
 
-                ChainObserver.ReportProgress(++progress, sortedBlocks.Count);
+                ChainObserver.ReportProgress("Rolling back current chain", ++progress, sortedBlocks.Count);
             }
 
             if (wallets.Values.Count > 0) {
@@ -641,7 +643,7 @@ public class BlockchainManager : IBlockchainManager
             blockchainRepository.SaveState(chainState);
 
             progress = 0;
-            ChainObserver.ReportProgress(progress, sortedBlocks.Count);
+            ChainObserver.ReportProgress("Rolling back current chain", progress, sortedBlocks.Count);
 
             if(!AddBlocks(sortedBlocks, blockchainRepository))
             {
