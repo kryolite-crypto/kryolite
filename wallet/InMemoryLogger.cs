@@ -25,6 +25,12 @@ public class InMemoryLogger : ILogger
 
         message = $"{DateTime.Now} {logLevel.ToString()}: {state}";
 
+        if (exception != null)
+        {
+            message += Environment.NewLine;
+            message += exception.ToString();
+        }
+
         if (Messages.Count > 10000) {
             Messages.TryDequeue(out var _);
         }
