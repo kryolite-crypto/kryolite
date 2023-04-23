@@ -605,7 +605,8 @@ public class BlockchainManager : IBlockchainManager
 
                             if (tx.TransactionType == TransactionType.MINER_FEE)
                             {
-                                recipient.Balance = checked(recipient.Balance - powFee);
+                                var totalFee = powFee * (ulong)(cBlock.Pow.Transactions.Count - 1);
+                                recipient.Balance = checked(recipient.Balance - totalFee);
                             }
 
                             if(wallets.TryGetValue(tx.To.ToString(), out var rWallet))
