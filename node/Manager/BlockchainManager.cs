@@ -124,9 +124,9 @@ public class BlockchainManager : IBlockchainManager
                     return false;
                 }
 
-                walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
-                blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
-                blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
+                walletManager.UpdateWallets(txContext.Wallets.Where(x => x.Value != null).Select(x => x.Value).Where(x => x.Updated));
+                blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Where(x => x.Value != null).Select(x => x.Value));
+                blockchainRepository.UpdateContracts(txContext.ContractCache.Where(x => x.Value != null).Select(x => x.Value));
 
                 if (block.Pow.Height % Constant.EPOCH_LENGTH_BLOCKS == 0)
                 {
@@ -586,17 +586,13 @@ public class BlockchainManager : IBlockchainManager
                             {
                                 foreach (var effect in tx.Effects)
                                 {
-                                    if (!ledgerWallets.ContainsKey(effect.To.ToString())) 
+                                    if (effect.IsTokenEffect())
                                     {
-                                        ledgerWallets.Add(effect.To.ToString(), blockchainRepository.GetWallet(effect.To));
+                                        RollbackTokenEffect(blockchainRepository, ledgerWallets, contract, effect);
                                     }
-
-                                    var eWallet = ledgerWallets[effect.To.ToString()];
-
-                                    checked
+                                    else
                                     {
-                                        eWallet.Balance -= effect.Value;
-                                        contract.Balance += effect.Value;
+                                        RollbackEffectBalance(blockchainRepository, ledgerWallets, contract, effect);
                                     }
                                 }
                             }
@@ -664,6 +660,7 @@ public class BlockchainManager : IBlockchainManager
         {
             logger.LogError(ex, "Chain reorg failure");
             txContext.Rollback();
+            return false;
         }
 
         logger.LogInformation("Chain synchronization completed");
@@ -861,8 +858,13 @@ public class BlockchainManager : IBlockchainManager
         }
     }
 
-    private void RollbackEffectToken(BlockchainRepository repository, Dictionary<string, LedgerWallet> walletCache, Contract contract, Effect effect)
+    private void RollbackTokenEffect(BlockchainRepository repository, Dictionary<string, LedgerWallet> walletCache, Contract contract, Effect effect)
     {
+        if (effect.TokenId is null)
+        {
+            throw new ArgumentNullException("effect.TokenId is null, unable to rollback token");
+        }
+
         if (!walletCache.ContainsKey(effect.From.ToString()))
         {
             walletCache.Add(effect.From.ToString(), repository.GetWallet(effect.From));
@@ -872,12 +874,21 @@ public class BlockchainManager : IBlockchainManager
 
         var token = repository.GetToken(effect.TokenId);
 
+        if (token is null)
+        {
+            logger.LogWarning($"Trying to rollback nonexisting token: {effect.TokenId}");
+            return;
+        }
+
+        if (effect.ConsumeToken)
+        {
+            token.IsConsumed = false;
+            return;
+        }
+
         if (effect.From == contract.Address)
         {
-            if (token is not null)
-            {
-                repository.Context.Remove<Token>(token);
-            }
+            repository.Context.Remove<Token>(token);
         }
         else
         {

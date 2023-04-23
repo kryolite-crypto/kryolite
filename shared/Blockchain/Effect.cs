@@ -21,4 +21,9 @@ public class Effect
         TokenId = tokenId;
         ConsumeToken = consumeToken;
     }
+
+    public bool IsTokenEffect()
+    {
+        return TokenId is not null;
+    }
 }

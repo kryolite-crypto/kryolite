@@ -22,6 +22,16 @@ public class NewBlock : IPacket
 
         if (chainState.POS.Height > Block.Height)
         {
+            context.Logger.LogInformation($"Chain is ahead received block (local = {chainState.POS.Height}, received = {Block.Height}), sending current chain info...");
+            var info = new NodeInfo
+            {
+                CurrentTime = DateTime.UtcNow,
+                Height = chainState.POS.Height,
+                TotalWork = chainState.POW.TotalWork,
+                LastHash = chainState.POW.LastHash
+            };
+
+            _ = peer.SendAsync(info);
             return;
         }
 
