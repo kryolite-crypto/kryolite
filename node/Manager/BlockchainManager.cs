@@ -317,6 +317,7 @@ public class BlockchainManager : IBlockchainManager
 
         blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
         blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
+        blockchainRepository.UpdateTokens(txContext.TokenCache.Select(x => x.Value));
         blockchainRepository.Add(blocks, chainState);
 
         ChainStateBroadcast.Post(chainState);

@@ -259,6 +259,12 @@ pragma mmap_size = 30000000000;
         Context.SaveChanges();
     }
 
+    public void UpdateTokens(IEnumerable<Token> tokens)
+    {
+        Context.Tokens.UpdateRange(tokens);
+        Context.SaveChanges();
+    }
+
     public List<Transaction> GetTransactions(Address address)
     {
         return Context.Transactions

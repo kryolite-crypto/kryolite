@@ -148,9 +148,10 @@ public class TransactionContext : IContext
     public Dictionary<string, Wallet> Wallets;
     public BlockchainRepository BlockRepository;
     public IMempoolManager MempoolManager;
-    public Dictionary<string, LedgerWallet> LedgerWalletCache = new Dictionary<string, LedgerWallet>();
-    public Dictionary<string, Contract> ContractCache = new Dictionary<string, Contract>();
-    public List<EventArgs> Events = new List<EventArgs>();
+    public Dictionary<string, LedgerWallet> LedgerWalletCache = new();
+    public Dictionary<string, Contract> ContractCache = new();
+    public Dictionary<SHA256Hash, Token> TokenCache = new();
+    public List<EventArgs> Events = new();
 
     public Exception? Ex { get; private set; }
 
@@ -393,7 +394,10 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
 
             if (hasGetToken && effect.TokenId is not null)
             {
-                var token = ctx.BlockRepository.GetToken(effect.TokenId);
+                if (!ctx.TokenCache.TryGetValue(effect.TokenId, out var token))
+                {
+                    token = ctx.BlockRepository.GetToken(effect.TokenId);
+                }
 
                 if (token is null)
                 {
@@ -427,7 +431,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
                         Contract = contract
                     };
 
-                    ctx.BlockRepository.Context.Add(token);
+                    ctx.TokenCache.TryAdd(effect.TokenId, token);
                 }
 
                 token.Wallet = wallet;
@@ -438,7 +442,7 @@ public class ExecuteContract : BaseStep<Transaction, TransactionContext>
             {
                 wallet.Balance += effect.Value;
 
-                var balance = contract.Balance - effect.Value;
+                var balance = checked(contract.Balance - effect.Value);
                 if (balance < 0)
                 {
                     throw new ExecutionException(ExecutionResult.TOO_LOW_BALANCE);

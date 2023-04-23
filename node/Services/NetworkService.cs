@@ -395,12 +395,13 @@ public class ChainObserver : IObserver<Chain>
     
     public void OnCompleted()
     {
-        
+
     }
 
     public void OnError(Exception error)
     {
         logger.LogError(error, "Chain sync failed");
+        EndSync?.Invoke(this, EventArgs.Empty);
     }
 
     public void OnNext(Chain chain)
@@ -456,6 +457,12 @@ public class ChainObserver : IObserver<Chain>
         {
             logger.LogInformation($"{startIndex} blocks already exists in localdb, discarding..");
             sortedBlocks = sortedBlocks.Skip(startIndex).ToList();
+        }
+
+        if (sortedBlocks.Count == 0)
+        {
+            EndSync?.Invoke(this, EventArgs.Empty);
+            return;
         }
 
         progress = 0;
