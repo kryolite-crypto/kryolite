@@ -1,3 +1,4 @@
+using System;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -182,22 +183,7 @@ public class NetworkService : BackgroundService
 
         if (peers.Count == 0)
         {
-            logger.LogInformation("Resolving peers from testnet.kryolite.io");
-
-            var result = await LookupClient.QueryAsync("testnet.kryolite.io", QueryType.TXT);
-            
-            if (result.HasError)
-            {
-                throw new InvalidOperationException(result.ErrorMessage);
-            }
-
-            foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
-            {
-                logger.LogInformation($"Peer: {txtRecord}");
-
-                var uriBuilder = new UriBuilder(txtRecord);
-                peers.Add(uriBuilder.Uri.ToString().TrimEnd('/'));
-            }
+            peers.AddRange(await ResolveInitialPeers());
         }
 
         await startup.Application.WaitOneAsync();
@@ -243,6 +229,30 @@ public class NetworkService : BackgroundService
         startup.Network.Set();
     }
 
+    private async Task<List<string>> ResolveInitialPeers()
+    {
+        logger.LogInformation("Resolving peers from testnet.kryolite.io");
+
+        var result = await LookupClient.QueryAsync("testnet.kryolite.io", QueryType.TXT);
+
+        if (result.HasError)
+        {
+            throw new InvalidOperationException(result.ErrorMessage);
+        }
+
+        List<string> peers = new();
+
+        foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
+        {
+            logger.LogInformation($"Peer: {txtRecord}");
+
+            var uriBuilder = new UriBuilder(txtRecord);
+            peers.Add(uriBuilder.Uri.ToString().TrimEnd('/'));
+        }
+
+        return peers;
+    }
+
     private void HostCleanup(object? sender, ElapsedEventArgs e)
     {
         if (meshNetwork.GetPeers().Count == 0)
@@ -271,25 +281,36 @@ public class NetworkService : BackgroundService
 
             while (await timer.WaitForNextTickAsync())
             {
-                if (meshNetwork.GetPeers().Count > 0)
+                var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
+
+                if (peers.Count == 0)
                 {
-                    break;
+                    peers.AddRange(await ResolveInitialPeers());
                 }
 
                 var hosts = networkManager.GetHosts()
-                    .Where(x => x.IsReachable);
+                    .Where(x => x.IsReachable)
+                    .Select(x => x.Url.ToString());
 
-                foreach (var host in hosts)
+                peers.AddRange(hosts);
+
+                foreach (var peer in peers)
                 {
-                    if (await meshNetwork.ConnectToAsync(host.Url))
+                    if (!Uri.TryCreate(peer, new UriCreationOptions(), out var peerUri))
                     {
-                        var newPeer = meshNetwork.GetPeer(host.Url);
+                        logger.LogWarning("Invalid uri format {}", peer);
+                        continue;
+                    }
+
+                    if (await meshNetwork.ConnectToAsync(peerUri))
+                    {
+                        var newPeer = meshNetwork.GetPeer(peerUri);
 
                         if (newPeer != null)
                         {
-                            logger.LogInformation($"Established connection to {host.Url}");
+                            logger.LogInformation($"Established connection to {peerUri}");
                             await newPeer.SendAsync(new QueryNodeList());
-                            break;
+                            return;
                         }
                     }
                 }
