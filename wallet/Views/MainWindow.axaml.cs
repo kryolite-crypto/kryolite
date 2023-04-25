@@ -44,8 +44,6 @@ public partial class MainWindow : Window
 
         this.Opened += OnInitialized;
 
-        var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
-
         Model.ViewLogClicked += (object? sender, EventArgs args) => {
             var dialog = new LogViewerDialog();
             dialog.Show(this);
@@ -57,6 +55,8 @@ public partial class MainWindow : Window
             });
         };
 
+        var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
+
         ChainObserver.BeginSync += async (object? sender, long total) => {
             await Dispatcher.UIThread.InvokeAsync(() => {
                 syncProgress.Value = 0;
@@ -67,18 +67,14 @@ public partial class MainWindow : Window
             });
         };
 
-        ChainObserver.SyncProgress += async (object? sender, SyncEventArgs e) => {
-            await Dispatcher.UIThread.InvokeAsync(() => {
-                syncProgress.ProgressTextFormat = $$"""{{e.Status}}: {1:0}%""";
-                syncProgress.Value = e.Progress;
-                syncProgress.Minimum = 0;
-                syncProgress.Maximum = 100;
+        var progressUpdatedBuffer = new BufferBlock<SyncEventArgs>();
 
-                if (!syncProgress.IsEnabled) {
-                    syncProgress.IsEnabled = true;
-                    syncProgress.IsVisible = true;
-                }
-            });
+        progressUpdatedBuffer.AsObservable()
+            .Buffer(TimeSpan.FromSeconds(1), 250)
+            .Subscribe(async syncArgs => await OnProgressUpdated(syncArgs));
+
+        ChainObserver.SyncProgress += (object? sender, SyncEventArgs e) => {
+            progressUpdatedBuffer.Post(e);
         };
 
         ChainObserver.EndSync += async (object? sender, EventArgs args) => {
@@ -189,6 +185,33 @@ public partial class MainWindow : Window
 
         await Dispatcher.UIThread.InvokeAsync(() => {
             Model.Pending = pending;
+        });
+    }
+
+    private async Task OnProgressUpdated(IList<SyncEventArgs> syncArgs)
+    {
+        if (syncArgs.Count == 0)
+        {
+            return;
+        }
+
+        var max = syncArgs.MaxBy(x => x.Progress);
+
+        await Dispatcher.UIThread.InvokeAsync(() => {
+            var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
+
+            if (syncProgress is null)
+            {
+                return;
+            }
+
+            if (syncProgress.IsEnabled)
+            {
+                syncProgress.ProgressTextFormat = $$"""{{max.Status}}: {1:0}%""";
+                syncProgress.Value = max.Progress;
+                syncProgress.Minimum = 0;
+                syncProgress.Maximum = 100;
+            }
         });
     }
 }
