@@ -180,6 +180,13 @@ pragma mmap_size = 30000000000;
             .ToList();
     }
 
+    public List<PowBlock> GetPowFrom(long height)
+    {
+        return Context.PowBlocks
+            .Where(x => x.Height > height)
+            .ToList();
+    }
+
     public LedgerWallet? GetWallet(Address address)
     {
         return Context.LedgerWallets

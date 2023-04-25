@@ -727,6 +727,14 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetPosFrom(id);
     }
 
+    public List<PowBlock> GetPowFrom(long id)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetPowFrom(id);
+    }
+
     public void ResetChain()
     {
         using var _ = rwlock.EnterWriteLockEx();

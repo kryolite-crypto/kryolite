@@ -6,6 +6,7 @@ using System.Numerics;
 using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Security.Claims;
 using System.Threading.Tasks.Dataflow;
 using System.Timers;
 using DnsClient;
@@ -427,7 +428,8 @@ public class ChainObserver : IObserver<Chain>
 
     public void OnNext(Chain chain)
     {
-        if (chain.Blocks.Count == 0) {
+        if (chain.Blocks.Count == 0)
+        {
             return;
         }
 
@@ -437,27 +439,71 @@ public class ChainObserver : IObserver<Chain>
 
         var sortedBlocks = chain.Blocks.OrderBy(x => x.Height).ToList();
 
-        var min = sortedBlocks.Min(x => x.Height);
+        sortedBlocks = FilterCommonBlocks(sortedBlocks);
 
-        BigInteger totalWork = new BigInteger(0);
-
-        var blockchainContext = new BlockchainExContext()
+        if (sortedBlocks.Count == 0)
         {
-            LastBlocks = blockchainManager.GetLastBlocks(min, 11)
-                .OrderBy(x => x.Height)
-                .ToList()
-        };
+            EndSync?.Invoke(this, EventArgs.Empty);
+            return;
+        }
 
-        var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
-            .Link<VerifyId>(x => x.Height > 0)
-            .Link<VerifyParentHash>(x => x.Height > 0);
+        if (!VerifyChainIntegrity(sortedBlocks, out var remoteWork))
+        {
+            _ = chain.Peer.DisconnectAsync();
+            EndSync?.Invoke(this, EventArgs.Empty);
+            return;
+        }
 
+        if (!VerifyProofOfWork(sortedBlocks))
+        {
+            _ = chain.Peer.DisconnectAsync();
+            EndSync?.Invoke(this, EventArgs.Empty);
+            return;
+        }
+
+        var localWork = CalculateLocalWorkAtRemoteHeight(sortedBlocks);
+
+        logger.LogInformation($"Current chain totalWork = {localWork}, received chain with totalWork = {remoteWork}");
+
+        if (remoteWork > localWork)
+        {
+            logger.LogInformation("Chain is ahead, rolling forward");
+
+            if (!blockchainManager.SetChain(sortedBlocks))
+            {
+                logger.LogWarning("Failed to set chain, discarding...");
+                EndSync?.Invoke(this, EventArgs.Empty);
+                _ = chain.Peer.DisconnectAsync();
+                return;
+            }
+
+            // Query for more blocks
+            _ = chain.Peer.SendAsync(new QueryNodeInfo());
+        }
+
+        logger.LogInformation($"Chain sync finished");
+        EndSync?.Invoke(this, EventArgs.Empty);
+    }
+
+    private BigInteger CalculateLocalWorkAtRemoteHeight(List<PosBlock> sortedBlocks)
+    {
+        var toPop = blockchainManager.GetPowFrom(sortedBlocks.Last().Height);
+        var localWork = blockchainManager.GetTotalWork();
+
+        foreach (var block in toPop)
+        {
+            localWork -= block.Difficulty.ToWork();
+        }
+
+        return localWork;
+    }
+
+    private List<PosBlock> FilterCommonBlocks(List<PosBlock> sortedBlocks)
+    {
         long progress = 0;
-        ReportProgress("Comparing blocks with local db", progress, sortedBlocks.Count);
+        ReportProgress("Filter common blocks", progress, sortedBlocks.Count);
 
-        logger.LogInformation($"Verifying blocks");
-
-        PosBlock[] current = blockchainManager.GetPosFrom(min).ToArray();
+        PosBlock[] current = blockchainManager.GetPosFrom(sortedBlocks.First().Height).ToArray();
         ref var iter = ref MemoryMarshal.GetArrayDataReference(current);
         ref var end = ref Unsafe.Add(ref iter, current.Length);
 
@@ -472,6 +518,8 @@ public class ChainObserver : IObserver<Chain>
             }
 
             iter = ref Unsafe.Add(ref iter, 1)!;
+
+            ReportProgress("Filter common blocks", progress, sortedBlocks.Count);
         }
 
         if (startIndex > 0)
@@ -480,14 +528,26 @@ public class ChainObserver : IObserver<Chain>
             sortedBlocks = sortedBlocks.Skip(startIndex).ToList();
         }
 
-        if (sortedBlocks.Count == 0)
-        {
-            EndSync?.Invoke(this, EventArgs.Empty);
-            return;
-        }
+        return sortedBlocks;
+    }
 
-        progress = 0;
+    private bool VerifyChainIntegrity(List<PosBlock> sortedBlocks, out BigInteger totalWork)
+    {
+        long progress = 0;
         ReportProgress("Verifying chain integrity", progress, sortedBlocks.Count);
+
+        var blockchainContext = new BlockchainExContext()
+        {
+            LastBlocks = blockchainManager.GetLastBlocks(sortedBlocks.First().Height, 11)
+                .OrderBy(x => x.Height)
+                .ToList()
+        };
+
+        totalWork = new BigInteger(0);
+
+        var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
+            .Link<VerifyId>(x => x.Height > 0)
+            .Link<VerifyParentHash>(x => x.Height > 0);
 
         foreach (var block in sortedBlocks)
         {
@@ -496,8 +556,7 @@ public class ChainObserver : IObserver<Chain>
                 if (!blockExecutor.Execute(block.Pow, out var result))
                 {
                     logger.LogError($"Chain failed at {block.Height} ({result})");
-                    _ = chain.Peer.DisconnectAsync();
-                    return;
+                    return false;
                 }
 
                 totalWork += block.Pow.Difficulty.ToWork();
@@ -507,7 +566,12 @@ public class ChainObserver : IObserver<Chain>
             ReportProgress("Verifying chain integrity", ++progress, sortedBlocks.Count);
         }
 
-        progress = 0;
+        return true;
+    }
+
+    private bool VerifyProofOfWork(List<PosBlock> sortedBlocks)
+    {
+        long progress = 0;
         ReportProgress("Verifying Proof-of-Work", progress, sortedBlocks.Count);
 
         var source = new CancellationTokenSource();
@@ -528,43 +592,9 @@ public class ChainObserver : IObserver<Chain>
                 }
             }
 
-            var p = Interlocked.Add(ref progress, 1);
-            ReportProgress("Verifying Proof-of-Work", p, sortedBlocks.Count);
+            ReportProgress("Verifying Proof-of-Work", Interlocked.Increment(ref progress), sortedBlocks.Count);
         });
 
-        // Calculate how much work we would pop
-        var height = blockchainManager.GetCurrentHeight();
-        var toPop = blockchainManager.GetLastBlocks((int)(height - min));
-        
-        BigInteger toPopWork = new BigInteger();
-
-        foreach (var block in toPop)
-        {
-            toPopWork += block.Difficulty.ToWork();
-        }
-
-        var localWork = blockchainManager.GetTotalWork();
-        var remoteWork = localWork - toPopWork + totalWork;
-
-        logger.LogInformation($"Current chain totalWork = {localWork}, received chain with totalWork = {remoteWork}");
-
-        if (remoteWork > localWork)
-        {
-            logger.LogInformation("Chain is ahead, rolling forward");
-
-            if(!blockchainManager.SetChain(sortedBlocks))
-            {
-                logger.LogWarning("Failed to set chain, discarding...");
-                EndSync?.Invoke(this, EventArgs.Empty);
-                _ = chain.Peer.DisconnectAsync();
-                return;
-            }
-
-            // Query for more blocks
-            _ = chain.Peer.SendAsync(new QueryNodeInfo());
-        }
-
-        logger.LogInformation($"Chain sync finished");
-        EndSync?.Invoke(this, EventArgs.Empty);
+        return !source.IsCancellationRequested;
     }
 }

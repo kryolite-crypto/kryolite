@@ -22,6 +22,7 @@ public interface IBlockchainManager
     List<PowBlock> GetLastBlocks(long start, int count);
     bool SetChain(List<PosBlock> blocks);
     List<PosBlock> GetPosFrom(long id);
+    List<PowBlock> GetPowFrom(long id);
     bool AddVote(Vote vote);
     List<Vote> AddVotes(IList<Vote> votes);
     void ResetChain();
