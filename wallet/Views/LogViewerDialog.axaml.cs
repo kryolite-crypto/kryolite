@@ -29,7 +29,8 @@ public partial class LogViewerDialog : Window
         var logBox = this.FindControl<TextEditor>("LogBox");
 
         logBox.Text = String.Join(Environment.NewLine, InMemoryLogger.Messages.ToArray()) + Environment.NewLine;
-        logBox.ScrollToLine(logBox.LineCount);
+        logBox.Options.EnableVirtualSpace = false;
+        logBox.Options.AllowScrollBelowDocument = false;
         logBox.TextArea.TextView.LinkTextForegroundBrush = Brushes.White;
         logBox.TextArea.TextView.LinkTextUnderline = false;
         logBox.TextArea.Caret.Offset = logBox.Text.Length;
@@ -54,12 +55,6 @@ public partial class LogViewerDialog : Window
 
                 await Dispatcher.UIThread.InvokeAsync(() => {
                     logBox.AppendText(newText);
-
-                    if (!logBox.IsFocused)
-                    {
-                        logBox.TextArea.Caret.Offset = logBox.Text.Length;
-                        logBox.TextArea.Caret.BringCaretToView();
-                    }
                 });
             });
         
@@ -67,5 +62,19 @@ public partial class LogViewerDialog : Window
             LogBuffer.Complete();
             InMemoryLogger.OnNewMessage -= MessageHandler;
         };
+    }
+
+    public void ScrollToBottom(object? sender, EventArgs args)
+    {
+        if (sender is not TextEditor logBox)
+        {
+            return;
+        }
+
+        if (!logBox.IsFocused)
+        {
+            logBox.TextArea.Caret.Offset = logBox.Text.Length;
+            logBox.TextArea.Caret.BringCaretToView();
+        }
     }
 }

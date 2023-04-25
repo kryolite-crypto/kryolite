@@ -33,6 +33,7 @@
                          IsReadOnly="True"
                          FontFamily="Andale Mono,Consolas,Monospace"
                          FontSize="12"
+                         TextChanged="ScrollToBottom"
                          DockPanel.Dock="Bottom"/>
         </DockPanel>
     </Panel>
