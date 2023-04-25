@@ -1,6 +1,7 @@
 using System;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
@@ -14,7 +15,6 @@ public partial class LogViewerDialog : Window
 {
     private LogViewerDialogViewModel Model = new ();
     private BufferBlock<string> LogBuffer = new();
-    private CancellationTokenSource TokenSource = new();
 
     public LogViewerDialog()
     {
@@ -33,40 +33,28 @@ public partial class LogViewerDialog : Window
 
         InMemoryLogger.OnNewMessage += MessageHandler;
 
-        Task.Run(async () => {
-            try
-            {
-                var token = TokenSource.Token;
-
-                while(!TokenSource.IsCancellationRequested) {
-                    await LogBuffer.OutputAvailableAsync(token);
-
-                    if(LogBuffer.TryReceiveAll(out var newMessages))
-                    {
-                        await Dispatcher.UIThread.InvokeAsync(() => {
-                            logBox.Text += String.Join(Environment.NewLine, newMessages) + Environment.NewLine;
-                            if (!logBox.IsFocused)
-                            {
-                                logBox.CaretIndex = logBox.Text.Length;
-                            }
-                        });
-                    }
-
-                    await Task.Delay(100, token);
+        LogBuffer.AsObservable()
+            .Buffer(TimeSpan.FromSeconds(1))
+            .Subscribe(async messages => {
+                if (messages.Count == 0)
+                {
+                    return;
                 }
-            } 
-            catch (TaskCanceledException)
-            {
 
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Message Update task failed", ex);
-            }
-        });
+                var newText = String.Join(Environment.NewLine, messages) + Environment.NewLine;
+
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    logBox.Text += newText;
+
+                    if (!logBox.IsFocused)
+                    {
+                        logBox.CaretIndex = logBox.Text.Length;
+                    }
+                });
+            });
         
         Closing += (object? sender, WindowClosingEventArgs args) => {
-            TokenSource.Cancel();
+            LogBuffer.Complete();
             InMemoryLogger.OnNewMessage -= MessageHandler;
         };
     }
