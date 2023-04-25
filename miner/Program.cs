@@ -72,7 +72,7 @@ public class Program
             timer.Elapsed += (sender, e) => {
                 if (sw.Elapsed.TotalSeconds > 0)
                 {
-                    Console.WriteLine($"Hashrate: {hashes / sw.Elapsed.TotalSeconds} h/s");
+                    Console.WriteLine("Hashrate: {0:N2} h/s", hashes / sw.Elapsed.TotalSeconds);
                 }
             };
             timer.Start();
