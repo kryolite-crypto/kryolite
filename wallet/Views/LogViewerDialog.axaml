@@ -3,6 +3,7 @@
         xmlns:vm="using:Kryolite.Wallet"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d"
         Width="600"
@@ -28,7 +29,11 @@
             <Panel DockPanel.Dock="Top">
                 <TextBlock Margin="0, 6, 0, 6" Text="Log Viewer" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
             </Panel>
-            <TextBox Name="LogBox" AcceptsReturn="True" IsReadOnly="true" FontFamily="Andale Mono" FontSize="12" DockPanel.Dock="Bottom"/>
+          <AvaloniaEdit:TextEditor Name="LogBox"
+                         IsReadOnly="True"
+                         FontFamily="Andale Mono,Consolas,Monospace"
+                         FontSize="12"
+                         DockPanel.Dock="Bottom"/>
         </DockPanel>
     </Panel>
 </Window>

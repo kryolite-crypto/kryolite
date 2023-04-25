@@ -7,7 +7,12 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Threading;
+using AvaloniaEdit;
+using AvaloniaEdit.Editing;
+using Microsoft.AspNetCore.Components.Forms;
+using Tmds.Linux;
 
 namespace Kryolite.Wallet;
 
@@ -21,10 +26,14 @@ public partial class LogViewerDialog : Window
         AvaloniaXamlLoader.Load(this);
         DataContext = Model;
 
-        var logBox = this.FindControl<TextBox>("LogBox");
+        var logBox = this.FindControl<TextEditor>("LogBox");
 
         logBox.Text = String.Join(Environment.NewLine, InMemoryLogger.Messages.ToArray()) + Environment.NewLine;
-        logBox.CaretIndex = logBox.Text.Length;
+        logBox.ScrollToLine(logBox.LineCount);
+        logBox.TextArea.TextView.LinkTextForegroundBrush = Brushes.White;
+        logBox.TextArea.TextView.LinkTextUnderline = false;
+        logBox.TextArea.Caret.Offset = logBox.Text.Length;
+        logBox.TextArea.Caret.BringCaretToView();
 
         EventHandler<string> MessageHandler = delegate(object? sender, string message)
         {
@@ -44,11 +53,12 @@ public partial class LogViewerDialog : Window
                 var newText = String.Join(Environment.NewLine, messages) + Environment.NewLine;
 
                 await Dispatcher.UIThread.InvokeAsync(() => {
-                    logBox.Text += newText;
+                    logBox.AppendText(newText);
 
                     if (!logBox.IsFocused)
                     {
-                        logBox.CaretIndex = logBox.Text.Length;
+                        logBox.TextArea.Caret.Offset = logBox.Text.Length;
+                        logBox.TextArea.Caret.BringCaretToView();
                     }
                 });
             });
