@@ -547,7 +547,10 @@ public class BlockchainManager : IBlockchainManager
 
                 if (cBlock.Pow is not null)
                 {
-                    var powFee = cBlock.Pow.Transactions.DefaultIfEmpty().Select(x => x?.MaxFee ?? 0UL).Min();
+                    var powFee = cBlock.Pow.Transactions
+                        .Where(tx => tx.TransactionType == TransactionType.PAYMENT || tx.TransactionType == TransactionType.CONTRACT)
+                        .DefaultIfEmpty()
+                        .Select(x => x?.MaxFee ?? 0UL).Min();
 
                     foreach (var tx in cBlock.Pow.Transactions) 
                     {
