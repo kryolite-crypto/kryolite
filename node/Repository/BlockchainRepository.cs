@@ -313,6 +313,6 @@ pragma mmap_size = 30000000000;
 
     public void Dispose()
     {
-        // Context.Dispose();
+        Context.Dispose();
     }
 }
