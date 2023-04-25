@@ -487,12 +487,12 @@ public class ChainObserver : IObserver<Chain>
 
     private BigInteger CalculateLocalWorkAtRemoteHeight(List<PosBlock> sortedBlocks)
     {
-        var toPop = blockchainManager.GetPowFrom(sortedBlocks.Last().Height);
-        var localWork = blockchainManager.GetTotalWork();
+        var blocksOnSameHeight = blockchainManager.GetPowFrom(sortedBlocks.First().Height).Take(sortedBlocks.Count);
+        var localWork = new BigInteger();
 
-        foreach (var block in toPop)
+        foreach (var block in blocksOnSameHeight)
         {
-            localWork -= block.Difficulty.ToWork();
+            localWork += block.Difficulty.ToWork();
         }
 
         return localWork;
@@ -503,23 +503,21 @@ public class ChainObserver : IObserver<Chain>
         long progress = 0;
         ReportProgress("Filter common blocks", progress, sortedBlocks.Count);
 
-        PosBlock[] current = blockchainManager.GetPosFrom(sortedBlocks.First().Height).ToArray();
-        ref var iter = ref MemoryMarshal.GetArrayDataReference(current);
-        ref var end = ref Unsafe.Add(ref iter, current.Length);
-
+        var current = blockchainManager.GetPosFrom(sortedBlocks.First().Height - 1)
+            .OrderBy(x => x.Height)
+            .ToList();
         var startIndex = 0;
 
-        foreach (var block in sortedBlocks)
+        for (int i = 0; i < Math.Min(sortedBlocks.Count, current.Count()); i++)
         {
-            if (Unsafe.IsAddressLessThan(ref iter, ref end) && block.GetHash() == iter.GetHash())
+            ReportProgress("Filter common blocks", progress, sortedBlocks.Count);
+
+            if(sortedBlocks[i].GetHash() != current[i].GetHash())
             {
-                startIndex++;
-                continue;
+                break;
             }
 
-            iter = ref Unsafe.Add(ref iter, 1)!;
-
-            ReportProgress("Filter common blocks", progress, sortedBlocks.Count);
+            startIndex++;
         }
 
         if (startIndex > 0)

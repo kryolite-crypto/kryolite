@@ -114,6 +114,14 @@ pragma mmap_size = 30000000000;
         Context.SaveChanges();
     }
 
+    public void Delete(long height)
+    {
+        var snapshots = Context.PosBlocks.Where(x => x.Height > height);
+
+        Context.PosBlocks.RemoveRange(snapshots);
+        Context.SaveChanges();
+    }
+
     public void DeleteTransaction(Transaction tx)
     {
         Context.Transactions.Remove(tx);

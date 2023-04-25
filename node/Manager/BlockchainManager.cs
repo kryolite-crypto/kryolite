@@ -1,7 +1,9 @@
+using System;
 using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Microsoft.Extensions.Logging;
+using Tmds.Linux;
 
 namespace Kryolite.Node;
 
@@ -525,129 +527,7 @@ public class BlockchainManager : IBlockchainManager
                 .OrderBy(x => x.Height)
                 .ToList();
 
-            var chainState = blockchainRepository.GetChainState();
-
-            var min = sortedBlocks.Min(x => x.Height);
-            var max = chainState.POS.Height;
-
-            var ledgerWallets = new Dictionary<string, LedgerWallet>();
-            var wallets = walletManager.GetWallets();
-
-            long progress = 0;
-            ChainObserver.ReportProgress("Rolling back current chain", progress, sortedBlocks.Count);
-
-            for (long i = max; i >= min; i--)
-            {
-                var cBlock = blockchainRepository.GetPosBlock(i);
-
-                if (cBlock == null)
-                {
-                    continue;
-                }
-
-                if (cBlock.Pow is not null)
-                {
-                    var powFee = cBlock.Pow.Transactions
-                        .Where(tx => tx.TransactionType == TransactionType.PAYMENT || tx.TransactionType == TransactionType.CONTRACT)
-                        .DefaultIfEmpty()
-                        .Select(x => x?.MaxFee ?? 0UL).Min();
-
-                    foreach (var tx in cBlock.Pow.Transactions) 
-                    {
-                        if(tx.PublicKey != null) 
-                        {
-                            var senderAddr = tx.PublicKey.ToAddress();
-                            if (!ledgerWallets.ContainsKey(senderAddr.ToString())) 
-                            {
-                                ledgerWallets.Add(senderAddr.ToString(), blockchainRepository.GetWallet(senderAddr));
-                            }
-
-                            var sender = ledgerWallets[senderAddr.ToString()];
-
-                            checked
-                            {
-                                sender.Balance += tx.Value;
-                                sender.Balance += powFee;
-                            }
-
-                            if (wallets.TryGetValue(senderAddr.ToString(), out var sWallet))
-                            {
-                                sWallet.Balance = sender.Balance;
-                                sWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
-                                sWallet.Updated = true;
-                            }
-                        }
-
-                        var recipientAddr = tx.To.ToString();
-                        if (!ledgerWallets.ContainsKey(recipientAddr)) 
-                        {
-                            ledgerWallets.Add(recipientAddr, blockchainRepository.GetWallet(tx.To));
-                        }
-
-                        if (tx.To.IsContract()) 
-                        {
-                            var contract = blockchainRepository.GetContract(tx.To);
-
-                            if (contract is not null)
-                            {
-                                foreach (var effect in tx.Effects)
-                                {
-                                    if (effect.IsTokenEffect())
-                                    {
-                                        RollbackTokenEffect(blockchainRepository, ledgerWallets, contract, effect);
-                                    }
-                                    else
-                                    {
-                                        RollbackEffectBalance(blockchainRepository, ledgerWallets, contract, effect);
-                                    }
-                                }
-                            }
-                        }
-                        else
-                        {
-                            var recipient = ledgerWallets[recipientAddr];
-
-                            recipient.Balance = checked(recipient.Balance - tx.Value);
-
-                            if (tx.TransactionType == TransactionType.MINER_FEE)
-                            {
-                                var totalFee = powFee * (ulong)(cBlock.Pow.Transactions.Count - 1);
-                                recipient.Balance = checked(recipient.Balance - totalFee);
-                            }
-
-                            if(wallets.TryGetValue(tx.To.ToString(), out var rWallet))
-                            {
-                                rWallet.Balance = recipient.Balance;
-                                rWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
-                                rWallet.Updated = true;
-                            }
-                        }
-                    }
-
-                    chainState.POW.Height = cBlock.Pow.Height - 1;
-                    chainState.POW.TotalWork -= cBlock.Pow.Difficulty.ToWork();
-                    chainState.POW.CurrentDifficulty = cBlock.Pow.Difficulty;
-                    chainState.POW.LastHash = blockchainRepository.GetPowBlock(chainState.POW.Height)?.GetHash() ?? new SHA256Hash();
-                }
-
-                chainState.POS.Height = cBlock.Height - 1;
-                chainState.POS.LastHash = blockchainRepository.GetPosBlock(chainState.POS.Height)?.GetHash() ?? new SHA256Hash();
-
-                blockchainRepository.UpdateWallets(ledgerWallets.Values);
-                blockchainRepository.Delete(cBlock);
-
-                ChainObserver.ReportProgress("Rolling back current chain", ++progress, sortedBlocks.Count);
-            }
-
-            if (wallets.Values.Count > 0) {
-                walletManager.RollbackWallets(wallets.Values.ToList(), min);
-            }
-
-            blockchainRepository.DeleteContractSnapshot(chainState.POS.Height);
-            blockchainRepository.SaveState(chainState);
-
-            progress = 0;
-            ChainObserver.ReportProgress("Rolling back current chain", progress, sortedBlocks.Count);
+            RollbackChainIfNeeded(blockchainRepository, sortedBlocks);
 
             if(!AddBlocks(sortedBlocks, blockchainRepository))
             {
@@ -658,7 +538,8 @@ public class BlockchainManager : IBlockchainManager
 
             txContext.Commit();
 
-            foreach (var wallet in wallets.Select(x => x.Value).Where(x => x.Updated))
+            var wallets = walletManager.GetWallets();
+            foreach (var wallet in wallets.Select(x => x.Value))
             {
                 WalletBroadcast.Post(wallet);
             }
@@ -672,6 +553,137 @@ public class BlockchainManager : IBlockchainManager
 
         logger.LogInformation("Chain synchronization completed");
         return true;
+    }
+
+    private void RollbackChainIfNeeded(BlockchainRepository blockchainRepository, List<PosBlock> sortedBlocks)
+    {
+        long progress = 0;
+
+        var chainState = blockchainRepository.GetChainState();
+        var ledgerWallets = new Dictionary<string, LedgerWallet>();
+        var wallets = walletManager.GetWallets();
+
+        var min = sortedBlocks.First().Height;
+        var max = chainState.POS.Height;
+
+        if (min > max)
+        {
+            return;
+        }
+
+        ChainObserver.ReportProgress("Rolling back current chain", progress, sortedBlocks.Count);
+
+        for (long i = max; i >= min; i--)
+        {
+            var cBlock = blockchainRepository.GetPosBlock(i);
+
+            if (cBlock == null)
+            {
+                continue;
+            }
+
+            if (cBlock.Pow is not null)
+            {
+                var powFee = cBlock.Pow.Transactions
+                    .Where(tx => tx.TransactionType == TransactionType.PAYMENT || tx.TransactionType == TransactionType.CONTRACT)
+                    .DefaultIfEmpty()
+                    .Select(x => x?.MaxFee ?? 0UL).Min();
+
+                foreach (var tx in cBlock.Pow.Transactions)
+                {
+                    if (tx.PublicKey != null)
+                    {
+                        var senderAddr = tx.PublicKey.ToAddress();
+                        if (!ledgerWallets.ContainsKey(senderAddr.ToString()))
+                        {
+                            ledgerWallets.Add(senderAddr.ToString(), blockchainRepository.GetWallet(senderAddr));
+                        }
+
+                        var sender = ledgerWallets[senderAddr.ToString()];
+
+                        checked
+                        {
+                            sender.Balance += tx.Value;
+                            sender.Balance += powFee;
+                        }
+
+                        if (wallets.TryGetValue(senderAddr.ToString(), out var sWallet))
+                        {
+                            sWallet.Balance = sender.Balance;
+                            sWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
+                            sWallet.Updated = true;
+                        }
+                    }
+
+                    if (tx.To.IsContract())
+                    {
+                        var contract = blockchainRepository.GetContract(tx.To, true);
+
+                        if (contract is not null)
+                        {
+                            foreach (var effect in tx.Effects)
+                            {
+                                if (effect.IsTokenEffect())
+                                {
+                                    RollbackTokenEffect(blockchainRepository, ledgerWallets, contract, effect);
+                                }
+                                else
+                                {
+                                    RollbackEffectBalance(blockchainRepository, ledgerWallets, contract, effect);
+                                }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var recipientAddr = tx.To.ToString();
+                        if (!ledgerWallets.ContainsKey(recipientAddr))
+                        {
+                            ledgerWallets.Add(recipientAddr, blockchainRepository.GetWallet(tx.To));
+                        }
+
+                        var recipient = ledgerWallets[recipientAddr];
+
+                        recipient.Balance = checked(recipient.Balance - tx.Value);
+
+                        if (tx.TransactionType == TransactionType.MINER_FEE)
+                        {
+                            var totalFee = powFee * (ulong)(cBlock.Pow.Transactions.Count - 1);
+                            recipient.Balance = checked(recipient.Balance - totalFee);
+                        }
+
+                        if (wallets.TryGetValue(tx.To.ToString(), out var rWallet))
+                        {
+                            rWallet.Balance = recipient.Balance;
+                            rWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
+                            rWallet.Updated = true;
+                        }
+                    }
+                }
+            }
+
+            ChainObserver.ReportProgress("Rolling back current chain", ++progress, sortedBlocks.Count);
+        }
+
+        var currentTip = blockchainRepository.GetPosBlock(min - 1);
+
+        chainState.POW.Height = min - 1;
+        chainState.POW.TotalWork -= currentTip.Pow!.Difficulty.ToWork();
+        chainState.POW.CurrentDifficulty = currentTip.Pow.Difficulty;
+        chainState.POW.LastHash = currentTip.Pow?.GetHash() ?? new SHA256Hash();
+        chainState.POS.Height = min - 1;
+        chainState.POS.LastHash = currentTip.GetHash() ?? new SHA256Hash();
+
+
+        if (wallets.Values.Count > 0)
+        {
+            walletManager.RollbackWallets(wallets.Values.ToList(), min);
+        }
+
+        blockchainRepository.UpdateWallets(ledgerWallets.Values);
+        blockchainRepository.Delete(chainState.POS.Height);
+        blockchainRepository.DeleteContractSnapshot(chainState.POS.Height);
+        blockchainRepository.SaveState(chainState);
     }
 
     public bool AddVote(Vote vote)
