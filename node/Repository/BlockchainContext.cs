@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Node;
 
@@ -33,7 +34,14 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
 
     }
 
-     protected override void OnModelCreating(ModelBuilder builder)
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        // Reduces EF memory usage by effectivily disabling all caching
+        // optionsBuilder.UseInternalServiceProvider(new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider());
+        base.OnConfiguring(optionsBuilder);
+    }
+
+    protected override void OnModelCreating(ModelBuilder builder)
      {
         var diffConverter = new ValueConverter<Difficulty, uint>(
             v => v.Value,

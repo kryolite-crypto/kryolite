@@ -6,7 +6,7 @@ namespace Kryolite.Node;
 
 public class BlockchainRepository : IDisposable
 {
-    public BlockchainContext Context { get; }
+    public BlockchainContext Context { get; private set; }
 
     private static PooledDbContextFactory<BlockchainContext>? Factory { get; set; }
 
@@ -31,8 +31,8 @@ public class BlockchainRepository : IDisposable
 pragma threads = 4;
 pragma journal_mode = wal; 
 pragma synchronous = normal;
-pragma temp_store = memory; 
-pragma mmap_size = 30000000000;
+pragma temp_store = default; 
+pragma mmap_size = -1;
 ";
 
         Context.Database.ExecuteSql(cmd);
@@ -65,7 +65,7 @@ pragma mmap_size = 30000000000;
         Context.SaveChanges();
     }
 
-    public void Add(List<PosBlock> blocks, ChainState chainState)
+    public void Add(PosBlock[] blocks, ChainState chainState)
     {
         System.Diagnostics.Contracts.Contract.Equals(1, chainState.Id);
 

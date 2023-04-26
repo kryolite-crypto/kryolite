@@ -409,10 +409,14 @@ public class ChainObserver : IObserver<Chain>
 
     public static void ReportProgress(string status, double progress, double total)
     {
-        SyncProgress?.Invoke(null, new SyncEventArgs { 
-            Status = status, 
-            Progress = progress / total * 100d }
-        );
+        if (SyncProgress is not null)
+        {
+            SyncProgress?.Invoke(null, new SyncEventArgs
+            {
+                Status = status,
+                Progress = progress / total * 100d
+            });
+        }
     }
     
     public void OnCompleted()
