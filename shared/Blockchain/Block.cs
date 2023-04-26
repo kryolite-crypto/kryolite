@@ -5,12 +5,9 @@ using MessagePack;
 
 namespace Kryolite.Shared;
 
-[StructLayout(LayoutKind.Explicit)]
-public struct Concat
+public class Concat
 {
-    [FieldOffset(0)]
-    [MarshalAs(UnmanagedType.ByValArray, SizeConst=64)] 
-    public byte[] Buffer;
+    public byte[] Buffer = new byte[64];
 
     public override bool Equals(Object? obj) => obj is Concat c && this == c;
     public override int GetHashCode() => Buffer.GetHashCode();

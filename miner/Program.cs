@@ -88,7 +88,7 @@ public class Program
                 jobQueue.Add(observer);
 
                 new Thread(() => {
-                    var scratchpad = new byte[KryoHash2.MAX_MEM];
+                    var scratchpad = (new byte[KryoHash2.MAX_MEM]).AsSpan();
 
                     while (true)
                     {
@@ -259,7 +259,7 @@ public class Program
         for (int x = 0; x < threads; x++)
         {
             var t = new Thread(() => {
-                var scratchpad = new byte[KryoHash2.MAX_MEM];
+                var scratchpad = (new byte[KryoHash2.MAX_MEM]).AsSpan();
                 var token = stokenSource.Token;
                 var test = new byte[64];
                 var concat = new Concat()
