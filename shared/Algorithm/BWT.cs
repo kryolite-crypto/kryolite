@@ -14,9 +14,15 @@ namespace Kryolite.Shared;
 public static class BWT
 {
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static byte[] Encode(byte[] input)
+    public static byte[] Encode(Span<byte> input)
     {
-        var newInput = input.Select(x => (int)x).ToArray();
+        var newInput = new int[input.Length];
+
+        for (int i = 0; i < input.Length; i++)
+        {
+            newInput[i] = input[i];
+        }
+
         var sortedSuffixes = SuffixArray.BuildSuffixArray(newInput, 256);
 
         var end = 0;
