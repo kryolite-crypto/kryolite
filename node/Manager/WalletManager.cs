@@ -33,7 +33,7 @@ public class WalletManager : IWalletManager
         using var _ = rwlock.EnterWriteLockEx();
         using var walletRepository = new WalletRepository();
 
-        if (walletType == WalletType.NODE) {
+        if (walletType == WalletType.VALIDATOR) {
             var nodeWallet = walletRepository.GetNodeWallet();
 
             if (nodeWallet != null) {

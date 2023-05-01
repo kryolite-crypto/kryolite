@@ -250,7 +250,7 @@ public class Startup
         PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
         PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);
         PacketFormatter.Register<TransactionData>(Packet.TransactionData);
-        PacketFormatter.Register<VoteBatch>(Packet.VoteBatch);
+        PacketFormatter.Register<HeartbeatSignatureBatch>(Packet.VoteBatch);
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
@@ -275,13 +275,11 @@ public class Startup
         services.AddSingleton<IBlockchainManager, BlockchainManager>()
                 .AddSingleton<Lazy<IBlockchainManager>>(c => new Lazy<IBlockchainManager>(c.GetService<IBlockchainManager>()!))
                 .AddSingleton<INetworkManager, NetworkManager>()
-                .AddSingleton<IMempoolManager, MempoolManager>()
                 .AddSingleton<IWalletManager, WalletManager>()
                 .AddSingleton<IMeshNetwork, MeshNetwork>()
                 .AddHostedService<NetworkService>()
                 .AddHostedService<BlockchainService>()
-                .AddHostedService<MempoolService>()
-                .AddHostedService<POSService>()
+                .AddHostedService<ValidatorService>()
                 .AddHostedService<UPnPService>()
                 .AddHostedService<MDNSService>()
                 .AddSingleton<StartupSequence>()
@@ -296,7 +294,6 @@ public class Startup
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
                     options.JsonSerializerOptions.Converters.Add(new AddressConverter());
-                    options.JsonSerializerOptions.Converters.Add(new NonceConverter());
                     options.JsonSerializerOptions.Converters.Add(new PrivateKeyConverter());
                     options.JsonSerializerOptions.Converters.Add(new PublicKeyConverter());
                     options.JsonSerializerOptions.Converters.Add(new SHA256HashConverter());

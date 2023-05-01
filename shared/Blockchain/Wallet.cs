@@ -35,5 +35,5 @@ public class Wallet
 public enum WalletType
 {
     WALLET,
-    NODE
+    VALIDATOR
 }

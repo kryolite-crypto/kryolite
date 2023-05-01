@@ -12,7 +12,6 @@ public class NetworkManager : INetworkManager
 
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly ILogger<INetworkManager> logger;
-    private BroadcastBlock<PowBlock> BlockProposedBroadcast = new BroadcastBlock<PowBlock>(i => i);
 
     public NetworkManager(ILogger<INetworkManager> logger)
     {
@@ -75,17 +74,6 @@ public class NetworkManager : INetworkManager
     {
         using var _ = rwlock.EnterReadLockEx();
         return Hosts;
-    }
-
-    public bool ProposeBlock(PowBlock block)
-    {
-        BlockProposedBroadcast.Post(block);
-        return true;
-    }
-
-    public IDisposable OnBlockProposed(ITargetBlock<PowBlock> action)
-    {
-        return BlockProposedBroadcast.LinkTo(action);
     }
 
     public void RemoveHost(NodeHost host)

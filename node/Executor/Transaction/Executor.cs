@@ -147,7 +147,6 @@ public class TransactionContext : IContext
     public int Seed;
     public Dictionary<string, Wallet> Wallets;
     public BlockchainRepository BlockRepository;
-    public IMempoolManager MempoolManager;
     public Dictionary<string, LedgerWallet> LedgerWalletCache = new();
     public Dictionary<string, Contract> ContractCache = new();
     public Dictionary<SHA256Hash, Token> TokenCache = new();
@@ -155,10 +154,9 @@ public class TransactionContext : IContext
 
     public Exception? Ex { get; private set; }
 
-    public TransactionContext(BlockchainRepository blockRepository, IMempoolManager mempoolManager)
+    public TransactionContext(BlockchainRepository blockRepository)
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
-        MempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         Wallets = null!;
     }
 
@@ -166,7 +164,6 @@ public class TransactionContext : IContext
     {
         BlockRepository = blockRepository ?? throw new ArgumentNullException(nameof(blockRepository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
-        MempoolManager = null!;
     }
 
     public void Fail(Exception ex)
@@ -184,7 +181,7 @@ public class ExecutionException : Exception
     }
 }
 
-public class VerifyBlockReward : BaseStep<Transaction, TransactionContext>
+/*public class VerifyBlockReward : BaseStep<Transaction, TransactionContext>
 {
     protected override void Execute(Transaction item, TransactionContext exCtx, ILogger logger)
     {
@@ -706,4 +703,4 @@ public class AddContract : BaseStep<Transaction, TransactionContext>
         
         ctx.BlockRepository.AddContract(contract);
     }
-}
+}*/

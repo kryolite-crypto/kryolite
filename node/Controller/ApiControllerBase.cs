@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -27,11 +28,12 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid parameter (address)");
         }
 
-        if (id.HasValue && blockchainManager.GetCurrentHeight() == id.Value) {
+        /*if (id.HasValue && blockchainManager.GetCurrentHeight() == id.Value) {
             return null;
         }
 
-        return blockchainManager.GetBlocktemplate(wallet);
+        return blockchainManager.GetBlocktemplate(wallet);*/
+        return null;
     }
 
     [HttpGet("balance")]
@@ -41,7 +43,8 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid parameter (address)");
         }
 
-        return blockchainManager.GetBalance(wallet);
+        //return blockchainManager.GetBalance(wallet);
+        return 0;
     }
 
     [HttpGet("peers")]
@@ -70,38 +73,23 @@ public class ApiControllerBase : Controller
             .ToList();
     }
 
-    [HttpGet("block/pos")]
-    public PosBlock? GetPosBlock([BindRequired, FromQuery] long height)
+    [HttpGet("block")]
+    public Block? GetBlock([BindRequired, FromQuery] long height)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid parameter (address)");
         }
 
-        return blockchainManager.GetPosBlock(height);
-    }
-
-    [HttpGet("block/pow")]
-    public PowBlock? GetPowBlock([BindRequired, FromQuery] long height)
-    {
-        if (!ModelState.IsValid) {
-            throw new Exception("invalid parameter (address)");
-        }
-
-        return blockchainManager.GetPowBlock(height);
+        // return blockchainManager.GetPosBlock(height);
+        return null;
     }
 
     [HttpGet("block/latest")]
-    public PosBlock? GetLatestBlock()
+    public Block? GetLatestBlock()
     {
-        var height = blockchainManager.GetChainState().POS.Height;
-        return blockchainManager.GetPosBlock(height);
-    }
-
-    [HttpGet("block/latest/pow")]
-    public PowBlock? GetLatestPowBlock()
-    {
-        var height = blockchainManager.GetChainState().POW.Height;
-        return blockchainManager.GetPowBlock(height);
+        /*var height = blockchainManager.GetChainState().POS.Height;
+        return blockchainManager.GetPosBlock(height);*/
+        return null;
     }
 
     [HttpGet("contract/{address}")]
@@ -112,7 +100,8 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetContract(address));
+        //return Ok(blockchainManager.GetContract(address));
+        return Ok(null);
     }
 
     [HttpGet("contract/{address}/tokens")]
@@ -123,7 +112,8 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetContractTokens(address));
+        //return Ok(blockchainManager.GetContractTokens(address));
+        return Ok(null);
     }
 
     [HttpPost("contract/{address}/call")]
@@ -134,9 +124,10 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        var json = blockchainManager.CallContractMethod(address, callMethod);
+        //var json = blockchainManager.CallContractMethod(address, callMethod);
 
-        return Content(json ?? string.Empty, "application/json");
+        //return Content(json ?? string.Empty, "application/json");
+        return Ok(null);
     }
 
     [HttpPost("solution")]
@@ -146,7 +137,7 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid blocktemplate");
         }
 
-        var block = new PowBlock {
+        /*var block = new PowBlock {
             Height = blocktemplate.Height,
             ParentHash = blocktemplate.ParentHash,
             Timestamp = blocktemplate.Timestamp,
@@ -155,7 +146,8 @@ public class ApiControllerBase : Controller
             Transactions = blocktemplate.Transactions
         };
 
-        return networkManager.ProposeBlock(block);
+        return networkManager.ProposeBlock(block);*/
+        return true;
     }
 
     [HttpPost("tx")]
@@ -165,25 +157,27 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid transaction");
         }
 
-        blockchainManager.AddTransactionsToQueue(tx);
+        // blockchainManager.AddTransactionsToQueue(tx);
     }
 
     [HttpGet("richlist")]
     public IActionResult GetSmartContractState([FromQuery] int count = 25)
     {
-        var wallets = blockchainManager.GetRichList(count).Select(wallet => new {
+        /*var wallets = blockchainManager.GetRichList(count).Select(wallet => new {
             Address = wallet.Address,
             Balance = wallet.Balance,
             Pending = wallet.Pending
         });
 
-        return Ok(wallets);
+        return Ok(wallets);*/
+        return Ok(null);
     }
 
     [HttpGet("tx/{hash}")]
     public IActionResult GetTransactionForHash(string hash)
     {
-        return Ok(blockchainManager.GetTransactionForHash(hash));
+        //return Ok(blockchainManager.GetTransactionForHash(hash));
+        return Ok(null);
     }
 
     [HttpGet("ledger/{address}")]
@@ -194,7 +188,8 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetLedgerWallet(address));
+        //return Ok(blockchainManager.GetLedgerWallet(address));
+        return Ok(null);
     }
 
     [HttpGet("ledger/{address}/balance")]
@@ -205,7 +200,8 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetBalance(address));
+        //return Ok(blockchainManager.GetBalance(address));
+        return Ok(null);
     }
 
     [HttpGet("ledger/{address}/transactions")]
@@ -216,7 +212,8 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetTransactionsForAddress(address));
+        //return Ok(blockchainManager.GetTransactionsForAddress(address));
+        return Ok(null);
     }
 
     [HttpGet("ledger/{address}/tokens")]
@@ -227,12 +224,14 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetTokens(address));
+        //return Ok(blockchainManager.GetTokens(address));
+        return Ok(null);
     }
 
     [HttpGet("token/{tokenId}")]
     public Token? GetToken(string tokenId) 
-    { 
-        return blockchainManager.GetToken(tokenId);
+    {
+        //return blockchainManager.GetToken(tokenId);
+        return null;
     }
 }

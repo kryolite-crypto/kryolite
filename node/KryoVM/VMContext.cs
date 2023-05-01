@@ -1,4 +1,5 @@
 ﻿using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;

@@ -7,6 +7,7 @@ public static class Constant
     public const int API_LEVEL = 1;
     public const int MIN_API_LEVEL = 1;
 
+    public const int HEARTBEAT_INTERVAL = 60;
     public const byte STARTING_DIFFICULTY = 8;
     public const int TARGET_BLOCK_TIME_S = 60;
     public const int EPOCH_LENGTH_BLOCKS = 100;
@@ -14,9 +15,11 @@ public static class Constant
     public const int MAX_MEMPOOL_TX = 100000;
     public const int MAX_BLOCK_TX = 20000;
     public const int MAX_PEERS = 6;
+    public const long DECIMAL_MULTIPLIER = 1_000_000;
 
     // Placeholder
-    public const long POS_REWARD = 250_000_000;
-    public const long POW_REWARD = 1000_000_000;
-    public const long DEV_REWARD = 50_000_000;
+    public const long COLLATERAL = 100_000 * DECIMAL_MULTIPLIER;
+    public const long VALIDATOR_REWARD = 250 * DECIMAL_MULTIPLIER;
+    public const long BLOCK_REWARD = 1000 * DECIMAL_MULTIPLIER;
+    public const long DEV_REWARD = 50 * DECIMAL_MULTIPLIER;
 }

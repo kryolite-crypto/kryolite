@@ -1,4 +1,5 @@
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using MessagePack;
 using Microsoft.Extensions.Logging;
 
@@ -12,7 +13,7 @@ public class TransactionData : IPacket
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        if (Transactions.Count == 0) {
+        /*if (Transactions.Count == 0) {
             return;
         }
 
@@ -28,6 +29,6 @@ public class TransactionData : IPacket
         if (valid.Count > 0)
         {
             args.Rebroadcast = true;
-        }
+        }*/
     }
 }

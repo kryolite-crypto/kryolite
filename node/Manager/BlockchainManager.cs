@@ -2,7 +2,7 @@ using System;
 using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
-using Microsoft.EntityFrameworkCore;
+using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 using Tmds.Linux;
 
@@ -11,43 +11,57 @@ namespace Kryolite.Node;
 public class BlockchainManager : IBlockchainManager
 {
     private readonly INetworkManager discoveryManager;
-    private readonly IMempoolManager mempoolManager;
     private readonly IWalletManager walletManager;
     private readonly ILogger<BlockchainManager> logger;
     private readonly ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
     private BroadcastBlock<ChainState> ChainStateBroadcast = new(i => i);
-    private BroadcastBlock<PosBlock> BlockBroadcast = new(i => i);
+    private BroadcastBlock<Block> BlockBroadcast = new(i => i);
     private BroadcastBlock<Wallet> WalletBroadcast = new(i => i);
-    private BroadcastBlock<Vote> VoteBroadcast = new(i => i);
+    private BroadcastBlock<HeartbeatSignature> VoteBroadcast = new(i => i);
     private BroadcastBlock<TransferTokenEventArgs> TokenTransferredBroadcast = new(i => i);
     private BroadcastBlock<ConsumeTokenEventArgs> TokenConsumedBroadcast = new(i => i);
 
-    public BlockchainManager(INetworkManager discoveryManager, IMempoolManager mempoolManager, IWalletManager walletManager, ILogger<BlockchainManager> logger)
+    public BlockchainManager(INetworkManager discoveryManager, IWalletManager walletManager, ILogger<BlockchainManager> logger)
     {
         this.discoveryManager = discoveryManager ?? throw new ArgumentNullException(nameof(discoveryManager));
-        this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         this.walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public PowBlock? GetPowBlock(long id)
+    public bool AddGenesis(Genesis genesis)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        blockchainRepository.Add(genesis);
+
+        return true;
+    }
+
+    public bool AddHeartbeat(Heartbeat heartbeat)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        // Add any received signatures for current heartbeat
+        var signatures = blockchainRepository.GetHeartbeatSignatures(heartbeat.TransactionId);
+        heartbeat.Signatures.AddRange(signatures);
+
+        blockchainRepository.Add(heartbeat);
+
+        return true;
+    }
+
+    public Heartbeat? GetLastHeartbeat()
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetPowBlock(id);
+        return blockchainRepository.GetLastHeartbeat();
     }
 
-    public PosBlock? GetPosBlock(long id)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.GetPosBlock(id);
-    }
-
-    public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
+    /*public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockchainRepository();
@@ -66,7 +80,7 @@ public class BlockchainManager : IBlockchainManager
 
             var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
                 .Link<VerifyDifficulty>()
-                .Link<VerifyNonce>(x => x.Height > 0)
+                .Link<VerifyNonce>()
                 .Link<VerifyId>(x => x.Height > 0)
                 .Link<VerifyParentHash>(x => x.Height > 0)
                 .Link<VerifyTimestampPast>(x => x.Height > 0)
@@ -150,7 +164,7 @@ public class BlockchainManager : IBlockchainManager
                 BlockBroadcast.Post(block);
             }
 
-            if (broadcastVote && block.Pow is not null /*&& pos is active*/)
+            if (broadcastVote && block.Pow is not null)
             {
                 var nodeWallet = walletManager.GetNodeWallet() ?? throw new Exception("Trying to sign vote without node keys");
 
@@ -715,51 +729,6 @@ public class BlockchainManager : IBlockchainManager
         }
     }
 
-    public bool AddVote(Vote vote)
-    {
-        if (!vote.Verify())
-        {
-            logger.LogWarning("Vote rejected (invalid signature)");
-            // TODO: file complaint
-            return false;
-        }
-
-        using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        blockchainRepository.AddVote(vote);
-
-        return true;
-    }
-
-    public List<Vote> AddVotes(IList<Vote> votes)
-    {
-        var valid = new List<Vote>();
-
-        using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        foreach (var vote in votes)
-        {
-            if (!vote.Verify())
-            {
-                logger.LogWarning("Vote rejected (invalid signature)");
-                // file complaint
-                continue;
-            }
-
-            if (!blockchainRepository.VoteExists(vote.Signature))
-            {
-                valid.Add(vote);
-            }
-        }
-
-        // TODO check for duplicates
-        blockchainRepository.AddVotes(valid);
-
-        return valid;
-    }
-
     public List<PosBlock> GetPosFrom(long id)
     {
         using var _ = rwlock.EnterReadLockEx();
@@ -963,14 +932,14 @@ public class BlockchainManager : IBlockchainManager
         {
             token.Wallet = fromWallet;
         }
-    }
+    }*/
 
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
     {
         return ChainStateBroadcast.LinkTo(action);
     }
 
-    public IDisposable OnBlockAdded(ITargetBlock<PosBlock> action)
+    public IDisposable OnBlockAdded(ITargetBlock<Block> action)
     {
         return BlockBroadcast.LinkTo(action);
     }
@@ -980,7 +949,7 @@ public class BlockchainManager : IBlockchainManager
         return WalletBroadcast.LinkTo(action);
     }
 
-    public IDisposable OnVoteAdded(ITargetBlock<Vote> action)
+    public IDisposable OnHeartbeatSignatureAdded(ITargetBlock<HeartbeatSignature> action)
     {
         return VoteBroadcast.LinkTo(action);
     }

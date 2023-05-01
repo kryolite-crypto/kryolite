@@ -1,4 +1,5 @@
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
@@ -18,11 +19,14 @@ public class BlockchainRepository : IDisposable
 
             var options = new DbContextOptionsBuilder<BlockchainContext>()
                 .UseSqlite($"Data Source={walletPath}")
+                .EnableSensitiveDataLogging()
                 .Options;
 
             Factory = new PooledDbContextFactory<BlockchainContext>(options);
-            var db = Factory.CreateDbContext().Database;
-            db.Migrate();
+            var ctx = Factory.CreateDbContext();
+            //db.Migrate();
+            ctx.Database.EnsureDeleted();
+            ctx.Database.EnsureCreated();
         }
 
         Context = Factory.CreateDbContext();
@@ -40,59 +44,56 @@ pragma mmap_size = -1;
 
     public long Count()
     {
-        return Context.PosBlocks.Count();
+        return Context.Blocks.Count();
     }
 
-    public void Add(PosBlock block, ChainState chainState)
+    public T? Get<T>(SHA256Hash transactionId) where T : Transaction
     {
-        System.Diagnostics.Contracts.Contract.Equals(1, chainState.Id);
-
-        var pendingVotes = Context.Votes
-            .Where(x => x.Height == block.Height)
-            .Where(x => x.Hash == block.GetHash())
-            .ToList();
-
-        block.Votes.AddRange(pendingVotes);
-
-        Context.PosBlocks.Add(block);
-
-        if (block.Height > 0) {
-            Context.ChainState.Update(chainState);
-        } else {
-            Context.ChainState.Add(chainState);
-        }
-
-        Context.SaveChanges();
-    }
-
-    public void Add(PosBlock[] blocks, ChainState chainState)
-    {
-        System.Diagnostics.Contracts.Contract.Equals(1, chainState.Id);
-
-        Context.PosBlocks.AddRange(blocks);
-        Context.ChainState.Update(chainState);
-
-        Context.SaveChanges();
-    }
-
-    public void SaveState(ChainState chainState)
-    {
-        System.Diagnostics.Contracts.Contract.Equals(1, chainState.Id);
-
-        Context.ChainState.Update(chainState);
-        Context.SaveChanges();
-    }
-
-    public PowBlock? GetPowBlock(long height)
-    {
-        // TODO: get the one with most votes?
-        return Context.PowBlocks
-            .Where(x => x.Height == height)
-            .Include(x => x.Transactions)
+        return Context.Set<T>()
+            .Where(x => x.TransactionId == transactionId)
             .FirstOrDefault();
     }
 
-    private static readonly Func<BlockchainContext, long, PosBlock?> QueryPosBlock =
+    public void Add<T>(T tx) where T : class
+    {
+        Context.Add<T>(tx);
+        Context.SaveChanges();
+    }
+
+    public Heartbeat? GetLastHeartbeat()
+    {
+        return Context.Heartbeats.OrderByDescending(x => x.Height)
+            .FirstOrDefault();
+    }
+
+    public List<HeartbeatSignature> GetHeartbeatSignatures(SHA256Hash transactionId)
+    {
+        return Context.HeartbeatSignatures
+            .Where(x => x.TransactionId == transactionId)
+            .ToList();
+    }
+
+    /*public void Add(List<Transaction> txs)
+    {
+        Context.Transactions.AddRange(txs);
+        Context.SaveChanges();
+    }*/
+
+    public void SaveState(ChainState chainState)
+    {
+        Context.ChainState.Update(chainState);
+        Context.SaveChanges();
+    }
+
+    public Block? GetBlock(long height)
+    {
+        return Context.Blocks
+            .Where(x => x.Height == height)
+            .Include(x => x.Validates)
+            .FirstOrDefault();
+    }
+
+    /*private static readonly Func<BlockchainContext, long, PosBlock?> QueryPosBlock =
         EF.CompileQuery((BlockchainContext context, long height) =>
             context.PosBlocks
                 .Where(x => x.Height == height)
@@ -106,23 +107,9 @@ pragma mmap_size = -1;
     public PosBlock? GetPosBlock(long height)
     {
         return QueryPosBlock(Context, height);
-    }
+    }*/
 
-    public void Delete(PosBlock block)
-    {
-        Context.PosBlocks.Remove(block);
-        Context.SaveChanges();
-    }
-
-    public void Delete(long height)
-    {
-        var snapshots = Context.PosBlocks.Where(x => x.Height > height);
-
-        Context.PosBlocks.RemoveRange(snapshots);
-        Context.SaveChanges();
-    }
-
-    public void DeleteTransaction(Transaction tx)
+    public void Delete(Transaction tx)
     {
         Context.Transactions.Remove(tx);
         Context.SaveChanges();
@@ -139,12 +126,10 @@ pragma mmap_size = -1;
     public ChainState GetChainState()
     {
         return Context.ChainState
-            .Include(x => x.POS)
-            .Include(x => x.POW)
             .FirstOrDefault(x => x.Id == 1) ?? new ChainState();
     }
 
-    public List<PowBlock> Tail(int count)
+    /*public List<PowBlock> Tail(int count)
     {
         var start = Context.PowBlocks
             .Select(x => x.Height)
@@ -193,7 +178,7 @@ pragma mmap_size = -1;
         return Context.PowBlocks
             .Where(x => x.Height > height)
             .ToList();
-    }
+    }*/
 
     public LedgerWallet? GetWallet(Address address)
     {
@@ -214,21 +199,22 @@ pragma mmap_size = -1;
         Context.SaveChanges();
     }
 
-    public void AddVote(Vote vote)
+    public void AddSignature(HeartbeatSignature signature)
     {
-        Context.Votes.Add(vote);
+        Context.HeartbeatSignatures.Add(signature);
         Context.SaveChanges();
     }
 
-    public void AddVotes(List<Vote> votes)
+    public void AddSignatures(List<HeartbeatSignature> signatures)
     {
-        Context.Votes.AddRange(votes);
+        Context.HeartbeatSignatures.AddRange(signatures);
         Context.SaveChanges();
     }
 
-    public bool VoteExists(Signature signature)
+    public bool SignatureExists(Signature signature)
     {
-        return Context.Votes.Any(x => x.Signature == signature);
+        return Context.HeartbeatSignatures
+            .Any(x => x.Signature == signature);
     }
 
     public Contract? GetContract(Address address, bool noCode = false)
@@ -287,10 +273,10 @@ pragma mmap_size = -1;
             .ToList();
     }
 
-    public Transaction? GetTransaction(SHA256Hash hash)
+    public Transaction? GetTransaction(SHA256Hash transactionId)
     {
         return Context.Transactions
-            .Where(x => x.Hash == hash)
+            .Where(x => x.TransactionId == transactionId)
             .FirstOrDefault();
     }
 

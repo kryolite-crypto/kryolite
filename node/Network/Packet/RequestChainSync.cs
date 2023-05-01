@@ -13,7 +13,7 @@ public class RequestChainSync : IPacket
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogInformation($"Chain sync requested from {peer.Uri.ToHostname()}");
+        /*context.Logger.LogInformation($"Chain sync requested from {peer.Uri.ToHostname()}");
 
         var block = context.BlockchainManager.GetPosBlock(StartBlock);
 
@@ -36,6 +36,6 @@ public class RequestChainSync : IPacket
         chain.Blocks = context.BlockchainManager.GetPosFrom(StartBlock);
 
 answer:
-        _ = peer.SendAsync(chain);
+        // _ = peer.SendAsync(chain);
     }
 }

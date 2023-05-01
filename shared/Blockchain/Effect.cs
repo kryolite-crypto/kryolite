@@ -6,7 +6,7 @@ public class Effect
 {
     [JsonIgnore]
     public Guid Id { get; set; }
-    public Guid TransactionId { get; set; }
+    public SHA256Hash TransactionId { get; set; }
     public Address From { get; set; }
     public Address To { get; set; }
     public ulong Value { get; set; }

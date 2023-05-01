@@ -70,7 +70,7 @@ public class WalletRepository : IDisposable
     public Wallet? GetNodeWallet()
     {
         return Context.Wallets
-            .Where(x => x.Type == WalletType.NODE)
+            .Where(x => x.Type == WalletType.VALIDATOR)
             .SingleOrDefault();
     }
 

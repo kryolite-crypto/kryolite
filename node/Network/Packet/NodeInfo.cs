@@ -21,7 +21,7 @@ public class NodeInfo : IPacket
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        context.Logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
+        /*context.Logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
         var chainState2 = context.BlockchainManager.GetChainState();
 
         var totalWork = context.BlockchainManager.GetTotalWork();
@@ -37,6 +37,6 @@ public class NodeInfo : IPacket
             context.Logger.LogInformation($"{peer.Uri.ToHostname()} has greater TotalWork ({TotalWork}) compared to local ({totalWork}). Requesting chain sync");
 
             _ = peer.SendAsync(msg);
-        }
+        }*/
     }
 }

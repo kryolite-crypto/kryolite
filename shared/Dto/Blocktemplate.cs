@@ -1,3 +1,5 @@
+using Kryolite.Shared.Blockchain;
+
 namespace Kryolite.Shared;
 
 public class Blocktemplate

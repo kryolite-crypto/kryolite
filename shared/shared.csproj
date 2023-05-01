@@ -5,7 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	<Optimize>False</Optimize>
+	<Optimize>True</Optimize>
+	<RootNamespace>Kryolite.Shared</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

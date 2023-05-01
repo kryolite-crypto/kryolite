@@ -2,29 +2,26 @@ using System.Text.Json.Serialization;
 using MessagePack;
 using NSec.Cryptography;
 
-namespace Kryolite.Shared;
+namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class Vote
+public class HeartbeatSignature
 {
     [IgnoreMember]
     [JsonIgnore]
     public long Id { get; set; }
-    [IgnoreMember]
-    [JsonIgnore]
-    public Guid? BlockId { get; set; }
 
     [Key(0)]
     public long Height { get; set; }
 
     [Key(1)]
-    public SHA256Hash Hash { get; set; }
+    public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
 
     [Key(2)]
-    public Shared.PublicKey PublicKey { get; set; }
+    public Shared.PublicKey PublicKey { get; set; } = new PublicKey();
 
     [Key(3)]
-    public Signature Signature { get; set; }
+    public Signature Signature { get; set; } = new Signature();
 
     public void Sign(PrivateKey privateKey)
     {
@@ -34,7 +31,8 @@ public class Vote
         using var stream = new MemoryStream();
 
         stream.Write(BitConverter.GetBytes(Height));
-        stream.Write(Hash);
+        stream.Write(TransactionId);
+        stream.Write(PublicKey);
 
         stream.Flush();
 
@@ -48,7 +46,8 @@ public class Vote
         using var stream = new MemoryStream();
 
         stream.Write(BitConverter.GetBytes(Height));
-        stream.Write(Hash);
+        stream.Write(TransactionId);
+        stream.Write(PublicKey);
 
         stream.Flush();
 

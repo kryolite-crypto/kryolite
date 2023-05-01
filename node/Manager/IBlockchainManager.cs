@@ -1,12 +1,17 @@
 using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Node;
 
 public interface IBlockchainManager
 {
-    bool AddBlock(PosBlock block, bool broadcastBlock, bool broadcastVote);
+    bool AddGenesis(Genesis genesis);
+    bool AddHeartbeat(Heartbeat heartbeat);
+    Heartbeat? GetLastHeartbeat();
+
+    /*bool AddBlock(PosBlock block, bool broadcastBlock, bool broadcastVote);
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
@@ -34,12 +39,12 @@ public interface IBlockchainManager
     string? CallContractMethod(Address address, CallMethod call);
     Token? GetToken(SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
-    List<Token> GetContractTokens(Address contractAddress);
+    List<Token> GetContractTokens(Address contractAddress);*/
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
-    IDisposable OnBlockAdded(ITargetBlock<PosBlock> action);
+    IDisposable OnBlockAdded(ITargetBlock<Block> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
-    IDisposable OnVoteAdded(ITargetBlock<Vote> action);
+    IDisposable OnHeartbeatSignatureAdded(ITargetBlock<HeartbeatSignature> action);
     IDisposable OnTokenTransferred(ITargetBlock<TransferTokenEventArgs> action);
     IDisposable OnTokenConsumed(ITargetBlock<ConsumeTokenEventArgs> action);
 }

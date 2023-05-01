@@ -12,6 +12,7 @@ using System.Threading.Tasks.Dataflow;
 using System.Timers;
 using DnsClient;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using Makaretu.Dns;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
@@ -30,14 +31,13 @@ public class NetworkService : BackgroundService
     private readonly StartupSequence startup;
     private readonly INetworkManager networkManager;
     private readonly IBlockchainManager blockchainManager;
-    private readonly IMempoolManager mempoolManager;
     private readonly ILogger<NetworkService> logger;
     private readonly BufferBlock<Chain> SyncBuffer = new BufferBlock<Chain>();
     private readonly ILookupClient LookupClient;
     private readonly MulticastService mdns;
     private readonly ServiceDiscovery serviceDiscovery;
 
-    public NetworkService(IServer server, IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, IMempoolManager mempoolManager, ILookupClient lookupClient)
+    public NetworkService(IServer server, IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, ILookupClient lookupClient)
     {
         this.server = server ?? throw new ArgumentNullException(nameof(server));
         this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
@@ -46,7 +46,6 @@ public class NetworkService : BackgroundService
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
-        this.mempoolManager = mempoolManager ?? throw new ArgumentNullException(nameof(mempoolManager));
         LookupClient = lookupClient ?? throw new ArgumentNullException(nameof(lookupClient));
 
         MulticastService.IncludeLoopbackInterfaces = true;
@@ -57,7 +56,6 @@ public class NetworkService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await startup.Blockchain.WaitOneAsync();
-        await startup.Mempool.WaitOneAsync();
 
         var cleanupTimer = new System.Timers.Timer(TimeSpan.FromMinutes(30));
 
@@ -73,8 +71,8 @@ public class NetworkService : BackgroundService
 
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(meshNetwork, blockchainManager, logger));
 
-        var voteBuffer = new BufferBlock<Vote>();
-        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer);
+        var heartbeatSignatureBuffer = new BufferBlock<HeartbeatSignature>();
+        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, heartbeatSignatureBuffer);
 
         meshNetwork.PeerConnected += async (object? sender, PeerConnectedEventArgs args) => {
             discoveryTimer.Interval = TimeSpan.FromMinutes(10).TotalMilliseconds;
@@ -174,21 +172,17 @@ public class NetworkService : BackgroundService
             }
         };
 
-        blockchainManager.OnBlockAdded(new ActionBlock<PosBlock>(async block => {
+        blockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {
             await meshNetwork.BroadcastAsync(new NewBlock(block));
         }));
 
-        blockchainManager.OnVoteAdded(new ActionBlock<Vote>(async vote => {
-            var msg = new VoteBatch
+        blockchainManager.OnHeartbeatSignatureAdded(new ActionBlock<HeartbeatSignature>(async signature => {
+            var msg = new HeartbeatSignatureBatch
             {
-                Votes = new List<Vote> { vote }
+                HeartbeatSignatures = new List<HeartbeatSignature> { signature }
             };
 
             await meshNetwork.BroadcastAsync(msg);
-        }));
-
-        networkManager.OnBlockProposed(new ActionBlock<PowBlock>(block => {
-            ProposeBlock(block);
         }));
 
         var transactionBuffer = new BufferBlock<Transaction>();
@@ -209,19 +203,17 @@ public class NetworkService : BackgroundService
                 await meshNetwork.BroadcastAsync(msg);
             });
 
-        mempoolManager.OnTransactionAdded(transactionBuffer);
-
-        voteBuffer.AsObservable()
+        heartbeatSignatureBuffer.AsObservable()
             .Buffer(TimeSpan.FromMilliseconds(100))
-            .Subscribe(async votes => {
-                if (votes.Count == 0)
+            .Subscribe(async signatures => {
+                if (signatures.Count == 0)
                 {
                     return;
                 }
 
-                var msg = new VoteBatch
+                var msg = new HeartbeatSignatureBatch
                 {
-                    Votes = votes
+                    HeartbeatSignatures = signatures
                 };
 
                 await meshNetwork.BroadcastAsync(msg);
@@ -383,36 +375,14 @@ public class NetworkService : BackgroundService
             }
         }
     }
-
-    public bool ProposeBlock(PowBlock block)
-    {
-        logger.LogInformation($"Proposing POW block {block.Height} to network...");
-        // TODO: lock
-
-        // TODO: Validate
-
-        var chainState = blockchainManager.GetChainState();
-
-        var posBlock = new PosBlock
-        {
-            Height = chainState.POS.Height + 1,
-            ParentHash = chainState.POS.LastHash,
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
-            Pow = block,
-            SignedBy = new Shared.PublicKey(new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }),
-            Signature = new Signature(new byte[64] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  })
-        };
-
-        return blockchainManager.AddBlock(posBlock, true, true);
-    }
 }
 
 public class Chain
 {
     public Peer Peer { get; set; }
-    public List<PosBlock> Blocks { get; set; }
+    public List<Block> Blocks { get; set; }
 
-    public Chain(Peer peer, List<PosBlock> blocks)
+    public Chain(Peer peer, List<Block> blocks)
     {
         Peer = peer;
         Blocks = blocks;
@@ -471,7 +441,7 @@ public class ChainObserver : IObserver<Chain>
 
     public void OnNext(Chain chain)
     {
-        if (chain.Blocks.Count == 0)
+        /*if (chain.Blocks.Count == 0)
         {
             return;
         }
@@ -535,10 +505,10 @@ public class ChainObserver : IObserver<Chain>
 
         logger.LogInformation($"Chain sync finished");
         EndSync?.Invoke(this, EventArgs.Empty);
-        InProgress = false;
+        InProgress = false;*/
     }
 
-    private BigInteger CalculateLocalWorkAtRemoteHeight(List<PosBlock> sortedBlocks)
+    /*private BigInteger CalculateLocalWorkAtRemoteHeight(List<PosBlock> sortedBlocks)
     {
         var blocksOnSameHeight = blockchainManager.GetPowFrom(sortedBlocks.First().Height).Take(sortedBlocks.Count);
         var localWork = new BigInteger();
@@ -647,5 +617,5 @@ public class ChainObserver : IObserver<Chain>
         });
 
         return !source.IsCancellationRequested;
-    }
+    }*/
 }
