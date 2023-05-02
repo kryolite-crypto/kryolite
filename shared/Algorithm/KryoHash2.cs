@@ -93,14 +93,11 @@ public static class KryoHash2
 
                 if (op == 0)
                 {
-                    var result = new byte[target.Length];
-                    enc.EncryptBytes(payload, result);
-                    result.CopyTo(target);
+                    enc.EncryptBytes(payload, target);
                 }
                 else if (op == 1)
                 {
-                    var encoded = BWT.Encode(payload)[0..payload.Length];
-                    encoded.CopyTo(target);
+                    BWT.Encode(payload, target, out _);
                 }
 
                 cIX = nIX;

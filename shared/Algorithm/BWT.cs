@@ -14,7 +14,7 @@ namespace Kryolite.Shared;
 public static class BWT
 {
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static byte[] Encode(Span<byte> input)
+    public static void Encode(ReadOnlySpan<byte> input, Span<byte> output, out byte[] endBytes)
     {
         var newInput = new int[input.Length];
 
@@ -27,7 +27,6 @@ public static class BWT
 
         var end = 0;
         var outputInd = 0;
-        var output = new byte[input.Length + 4];
 
         for (var i = 0; i < sortedSuffixes.Length; i++)
         {
@@ -43,10 +42,7 @@ public static class BWT
             outputInd++;
         }
 
-        var endByte = BitConverter.GetBytes(end);
-        endByte.CopyTo(output, input.Length);
-
-        return output;
+        endBytes = BitConverter.GetBytes(end);
     }
 
     public static byte[] Decode(byte[] input)
