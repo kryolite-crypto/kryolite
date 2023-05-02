@@ -65,7 +65,7 @@ public class BlockchainManager : IBlockchainManager
 
             var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
                 .Link<VerifyDifficulty>()
-                .Link<VerifyNonce>()
+                .Link<VerifyNonce>(x => x.Height > 0)
                 .Link<VerifyId>(x => x.Height > 0)
                 .Link<VerifyParentHash>(x => x.Height > 0)
                 .Link<VerifyTimestampPast>(x => x.Height > 0)
@@ -496,10 +496,10 @@ public class BlockchainManager : IBlockchainManager
         var elapsed = epochEnd.Timestamp - epochStart.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
 
-        var newDiff = chainState.POW.CurrentDifficulty.ToWork() * new BigInteger(expected / (double)elapsed);
-        chainState.POW.CurrentDifficulty = newDiff.ToDifficulty();
+        var target = ((chainState.POW.CurrentDifficulty.ToWork() * 1_000) * new BigInteger((expected / (double)elapsed) * 1_000)) / new BigInteger(1_000L * 1_000L);
+        chainState.POW.CurrentDifficulty = target.ToDifficulty();
 
-        logger.LogInformation($"Epoch {epochEnd.Height / 100 + 1}: difficulty {BigInteger.Log(newDiff, 2)}, target = {newDiff}");
+        logger.LogInformation($"Epoch {epochEnd.Height / 100 + 1}: difficulty {target.ToDifficulty()}, target = {target}");
     }
 
     public BigInteger GetTotalWork()

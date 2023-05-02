@@ -236,7 +236,7 @@ public class Program
             restart = false;
             current = blocktemplate;
 
-            Console.WriteLine($"{DateTime.Now}: New job {blocktemplate.Height}, diff = {BigInteger.Log(blocktemplate.Difficulty.ToWork(), 2)}");
+            Console.WriteLine($"{DateTime.Now}: New job {blocktemplate.Height}, diff = {blocktemplate.Difficulty}");
 
             TokenSource.Cancel();
             TokenSource = new CancellationTokenSource();
