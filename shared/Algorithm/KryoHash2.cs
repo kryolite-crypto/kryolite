@@ -1,3 +1,4 @@
+using CSChaCha20;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
@@ -14,108 +15,104 @@ public static class KryoHash2
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public unsafe static SHA256Hash Hash(Concat concat, Span<byte> scratchpad)
     {
-        scratchpad.Clear();
-
-        var rules = SHA256.HashData(concat.Buffer[0..32]);
-
-        int expSz = Math.Max(rules[0] % EXP_MULTIPLIER, 32);
-        int sboxSz = Math.Max(rules[1] % MEM_MULTIPLIER, (byte)1) * 1024 * 1024;
-        int rounds = Math.Max(rules[2] % ROUND_MULTIPLIER, (byte)1) * 1024;
-
-        var sbox = scratchpad.Slice(0, sboxSz);
-
-        var iv = (new byte[32]).AsSpan();
-        var nonce = iv.Slice(0, 12);
-
-        var keyHash = SHA256.HashData(concat.Buffer);
-
-        var enc = new NSec.Cryptography.ChaCha20Poly1305();
-        using var key = NSec.Cryptography.Key.Import(enc, keyHash, NSec.Cryptography.KeyBlobFormat.RawSymmetricKey);
-
-        SHA256.TryHashData(keyHash, iv, out var _);
-
-        var cIX = 0;
-        var nIX = BitConverter.ToInt32(nonce[0..4]) % (sbox.Length - expSz);
-
-        var payloadAndTag = new byte[expSz + enc.TagSize].AsSpan();
-        var payload = payloadAndTag.Slice(0, expSz);
-        var tag = payloadAndTag.Slice(expSz, enc.TagSize);
-
-        enc.Encrypt(key, nonce, null, payload, payloadAndTag);
-
-        nonce = tag.Slice(0, 12);
-
-        for (var i = 0; i < rounds; i++)
+        try
         {
-            if (nIX < 0)
+            scratchpad.Clear();
+
+            var rules = SHA256.HashData(concat.Buffer[0..32]);
+
+            int expSz = Math.Max(rules[0] % EXP_MULTIPLIER, 32);
+            int sboxSz = Math.Max(rules[1] % MEM_MULTIPLIER, (byte)1) * 1024 * 1024;
+            int rounds = Math.Max(rules[2] % ROUND_MULTIPLIER, (byte)1) * 1024;
+
+            var sbox = scratchpad.Slice(0, sboxSz);
+
+            var key = SHA256.HashData(concat.Buffer);
+            var nonce = SHA256.HashData(key)[0..12];
+
+            using var enc = new ChaCha20(key, nonce, 0);
+
+            var cIX = 0;
+            var nIX = BitConverter.ToInt32(nonce[0..4]) % (sbox.Length - expSz);
+
+            var payload = new byte[expSz];
+
+            enc.EncryptBytes(payload, payload);
+
+            for (var i = 0; i < rounds; i++)
             {
-                nIX = -nIX;
-                continue;
-            }
-
-            var source = sbox.Slice(cIX, expSz);
-            var target = sbox.Slice(nIX, expSz);
-
-            for (int x = 0; x < expSz - 1; x += 2)
-            {
-                var mOp = SHA256.HashData(payload)[0] % 24;
-
-                var a = source[x];
-                var b = source[x + 1];
-
-                switch (mOp)
+                if (nIX < 0)
                 {
-                    case 0:
-                        payload[x] = (byte)(a ^ b);
-                        payload[x + 1] = (byte)(a & b);
-                        break;
-                    case 1:
-                        payload[x] = (byte)(a & b);
-                        payload[x + 1] = (byte)(a | b);
-                        break;
-                    case 2:
-                        payload[x] = (byte)(a | b);
-                        payload[x + 1] = (byte)(a - b);
-                        break;
-                    case 3:
-                        payload[x] = (byte)(a - b);
-                        payload[x + 1] = (byte)(a + b);
-                        break;
-                    case 4:
-                        payload[x] = (byte)(a + b);
-                        payload[x + 1] = (byte)(a * b);
-                        break;
-                    case 5:
-                        payload[x] = (byte)(a * b);
-                        payload[x + 1] = (byte)(a ^ b);
-                        break;
-                    default:
-                        i++;
-                        continue;
+                    nIX = -nIX;
+                    continue;
                 }
+
+                var source = sbox.Slice(cIX, expSz);
+                var target = sbox.Slice(nIX, expSz);
+
+                for (int x = 0; x < expSz - 1; x += 2)
+                {
+                    var mOp = SHA256.HashData(payload)[0] % 24;
+
+                    var a = source[x];
+                    var b = source[x + 1];
+
+                    switch (mOp)
+                    {
+                        case 0:
+                            payload[x] = (byte)(a ^ b);
+                            payload[x + 1] = (byte)(a & b);
+                            break;
+                        case 1:
+                            payload[x] = (byte)(a & b);
+                            payload[x + 1] = (byte)(a | b);
+                            break;
+                        case 2:
+                            payload[x] = (byte)(a | b);
+                            payload[x + 1] = (byte)(a - b);
+                            break;
+                        case 3:
+                            payload[x] = (byte)(a - b);
+                            payload[x + 1] = (byte)(a + b);
+                            break;
+                        case 4:
+                            payload[x] = (byte)(a + b);
+                            payload[x + 1] = (byte)(a * b);
+                            break;
+                        case 5:
+                            payload[x] = (byte)(a * b);
+                            payload[x + 1] = (byte)(a ^ b);
+                            break;
+                        default:
+                            i++;
+                            continue;
+                    }
+                }
+
+                var op = BitConverter.ToUInt32(payload[0..4]) % 4;
+
+                if (op == 0)
+                {
+                    var result = new byte[target.Length];
+                    enc.EncryptBytes(payload, result);
+                    result.CopyTo(target);
+                }
+                else if (op == 1)
+                {
+                    var encoded = BWT.Encode(payload)[0..payload.Length];
+                    encoded.CopyTo(target);
+                }
+
+                cIX = nIX;
+                nIX = BitConverter.ToInt32(target[0..4]) % (sbox.Length - expSz);
             }
 
-            var op = BitConverter.ToUInt32(payload[0..4]) % 4;
-
-            if (op == 0)
-            {
-                var result = new byte[payloadAndTag.Length];
-                enc.Encrypt(key, nonce, null, payload, result);
-                
-                result[0..payload.Length].CopyTo(target);
-                result[payload.Length..].CopyTo(tag);
-            }
-            else if (op == 1)
-            {
-                var encoded = BWT.Encode(payload)[0..payload.Length];
-                encoded.CopyTo(target);
-            }
-
-            cIX = nIX;
-            nIX = BitConverter.ToInt32(target[0..4]) % (sbox.Length - expSz);
+            return SHA256.HashData(sbox);
+        } 
+        catch (Exception ex)
+        {
+            throw new Exception($"hash failure, nonce [{string.Join("-", concat.Buffer)}]", ex);
         }
-
-        return SHA256.HashData(sbox);
     }
 
     public unsafe static SHA256Hash Hash(Concat concat)
