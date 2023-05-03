@@ -13,23 +13,22 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="BigRational" Version="1.0.0.6" />
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
     <PackageReference Include="DnsClient" Version="1.7.0" />
     <PackageReference Include="LettuceEncrypt" Version="1.2.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.3">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="7.0.5">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="7.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.3" />
-    <PackageReference Include="MessagePack" Version="2.4.59" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="7.0.5" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.5" />
+    <PackageReference Include="MessagePack" Version="2.5.108" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="Open.NAT.NET5" Version="1.0.0" />
     <PackageReference Include="System.Reactive.Linq" Version="5.0.0" />
     <PackageReference Include="Vkosin.Dns.Multicast" Version="0.44.0" />
-    <PackageReference Include="Wasmtime" Version="6.0.1" />
+    <PackageReference Include="Wasmtime" Version="8.0.1" />
   </ItemGroup>
 
 </Project>

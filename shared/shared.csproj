@@ -10,9 +10,9 @@
 
   <ItemGroup>
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="7.0.5" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
-    <PackageReference Include="MessagePack" Version="2.4.59" />
+    <PackageReference Include="MessagePack" Version="2.5.108" />
     <PackageReference Include="SimpleBase" Version="4.0.0" />
     <PackageReference Include="Zeroconf" Version="3.6.11" />
   </ItemGroup>
