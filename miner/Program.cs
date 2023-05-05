@@ -12,6 +12,8 @@ using System.Threading;
 using System;
 using System.Collections.ObjectModel;
 using System.Collections.Concurrent;
+using NSec.Cryptography;
+using System.Runtime.InteropServices;
 
 public class Program
 {
@@ -59,12 +61,14 @@ public class Program
                 return;
             }
 
-            Console.WriteLine($"Address: {address}");
-            Console.WriteLine($"Threads: {threads}");
+            Console.WriteLine($"Address\t\t{address}");
+            Console.WriteLine("Algorithm\tGrasshopper");
+            Console.WriteLine($"Threads\t\t{threads}");
 
             Console.WriteLine($"Connecting to {url}");
 
             var hashes = 0UL;
+            var blockhashes = 0UL;
             var sw = Stopwatch.StartNew();
 
             var timer = new System.Timers.Timer(TimeSpan.FromMinutes(2));
@@ -88,12 +92,21 @@ public class Program
                 jobQueue.Add(observer);
 
                 new Thread(() => {
-                    var scratchpad = (new byte[KryoHash2.MAX_MEM]).AsSpan();
-
                     while (true)
                     {
                         var blocktemplate = observer.Take();
                         var token = TokenSource.Token;
+
+                        Grasshopper.GetBlockFeatures(blocktemplate.ParentHash, out var expSz, out var sboxSz, out var rounds);
+
+                        var mem = Marshal.AllocHGlobal(sboxSz);
+
+                        Span<byte> scratchpad = null;
+                        
+                        unsafe
+                        {
+                            scratchpad = new Span<byte>(mem.ToPointer(), sboxSz);
+                        }
 
                         using var sha256 = SHA256.Create();
 
@@ -108,16 +121,28 @@ public class Program
 
                         var target = blocktemplate.Difficulty.ToTarget();
 
+                        blockhashes = 0;
+                        var start = DateTime.Now;
+
                         while (!token.IsCancellationRequested)
                         {
                             Random.Shared.NextBytes(nonce);
 
-                            var sha256Hash = KryoHash2.Hash(concat, scratchpad);
+                            var sha256Hash = Grasshopper.Hash(concat, scratchpad, expSz, sboxSz, rounds);
                             var result = sha256Hash.ToBigInteger();
 
                             if (result.CompareTo(target) <= 0)
                             {
-                                Console.WriteLine($"{DateTime.Now}: Block found");
+                                var timespent = DateTime.Now - start;
+
+                                if (timespent.TotalSeconds > 0)
+                                {
+                                    Console.WriteLine("{0}: Block found! {1:N2} h/s", DateTime.Now, blockhashes / timespent.TotalSeconds);
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"{DateTime.Now}: Block found!");
+                                }
 
                                 var bytes = new byte[32];
                                 Array.Copy(concat.Buffer, 32, bytes, 0, 32);
@@ -162,13 +187,16 @@ public class Program
                                 });
                             }
 
-                            hashes++;
+                            Interlocked.Increment(ref hashes);
+                            Interlocked.Increment(ref blockhashes);
 
                             if (throttle is not null)
                             {
                                 Thread.Sleep(throttle.Value);
                             }
                         }
+
+                        Marshal.FreeHGlobal(mem);
                     }
                 }).UnsafeStart();
             }
@@ -236,7 +264,9 @@ public class Program
             restart = false;
             current = blocktemplate;
 
-            Console.WriteLine($"{DateTime.Now}: New job {blocktemplate.Height}, diff = {blocktemplate.Difficulty}");
+            Grasshopper.GetBlockFeatures(current.ParentHash, out var expSz, out var sboxSz, out var rounds);
+
+            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate.Height}, diff = {blocktemplate.Difficulty} [maxrounds = {rounds}, memarea = {sboxSz}, expsize = {expSz}]");
 
             TokenSource.Cancel();
             TokenSource = new CancellationTokenSource();
@@ -259,7 +289,7 @@ public class Program
         for (int x = 0; x < threads; x++)
         {
             var t = new Thread(() => {
-                var scratchpad = (new byte[KryoHash2.MAX_MEM]).AsSpan();
+                var scratchpad = (new byte[Grasshopper.MAX_MEM_SZ]).AsSpan();
                 var token = stokenSource.Token;
                 var test = new byte[64];
                 var concat = new Concat()
@@ -271,7 +301,9 @@ public class Program
                 {
                     Random.Shared.NextBytes(concat.Buffer);
 
-                    var result = KryoHash2.Hash(concat, scratchpad);
+                    Grasshopper.GetBlockFeatures(SHA256.HashData(concat.Buffer), out var expSz, out var sboxSz, out var rounds);
+
+                    var result = Grasshopper.Hash(concat, scratchpad, expSz, sboxSz, rounds);
                     Interlocked.Increment(ref done);
                 }
             });

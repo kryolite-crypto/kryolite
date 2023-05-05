@@ -61,7 +61,7 @@ public class PowBlock
             Buffer = basehash.Buffer.Concat(Nonce.Buffer).ToArray()
         };
 
-        var hash = KryoHash2.Hash(concat);
+        var hash = Grasshopper.Hash(ParentHash, concat);
 
         var target = Difficulty.ToTarget();
         var result = hash.ToBigInteger();
