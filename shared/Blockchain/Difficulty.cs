@@ -44,35 +44,28 @@ public static class DifficultyExtensions
         var targetPrefix = new byte[] { difficulty.b3, difficulty.b2, difficulty.b1 };
 
         Array.Reverse(bytes);
-        Array.Copy(targetPrefix, 0, bytes, 1, targetPrefix.Length);
+
+        for (int i = 0; i < targetPrefix.Length; i++)
+        {
+            bytes[i] = targetPrefix[i];
+        }
 
         return new BigInteger(bytes, true, true);
     }
 
     public static BigInteger ToWork(this Difficulty difficulty)
     {
-        var exponent = difficulty.b0;
-        var remainderBytes = new byte[] { difficulty.b1, difficulty.b2, difficulty.b3 };
-
-        // Pad with zeroes to get correct scale
-        Array.Reverse(remainderBytes);
-        Array.Resize(ref remainderBytes, (exponent / 8) + 1);
-
-        // Note: remainderBytes passed as BigEndian format
-        var remainder = new BigInteger(remainderBytes, false, true);
-
-        return BigInteger.Pow(2, exponent) + remainder;
+        return TARGET_MAX / difficulty.ToTarget();
     }
 
-    public static Difficulty ToDifficulty(this BigInteger target)
+    public static Difficulty ToDifficulty(this BigInteger work)
     {
-        var exponent = (byte)BigInteger.Log(target, 2);
-        var remaining = target - BigInteger.Pow(2, exponent);
+        var exponent = (byte)BigInteger.Log(work, 2);
 
-        var bytes = remaining.ToByteArray();
+        var target = (TARGET_MAX / (work + BigInteger.One));
+        var bytes = target.ToByteArray();
 
         Array.Reverse(bytes);
-        Array.Resize(ref bytes, 4);
 
         return new Difficulty
         {

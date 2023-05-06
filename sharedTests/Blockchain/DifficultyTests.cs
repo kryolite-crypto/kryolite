@@ -14,6 +14,7 @@ namespace Kryolite.Shared.Tests
         [Theory]
         [InlineData(32U, 1)]
         [InlineData(35U, 1)]
+        [InlineData(35U, 32)]
         [InlineData(16384U, 1)]
         [InlineData(32166U, 1)]
         [InlineData(7356778676U, 1)]
@@ -23,6 +24,8 @@ namespace Kryolite.Shared.Tests
         {
             var work = BigInteger.Multiply(new BigInteger(val), new BigInteger(multiply));
             var diff = BigInteger.Log(work, 2);
+            var newdiff = work.ToDifficulty();
+            var newwork = work.ToDifficulty().ToWork();
             var convertedDiff = BigInteger.Log(work.ToDifficulty().ToWork(), 2);
 
             var a = Math.Round(diff, 4, MidpointRounding.ToZero);
