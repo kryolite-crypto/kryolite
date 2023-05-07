@@ -36,8 +36,6 @@ public class RequestChainSync : IPacket
         chain.Blocks = context.BlockchainManager.GetPosFrom(StartBlock);
 
 answer:
-        var answer = chain;
-
-        _ = peer.SendAsync(answer);
+        _ = peer.SendAsync(chain);
     }
 }

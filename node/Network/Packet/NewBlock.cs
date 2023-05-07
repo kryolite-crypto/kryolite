@@ -35,7 +35,7 @@ public class NewBlock : IPacket
             return;
         }
 
-        if (chainState.POS.Height < (Block.Height - 1))
+        if (chainState.POS.Height < (Block.Height - 1) && !ChainObserver.InProgress)
         {
             context.Logger.LogInformation($"Chain is behind received block (local = {chainState.POS.Height}, received = {Block.Height}), requesting chain sync...");
             var sync = new RequestChainSync

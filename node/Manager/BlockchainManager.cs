@@ -465,7 +465,6 @@ public class BlockchainManager : IBlockchainManager
             // TODO: Check for duplicate tx
             .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
             .Link<HasFunds>(x => x.TransactionType == TransactionType.PAYMENT);
-            // TODO: HasAsset
 
         var newTransactions = transactions.Where(tx => !mempoolManager.HasTransaction(tx));
         var valid = executor.Execute(newTransactions);
@@ -485,7 +484,7 @@ public class BlockchainManager : IBlockchainManager
     {
         if (chainState.POW.Height == 0) {
             // Starting difficulty
-            chainState.POW.CurrentDifficulty = new Difficulty { b0 = Constant.STARTING_DIFFICULTY };
+            chainState.POW.CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty();
             return;
         }
 

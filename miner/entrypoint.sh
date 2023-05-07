@@ -31,7 +31,7 @@ case "${subcommand}" in
   ;;
   miner)
     while true; do
-      dotnet run --url http://daemons:5000 --address kryo:5VWJstBsHiNXFQEZspzXFdcFFDZYdJz3G9zG || true
+      dotnet run --url http://daemon:5000 --address kryo:5VWJstBsHiNXFQEZspzXFdcFFDZYdJz3G9zG || true
       echo ""
       echo "miner exited!"
       sleep 1

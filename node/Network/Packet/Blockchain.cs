@@ -15,10 +15,10 @@ public class Blockchain : IPacket
     {
         context.Logger.LogInformation($"Received blockchain from {peer.Uri.ToHostname()}");
 
-        if (Blocks != null) 
+        if (Blocks != null && !ChainObserver.InProgress)
         {
             var chain = new Chain(peer, Blocks);
-            context.SyncBuffer.Post<Chain>(chain);
+            context.SyncBuffer.Post(chain);
         }
     }
 }

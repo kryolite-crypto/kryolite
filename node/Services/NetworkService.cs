@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -400,6 +401,9 @@ public class ChainObserver : IObserver<Chain>
     public static event EventHandler<SyncEventArgs>? SyncProgress;
     public static event EventHandler<EventArgs>? EndSync;
 
+    // TODO: Make better Sync state control
+    public static bool InProgress;
+
     public ChainObserver(IMeshNetwork nodeNetwork, IBlockchainManager blockchainManager, ILogger<NetworkService> logger)
     {
         this.nodeNetwork = nodeNetwork ?? throw new ArgumentNullException(nameof(nodeNetwork));
@@ -437,6 +441,8 @@ public class ChainObserver : IObserver<Chain>
             return;
         }
 
+        InProgress = true;
+
         logger.LogInformation($"Starting chain sync (blocks={chain.Blocks.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
 
         BeginSync?.Invoke(this, chain.Blocks.Count);
@@ -448,6 +454,7 @@ public class ChainObserver : IObserver<Chain>
         if (sortedBlocks.Count == 0)
         {
             EndSync?.Invoke(this, EventArgs.Empty);
+            InProgress = false;
             return;
         }
 
@@ -455,6 +462,7 @@ public class ChainObserver : IObserver<Chain>
         {
             _ = chain.Peer.DisconnectAsync();
             EndSync?.Invoke(this, EventArgs.Empty);
+            InProgress = false;
             return;
         }
 
@@ -462,6 +470,7 @@ public class ChainObserver : IObserver<Chain>
         {
             _ = chain.Peer.DisconnectAsync();
             EndSync?.Invoke(this, EventArgs.Empty);
+            InProgress = false;
             return;
         }
 
@@ -478,6 +487,7 @@ public class ChainObserver : IObserver<Chain>
                 logger.LogWarning("Failed to set chain, discarding...");
                 EndSync?.Invoke(this, EventArgs.Empty);
                 _ = chain.Peer.DisconnectAsync();
+                InProgress = false;
                 return;
             }
 
@@ -487,6 +497,7 @@ public class ChainObserver : IObserver<Chain>
 
         logger.LogInformation($"Chain sync finished");
         EndSync?.Invoke(this, EventArgs.Empty);
+        InProgress = false;
     }
 
     private BigInteger CalculateLocalWorkAtRemoteHeight(List<PosBlock> sortedBlocks)
