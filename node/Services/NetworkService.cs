@@ -227,6 +227,12 @@ public class NetworkService : BackgroundService
         timer.Elapsed += HostCleanup;
         timer.Enabled = true;
 
+        var timer2 = new System.Timers.Timer(TimeSpan.FromMinutes(10));
+
+        timer2.AutoReset = true;
+        timer2.Elapsed += ReportPeers;
+        timer2.Enabled = true;
+
         logger.LogInformation("Network       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
         startup.Network.Set();
     }
@@ -253,6 +259,12 @@ public class NetworkService : BackgroundService
         }
 
         return peers;
+    }
+
+    private void ReportPeers(object? sender, ElapsedEventArgs e)
+    {
+        var peers = meshNetwork.GetPeers();
+        logger.LogInformation($"Connected to {peers.Count} peers [in = {peers.Values.Where(x => x.ConnectionType == ConnectionType.IN).Count()}, out = {peers.Values.Where(x => x.ConnectionType == ConnectionType.OUT).Count()}]");
     }
 
     private void HostCleanup(object? sender, ElapsedEventArgs e)

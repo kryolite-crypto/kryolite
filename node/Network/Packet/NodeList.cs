@@ -37,7 +37,8 @@ public class NodeList : IPacket
             var connected = context.MeshNetwork.GetOutgoingConnections().Count;
             var allowedConnections = Constant.MAX_PEERS * 1.5;
 
-            Parallel.ForEach(randomized, async node => {
+            foreach (var node in randomized)
+            {
                 if (connected >= allowedConnections)
                 {
                     return;
@@ -45,7 +46,7 @@ public class NodeList : IPacket
 
                 if (await context.MeshNetwork.ConnectToAsync(node.Url))
                 {
-                    Interlocked.Increment(ref connected);
+                    connected++;
 
                     var nextPeer = context.MeshNetwork.GetPeer(node.Url);
 
@@ -54,7 +55,7 @@ public class NodeList : IPacket
                         await nextPeer.SendAsync(new QueryNodeInfo());
                     }
                 }
-            });
+            }
 
             var chainState = context.BlockchainManager.GetChainState();
 
