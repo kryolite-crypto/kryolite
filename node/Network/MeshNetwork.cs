@@ -171,7 +171,7 @@ public class MeshNetwork : IMeshNetwork
     {
         var token = tokenSource.Token;
         var timer = Stopwatch.StartNew();
-        var timeout = TimeSpan.FromSeconds(30);
+        var timeout = TimeSpan.FromSeconds(5);
 
         if (Peers.Any(x => x.Value.Uri == uri))
         {
