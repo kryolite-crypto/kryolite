@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Net;
@@ -209,7 +210,7 @@ public class MeshNetwork : IMeshNetwork
                     var client = new ClientWebSocket();
 
                     client.Options.KeepAliveInterval = TimeSpan.FromSeconds(60);
-                    client.Options.SetRequestHeader("kryo-version", Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? new Version(0, 0, 0).ToString());
+                    client.Options.SetRequestHeader("kryo-apilevel", Constant.API_LEVEL.ToString());
                     client.Options.SetRequestHeader("kryo-client-id", serverId.ToString());
                     client.Options.SetRequestHeader("kryo-network", networkName);
                     client.Options.SetRequestHeader("kryo-connect-to-url", configuration.GetValue<string>("PublicUrl"));
@@ -221,7 +222,7 @@ public class MeshNetwork : IMeshNetwork
 
                     if (client.State == WebSocketState.Open)
                     {
-                        (var clientId, var version) = await DoHandshakeAsync(client, token);
+                        (var clientId, var apiLevel) = await DoHandshakeAsync(client, token);
 
                         if (clientId == serverId) 
                         {
@@ -230,9 +231,9 @@ public class MeshNetwork : IMeshNetwork
                             return false;
                         }
 
-                        if (version < Constant.MIN_SUPPORTED_VERSION)
+                        if (apiLevel < Constant.MIN_API_LEVEL)
                         {
-                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported version: {version}");
+                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported apilevel: {apiLevel}");
                             await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                             return false;
                         }
@@ -246,7 +247,7 @@ public class MeshNetwork : IMeshNetwork
 
                         logger.LogInformation($"Connected to {uri.ToHostname()}");
 
-                        var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, version);
+                        var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, apiLevel);
 
                         _ = AddSocketAsync(client, peer);
 
@@ -255,11 +256,15 @@ public class MeshNetwork : IMeshNetwork
                 }
                 catch (WebSocketException wsEx)
                 {
-                    logger.LogDebug(wsEx, "Connection attempt failed.");
+                    logger.LogInformation($"Error connecting to {uri.ToHostname()}: {wsEx.Message}");
                 }
 
                 token.WaitHandle.WaitOne(250);
             }
+        }
+        catch (ConnectionClosedException ccEx)
+        {
+            logger.LogInformation($"{uri.ToHostname()} rejected connection, reason: {ccEx.CloseStatus}, {ccEx.Reason}");
         }
         catch (TaskCanceledException tcEx)
         {
@@ -271,7 +276,7 @@ public class MeshNetwork : IMeshNetwork
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Uknown error with websocket connection");
+            logger.LogInformation(ex, "Unknown error with websocket connection");
         }
 
         return false;
@@ -336,12 +341,18 @@ public class MeshNetwork : IMeshNetwork
                 });
             }
         }
+        catch (ConnectionClosedException ccEx)
+        {
+            logger.LogInformation($"{peer.Uri.ToHostname()} closed connection, reason: {ccEx.CloseStatus}, {ccEx.Reason}");
+        }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "WebSocket connection threw error");
+            logger.LogInformation(ex, "WebSocket connection threw error");
         }
 
         Peers.TryRemove(peer.Id, out _);
+
+        logger.LogInformation($"Disconnected from {peer.Uri.ToHostname()}, reason: {webSocket.CloseStatusDescription}");
 
         _ = Task.Run(() => PeerDisconnected?.Invoke(peer, new PeerDisconnectedEventArgs(webSocket.CloseStatus ?? WebSocketCloseStatus.Empty)));
         _ = Task.Run(() => ConnectedChanged?.Invoke(this, Peers.Count));
@@ -353,11 +364,12 @@ public class MeshNetwork : IMeshNetwork
 
         if (text == "HI")
         {
-            await webSocket.SendAsync(Encoding.UTF8.GetBytes(serverId.ToString()), WebSocketMessageType.Text, true, token);
+            var bytes = Encoding.UTF8.GetBytes($"{serverId};{Constant.API_LEVEL}");
+            await webSocket.SendAsync(bytes, WebSocketMessageType.Text, true, token);
         }
     }
 
-    private async Task<(ulong, Version)> DoHandshakeAsync(ClientWebSocket client, CancellationToken token)
+    private async Task<(ulong, int)> DoHandshakeAsync(ClientWebSocket client, CancellationToken token)
     {
         var buffer = new byte[8 * 1024];
 
@@ -378,19 +390,19 @@ public class MeshNetwork : IMeshNetwork
         }
 
         var id = parts[0];
-        var versionStr = parts[1];
+        var apiLevelStr = parts[1];
 
         if (!ulong.TryParse(id, out var clientId))
         {
             throw new Exception("handshake failed, clientId invalid format");
         }
 
-        if (!Version.TryParse(versionStr, out var version))
+        if (!int.TryParse(apiLevelStr, out var apiLevel))
         {
-            throw new Exception("handshake failed, version invalid format");
+            throw new Exception("handshake failed, apilevel invalid format");
         }
 
-        return (clientId, version);
+        return (clientId, apiLevel);
     }
 
     private async Task<RawMessage?> ReadMessageAsync(WebSocket webSocket, byte[] buffer, CancellationToken token)
@@ -410,7 +422,7 @@ public class MeshNetwork : IMeshNetwork
             if (result.CloseStatus != null)
             {
                 await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Bye!", CancellationToken.None);
-                throw new Exception($"WebSocket closed = {result.CloseStatus}");
+                throw new ConnectionClosedException(result.CloseStatus, result.CloseStatusDescription);
             }
 
             if (result.Count > 0)
@@ -473,5 +485,17 @@ public class RawMessage
     {
         MessageType = messageType;
         Bytes = bytes;
+    }
+}
+
+public class ConnectionClosedException : Exception
+{
+    public WebSocketCloseStatus? CloseStatus { get; }
+    public string? Reason { get; }
+
+    public ConnectionClosedException(WebSocketCloseStatus? status, string? reason)
+    {
+        CloseStatus = status;
+        Reason = reason;
     }
 }

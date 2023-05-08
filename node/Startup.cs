@@ -67,38 +67,38 @@ public class Startup
                     var network = Configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
                     var logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
 
-                    if (!Version.TryParse(context.Request.Headers["kryo-version"], out var version))
+                    if (!int.TryParse(context.Request.Headers["kryo-apilevel"], out var apilevel))
                     {
-                        logger.LogDebug("Received connection without version information, forcing disconnect...");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        logger.LogDebug("Received connection without api level, forcing disconnect...");
+                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "API_LEVEL_NOT_SET", CancellationToken.None);
                         return;
                     }
 
-                    if (version < Constant.MIN_SUPPORTED_VERSION)
+                    if (apilevel < Constant.MIN_API_LEVEL)
                     {
-                        logger.LogDebug($"Incoming connection version too {version} old, forcing disconnect...");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        logger.LogDebug($"Incoming connection apilevel not supported ({apilevel}), forcing disconnect...");
+                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "UNSUPPORTED_API_LEVEL", CancellationToken.None);
                         return;
                     }
 
                     if (context.Request.Headers["kryo-network"] != network) 
                     {
                         logger.LogDebug($"Wrong network: '{context.Request.Headers["kryo-network"]}'");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "WRONG_NETWORK", CancellationToken.None);
                         return;
                     }
 
                     if(string.IsNullOrEmpty(context.Request.Headers["kryo-client-id"])) 
                     {
                         logger.LogDebug("Received connection without client-id, forcing disconnect...");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "CLIENT_ID_NOT_SET", CancellationToken.None);
                         return;
                     }
 
                     if (!ulong.TryParse(context.Request.Headers["kryo-client-id"], out var clientId)) 
                     {
                         logger.LogDebug("Received connection with invalid client-id, forcing disconnect...");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "INVALID_CLIENT_ID", CancellationToken.None);
                         return;
                     }
 
@@ -107,7 +107,7 @@ public class Startup
                     if (clientId == mesh.GetServerId())
                     {
                         logger.LogDebug("Self connection, disconnecting client...");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "SELF_CONNECTION", CancellationToken.None);
                         return;
                     }
 
@@ -122,12 +122,12 @@ public class Startup
                         if (!success) 
                         {
                             logger.LogInformation($"Force disconnect {uri}, reason: url not reachable");
-                            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                            await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "URL_NOT_REACHABLE", CancellationToken.None);
 
                             return;
                         }
 
-                        var urlPeer = new Peer(webSocket, clientId, uri, ConnectionType.IN, true, version);
+                        var urlPeer = new Peer(webSocket, clientId, uri, ConnectionType.IN, true, apilevel);
                         await mesh.AddSocketAsync(webSocket, urlPeer);
 
                         return;
@@ -223,7 +223,7 @@ public class Startup
                         }.Uri;
                     }
 
-                    var peer = new Peer(webSocket, clientId, bestUri, ConnectionType.IN, isReachable, version);
+                    var peer = new Peer(webSocket, clientId, bestUri, ConnectionType.IN, isReachable, apilevel);
 
                     await mesh.AddSocketAsync(webSocket, peer);
                 }

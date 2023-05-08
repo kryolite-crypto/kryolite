@@ -4,7 +4,8 @@ namespace Kryolite.Shared;
 
 public static class Constant
 {
-    public static Version MIN_SUPPORTED_VERSION { get; } = new Version(1, 1, 0);
+    public const int API_LEVEL = 1;
+    public const int MIN_API_LEVEL = 1;
 
     public const byte STARTING_DIFFICULTY = 8;
     public const int TARGET_BLOCK_TIME_S = 60;
