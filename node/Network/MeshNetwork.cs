@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Net.WebSockets;
+using System.Reflection;
 using System.Text;
 using Kryolite.Shared;
 using MessagePack;
@@ -48,7 +49,20 @@ public class MeshNetwork : IMeshNetwork
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
-        serverId = (ulong)Random.Shared.NextInt64();
+        var path = Path.Join(BlockchainService.DATA_PATH, "node.id");
+
+        if (!Path.Exists(path))
+        {
+            serverId = (ulong)Random.Shared.NextInt64();
+            File.WriteAllText(path, serverId.ToString());
+        }
+        else
+        {
+            serverId = ulong.Parse(File.ReadAllText(path));
+        }
+
+        logger.LogInformation($"node.id = {serverId}");
+
         networkName = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
     }
 
@@ -195,6 +209,7 @@ public class MeshNetwork : IMeshNetwork
                     var client = new ClientWebSocket();
 
                     client.Options.KeepAliveInterval = TimeSpan.FromSeconds(60);
+                    client.Options.SetRequestHeader("kryo-version", Assembly.GetEntryAssembly()?.GetName().Version?.ToString() ?? new Version(0, 0, 0).ToString());
                     client.Options.SetRequestHeader("kryo-client-id", serverId.ToString());
                     client.Options.SetRequestHeader("kryo-network", networkName);
                     client.Options.SetRequestHeader("kryo-connect-to-url", configuration.GetValue<string>("PublicUrl"));
@@ -206,23 +221,32 @@ public class MeshNetwork : IMeshNetwork
 
                     if (client.State == WebSocketState.Open)
                     {
-                        var clientId = await DoHandshakeAsync(client, token);
+                        (var clientId, var version) = await DoHandshakeAsync(client, token);
 
                         if (clientId == serverId) 
                         {
+                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, self connection");
+                            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
+                            return false;
+                        }
+
+                        if (version < Constant.MIN_SUPPORTED_VERSION)
+                        {
+                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported version: {version}");
                             await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                             return false;
                         }
 
                         if (Peers.ContainsKey(clientId))
                         {
+                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, already connected");
                             await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                             return false;
                         }
 
                         logger.LogInformation($"Connected to {uri.ToHostname()}");
 
-                        var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true);
+                        var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, version);
 
                         _ = AddSocketAsync(client, peer);
 
@@ -333,7 +357,7 @@ public class MeshNetwork : IMeshNetwork
         }
     }
 
-    private async Task<ulong> DoHandshakeAsync(ClientWebSocket client, CancellationToken token)
+    private async Task<(ulong, Version)> DoHandshakeAsync(ClientWebSocket client, CancellationToken token)
     {
         var buffer = new byte[8 * 1024];
 
@@ -346,14 +370,27 @@ public class MeshNetwork : IMeshNetwork
             throw new Exception("handshake failed, clientId not received");
         }
 
-        var id = Encoding.UTF8.GetString(message.Bytes);
+        var parts = Encoding.UTF8.GetString(message.Bytes).Split(";");
+
+        if (parts.Length != 2)
+        {
+            throw new Exception("handshake failed, invalid reply received");
+        }
+
+        var id = parts[0];
+        var versionStr = parts[1];
 
         if (!ulong.TryParse(id, out var clientId))
         {
             throw new Exception("handshake failed, clientId invalid format");
         }
 
-        return clientId;
+        if (!Version.TryParse(versionStr, out var version))
+        {
+            throw new Exception("handshake failed, version invalid format");
+        }
+
+        return (clientId, version);
     }
 
     private async Task<RawMessage?> ReadMessageAsync(WebSocket webSocket, byte[] buffer, CancellationToken token)

@@ -18,12 +18,13 @@ public class Peer
     public DateTime LastSeen { get; set; }
     public DateTime ConnectedSince { get; set; }
     public bool IsReachable { get; set; }
+    public Version Version { get; private init; }
 
 
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
 
-    public Peer(WebSocket socket, ulong id, Uri uri, ConnectionType connectionType, bool isReacable)
+    public Peer(WebSocket socket, ulong id, Uri uri, ConnectionType connectionType, bool isReacable, Version version)
     {
         Socket = socket ?? throw new ArgumentNullException(nameof(socket));
         Id = id;
@@ -33,6 +34,7 @@ public class Peer
 
         ConnectedSince = DateTime.UtcNow;
         LastSeen = DateTime.UtcNow;
+        Version = version;
     }
 
     public async Task SendAsync(IPacket packet, CancellationToken? token = null)

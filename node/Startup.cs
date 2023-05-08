@@ -67,7 +67,21 @@ public class Startup
                     var network = Configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
                     var logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
 
-                    if(context.Request.Headers["kryo-network"] != network) 
+                    if (!Version.TryParse(context.Request.Headers["kryo-version"], out var version))
+                    {
+                        logger.LogDebug("Received connection without version information, forcing disconnect...");
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        return;
+                    }
+
+                    if (version < Constant.MIN_SUPPORTED_VERSION)
+                    {
+                        logger.LogDebug($"Incoming connection version too {version} old, forcing disconnect...");
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
+                        return;
+                    }
+
+                    if (context.Request.Headers["kryo-network"] != network) 
                     {
                         logger.LogDebug($"Wrong network: '{context.Request.Headers["kryo-network"]}'");
                         await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, CancellationToken.None);
@@ -113,7 +127,7 @@ public class Startup
                             return;
                         }
 
-                        var urlPeer = new Peer(webSocket, clientId, uri, ConnectionType.IN, true);
+                        var urlPeer = new Peer(webSocket, clientId, uri, ConnectionType.IN, true, version);
                         await mesh.AddSocketAsync(webSocket, urlPeer);
 
                         return;
@@ -209,7 +223,7 @@ public class Startup
                         }.Uri;
                     }
 
-                    var peer = new Peer(webSocket, clientId, bestUri, ConnectionType.IN, isReachable);
+                    var peer = new Peer(webSocket, clientId, bestUri, ConnectionType.IN, isReachable, version);
 
                     await mesh.AddSocketAsync(webSocket, peer);
                 }

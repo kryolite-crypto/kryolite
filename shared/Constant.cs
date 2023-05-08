@@ -4,6 +4,8 @@ namespace Kryolite.Shared;
 
 public static class Constant
 {
+    public static Version MIN_SUPPORTED_VERSION { get; } = new Version(1, 1, 0);
+
     public const byte STARTING_DIFFICULTY = 8;
     public const int TARGET_BLOCK_TIME_S = 60;
     public const int EPOCH_LENGTH_BLOCKS = 100;
