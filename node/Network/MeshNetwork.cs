@@ -259,7 +259,7 @@ public class MeshNetwork : IMeshNetwork
                     logger.LogInformation($"Error connecting to {uri.ToHostname()}: {wsEx.Message}");
                 }
 
-                token.WaitHandle.WaitOne(250);
+                token.WaitHandle.WaitOne(1000);
             }
         }
         catch (ConnectionClosedException ccEx)
@@ -351,8 +351,6 @@ public class MeshNetwork : IMeshNetwork
         }
 
         Peers.TryRemove(peer.Id, out _);
-
-        logger.LogInformation($"Disconnected from {peer.Uri.ToHostname()}, reason: {webSocket.CloseStatusDescription}");
 
         _ = Task.Run(() => PeerDisconnected?.Invoke(peer, new PeerDisconnectedEventArgs(webSocket.CloseStatus ?? WebSocketCloseStatus.Empty)));
         _ = Task.Run(() => ConnectedChanged?.Invoke(this, Peers.Count));
