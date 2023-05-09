@@ -2,6 +2,7 @@ using System;
 using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Tmds.Linux;
 
@@ -779,7 +780,20 @@ public class BlockchainManager : IBlockchainManager
         using var blockchainRepository = new BlockchainRepository();
 
         blockchainRepository.Context.Database.EnsureDeleted();
-        blockchainRepository.Context.Database.EnsureCreated();
+        blockchainRepository.Context.Database.Migrate();
+
+        using var walletRepository = new WalletRepository();
+        var wallets = walletRepository.GetWallets()
+            .Select(x => x.Value)
+            .ToList();
+
+        walletRepository.RollbackWallets(wallets, 0);
+
+        foreach (var wallet in wallets)
+        {
+            wallet.Balance = 0;
+            walletRepository.Update(wallet);
+        }
     }
 
     public Contract? GetContract(Address address)
