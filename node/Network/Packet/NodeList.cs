@@ -26,21 +26,26 @@ public class NodeList : IPacket
             context.NetworkManager.AddHost(host);
         });
 
+        var peers = context.MeshNetwork.GetPeers()
+            .Where(x => x.Value.ConnectionType == ConnectionType.OUT)
+            .ToDictionary(x => x.Key, x => x.Value);
+
         _ = Task.Run(async () => {
             var randomized = context.NetworkManager.GetHosts()
+                .Where(x => !peers.ContainsKey(x.ClientId))
                 .OrderByDescending(x => x.LastSeen)
                 .Take(100)
                 .OrderBy(x => Guid.NewGuid())
                 .Take(50);
 
-            var connected = context.MeshNetwork.GetOutgoingConnections().Count;
+            var connected = peers.Count;
             var allowedConnections = Constant.MAX_PEERS * 1.5;
 
             foreach (var node in randomized)
             {
                 if (connected >= allowedConnections)
                 {
-                    return;
+                    break;
                 }
 
                 if (await context.MeshNetwork.ConnectToAsync(node.Url))

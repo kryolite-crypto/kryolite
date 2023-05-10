@@ -47,7 +47,7 @@ public class Program
         rootCmd.AddGlobalOption(threadsOption);
 
         rootCmd.SetHandler(async (node, address, throttle, threads) => {
-            var url = node ?? await ZeroConf.DiscoverNodeAsync();
+            var url = node ?? await ZeroConf.DiscoverNodeAsync(5);
 
             if (node == null && url == null)
             {

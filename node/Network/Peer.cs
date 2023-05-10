@@ -11,7 +11,7 @@ public enum ConnectionType
 
 public class Peer
 {
-    public ulong Id { get; private init; }
+    public ulong ClientId { get; private init; }
     public Uri Uri { get; private init; }
     public ConnectionType ConnectionType { get; private init; }
 
@@ -27,7 +27,7 @@ public class Peer
     public Peer(WebSocket socket, ulong id, Uri uri, ConnectionType connectionType, bool isReacable, int apiLevel)
     {
         Socket = socket ?? throw new ArgumentNullException(nameof(socket));
-        Id = id;
+        ClientId = id;
         Uri = uri ?? throw new ArgumentNullException(nameof(uri));
         ConnectionType = connectionType;
         IsReachable = isReacable;

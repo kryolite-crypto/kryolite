@@ -181,47 +181,14 @@ public class NetworkService : BackgroundService
                 await meshNetwork.BroadcastAsync(msg);
             });
 
-        var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
-
-        if (peers.Count == 0)
-        {
-            peers.AddRange(await ResolveInitialPeers());
-        }
-
         await startup.Application.WaitOneAsync();
 
-        foreach (var url in peers)
-        {
-            logger.LogInformation("Connecting to peer {}", url);
-
-            if (!Uri.TryCreate(url, new UriCreationOptions(), out var peerUri))
-            {
-                logger.LogWarning("Invalid uri format {}", url);
-                return;
-            }
-
-            if (await meshNetwork.ConnectToAsync(peerUri))
-            {
-                var peer = meshNetwork.GetPeer(peerUri);
-
-                if (peer != null)
-                {
-                    await peer.SendAsync(new QueryNodeList());
-                }
-
-                break;
-            }
-        }
-
-        if (peers.Count == 0)
-        {
-            logger.LogInformation("No peers resolved. Manually add peers in configuration.");
-        }
+        await DiscoverPeers();
 
         NetworkChange.NetworkAvailabilityChanged += new
             NetworkAvailabilityChangedEventHandler(NetworkAvailabilityChanged);
 
-        var timer = new System.Timers.Timer(TimeSpan.FromHours(1));
+        var timer = new System.Timers.Timer(TimeSpan.FromMinutes(30));
 
         timer.AutoReset = true;
         timer.Elapsed += HostCleanup;
@@ -230,7 +197,7 @@ public class NetworkService : BackgroundService
         var timer2 = new System.Timers.Timer(TimeSpan.FromMinutes(10));
 
         timer2.AutoReset = true;
-        timer2.Elapsed += ReportPeers;
+        timer2.Elapsed += PeerDiscovery;
         timer2.Enabled = true;
 
         logger.LogInformation("Network       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
@@ -261,10 +228,74 @@ public class NetworkService : BackgroundService
         return peers;
     }
 
-    private void ReportPeers(object? sender, ElapsedEventArgs e)
+    private async Task<bool> DiscoverPeers()
     {
+        var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
+
+        if (peers.Count == 0)
+        {
+            peers.AddRange(await ResolveInitialPeers());
+        }
+
+        var hosts = networkManager.GetHosts()
+            .Where(x => x.IsReachable)
+            .Select(x => x.Url.ToString());
+
+        peers.AddRange(hosts);
+
+        peers = peers.OrderBy(x => Guid.NewGuid())
+            .ToList();
+
+        var connected = false;
+
+        foreach (var url in peers.Distinct())
+        {
+            logger.LogInformation("Connecting to peer {}", url);
+
+            if (!Uri.TryCreate(url, new UriCreationOptions(), out var peerUri))
+            {
+                logger.LogWarning("Invalid uri format {}", url);
+                continue;
+            }
+
+            if (await meshNetwork.ConnectToAsync(peerUri))
+            {
+                var peer = meshNetwork.GetPeer(peerUri);
+
+                if (peer != null)
+                {
+                    await peer.SendAsync(new QueryNodeList());
+                    connected = true;
+                }
+            }
+
+            if (peers.Count >= Constant.MAX_PEERS)
+            {
+                break;
+            }
+        }
+
+        if (peers.Count == 0)
+        {
+            logger.LogInformation("No peers resolved. Manually add peers in configuration.");
+            return false;
+        }
+
+        return connected;
+    }
+
+    private async void PeerDiscovery(object? sender, ElapsedEventArgs e)
+    {
+        if (meshNetwork.GetOutgoingConnections().Count() < Constant.MAX_PEERS)
+        {
+            await DiscoverPeers();
+        }
+
         var peers = meshNetwork.GetPeers();
-        logger.LogInformation($"Connected to {peers.Count} peers [in = {peers.Values.Where(x => x.ConnectionType == ConnectionType.IN).Count()}, out = {peers.Values.Where(x => x.ConnectionType == ConnectionType.OUT).Count()}]");
+        var inPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.IN);
+        var outPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.OUT);
+
+        logger.LogInformation($"Connected to {peers.Count} peers [in = {inPeers.Count()}, out = {outPeers.Count()}]");
     }
 
     private void HostCleanup(object? sender, ElapsedEventArgs e)
@@ -295,38 +326,9 @@ public class NetworkService : BackgroundService
 
             while (await timer.WaitForNextTickAsync())
             {
-                var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
-
-                if (peers.Count == 0)
+                if(await DiscoverPeers())
                 {
-                    peers.AddRange(await ResolveInitialPeers());
-                }
-
-                var hosts = networkManager.GetHosts()
-                    .Where(x => x.IsReachable)
-                    .Select(x => x.Url.ToString());
-
-                peers.AddRange(hosts);
-
-                foreach (var peer in peers)
-                {
-                    if (!Uri.TryCreate(peer, new UriCreationOptions(), out var peerUri))
-                    {
-                        logger.LogWarning("Invalid uri format {}", peer);
-                        continue;
-                    }
-
-                    if (await meshNetwork.ConnectToAsync(peerUri))
-                    {
-                        var newPeer = meshNetwork.GetPeer(peerUri);
-
-                        if (newPeer != null)
-                        {
-                            logger.LogInformation($"Established connection to {peerUri}");
-                            await newPeer.SendAsync(new QueryNodeList());
-                            return;
-                        }
-                    }
+                    break;
                 }
             }
         });

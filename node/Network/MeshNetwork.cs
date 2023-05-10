@@ -128,7 +128,7 @@ public class MeshNetwork : IMeshNetwork
 
     public List<Peer> GetOutgoingConnections()
     {
-        using var _lock = rwlock.EnterWriteLockEx();
+        using var _lock = rwlock.EnterReadLockEx();
 
         return Peers
             .Where(x => x.Value.ConnectionType == ConnectionType.OUT)
@@ -287,12 +287,12 @@ public class MeshNetwork : IMeshNetwork
         var token = tokenSource.Token;
         var buffer = new byte[64 * 1024];
 
-        if(Peers.TryAdd(peer.Id, peer))
+        if(Peers.TryAdd(peer.ClientId, peer))
         {
             if (peer.ConnectionType == ConnectionType.IN && peer.IsReachable)
             {
                 var discovery = new NodeDiscovery(peer.Uri);
-                var msg = new Message(peer.Id, discovery);
+                var msg = new Message(peer.ClientId, discovery);
 
                 await BroadcastAsync(msg);
             }
@@ -328,7 +328,7 @@ public class MeshNetwork : IMeshNetwork
                             return;
                         }
 
-                        cache.Set(messageArgs.Message.Id, peer.Id, DateTimeOffset.Now.AddMinutes(30));
+                        cache.Set(messageArgs.Message.Id, peer.ClientId, DateTimeOffset.Now.AddMinutes(30));
                     }
 
                     peer.LastSeen = DateTime.UtcNow;
@@ -350,7 +350,7 @@ public class MeshNetwork : IMeshNetwork
             logger.LogInformation(ex, "WebSocket connection threw error");
         }
 
-        Peers.TryRemove(peer.Id, out _);
+        Peers.TryRemove(peer.ClientId, out _);
 
         _ = Task.Run(() => PeerDisconnected?.Invoke(peer, new PeerDisconnectedEventArgs(webSocket.CloseStatus ?? WebSocketCloseStatus.Empty)));
         _ = Task.Run(() => ConnectedChanged?.Invoke(this, Peers.Count));

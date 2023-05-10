@@ -6,12 +6,12 @@ namespace Kryolite.Shared;
 
 public static class ZeroConf
 {
-    public static async Task<string?> DiscoverNodeAsync()
+    public static async Task<string?> DiscoverNodeAsync(int scanTime = 2)
     {
         try
         {
             var addresses = new HashSet<IPEndPoint>();
-            var results = await ZeroconfResolver.ResolveAsync("_kryolite._tcp.local.");
+            var results = await ZeroconfResolver.ResolveAsync("_kryolite._tcp.local.", TimeSpan.FromSeconds(scanTime));
 
             foreach (var result in results)
             {
@@ -43,9 +43,9 @@ public static class ZeroConf
                 return $"http://{addr.Address}:{addr.Port}";
             }
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-
+            Console.WriteLine(ex.ToString());
         }
 
         return null;

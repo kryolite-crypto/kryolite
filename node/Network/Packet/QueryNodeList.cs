@@ -29,10 +29,9 @@ public class QueryNodeList : IPacket
             Nodes = nodes
         };
 
-
         var newHost = new NodeHost(peer.Uri)
         {
-            ClientId = peer.Id,
+            ClientId = peer.ClientId,
             LastSeen = DateTime.UtcNow,
             IsReachable = peer.IsReachable
         };

@@ -24,7 +24,7 @@ public class QueryNodeInfo : IPacket
         _ = Task.Run(() => {
             context.NetworkManager.AddHost(new NodeHost(peer.Uri)
             {
-                ClientId = peer.Id,
+                ClientId = peer.ClientId,
                 LastSeen = DateTime.UtcNow,
                 IsReachable = Connection.TestConnection(peer.Uri)
             });

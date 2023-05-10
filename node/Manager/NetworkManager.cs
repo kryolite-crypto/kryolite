@@ -32,7 +32,7 @@ public class NetworkManager : INetworkManager
 
         using var _ = rwlock.EnterWriteLockEx();
         
-        var existing = Hosts.FirstOrDefault(x => x.Url == host.Url);
+        var existing = Hosts.FirstOrDefault(x => x.ClientId == host.ClientId);
 
         if (existing == null)
         {
@@ -41,7 +41,7 @@ public class NetworkManager : INetworkManager
         }
         else
         {
-            existing.ClientId = host.ClientId;
+            existing.Url = host.Url;
             existing.NodeInfo = host.NodeInfo;
             existing.LastSeen = host.LastSeen;
             existing.IsReachable = host.IsReachable;
@@ -99,7 +99,7 @@ public class NetworkManager : INetworkManager
 
     public class NodeHost
     {
-        public Uri Url { get; init; }
+        public Uri Url { get; set; }
         public ulong ClientId { get; set; }
         public NodeInfo? NodeInfo { get; set; }
         public DateTime LastSeen { get; set; } // TODO unixtime
