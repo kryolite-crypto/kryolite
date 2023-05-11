@@ -223,14 +223,17 @@ public class BlockchainManager : IBlockchainManager
         int progress = 0;
         ChainObserver.ReportProgress("Inserting new blocks", progress, blocks.Count);
 
+        using var blockchainRepository = new BlockchainRepository();
+
+        var chainState = blockchainRepository.GetChainState();
+        var epochStart = blockchainRepository.GetPowBlock(chainState.POW.Height - (chainState.POW.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
+
         foreach (var chunk in blocks.Chunk(1000))
         {
-            using var blockchainRepository = new BlockchainRepository();
             using var tx = blockchainRepository.Context.Database.BeginTransaction();
 
             try
             {
-                var chainState = blockchainRepository.GetChainState();
                 var wallets = walletManager.GetWallets();
 
                 var blockchainContext = new BlockchainExContext()
@@ -274,8 +277,6 @@ public class BlockchainManager : IBlockchainManager
                     .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
                     // Add contract
                     .Link<AddContract>(x => x.TransactionType == TransactionType.CONTRACT && x.To.IsContract());
-
-                var epochStart = blockchainRepository.GetPowBlock(chainState.POW.Height - (chainState.POW.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
 
                 foreach (var block in chunk)
                 {
