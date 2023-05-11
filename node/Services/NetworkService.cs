@@ -472,7 +472,7 @@ public class ChainObserver : IObserver<Chain>
             return;
         }
 
-        if (!VerifyChainIntegrity(sortedBlocks, out var remoteWork))
+        if (!VerifyChainIntegrity(sortedBlocks, out var remoteWorkToAdd))
         {
             _ = chain.Peer.DisconnectAsync();
             EndSync?.Invoke(this, EventArgs.Empty);
@@ -488,7 +488,10 @@ public class ChainObserver : IObserver<Chain>
             return;
         }
 
-        var localWork = CalculateLocalWorkAtRemoteHeight(sortedBlocks);
+        var localWorkAtRemoteHeight = CalculateLocalWorkAtRemoteHeight(sortedBlocks);
+
+        var localWork = blockchainManager.GetTotalWork();
+        var remoteWork = (localWork - localWorkAtRemoteHeight) + remoteWorkToAdd;
 
         logger.LogInformation($"Current chain totalWork = {localWork}, received chain with totalWork = {remoteWork}");
 

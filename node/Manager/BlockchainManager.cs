@@ -680,6 +680,8 @@ public class BlockchainManager : IBlockchainManager
                             }
                         }
                     }
+
+                    chainState.POW.TotalWork -= cBlock.Pow!.Difficulty.ToWork();
                 }
 
                 ChainObserver.ReportProgress("Rolling back current chain", ++progress, sortedBlocks.Count);
@@ -688,7 +690,6 @@ public class BlockchainManager : IBlockchainManager
             var currentTip = blockchainRepository.GetPosBlock(min - 1);
 
             chainState.POW.Height = min - 1;
-            chainState.POW.TotalWork -= currentTip.Pow!.Difficulty.ToWork();
             chainState.POW.CurrentDifficulty = currentTip.Pow.Difficulty;
             chainState.POW.LastHash = currentTip.Pow?.GetHash() ?? new SHA256Hash();
             chainState.POS.Height = min - 1;
