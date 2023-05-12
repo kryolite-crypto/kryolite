@@ -34,7 +34,7 @@ public class WalletService : BackgroundService
         TransferTokenEvent += TransferTokenEventHandler;
         ConsumeTokenEvent += ConsumeTokenEventHandler;
 
-        logger.LogInformation("Wallet       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+        logger.LogInformation("Wallet        [UP]");
 
         await Task.CompletedTask;
     }

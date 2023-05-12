@@ -48,7 +48,7 @@ public class BlockchainService : BackgroundService
             InitializeGenesisBlock();
         }
 
-        Logger.LogInformation($"Blockchain    \x1B[1m\x1B[32m[UP]\x1B[34m[{configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]\x1B[39m\x1B[22m");
+        Logger.LogInformation($"Blockchain    [UP][{configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
         startup.Blockchain.Set();
         await Task.CompletedTask;
     }

@@ -200,7 +200,7 @@ public class NetworkService : BackgroundService
         timer2.Elapsed += PeerDiscovery;
         timer2.Enabled = true;
 
-        logger.LogInformation("Network       \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+        logger.LogInformation("Network       [UP]");
         startup.Network.Set();
     }
 

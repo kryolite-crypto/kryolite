@@ -85,7 +85,7 @@ public class MDNSService : BackgroundService
 
             mdns.Start();
 
-            logger.LogInformation("mDNS          \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+            logger.LogInformation("mDNS          [UP]");
         }
         catch (Exception ex)
         {

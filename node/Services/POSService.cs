@@ -47,11 +47,11 @@ public class POSService : BackgroundService
 
     private void PromoteNode()
     {
-        logger.LogInformation("POS           \x1B[32m[ACTIVE]\x1B[37m");
+        logger.LogInformation("POS           [ACTIVE]");
     }
 
     private void DemoteNode()
     {
-        logger.LogInformation("POS           \x1B[90m[INACTIVE]\x1B[37m");
+        logger.LogInformation("POS           [INACTIVE]");
     }
 }

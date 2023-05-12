@@ -71,7 +71,7 @@ public class UPnPService : BackgroundService
                     mappings.Add(mapping);
                 }
             }
-            logger.LogInformation("UPnP          \x1B[1m\x1B[32m[UP]\x1B[39m\x1B[22m");
+            logger.LogInformation("UPnP          [UP]");
         }
         catch (MappingException mEx)
         {
