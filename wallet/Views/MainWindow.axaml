@@ -35,7 +35,7 @@
                 <NativeMenuItem.Menu>
                     <NativeMenu>
                         <NativeMenuItem Header="View Log" Command="{Binding ViewLogCommand}"/>
-                        <NativeMenuItem Header="About"/>
+                        <NativeMenuItem Header="About" Command="{Binding AboutCommand}"/>
                     </NativeMenu>
                 </NativeMenuItem.Menu>
             </NativeMenuItem>

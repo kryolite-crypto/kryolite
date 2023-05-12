@@ -49,6 +49,11 @@ public partial class MainWindow : Window
             dialog.Show(this);
         };
 
+        Model.AboutClicked += (object? sender, EventArgs args) => {
+            var dialog = new AboutDialog();
+            dialog.Show(this);
+        };
+
         Node.MeshNetwork.ConnectedChanged += async (object? sender, int count) => {
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.ConnectedPeers = count;

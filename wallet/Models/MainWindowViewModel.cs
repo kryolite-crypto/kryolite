@@ -12,6 +12,7 @@ namespace Kryolite.Wallet;
 public class MainWindowViewModel : NotifyPropertyChanged
 {
     public event EventHandler? ViewLogClicked;
+    public event EventHandler? AboutClicked;
 
     private long _Blocks;
 
@@ -148,5 +149,10 @@ public class MainWindowViewModel : NotifyPropertyChanged
     public void ViewLogCommand()
     {
         ViewLogClicked?.Invoke(this, null!);
+    }
+
+    public void AboutCommand()
+    {
+        AboutClicked?.Invoke(this, null!);
     }
 }
