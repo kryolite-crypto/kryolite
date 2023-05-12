@@ -173,12 +173,12 @@ public class MeshNetwork : IMeshNetwork
         var timer = Stopwatch.StartNew();
         var timeout = TimeSpan.FromSeconds(5);
 
-        if (Peers.Any(x => x.Value.Uri == uri))
+        var outgoing = GetOutgoingConnections();
+
+        if (outgoing.Any(x => x.Uri == uri))
         {
             return true;
         }
-
-        var outgoing = GetOutgoingConnections();
 
         if (outgoing.Count >= Constant.MAX_PEERS)
         {
@@ -238,7 +238,7 @@ public class MeshNetwork : IMeshNetwork
                             return false;
                         }
 
-                        if (Peers.ContainsKey(clientId))
+                        if (Peers.ContainsKey(clientId) && Peers[clientId].ConnectionType == ConnectionType.OUT)
                         {
                             logger.LogInformation($"Cancel connection to {targetUri.Uri}, already connected");
                             await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
@@ -345,9 +345,13 @@ public class MeshNetwork : IMeshNetwork
         {
             logger.LogInformation($"{peer.Uri.ToHostname()} closed connection, reason: {ccEx.CloseStatus}, {ccEx.Reason}");
         }
+        catch (WebSocketException wEx)
+        {
+            logger.LogInformation("Peer {peer} disconnected ({message})", peer.Uri.ToHostname(), wEx.Message);
+        }
         catch (Exception ex)
         {
-            logger.LogInformation(ex, "WebSocket connection threw error");
+            logger.LogInformation(ex, "Connection failure");
         }
 
         Peers.TryRemove(peer.ClientId, out _);

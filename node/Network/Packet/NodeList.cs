@@ -15,6 +15,12 @@ public class NodeList : IPacket
     {
         context.Logger.LogInformation($"Received NodeList from {peer.Uri.ToHostname()}");
 
+        var serverId = context.MeshNetwork.GetServerId();
+
+        // Filter out self from nodes
+        Nodes = Nodes.Where(x => x.ClientId != serverId)
+            .ToList();
+
         Parallel.ForEach(Nodes, node => {
             var host = new NodeHost(node.Url)
             {
