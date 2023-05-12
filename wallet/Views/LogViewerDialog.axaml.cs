@@ -71,7 +71,7 @@ public partial class LogViewerDialog : Window
             return;
         }
 
-        if (!logBox.IsFocused)
+        if (!logBox.TextArea.IsFocused)
         {
             logBox.TextArea.Caret.Offset = logBox.Text.Length;
             logBox.TextArea.Caret.BringCaretToView();
