@@ -71,7 +71,7 @@ public static class SuffixArray
     {
         if (offset == 0)
         {
-            return true;
+            return false;
         }
 
         if (typemap[offset] == S_TYPE && typemap[offset - 1] == L_TYPE)
@@ -255,11 +255,6 @@ public static class SuffixArray
         {
             var suffixOffset = sa[i];
 
-            if (suffixOffset == -1)
-            {
-                continue;
-            }
-
             if (!IsLMS(suffixOffset, typemap))
             {
                 continue;
@@ -276,9 +271,6 @@ public static class SuffixArray
 
         var summarySuffixOffsets = new Span<int>(new int[data.Length]);
         var summaryData = new Span<int>(new int[data.Length]);
-
-        summarySuffixOffsets.Fill(-1);
-        summaryData.Fill(-1);
 
         var items = 0;
 
@@ -310,11 +302,6 @@ public static class SuffixArray
 
         for (var i = summarySuffixArray.Length - 1; i > 1; i--)
         {
-            if (summarySuffixArray[i] == -1)
-            {
-                continue;
-            }
-
             var index = summarySuffixOffsets[summarySuffixArray[i]];
 
             var bucketIndex = data[index];
@@ -334,8 +321,6 @@ public static class SuffixArray
         {
             var summarySuffixArray = new int[summaryData.Length + 1];
             Array.Fill(summarySuffixArray, -1);
-
-            summarySuffixArray[summaryData.Length] = -1;
 
             summarySuffixArray[0] = summaryData.Length;
 
