@@ -1,14 +1,8 @@
 ﻿using Xunit;
-using Kryolite.Shared;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Kryolite.Shared.Tests;
 
-public class KryoHashTests
+public class GrasshopperTests
 {
     [Theory]
     [InlineData(11, "ePeArgp7A3KeMF7DD7Dc2k2cygYFYDSaeQWW9iHRhRbu")]
