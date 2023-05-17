@@ -4,6 +4,7 @@ using System.Text;
 using System.Text.Json;
 using Kryolite.Node;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using MessagePack;
 
 public class Program
@@ -17,7 +18,7 @@ public class Program
     {
         serializerOpts.PropertyNameCaseInsensitive = true;
         serializerOpts.Converters.Add(new AddressConverter());
-        serializerOpts.Converters.Add(new NonceConverter());
+        // serializerOpts.Converters.Add(new NonceConverter());
         serializerOpts.Converters.Add(new PrivateKeyConverter());
         serializerOpts.Converters.Add(new PublicKeyConverter());
         serializerOpts.Converters.Add(new SHA256HashConverter());
@@ -201,8 +202,8 @@ public class Program
                 PublicKey = wallet.PublicKey,
                 To = to,
                 Value = (ulong)(amount * 1000000),
-                MaxFee = 1,
-                Nonce = 69,
+                //MaxFee = 1,
+                Timestamp = 69,
                 Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
             };
 
@@ -303,8 +304,8 @@ public class Program
                 To = contract.ToAddress(),
                 Value = 0,
                 Data = MessagePackSerializer.Serialize(payload, lz4Options),
-                MaxFee = 1,
-                Nonce = 69
+                //MaxFee = 1,
+                Timestamp = 69
             };
 
             tx.Sign(wallet.PrivateKey);

@@ -68,7 +68,7 @@ public partial class TokensTab : UserControl
                     if (exists is null)
                     {
                         // Query token from db and add to model
-                        var newToken = BlockchainManager.GetToken(token.TokenId);
+                        /*var newToken = BlockchainManager.GetToken(token.TokenId);
 
                         if (newToken is null)
                         {
@@ -84,7 +84,7 @@ public partial class TokensTab : UserControl
                                 Description = newToken.Description,
                                 IsConsumed = newToken.IsConsumed
                             });
-                        });
+                        });*/
                         continue;
                     }
 
@@ -147,7 +147,7 @@ public partial class TokensTab : UserControl
 
             foreach (var wallet in wallets)
             {
-                var tokens = BlockchainManager.GetTokens(wallet.Key)
+                /*var tokens = BlockchainManager.GetTokens(wallet.Key)
                     .Select(token => new TokenModel
                     {
                         TokenId = token.TokenId,
@@ -157,7 +157,7 @@ public partial class TokensTab : UserControl
                         IsConsumed = token.IsConsumed
                     });
 
-                collection.AddRange(tokens.ToList());
+                collection.AddRange(tokens.ToList());*/
             }
 
             Model.Tokens = new ObservableCollection<TokenModel>(collection);

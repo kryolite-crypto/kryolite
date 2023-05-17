@@ -111,14 +111,14 @@ public class PublicKey
         return obj is PublicKey c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
     }
 
-    public static bool operator ==(PublicKey a, PublicKey b)
+    public static bool operator ==(PublicKey? a, PublicKey? b)
     {
-        if (System.Object.ReferenceEquals(a, b))
+        if (ReferenceEquals(a, b))
         {
             return true;
         }
 
-        if (((object)a == null) || ((object)b == null))
+        if ((a is null) || (b is null))
         {
             return false;
         }
@@ -126,7 +126,7 @@ public class PublicKey
         return a.Equals(b);
     }
 
-    public static bool operator !=(PublicKey a, PublicKey b)
+    public static bool operator !=(PublicKey? a, PublicKey? b)
     {
         return !(a == b);
     }

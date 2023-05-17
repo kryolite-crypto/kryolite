@@ -5,7 +5,7 @@ using NSec.Cryptography;
 namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class HeartbeatSignature
+public class Vote
 {
     [IgnoreMember]
     [JsonIgnore]

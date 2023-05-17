@@ -10,6 +10,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Kryolite.Node;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -38,8 +39,8 @@ public partial class SendTab : UserControl
                 PublicKey = Model.SelectedWallet!.PublicKey,
                 To = Model.Recipient!,
                 Value = (ulong)(decimal.Parse(Model.Amount!) * 1000000),
-                MaxFee = 1,
-                Nonce = (new Random()).Next()
+                // MaxFee = 1,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             };
 
             if (transaction.To.IsContract())
@@ -62,7 +63,7 @@ public partial class SendTab : UserControl
 
             transaction.Sign(Model.SelectedWallet!.PrivateKey);
 
-            BlockchainManager.AddTransactionsToQueue(transaction);
+            // BlockchainManager.AddTransactionsToQueue(transaction);
 
             if (!Model.Addresses.Contains(Model.Recipient!))
             {
@@ -106,9 +107,9 @@ public partial class SendTab : UserControl
             return;
         }
 
-        var contract = BlockchainManager.GetContract(addr);
+        // var contract = BlockchainManager.GetContract(addr);
 
-        Model.Manifest = new ManifestView()
+        /*Model.Manifest = new ManifestView()
         {
             Name = contract?.Manifest.Name ?? string.Empty,
             Methods = contract?.Manifest.Methods
@@ -124,7 +125,7 @@ public partial class SendTab : UserControl
                     .ToList()
                 })
                 .ToList() ?? new()
-        };
+        };*/
 
         container.IsVisible = true;
     }

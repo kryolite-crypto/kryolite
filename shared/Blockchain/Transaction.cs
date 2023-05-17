@@ -10,13 +10,10 @@ public class Transaction : IComparable<Transaction>
     [JsonIgnore]
     [IgnoreMember]
     public Guid Id { get; set; }
-
     [IgnoreMember]
-    public SHA256Hash TransactionId
-    {
-        get => CalculateHash();
-        private set { }
-    }
+    public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
+    [IgnoreMember]
+    public long? Height { get; set; }
 
     [Key(0)]
     public TransactionType TransactionType { get; set; }
@@ -126,6 +123,6 @@ public class Transaction : IComparable<Transaction>
 
     public int CompareTo(Transaction? other)
     {
-        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)CalculateHash(), (ReadOnlySpan<byte>)other!.CalculateHash());
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)TransactionId.Buffer, (ReadOnlySpan<byte>)(other?.TransactionId.Buffer ?? new byte[0]));
     }
 }

@@ -8,8 +8,9 @@ namespace Kryolite.Node;
 public interface IBlockchainManager
 {
     bool AddGenesis(Genesis genesis);
-    bool AddHeartbeat(Heartbeat heartbeat);
-    Heartbeat? GetLastHeartbeat();
+    bool AddView(View view);
+    View? GetLastView();
+    List<Transaction> GetTransactionToValidate();
 
     /*bool AddBlock(PosBlock block, bool broadcastBlock, bool broadcastVote);
     Blocktemplate GetBlocktemplate(Address wallet);
@@ -44,7 +45,7 @@ public interface IBlockchainManager
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<Block> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
-    IDisposable OnHeartbeatSignatureAdded(ITargetBlock<HeartbeatSignature> action);
+    IDisposable OnVoteAdded(ITargetBlock<Vote> action);
     IDisposable OnTokenTransferred(ITargetBlock<TransferTokenEventArgs> action);
     IDisposable OnTokenConsumed(ITargetBlock<ConsumeTokenEventArgs> action);
 }

@@ -7,10 +7,10 @@ using Microsoft.Extensions.Logging;
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class HeartbeatSignatureBatch : IPacket
+public class VoteBatch : IPacket
 {
     [Key(0)]
-    public IList<HeartbeatSignature> HeartbeatSignatures { get; set; } = new List<HeartbeatSignature>();
+    public IList<Vote> Votes { get; set; } = new List<Vote>();
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {

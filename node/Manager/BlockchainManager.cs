@@ -18,7 +18,7 @@ public class BlockchainManager : IBlockchainManager
     private BroadcastBlock<ChainState> ChainStateBroadcast = new(i => i);
     private BroadcastBlock<Block> BlockBroadcast = new(i => i);
     private BroadcastBlock<Wallet> WalletBroadcast = new(i => i);
-    private BroadcastBlock<HeartbeatSignature> VoteBroadcast = new(i => i);
+    private BroadcastBlock<Vote> VoteBroadcast = new(i => i);
     private BroadcastBlock<TransferTokenEventArgs> TokenTransferredBroadcast = new(i => i);
     private BroadcastBlock<ConsumeTokenEventArgs> TokenConsumedBroadcast = new(i => i);
 
@@ -33,32 +33,92 @@ public class BlockchainManager : IBlockchainManager
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockchainRepository();
+        using var tx = blockchainRepository.Context.Database.BeginTransaction();
 
-        blockchainRepository.Add(genesis);
+        try
+        {
+            genesis.TransactionId = genesis.CalculateHash();
 
-        return true;
+            blockchainRepository.Add(genesis);
+
+            var chainState = new ChainState
+            {
+                Id = 0,
+                Height = 0,
+                LastHash = genesis.TransactionId,
+                CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty()
+            };
+
+            blockchainRepository.SaveState(chainState);
+
+            tx.Commit();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            tx.Rollback();
+            logger.LogError(ex, "AddGenesis error");
+        }
+
+        return false;
     }
 
-    public bool AddHeartbeat(Heartbeat heartbeat)
+    public bool AddView(View view)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockchainRepository();
+        using var tx = blockchainRepository.Context.Database.BeginTransaction();
 
-        // Add any received signatures for current heartbeat
-        var signatures = blockchainRepository.GetHeartbeatSignatures(heartbeat.TransactionId);
-        heartbeat.Signatures.AddRange(signatures);
+        try
+        {
+            view.TransactionId = view.CalculateHash();
 
-        blockchainRepository.Add(heartbeat);
+            // Add any received signatures for current heartbeat
+            var signatures = blockchainRepository.GetVotes(view.TransactionId);
+            view.Votes.AddRange(signatures);
 
-        return true;
+            blockchainRepository.Add(view);
+
+            tx.Commit();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            tx.Rollback();
+            logger.LogError(ex, "AddView error");
+        }
+
+        return false;
     }
 
-    public Heartbeat? GetLastHeartbeat()
+    public View? GetLastView()
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetLastHeartbeat();
+        return blockchainRepository.GetLastView();
+    }
+
+    public List<Transaction> GetTransactionToValidate()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        var transactions = blockchainRepository.GetTransactionToValidate();
+
+        if (transactions.Count == 1)
+        {
+            var tx = blockchainRepository.GetRecentTransaction();
+
+            if (tx is not null)
+            {
+                transactions.Add(tx);
+            }
+        }
+
+        return transactions;
     }
 
     /*public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
@@ -389,46 +449,43 @@ public class BlockchainManager : IBlockchainManager
 
         return true;
     }
-
+    */
+    
     public Blocktemplate GetBlocktemplate(Address wallet)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
+        var view = blockchainRepository.GetLastView();
         var chainState = blockchainRepository.GetChainState();
 
-        var transactions = mempoolManager.GetTransactions();
-
-        var rand = new Random();
-
-        var timestamp = DateTimeOffset.Now.ToUnixTimeSeconds();
-
-        var block = new PowBlock {
+        var block = new Block(); /*{
             Height = chainState.POW.Height + 1,
             ParentHash = chainState.POW.LastHash,
             Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
             Difficulty = chainState.POW.CurrentDifficulty,
             Transactions = transactions
-        };
+        };*/
 
-        transactions.Add(new Transaction {
-            TransactionType = TransactionType.MINER_FEE,
+        var tx = new Transaction
+        {
+            TransactionType = TransactionType.BLOCK,
             To = wallet,
-            Value = Constant.POW_REWARD,
-            Nonce = rand.Next(int.MinValue, int.MaxValue)
-        });
+            Value = Constant.BLOCK_REWARD,
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+        };
 
         return new Blocktemplate
         {
-            Height = block.Height,
-            Difficulty = chainState.POW.CurrentDifficulty,
+            Height = chainState.Height + 1,
+            Difficulty = chainState.CurrentDifficulty,
             ParentHash = block.ParentHash,
             Nonce = block.GetHash(),
-            Timestamp = timestamp,
-            Transactions = transactions
+            Timestamp = tx.Timestamp
         };
     }
 
+    /*
     public Difficulty GetCurrentDifficulty()
     {
         using var _ = rwlock.EnterReadLockEx();
@@ -949,7 +1006,7 @@ public class BlockchainManager : IBlockchainManager
         return WalletBroadcast.LinkTo(action);
     }
 
-    public IDisposable OnHeartbeatSignatureAdded(ITargetBlock<HeartbeatSignature> action)
+    public IDisposable OnVoteAdded(ITargetBlock<Vote> action)
     {
         return VoteBroadcast.LinkTo(action);
     }

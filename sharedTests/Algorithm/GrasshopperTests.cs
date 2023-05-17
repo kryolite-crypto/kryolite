@@ -1,4 +1,5 @@
-﻿using Xunit;
+﻿using Kryolite.Shared.Blockchain;
+using Xunit;
 
 namespace Kryolite.Shared.Tests;
 

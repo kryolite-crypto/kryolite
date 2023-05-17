@@ -4,8 +4,8 @@ namespace Kryolite.Shared.Blockchain;
 
 public class Block : Transaction
 {
-    public long Height;
     public Difficulty Difficulty { get; set; }
+    public SHA256Hash ParentHash { get; set; } = new SHA256Hash();
 
     public SHA256Hash GetHash()
     {

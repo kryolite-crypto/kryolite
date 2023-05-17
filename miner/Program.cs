@@ -14,6 +14,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Concurrent;
 using NSec.Cryptography;
 using System.Runtime.InteropServices;
+using Kryolite.Shared.Blockchain;
 
 public class Program
 {
@@ -24,7 +25,7 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         SerializerOpts.PropertyNameCaseInsensitive = true;
-        SerializerOpts.Converters.Add(new NonceConverter());
+        // SerializerOpts.Converters.Add(new NonceConverter());
         SerializerOpts.Converters.Add(new PrivateKeyConverter());
         SerializerOpts.Converters.Add(new PublicKeyConverter());
         SerializerOpts.Converters.Add(new SHA256HashConverter());

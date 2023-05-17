@@ -4,10 +4,12 @@ using System.Text.Json.Serialization;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace Kryolite.Node;
@@ -16,8 +18,8 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
 {
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Genesis> Genesis => Set<Genesis>();
-    public DbSet<Heartbeat> Heartbeats => Set<Heartbeat>();
-    public DbSet<HeartbeatSignature> HeartbeatSignatures => Set<HeartbeatSignature>();
+    public DbSet<View> Views => Set<View>();
+    public DbSet<Vote> Votes => Set<Vote>();
     public DbSet<Block> Blocks => Set<Block>();
     public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<ChainState> ChainState => Set<ChainState>();
@@ -103,8 +105,23 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.HasIndex(x => x.To)
                 .HasDatabaseName("ix_tx_to");
 
+            entity.HasIndex(x => x.Height)
+                .HasDatabaseName("ix_tx_height");
+
             entity.HasMany(p => p.Validates)
-                .WithMany(c => c.ValidatedBy);
+                .WithMany(c => c.ValidatedBy)
+                .UsingEntity<TransactionJoin>(
+                    l => l.HasOne<Transaction>()
+                        .WithMany()
+                        .HasForeignKey(e => e.ValidatesId)
+                        .HasPrincipalKey(x => x.TransactionId)
+                        .OnDelete(DeleteBehavior.Restrict),
+                    r => r.HasOne<Transaction>()
+                        .WithMany()
+                        .HasForeignKey(e => e.ValidatedById)
+                        .HasPrincipalKey(x => x.TransactionId)
+                        .OnDelete(DeleteBehavior.Restrict)
+                );
 
             entity.HasMany(e => e.Effects)
                 .WithOne()
@@ -132,6 +149,18 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasConversion(ulongConverter);
 
             entity.Property(x => x.Pow)
+                .HasConversion(sha256Converter);
+        });
+
+        builder.Entity<TransactionJoin>(entity => {
+            entity.ToTable("TransactionTransaction")
+                .HasKey(x => new { x.ValidatedById, x.ValidatesId })
+                .HasName("pk_tx_tx");
+
+            entity.Property(x => x.ValidatesId)
+                .HasConversion(sha256Converter);
+
+            entity.Property(x => x.ValidatedById)
                 .HasConversion(sha256Converter);
         });
 
@@ -170,31 +199,34 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.HasIndex(x => x.Height)
                 .IsUnique(true)
                 .HasDatabaseName("ix_block_height");
+
+            entity.Property(x => x.ParentHash)
+                .HasConversion(sha256Converter);
         });
 
-        builder.Entity<Heartbeat>(entity => {
+        builder.Entity<View>(entity => {
             entity.HasIndex(x => x.Height)
                 .IsUnique(true)
-                .HasDatabaseName("ix_heartbeat_height");
+                .HasDatabaseName("ix_view_height");
 
-            entity.HasMany(x => x.Signatures)
+            entity.HasMany(x => x.Votes)
                 .WithOne()
                 .HasForeignKey(x => x.TransactionId)
                 .HasPrincipalKey(x => x.TransactionId)
                 .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("fk_tx_effect");
+                .HasConstraintName("fk_tx_signature");
         });
 
-        builder.Entity<HeartbeatSignature>(entity => {
-            entity.ToTable("HeartbeatSignatures")
+        builder.Entity<Vote>(entity => {
+            entity.ToTable("Votes")
                 .HasKey(e => e.Id)
-                .HasName("pk_hs");
+                .HasName("pk_vote");
 
             entity.HasIndex(x => x.TransactionId)
-                .HasDatabaseName("ix_hs_txid");
+                .HasDatabaseName("ix_vote_txid");
 
             entity.HasIndex(x => x.Height)
-                .HasDatabaseName("ix_hs_height");
+                .HasDatabaseName("ix_vote_height");
 
             entity.Property(x => x.TransactionId)
                 .HasConversion(sha256Converter);
@@ -241,6 +273,12 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.ToTable("ChainState")
                 .HasKey(e => e.Id)
                 .HasName("pk_chain_state");
+
+            entity.Property(x => x.CurrentDifficulty)
+                .HasConversion(diffConverter);
+
+            entity.Property(x => x.LastHash)
+                .HasConversion(sha256Converter);
         });
 
         builder.Entity<Contract>(entity => {

@@ -71,8 +71,8 @@ public class NetworkService : BackgroundService
 
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(meshNetwork, blockchainManager, logger));
 
-        var heartbeatSignatureBuffer = new BufferBlock<HeartbeatSignature>();
-        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, heartbeatSignatureBuffer);
+        var voteBuffer = new BufferBlock<Vote>();
+        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer);
 
         meshNetwork.PeerConnected += async (object? sender, PeerConnectedEventArgs args) => {
             discoveryTimer.Interval = TimeSpan.FromMinutes(10).TotalMilliseconds;
@@ -176,10 +176,10 @@ public class NetworkService : BackgroundService
             await meshNetwork.BroadcastAsync(new NewBlock(block));
         }));
 
-        blockchainManager.OnHeartbeatSignatureAdded(new ActionBlock<HeartbeatSignature>(async signature => {
-            var msg = new HeartbeatSignatureBatch
+        blockchainManager.OnVoteAdded(new ActionBlock<Vote>(async signature => {
+            var msg = new VoteBatch
             {
-                HeartbeatSignatures = new List<HeartbeatSignature> { signature }
+                Votes = new List<Vote> { signature }
             };
 
             await meshNetwork.BroadcastAsync(msg);
@@ -203,7 +203,7 @@ public class NetworkService : BackgroundService
                 await meshNetwork.BroadcastAsync(msg);
             });
 
-        heartbeatSignatureBuffer.AsObservable()
+        voteBuffer.AsObservable()
             .Buffer(TimeSpan.FromMilliseconds(100))
             .Subscribe(async signatures => {
                 if (signatures.Count == 0)
@@ -211,9 +211,9 @@ public class NetworkService : BackgroundService
                     return;
                 }
 
-                var msg = new HeartbeatSignatureBatch
+                var msg = new VoteBatch
                 {
-                    HeartbeatSignatures = signatures
+                    Votes = signatures
                 };
 
                 await meshNetwork.BroadcastAsync(msg);

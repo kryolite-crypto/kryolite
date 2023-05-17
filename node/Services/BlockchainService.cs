@@ -69,7 +69,13 @@ public class BlockchainService : BackgroundService
             }
         };
 
-        if(!BlockchainManager.AddGenesis(genesis)) {
+        foreach (var validates in genesis.Validates)
+        {
+            validates.TransactionId = validates.CalculateHash();
+        }
+
+        if(!BlockchainManager.AddGenesis(genesis))
+        {
             Logger.LogError("Failed to initialize Genesis");
         }
     }

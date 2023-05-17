@@ -4,7 +4,7 @@ using SimpleBase;
 namespace Kryolite.Shared;
 
 [MessagePackObject]
-public class Signature
+public class Signature : IComparable<Signature>
 {
     [Key(0)]
     public byte[] Buffer { get; private init; }
@@ -69,6 +69,11 @@ public class Signature
             hash = hash * 31 + b.GetHashCode();
         }
         return hash;
+    }
+
+    public int CompareTo(Signature? other)
+    {
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? new byte[0]));
     }
 
     public static int SIGNATURE_SZ = 64;

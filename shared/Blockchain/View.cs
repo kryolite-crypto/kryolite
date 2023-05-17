@@ -5,36 +5,34 @@ using System.Security.Cryptography;
 namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class Heartbeat : Transaction
+public class View : Transaction
 {
     [IgnoreMember]
-    public long Height { get; set; }
-    [IgnoreMember]
-    public List<HeartbeatSignature> Signatures { get; set; } = new List<HeartbeatSignature>();
+    public List<Vote> Votes { get; set; } = new List<Vote>();
 
-    public static Heartbeat Create(PublicKey publicKey, PrivateKey privateKey, long height)
+    public static View Create(PublicKey publicKey, PrivateKey privateKey, long height)
     {
-        var heartbeat = new Heartbeat
+        var view = new View
         {
-            TransactionType = TransactionType.HEARTBEAT,
+            TransactionType = TransactionType.VIEW,
             Value = Constant.VALIDATOR_REWARD,
             Data = BitConverter.GetBytes(height),
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             Height = height
         };
 
-        var signature = new HeartbeatSignature
+        var signature = new Vote
         {
-            TransactionId = heartbeat.TransactionId,
+            TransactionId = view.TransactionId,
             Height = height,
             PublicKey = publicKey
         };
 
         signature.Sign(privateKey);
 
-        heartbeat.Signatures.Add(signature);
+        view.Votes.Add(signature);
 
-        return heartbeat;
+        return view;
     }
 
     public override SHA256Hash CalculateHash()
@@ -45,9 +43,16 @@ public class Heartbeat : Transaction
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
 
-        foreach (var tx in Validates.OrderBy(x => x.TransactionId))
+        try
         {
-            stream.Write(tx.TransactionId);
+            foreach (var tx in Validates.OrderBy(x => x.TransactionId).ToList())
+            {
+                stream.Write(tx.TransactionId);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
         }
 
         stream.Flush();

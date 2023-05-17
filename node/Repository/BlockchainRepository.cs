@@ -19,7 +19,8 @@ public class BlockchainRepository : IDisposable
 
             var options = new DbContextOptionsBuilder<BlockchainContext>()
                 .UseSqlite($"Data Source={walletPath}")
-                .EnableSensitiveDataLogging()
+                //.EnableSensitiveDataLogging()
+                //.LogTo(Console.WriteLine)
                 .Options;
 
             Factory = new PooledDbContextFactory<BlockchainContext>(options);
@@ -54,21 +55,27 @@ pragma mmap_size = -1;
             .FirstOrDefault();
     }
 
-    public void Add<T>(T tx) where T : class
+    public void Add<T>(T tx) where T : Transaction
     {
-        Context.Add<T>(tx);
+        Context.Update<T>(tx);
         Context.SaveChanges();
     }
 
-    public Heartbeat? GetLastHeartbeat()
+    public Genesis GetGenesis()
     {
-        return Context.Heartbeats.OrderByDescending(x => x.Height)
+        return Context.Genesis.First();
+    }
+
+    public View? GetLastView()
+    {
+        return Context.Views.OrderByDescending(x => x.Height)
+            .Include(x => x.Votes)
             .FirstOrDefault();
     }
 
-    public List<HeartbeatSignature> GetHeartbeatSignatures(SHA256Hash transactionId)
+    public List<Vote> GetVotes(SHA256Hash transactionId)
     {
-        return Context.HeartbeatSignatures
+        return Context.Votes
             .Where(x => x.TransactionId == transactionId)
             .ToList();
     }
@@ -81,7 +88,7 @@ pragma mmap_size = -1;
 
     public void SaveState(ChainState chainState)
     {
-        Context.ChainState.Update(chainState);
+        Context.Update(chainState);
         Context.SaveChanges();
     }
 
@@ -125,8 +132,7 @@ pragma mmap_size = -1;
 
     public ChainState GetChainState()
     {
-        return Context.ChainState
-            .FirstOrDefault(x => x.Id == 1) ?? new ChainState();
+        return Context.ChainState.First(x => x.Id == 1);
     }
 
     /*public List<PowBlock> Tail(int count)
@@ -199,21 +205,21 @@ pragma mmap_size = -1;
         Context.SaveChanges();
     }
 
-    public void AddSignature(HeartbeatSignature signature)
+    public void AddVote(Vote vote)
     {
-        Context.HeartbeatSignatures.Add(signature);
+        Context.Votes.Add(vote);
         Context.SaveChanges();
     }
 
-    public void AddSignatures(List<HeartbeatSignature> signatures)
+    public void AddVote(List<Vote> votes)
     {
-        Context.HeartbeatSignatures.AddRange(signatures);
+        Context.Votes.AddRange(votes);
         Context.SaveChanges();
     }
 
-    public bool SignatureExists(Signature signature)
+    public bool VoteExists(Signature signature)
     {
-        return Context.HeartbeatSignatures
+        return Context.Votes
             .Any(x => x.Signature == signature);
     }
 
@@ -278,6 +284,20 @@ pragma mmap_size = -1;
         return Context.Transactions
             .Where(x => x.TransactionId == transactionId)
             .FirstOrDefault();
+    }
+
+    public List<Transaction> GetTransactionToValidate()
+    {
+        return Context.Transactions
+            .Where(x => x.Height == null)
+            .ToList();
+    }
+
+    public Transaction GetRecentTransaction()
+    {
+        return Context.Transactions
+            .OrderByDescending(x => x.Height)
+            .First();
     }
 
     public Token? GetToken(SHA256Hash tokenId)

@@ -5,7 +5,7 @@ public enum TransactionType : byte
     GENESIS,
     PAYMENT,
     BLOCK,
-    HEARTBEAT,
+    VIEW,
     CONTRACT,
     REGISTER_VALIDATOR
 }

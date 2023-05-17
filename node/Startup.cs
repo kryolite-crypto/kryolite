@@ -250,7 +250,7 @@ public class Startup
         PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
         PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);
         PacketFormatter.Register<TransactionData>(Packet.TransactionData);
-        PacketFormatter.Register<HeartbeatSignatureBatch>(Packet.VoteBatch);
+        PacketFormatter.Register<VoteBatch>(Packet.VoteBatch);
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);

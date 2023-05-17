@@ -14,9 +14,9 @@ public class PacketContext
     public IConfiguration Configuration { get; }
     public ILogger Logger { get; }
     public BufferBlock<Chain> SyncBuffer { get; }
-    public BufferBlock<HeartbeatSignature> HeartbeatSignatureBuffer { get; }
+    public BufferBlock<Vote> HeartbeatSignatureBuffer { get; }
 
-    public PacketContext(IBlockchainManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork, IConfiguration configuration, ILogger logger, BufferBlock<Chain> syncBuffer, BufferBlock<HeartbeatSignature> heartbeatSignatureBuffer)
+    public PacketContext(IBlockchainManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork, IConfiguration configuration, ILogger logger, BufferBlock<Chain> syncBuffer, BufferBlock<Vote> heartbeatSignatureBuffer)
     {
         BlockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         NetworkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));

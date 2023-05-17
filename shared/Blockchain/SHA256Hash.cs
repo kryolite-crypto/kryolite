@@ -6,7 +6,7 @@ using SimpleBase;
 namespace Kryolite.Shared;
 
 [MessagePackObject]
-public class SHA256Hash
+public class SHA256Hash : IComparable<SHA256Hash>
 {
     [Key(0)]
     public byte[] Buffer { get; private init; }
@@ -71,6 +71,11 @@ public class SHA256Hash
             hash = hash * 31 + b.GetHashCode();
         }
         return hash;
+    }
+
+    public int CompareTo(SHA256Hash? other)
+    {
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? new byte[0]));
     }
 
     public static int HASH_SZ = 32;
