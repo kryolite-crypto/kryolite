@@ -44,7 +44,7 @@ public class BlockchainManager : IBlockchainManager
             var chainState = new ChainState
             {
                 Id = 0,
-                Height = 0,
+                Height = -1,
                 LastHash = genesis.TransactionId,
                 CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty()
             };
@@ -72,15 +72,112 @@ public class BlockchainManager : IBlockchainManager
 
         try
         {
+            var height = view.Height ?? 0;
+
             view.TransactionId = view.CalculateHash();
 
-            // Add any received signatures for current heartbeat
-            var signatures = blockchainRepository.GetVotes(view.TransactionId);
-            view.Votes.AddRange(signatures);
+            var chainState = blockchainRepository.GetChainState();
+
+            if (height != chainState.Height + 1)
+            {
+                logger.LogInformation("Discarding view #{height} (reson = invalid height)", view.Height);
+                return false;
+            }
+
+            if (height > 0)
+            {
+                var lastView = blockchainRepository.GetLastView();
+                var earliest = lastView.Timestamp + Constant.HEARTBEAT_INTERVAL;
+
+                if (view.Timestamp < earliest)
+                {
+                    logger.LogInformation("Discarding view #{height} (reson = timestamp too early)", view.Height);
+                    return false;
+                }
+            }
+
+            /*var epochStart = Math.Max((height) - 100, 1);
+
+            var expected = Constant.EPOCH_LENGTH_BLOCKS * Constant.TARGET_BLOCK_TIME_S;
+            var blockCount = blockchainRepository.GetBlockCountFrom(epochStart);
+
+            var currentWork = chainState.CurrentDifficulty.ToWork();
+            var target = ((currentWork * 1_000) * new BigInteger(((double)blockCount / expected) * 1_000)) / new BigInteger(1_000);
+
+            var min = BigInteger.Pow(2, (int)BigInteger.Log(currentWork, 2) - 2);
+            var max = BigInteger.Pow(2, (int)BigInteger.Log(currentWork, 2) + 2);
+            target = BigInteger.Clamp(target, min, max);
+
+            var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
+            target = BigInteger.Max(target, minTarget);
+
+            chainState.Height = height;
+            chainState.LastHash = view.TransactionId;
+            chainState.CurrentDifficulty = target.ToDifficulty();
+
+            logger.LogInformation($"Block target = {target}, difficulty {target.ToDifficulty()}");*/
+
+            // Add any received votes for current view
+            var votes = blockchainRepository.GetVotes(view.TransactionId);
+            view.Votes.AddRange(votes);
+
+            chainState.Height++;
+            chainState.LastHash = view.TransactionId;
 
             blockchainRepository.Add(view);
 
+            int blockCount = 0, paymentCount = 0, total = 0;
+
+            blockchainRepository.Context.Entry(view)
+                .Collection(x => x.Validates)
+                .Load();
+
+            foreach (var child in view.Validates)
+            {
+                if (child.Height is not null)
+                {
+                    continue;
+                }
+
+                TraverseTransaction(blockchainRepository.Context, child, height, ref total, ref blockCount, ref paymentCount);
+            }
+
+            blockchainRepository.Context.SaveChanges();
+            
+            logger.LogInformation($"Finalized {total} transactions [blocks = {blockCount}, payments = {paymentCount}]");
+
+            if (height > 0)
+            {
+                var blocks = blockchainRepository.GetBlocks(height);
+
+                if (blocks.Count == 0)
+                {
+                    var work = chainState.CurrentDifficulty.ToWork();
+                    var nextTarget = work / 4 * 3;
+                    var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
+
+                    chainState.CurrentDifficulty = BigInteger.Max(minTarget, nextTarget).ToDifficulty();
+                }
+                else
+                {
+                    var totalWork = new BigInteger();
+
+                    foreach (var block in blocks)
+                    {
+                        totalWork += block.Difficulty.ToWork();
+                    }
+
+                    chainState.CurrentDifficulty = totalWork.ToDifficulty();
+                }
+            }
+
+            logger.LogInformation($"Next difficulty {chainState.CurrentDifficulty}");
+
+            blockchainRepository.SaveState(chainState);
+
             tx.Commit();
+
+            // TODO: broadcast view
 
             return true;
         }
@@ -93,7 +190,123 @@ public class BlockchainManager : IBlockchainManager
         return false;
     }
 
-    public View? GetLastView()
+    private void TraverseTransaction(BlockchainContext context, Transaction transaction, long height, ref int total, ref int blocks, ref int payments)
+    {
+        transaction.Height = height;
+
+        total++;
+
+        switch (transaction)
+        {
+            case Block:
+                blocks++;
+                break;
+            case Payment:
+                payments++;
+                break;
+        }
+
+        context.Update(transaction);
+
+        context.Entry(transaction)
+            .Collection(x => x.Validates)
+            .Load();
+
+        foreach (var tx in transaction.Validates)
+        {
+            if (tx.Height is not null)
+            {
+                continue;
+            }
+
+            TraverseTransaction(context, tx, height, ref total, ref blocks, ref payments);
+        }
+    }
+
+    public bool AddBlock(Blocktemplate blocktemplate)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+        using var tx = blockchainRepository.Context.Database.BeginTransaction();
+
+        try
+        {
+            var block = Block.Create(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty);
+
+            block.Pow = blocktemplate.Solution;
+
+            foreach (var txhash in blocktemplate.Validates)
+            {
+                var transaction = blockchainRepository.Get<Transaction>(txhash);
+
+                if (transaction is null)
+                {
+                    logger.LogInformation("AddBlock rejected (reason = unknown transaction reference)");
+                    return false;
+                }
+
+                block.Validates.Add(transaction);
+            }
+
+            block.TransactionId = block.CalculateHash();
+
+            var chainState = blockchainRepository.GetChainState();
+
+            if (block.Difficulty != chainState.CurrentDifficulty)
+            {
+                logger.LogInformation("AddBlock rejected (reason = invalid difficulty)");
+                return false;
+            }
+
+            if (block.ParentHash != chainState.LastHash)
+            {
+                logger.LogInformation("AddBlock rejected (reason = invalid parent hash)");
+                return false;
+            }
+
+            var lastView = blockchainRepository.GetLastView();
+
+            if (block.Timestamp < lastView.Timestamp)
+            {
+                logger.LogInformation("AddBlock rejected (reason = invalid timestamp)");
+                return false;
+            }
+
+            var exists = blockchainRepository.Get<Block>(block.TransactionId);
+
+            if (exists is not null)
+            {
+                logger.LogInformation("AddBlock rejected (reason = already exists)");
+                return false;
+            }
+
+            if (!block.VerifyNonce())
+            {
+                logger.LogInformation("AddBlock rejected (reason = invalid nonce)");
+                return false;
+            }
+
+            chainState.Blocks++;
+
+            blockchainRepository.Add(block);
+            blockchainRepository.SaveState(chainState);
+
+            tx.Commit();
+
+            logger.LogInformation($"Added block #{chainState.Blocks} [diff = {block.Difficulty}]");
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            tx.Rollback();
+            logger.LogError(ex, "AddView error");
+        }
+
+        return false;
+    }
+
+    public View GetLastView()
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
@@ -106,19 +319,7 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        var transactions = blockchainRepository.GetTransactionToValidate();
-
-        if (transactions.Count == 1)
-        {
-            var tx = blockchainRepository.GetRecentTransaction();
-
-            if (tx is not null)
-            {
-                transactions.Add(tx);
-            }
-        }
-
-        return transactions;
+        return blockchainRepository.GetTransactionsToValidate();
     }
 
     /*public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
@@ -450,49 +651,47 @@ public class BlockchainManager : IBlockchainManager
         return true;
     }
     */
-    
+
     public Blocktemplate GetBlocktemplate(Address wallet)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        var view = blockchainRepository.GetLastView();
+        var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
         var chainState = blockchainRepository.GetChainState();
+        var block = Block.Create(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty);
 
-        var block = new Block(); /*{
-            Height = chainState.POW.Height + 1,
-            ParentHash = chainState.POW.LastHash,
-            Timestamp = new DateTimeOffset(DateTime.Now).ToUnixTimeSeconds(),
-            Difficulty = chainState.POW.CurrentDifficulty,
-            Transactions = transactions
-        };*/
-
-        var tx = new Transaction
-        {
-            TransactionType = TransactionType.BLOCK,
-            To = wallet,
-            Value = Constant.BLOCK_REWARD,
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-        };
+        block.Validates = blockchainRepository.GetTransactionsToValidate();
 
         return new Blocktemplate
         {
-            Height = chainState.Height + 1,
+            Height = chainState.Height,
+            To = wallet,
             Difficulty = chainState.CurrentDifficulty,
             ParentHash = block.ParentHash,
             Nonce = block.GetHash(),
-            Timestamp = tx.Timestamp
+            Timestamp = block.Timestamp,
+            Validates = block.Validates.Select(x => x.TransactionId).ToList(),
+            Data = block.Data ?? Array.Empty<byte>()
         };
     }
 
-    /*
+    public ChainState GetChainState()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var blockchainRepository = new BlockchainRepository();
+
+        return blockchainRepository.GetChainState();
+    }
+
     public Difficulty GetCurrentDifficulty()
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         var chainState = blockchainRepository.GetChainState();
-        return chainState.POW.CurrentDifficulty;
+        return chainState.CurrentDifficulty;
     }
 
     public long GetCurrentHeight()
@@ -500,17 +699,18 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        // TODO: return actual height
-        return blockchainRepository.Count();
+        var chainState = blockchainRepository.GetChainState();
+        return chainState.Height;
     }
 
+    /*
     public SHA256Hash? GetLastBlockhash()
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         return blockchainRepository.Last()?.GetHash();
-    }
+    }*/
 
     public ulong GetBalance(Address address)
     {
@@ -524,71 +724,29 @@ public class BlockchainManager : IBlockchainManager
         return blockchainRepository.GetWallet(address)?.Balance ?? 0;
     }
 
-    public List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true)
+    private void NextEpoch(Block? epochStart, Block epochEnd, ChainState chainState)
     {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        var context = new TransactionContext(blockchainRepository, mempoolManager);
-
-        var executor = Executor.Create<Transaction, TransactionContext>(context, logger)
-            .Link<NotReward>()
-            .Link<CheckMinFee>()
-            .Link<VerifySignature>()
-            // TODO: Check for duplicate tx
-            .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT)
-            .Link<HasFunds>(x => x.TransactionType == TransactionType.PAYMENT);
-
-        var newTransactions = transactions.Where(tx => !mempoolManager.HasTransaction(tx));
-        var valid = executor.Execute(newTransactions);
-
-        mempoolManager.AddTransactions(valid, broadcast);
-
-        logger.LogInformation($"Added {valid.Count} transactions to queue");
-
-        return valid;
-    }
-
-    public void AddTransactionsToQueue(Transaction transaction) {
-        AddTransactionsToQueue(new List<Transaction>() { transaction });
-    }
-
-    private void NextEpoch(PowBlock? epochStart, PowBlock epochEnd, ChainState chainState)
-    {
-        if (chainState.POW.Height == 0) {
-            // Starting difficulty
-            chainState.POW.CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty();
-            return;
-        }
-
-        if (epochStart == null) {
+        if (epochStart == null)
+        {
             throw new Exception("Epoch Start block not found");
         }
 
         var elapsed = epochEnd.Timestamp - epochStart.Timestamp;
         var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
 
-        var target = ((chainState.POW.CurrentDifficulty.ToWork() * 1_000) * new BigInteger((expected / (double)elapsed) * 1_000)) / new BigInteger(1_000L * 1_000L);
-        chainState.POW.CurrentDifficulty = target.ToDifficulty();
+        var target = ((chainState.CurrentDifficulty.ToWork() * 1_000) * new BigInteger((expected / (double)elapsed) * 1_000)) / new BigInteger(1_000L * 1_000L);
+        chainState.CurrentDifficulty = target.ToDifficulty();
 
         logger.LogInformation($"Epoch {epochEnd.Height / 100 + 1}: difficulty {target.ToDifficulty()}, target = {target}");
     }
 
-    public BigInteger GetTotalWork()
+    /*public BigInteger GetTotalWork()
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
         var chainState = blockchainRepository.GetChainState();
         return chainState.POW.TotalWork;
-    }
-
-    public ChainState GetChainState()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.GetChainState();
     }
 
     public List<PowBlock> GetLastBlocks(int count)

@@ -25,7 +25,6 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         SerializerOpts.PropertyNameCaseInsensitive = true;
-        // SerializerOpts.Converters.Add(new NonceConverter());
         SerializerOpts.Converters.Add(new PrivateKeyConverter());
         SerializerOpts.Converters.Add(new PublicKeyConverter());
         SerializerOpts.Converters.Add(new SHA256HashConverter());
@@ -151,12 +150,14 @@ public class Program
                                 var solution = new Blocktemplate
                                 {
                                     Height = blocktemplate.Height,
+                                    To = blocktemplate.To,
                                     Difficulty = blocktemplate.Difficulty,
                                     Nonce = blocktemplate.Nonce,
                                     Solution = bytes,
                                     Timestamp = blocktemplate.Timestamp,
                                     ParentHash = blocktemplate.ParentHash,
-                                    Transactions = blocktemplate.Transactions
+                                    Data = blocktemplate.Data,
+                                    Validates = blocktemplate.Validates
                                 };
 
                                 _ = Task.Run(async () => {
@@ -173,7 +174,6 @@ public class Program
 
                                             if (res.IsSuccessStatusCode)
                                             {
-                                                TokenSource.Cancel();
                                                 break;
                                             }
 

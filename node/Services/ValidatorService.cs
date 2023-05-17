@@ -28,63 +28,75 @@ public class ValidatorService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await Task.Run(() => startup.Blockchain.WaitOne());
-        Node = walletManager.GetNodeWallet() ?? walletManager.CreateWallet(WalletType.VALIDATOR);
+        try
+        {
+            await Task.Run(() => startup.Blockchain.WaitOne());
+            Node = walletManager.GetNodeWallet() ?? walletManager.CreateWallet(WalletType.VALIDATOR);
 
-        blockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(wallet => {
-            // TODO: Create transaction to register as node
-        }));
+            blockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(wallet => {
+                // TODO: Create transaction to register as node
+            }));
 
-        InitValidatorChain();
+            Enabled = true;
+            logger.LogInformation("Validator     \x1B[32m[ACTIVE]\x1B[37m");
 
-        Enabled = true;
-        logger.LogInformation("Validator     \x1B[32m[ACTIVE]\x1B[37m");
-        
-        await StartValidator(stoppingToken);
+            await StartValidator(stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "ValidatorService error");
+        }
     }
 
     ConcurrentBag<PublicKey> Banned = new();
 
     private async Task StartValidator(CancellationToken stoppingToken)
     {
-        await SynchronizeViewGenerator(stoppingToken);
-
-        while (!stoppingToken.IsCancellationRequested)
+        try
         {
-            var lastView = blockchainManager.GetLastView() ?? throw new Exception("view not initialized");
-            var nextLeader = lastView.Votes
-                .Where(x => !Banned.Contains(x.PublicKey))
-                .MinBy(x => x.Signature)?.PublicKey;
+            await SynchronizeViewGenerator(stoppingToken);
 
-            logger.LogInformation("View #{viewId} received {} votes", lastView.Height, lastView.Votes.Count());
-
-            if (nextLeader is null)
+            while (!stoppingToken.IsCancellationRequested)
             {
-                logger.LogWarning("Leader selection could not determine next leader, assigning self");
-                nextLeader = Node.PublicKey;
+                var lastView = blockchainManager.GetLastView();
+                var nextLeader = lastView.Votes
+                    .Where(x => !Banned.Contains(x.PublicKey))
+                    .MinBy(x => x.Signature)?.PublicKey;
+
+                logger.LogInformation("View #{viewId} received {} votes", lastView.Height, lastView.Votes.Count());
+
+                if (nextLeader is null)
+                {
+                    logger.LogWarning("Leader selection could not determine next leader, assigning self");
+                    nextLeader = Node.PublicKey;
+                }
+
+                logger.LogInformation("Next leader is {publicKey}", nextLeader);
+
+                if (nextLeader == Node.PublicKey)
+                {
+                    GenerateView(lastView);
+                }
+
+                await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
+
+                var nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
+
+                if (nextView.TransactionId == lastView.TransactionId)
+                {
+                    logger.LogInformation("Leader {publicKey} failed to create view", nextLeader);
+                    Banned.Add(nextLeader);
+                    continue;
+                }
+
+                Banned.Clear();
+
+                await SynchronizeViewGenerator(nextView, stoppingToken);
             }
-
-            logger.LogInformation("Next leader is {publicKey}", nextLeader);
-
-            if (nextLeader == Node.PublicKey)
-            {
-                GenerateView(lastView);
-            }
-
-            await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
-
-            var nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
-
-            if (nextView.TransactionId == lastView.TransactionId)
-            {
-                logger.LogInformation("Leader {publicKey} failed to create view", nextLeader);
-                Banned.Add(nextLeader);
-                continue;
-            }
-
-            Banned.Clear();
-
-            await SynchronizeViewGenerator(nextView, stoppingToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "ValidatorThread error");
         }
     }
 
@@ -93,21 +105,19 @@ public class ValidatorService : BackgroundService
         var height = (lastView?.Height ?? 0) + 1L;
         var toValidate = blockchainManager.GetTransactionToValidate();
 
-        var nextView = View.Create(Node.PublicKey, Node.PrivateKey, height);
-
-        nextView.Validates.AddRange(toValidate);
+        var nextView = View.Create(Node.PublicKey, height);
 
         foreach (var tx in toValidate)
         {
-            tx.ValidatedBy.Add(nextView);
+            nextView.Validates.Add(tx);
         }
+
+        nextView.Vote(Node.PrivateKey);
 
         // TODO: Asynchronously add to not skip execution
         blockchainManager.AddView(nextView);
 
-        // broadcast lastHeartbeat.Signatures
-
-        logger.LogInformation($"Generated view #{height}");
+        logger.LogInformation("Generated view #{height}", height);
     }
 
     private async Task SynchronizeViewGenerator(CancellationToken stoppingToken)
@@ -118,6 +128,11 @@ public class ValidatorService : BackgroundService
         var nextHeartbeat = lastView.Timestamp + 60_000;
         var syncPeriod = nextHeartbeat - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
+        if (syncPeriod < 0)
+        {
+            syncPeriod = 0;
+        }
+
         await Task.Delay((int)syncPeriod, stoppingToken);
     }
 
@@ -126,31 +141,11 @@ public class ValidatorService : BackgroundService
         var nextHeartbeat = lastView.Timestamp + 60_000;
         var syncPeriod = nextHeartbeat - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        await Task.Delay((int)syncPeriod, stoppingToken);
-    }
-
-    private void InitValidatorChain()
-    {
-        var view = blockchainManager.GetLastView();
-
-        if (view is null)
+        if (syncPeriod < 0)
         {
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-            var toValidate = blockchainManager.GetTransactionToValidate();
-
-            view = new View
-            {
-                TransactionType = TransactionType.VIEW,
-                Value = Constant.VALIDATOR_REWARD,
-                Data = BitConverter.GetBytes(0L),
-                Timestamp = timestamp,
-                Height = 0,
-                PublicKey = Node.PublicKey,
-                Signature = new Signature(),
-                Validates = toValidate
-            };
-
-            blockchainManager.AddView(view);
+            syncPeriod = 0;
         }
+
+        await Task.Delay((int)syncPeriod, stoppingToken);
     }
 }

@@ -32,12 +32,12 @@ public class Transaction : IComparable<Transaction>
     [Key(7)]
     public virtual Signature? Signature { get; set; }
     [Key(8)]
-    public List<Transaction> Validates { get; set; } = new();
+    public List<Transaction> Validates { get; set; } = new List<Transaction>();
     [Key(9)]
-    public List<Transaction> ValidatedBy { get; set; } = new();
+    public List<Transaction> ValidatedBy { get; set; } = new List<Transaction>();
 
     [IgnoreMember]
-    public List<Effect> Effects { get; set; } = new();
+    public virtual List<Effect> Effects { get; set; } = new();
 
     [IgnoreMember]
     public Address From
@@ -55,7 +55,12 @@ public class Transaction : IComparable<Transaction>
 
         stream.Write(BitConverter.GetBytes((short)TransactionType));
         stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
-        stream.Write(To);
+        
+        if (To is not null)
+        {
+            stream.Write(To);
+        }
+        
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
@@ -78,7 +83,12 @@ public class Transaction : IComparable<Transaction>
 
         stream.Write(BitConverter.GetBytes((short)TransactionType));
         stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
-        stream.Write(To);
+        
+        if (To is not null)
+        {
+            stream.Write(To);
+        }
+
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
@@ -105,12 +115,17 @@ public class Transaction : IComparable<Transaction>
             stream.Write(Signature ?? throw new Exception("signature required when hashing payment"));
         }
 
-        stream.Write(To);
+        if (To is not null)
+        {
+            stream.Write(To);
+        }
+
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(Pow);
 
-        foreach (var tx in Validates)
+        foreach (var tx in Validates.OrderBy(x => x.TransactionId))
         {
             stream.Write(tx.CalculateHash());
         }

@@ -28,12 +28,11 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid parameter (address)");
         }
 
-        /*if (id.HasValue && blockchainManager.GetCurrentHeight() == id.Value) {
+        if (id.HasValue && blockchainManager.GetCurrentHeight() == id.Value) {
             return null;
         }
 
-        return blockchainManager.GetBlocktemplate(wallet);*/
-        return null;
+        return blockchainManager.GetBlocktemplate(wallet);
     }
 
     [HttpGet("balance")]
@@ -137,17 +136,7 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid blocktemplate");
         }
 
-        /*var block = new PowBlock {
-            Height = blocktemplate.Height,
-            ParentHash = blocktemplate.ParentHash,
-            Timestamp = blocktemplate.Timestamp,
-            Nonce = blocktemplate.Solution,
-            Difficulty = blocktemplate.Difficulty,
-            Transactions = blocktemplate.Transactions
-        };
-
-        return networkManager.ProposeBlock(block);*/
-        return true;
+        return blockchainManager.AddBlock(blocktemplate);
     }
 
     [HttpPost("tx")]

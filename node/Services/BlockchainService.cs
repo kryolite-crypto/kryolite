@@ -35,23 +35,29 @@ public class BlockchainService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        //var genesis = BlockchainManager.GetPosBlock(0);
-
-        //if (genesis) 
-        //{
-            InitializeGenesisBlock();
-        //}
-
-        /*if (genesis != null && genesis.Pow != GenesisSeed)
+        try
         {
-            Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
-            BlockchainManager.ResetChain();
-            InitializeGenesisBlock();
-        }*/
+            //var genesis = BlockchainManager.GetPosBlock(0);
 
-        Logger.LogInformation($"Blockchain    [UP][{configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
-        startup.Blockchain.Set();
-        await Task.CompletedTask;
+            //if (genesis) 
+            //{
+                InitializeGenesisBlock();
+            //}
+
+            /*if (genesis != null && genesis.Pow != GenesisSeed)
+            {
+                Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
+                BlockchainManager.ResetChain();
+                InitializeGenesisBlock();
+            }*/
+
+            Logger.LogInformation($"Blockchain    [UP][{configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
+            startup.Blockchain.Set();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "BlockchainService error");
+        }
     }
 
     private void InitializeGenesisBlock()
@@ -78,5 +84,30 @@ public class BlockchainService : BackgroundService
         {
             Logger.LogError("Failed to initialize Genesis");
         }
+
+        var view = new View
+        {
+            TransactionType = TransactionType.VIEW,
+            Value = 0,
+            Data = BitConverter.GetBytes(0L),
+            Timestamp = timestamp,
+            Height = 0,
+            PublicKey = new PublicKey(),
+            Signature = new Signature(),
+            Validates = BlockchainManager.GetTransactionToValidate()
+        };
+
+        view.TransactionId = view.CalculateHash();
+
+        var vote = new Vote
+        {
+            TransactionId = view.TransactionId,
+            PublicKey = "aSDj8ob2rbAkiqLb5WLVYd6J5U5vDupMTgLgqCpDCs6f",
+            Signature = "5sWSVrgswgV1P3xY9vKtgw1DbBx6sUSSQA1L3C7bqH7YNJcxmxaPaQ9RUxjMTuu9j3Cer4SMQ6arypLv7uFPW3L2"
+        };
+
+        view.Votes.Add(vote);
+
+        BlockchainManager.AddView(view);
     }
 }

@@ -21,7 +21,7 @@ namespace Kryolite.Shared
 
         HashTree SetItems(List<Transaction> transactions)
         {
-            transactions.Sort();
+            transactions.OrderBy(x => x.TransactionId);
 
             var queue = new Queue<HashTree>();
 

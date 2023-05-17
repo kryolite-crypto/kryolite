@@ -1,5 +1,5 @@
 ﻿using MessagePack;
-using NSec.Cryptography;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
@@ -10,7 +10,7 @@ public class View : Transaction
     [IgnoreMember]
     public List<Vote> Votes { get; set; } = new List<Vote>();
 
-    public static View Create(PublicKey publicKey, PrivateKey privateKey, long height)
+    public static View Create(PublicKey publicKey, long height)
     {
         var view = new View
         {
@@ -18,21 +18,26 @@ public class View : Transaction
             Value = Constant.VALIDATOR_REWARD,
             Data = BitConverter.GetBytes(height),
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Height = height
-        };
-
-        var signature = new Vote
-        {
-            TransactionId = view.TransactionId,
             Height = height,
             PublicKey = publicKey
         };
 
-        signature.Sign(privateKey);
-
-        view.Votes.Add(signature);
-
         return view;
+    }
+
+    public Vote Vote(PrivateKey privateKey)
+    {
+        var vote = new Vote
+        {
+            TransactionId = CalculateHash(),
+            PublicKey = PublicKey ?? throw new Exception("View requires PublicKey")
+        };
+
+        vote.Sign(privateKey);
+
+        Votes.Add(vote);
+
+        return vote;
     }
 
     public override SHA256Hash CalculateHash()
@@ -43,16 +48,9 @@ public class View : Transaction
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
 
-        try
+        foreach (var tx in Validates.OrderBy(x => x.TransactionId).ToList())
         {
-            foreach (var tx in Validates.OrderBy(x => x.TransactionId).ToList())
-            {
-                stream.Write(tx.TransactionId);
-            }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
+            stream.Write(tx.TransactionId);
         }
 
         stream.Flush();

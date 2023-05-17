@@ -66,11 +66,12 @@ pragma mmap_size = -1;
         return Context.Genesis.First();
     }
 
-    public View? GetLastView()
+    public View GetLastView()
     {
-        return Context.Views.OrderByDescending(x => x.Height)
+        return Context.Views
+            .OrderByDescending(x => x.Height)
             .Include(x => x.Votes)
-            .FirstOrDefault();
+            .First();
     }
 
     public List<Vote> GetVotes(SHA256Hash transactionId)
@@ -92,12 +93,20 @@ pragma mmap_size = -1;
         Context.SaveChanges();
     }
 
-    public Block? GetBlock(long height)
+    public Block GetBlockAt(int skip)
+    {
+        return Context.Blocks
+            .OrderByDescending(x => x.Timestamp)
+            .Skip(skip)
+            .First();
+    }
+
+    public List<Block> GetBlocks(long height)
     {
         return Context.Blocks
             .Where(x => x.Height == height)
             .Include(x => x.Validates)
-            .FirstOrDefault();
+            .ToList();
     }
 
     /*private static readonly Func<BlockchainContext, long, PosBlock?> QueryPosBlock =
@@ -286,18 +295,22 @@ pragma mmap_size = -1;
             .FirstOrDefault();
     }
 
-    public List<Transaction> GetTransactionToValidate()
+    public List<Transaction> GetTransactionsToValidate()
     {
-        return Context.Transactions
+        var transactions = Context.Transactions
             .Where(x => x.Height == null)
             .ToList();
-    }
 
-    public Transaction GetRecentTransaction()
-    {
-        return Context.Transactions
-            .OrderByDescending(x => x.Height)
-            .First();
+        if (transactions.Count == 1)
+        {
+            var tx = Context.Transactions
+                .OrderByDescending(x => x.Height)
+                .First();
+
+            transactions.Add(tx);
+        }
+
+        return transactions;
     }
 
     public Token? GetToken(SHA256Hash tokenId)

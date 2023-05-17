@@ -11,16 +11,14 @@ public class Vote
     [JsonIgnore]
     public long Id { get; set; }
 
-    [Key(0)]
-    public long Height { get; set; }
 
-    [Key(1)]
+    [Key(0)]
     public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
 
-    [Key(2)]
+    [Key(1)]
     public Shared.PublicKey PublicKey { get; set; } = new PublicKey();
 
-    [Key(3)]
+    [Key(2)]
     public Signature Signature { get; set; } = new Signature();
 
     public void Sign(PrivateKey privateKey)
@@ -30,7 +28,6 @@ public class Vote
         using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
 
-        stream.Write(BitConverter.GetBytes(Height));
         stream.Write(TransactionId);
         stream.Write(PublicKey);
 
@@ -45,7 +42,6 @@ public class Vote
 
         using var stream = new MemoryStream();
 
-        stream.Write(BitConverter.GetBytes(Height));
         stream.Write(TransactionId);
         stream.Write(PublicKey);
 
