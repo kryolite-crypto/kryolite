@@ -19,7 +19,7 @@ public class BlockchainRepository : IDisposable
 
             var options = new DbContextOptionsBuilder<BlockchainContext>()
                 .UseSqlite($"Data Source={walletPath}")
-                //.EnableSensitiveDataLogging()
+                .EnableSensitiveDataLogging()
                 //.LogTo(Console.WriteLine)
                 .Options;
 
