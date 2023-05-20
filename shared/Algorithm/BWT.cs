@@ -8,54 +8,54 @@ using System.Linq;
 using static System.Net.Mime.MediaTypeNames;
 using System.Xml.Linq;
 using System.Runtime.CompilerServices;
+using Microsoft.EntityFrameworkCore.Metadata.Internal;
 
 namespace Kryolite.Shared;
 
 public static class BWT
 {
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
-    public static void Encode(ReadOnlySpan<byte> input, Span<byte> output, out byte[] endBytes)
+    public static void Encode(ReadOnlySpan<byte> input, Span<byte> output, out int index)
     {
-        var newInput = new int[input.Length];
+        var newInput = new int[input.Length + 1];
 
         for (int i = 0; i < input.Length; i++)
         {
-            newInput[i] = input[i];
+            newInput[i] = input[i] + 1;
         }
 
-        var sortedSuffixes = SuffixArray.BuildSuffixArray(newInput, 256);
+        newInput[input.Length] = 0;
 
-        var end = 0;
+        var sortedSuffixes = SuffixArray.BuildSuffixArray(newInput, 257)[1..];
+
+        index = 0;
         var outputInd = 0;
 
         for (var i = 0; i < sortedSuffixes.Length; i++)
         {
-            if (sortedSuffixes[i] == 0)
+            int idx = sortedSuffixes[i];
+
+            if (idx == 0)
             {
-                end = i;
+                index = i;
                 continue;
             }
 
-            int idx = sortedSuffixes[i];
-
-            output[outputInd] = (idx > 0 ? input[idx - 1] : input[input.Length - 1]);
+            output[outputInd] = (byte)(newInput[sortedSuffixes[i] - 1] - 1);
             outputInd++;
         }
-
-        endBytes = BitConverter.GetBytes(end);
     }
 
-    public static byte[] Decode(byte[] input)
+    public static byte[] Decode(byte[] input, int index)
     {
-        var length = input.Length - 4;
-        var I = BitConverter.ToInt32(input, input.Length - 4);
+        var length = input.Length;
         var freq = new int[256];
-        Array.Clear(freq, 0, freq.Length);
+
         // T1: Number of Preceding Symbols Matching Symbol in Current Position.
-        var t1 = new int[length];
+        var t1 = new int[length + 1];
         // T2: Number of Symbols Lexicographically Less Than Current Symbol
         var t2 = new int[256];
-        Array.Clear(t2, 0, t2.Length);
+
         // Construct T1
         for (var i = 0; i < length; i++)
         {
@@ -80,12 +80,11 @@ public static class BWT
             var b = t2[input[nxt]];
             nxt = a + b;
             // Add $ special symbol index in consideration
-            if (nxt >= I)
+            if (nxt >= index)
             {
                 nxt--;
             }
         }
-
         return output;
     }
 }
