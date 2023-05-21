@@ -244,6 +244,7 @@ public class NetworkService : BackgroundService
 
     private async Task<bool> DiscoverPeers()
     {
+        var publicUrl = configuration.GetValue<string?>("PublicUrl");
         var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
 
         if (peers.Count == 0)
@@ -257,7 +258,9 @@ public class NetworkService : BackgroundService
 
         peers.AddRange(hosts);
 
-        peers = peers.OrderBy(x => Guid.NewGuid())
+        peers = peers
+            .Where(x => x != publicUrl)
+            .OrderBy(x => Guid.NewGuid())
             .ToList();
 
         var connected = false;
