@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Tmds.Linux;
 
@@ -96,27 +97,6 @@ public class BlockchainManager : IBlockchainManager
                 }
             }
 
-            /*var epochStart = Math.Max((height) - 100, 1);
-
-            var expected = Constant.EPOCH_LENGTH_BLOCKS * Constant.TARGET_BLOCK_TIME_S;
-            var blockCount = blockchainRepository.GetBlockCountFrom(epochStart);
-
-            var currentWork = chainState.CurrentDifficulty.ToWork();
-            var target = ((currentWork * 1_000) * new BigInteger(((double)blockCount / expected) * 1_000)) / new BigInteger(1_000);
-
-            var min = BigInteger.Pow(2, (int)BigInteger.Log(currentWork, 2) - 2);
-            var max = BigInteger.Pow(2, (int)BigInteger.Log(currentWork, 2) + 2);
-            target = BigInteger.Clamp(target, min, max);
-
-            var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
-            target = BigInteger.Max(target, minTarget);
-
-            chainState.Height = height;
-            chainState.LastHash = view.TransactionId;
-            chainState.CurrentDifficulty = target.ToDifficulty();
-
-            logger.LogInformation($"Block target = {target}, difficulty {target.ToDifficulty()}");*/
-
             // Add any received votes for current view
             var votes = blockchainRepository.GetVotes(view.TransactionId);
             view.Votes.AddRange(votes);
@@ -206,7 +186,10 @@ public class BlockchainManager : IBlockchainManager
                 break;
         }
 
-        context.Update(transaction);
+        if (context.Entry(transaction).State == EntityState.Detached)
+        {
+            context.Update(transaction);
+        }
 
         context.Entry(transaction)
             .Collection(x => x.Validates)

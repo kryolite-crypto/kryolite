@@ -71,6 +71,7 @@ pragma mmap_size = -1;
         return Context.Views
             .OrderByDescending(x => x.Height)
             .Include(x => x.Votes)
+            .AsNoTracking()
             .First();
     }
 
