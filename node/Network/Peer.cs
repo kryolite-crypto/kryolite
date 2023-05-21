@@ -41,7 +41,7 @@ public class Peer
     {
         try
         {
-            var msg = new Message((uint)Random.Shared.NextInt64(), packet);
+            var msg = new Message(packet);
             var bytes = MessagePackSerializer.Serialize(msg, MeshNetwork.lz4Options);
 
             await SendAsync(bytes,token ?? CancellationToken.None);

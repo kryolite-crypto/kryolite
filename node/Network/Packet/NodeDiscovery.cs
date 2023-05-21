@@ -21,7 +21,7 @@ public class NodeDiscovery : IPacket
 
         var nodeHost = new NodeHost(Uri)
         {
-            ClientId = args.Message.Id,
+            ClientId = peer.ClientId,
             LastSeen = DateTime.UtcNow,
             IsReachable = Connection.TestConnection(Uri)
         };

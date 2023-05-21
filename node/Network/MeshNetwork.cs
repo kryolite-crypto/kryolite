@@ -28,6 +28,7 @@ public class MeshNetwork : IMeshNetwork
     private ConcurrentDictionary<ulong, Peer> Peers = new();
     private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+    private readonly SemaphoreSlim cLock = new SemaphoreSlim(1, 1);
 
     private readonly IServer server;
     private readonly IConfiguration configuration;
@@ -71,7 +72,7 @@ public class MeshNetwork : IMeshNetwork
     {
         try
         {
-            var msg = new Message((uint)Random.Shared.NextInt64(), packet);
+            var msg = new Message(packet);
             var bytes = MessagePackSerializer.Serialize(msg, lz4Options);
 
             using(var _ = rwlock.EnterWriteLockEx())
@@ -142,7 +143,7 @@ public class MeshNetwork : IMeshNetwork
     }
 
 
-    // TODO: move to EndpointMaanager
+    // TODO: move to EndpointManager
     public List<Uri> GetEndpoints()
     {
         var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
@@ -153,7 +154,7 @@ public class MeshNetwork : IMeshNetwork
             .ToList();
     }
 
-    // TODO: move to EndpointMaanager
+    // TODO: move to EndpointManager
     private string GetPorts()
     {
         var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
@@ -170,28 +171,19 @@ public class MeshNetwork : IMeshNetwork
     public async Task<bool> ConnectToAsync(Uri uri)
     {
         var token = tokenSource.Token;
-        var timer = Stopwatch.StartNew();
         var timeout = TimeSpan.FromSeconds(5);
 
         var outgoing = GetOutgoingConnections();
 
         if (outgoing.Any(x => x.Uri == uri))
         {
-            return true;
-        }
-
-        if (outgoing.Count >= Constant.MAX_PEERS)
-        {
-            var peer = outgoing.OrderBy(x => x.ConnectedSince)
-                .First();
-
-            logger.LogInformation($"Disconnecting from {peer.Uri}");
-
-            await peer.DisconnectAsync();
+            return false;
         }
 
         try
         {
+            var timer = Stopwatch.StartNew();
+
             while (timer.Elapsed < timeout)
             {
                 if (token.IsCancellationRequested)
@@ -222,35 +214,43 @@ public class MeshNetwork : IMeshNetwork
 
                     if (client.State == WebSocketState.Open)
                     {
-                        (var clientId, var apiLevel) = await DoHandshakeAsync(client, token);
+                        await cLock.WaitAsync(token);
 
-                        if (clientId == serverId) 
+                        try
                         {
-                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, self connection");
-                            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
-                            return false;
-                        }
+                            (var clientId, var apiLevel) = await DoHandshakeAsync(client, token);
 
-                        if (apiLevel < Constant.MIN_API_LEVEL)
+                            if (clientId == serverId)
+                            {
+                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, self connection");
+                                await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
+                                return false;
+                            }
+
+                            if (apiLevel < Constant.MIN_API_LEVEL)
+                            {
+                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported apilevel: {apiLevel}");
+                                await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
+                                return false;
+                            }
+
+                            if (Peers.ContainsKey(clientId) && Peers[clientId].ConnectionType == ConnectionType.OUT)
+                            {
+                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, already connected");
+                                await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
+                                return false;
+                            }
+
+                            logger.LogInformation($"Connected to {uri.ToHostname()}");
+
+                            var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, apiLevel);
+
+                            _ = AddSocketAsync(client, peer);
+                        }
+                        finally
                         {
-                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported apilevel: {apiLevel}");
-                            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
-                            return false;
+                            cLock.Release();
                         }
-
-                        if (Peers.ContainsKey(clientId) && Peers[clientId].ConnectionType == ConnectionType.OUT)
-                        {
-                            logger.LogInformation($"Cancel connection to {targetUri.Uri}, already connected");
-                            await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
-                            return false;
-                        }
-
-                        logger.LogInformation($"Connected to {uri.ToHostname()}");
-
-                        var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, apiLevel);
-
-                        _ = AddSocketAsync(client, peer);
-
                         return true;
                     }
                 }
@@ -261,6 +261,8 @@ public class MeshNetwork : IMeshNetwork
 
                 token.WaitHandle.WaitOne(1000);
             }
+
+            timer.Stop();
         }
         catch (ConnectionClosedException ccEx)
         {
@@ -292,7 +294,7 @@ public class MeshNetwork : IMeshNetwork
             if (peer.ConnectionType == ConnectionType.IN && peer.IsReachable)
             {
                 var discovery = new NodeDiscovery(peer.Uri);
-                var msg = new Message(peer.ClientId, discovery);
+                var msg = new Message(discovery);
 
                 await BroadcastAsync(msg);
             }

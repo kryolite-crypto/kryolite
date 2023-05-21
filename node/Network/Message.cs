@@ -18,9 +18,9 @@ public class Message
 
     }
 
-    public Message(ulong id, IPacket packet)
+    public Message(IPacket packet)
     {
-        Id = id;
+        Id = (uint)Random.Shared.NextInt64();
         Payload = packet;
     }
 }

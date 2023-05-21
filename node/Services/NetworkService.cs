@@ -63,6 +63,20 @@ public class NetworkService : BackgroundService
         var voteBuffer = new BufferBlock<Vote>();
         var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer);
 
+        meshNetwork.PeerConnected += async (object? sender, PeerConnectedEventArgs args) => {
+            var outgoing = meshNetwork.GetOutgoingConnections();
+
+            if (outgoing.Count >= Constant.MAX_PEERS)
+            {
+                var peer = outgoing.OrderBy(x => x.ConnectedSince)
+                    .First();
+
+                logger.LogInformation($"Disconnecting from {peer.Uri}");
+
+                await peer.DisconnectAsync();
+            }
+        };
+
         meshNetwork.PeerDisconnected += async (object? sender, PeerDisconnectedEventArgs args) => {
             if (sender is not Peer client) 
             {
