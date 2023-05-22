@@ -374,8 +374,6 @@ public class MeshNetwork : IMeshNetwork
             logger.LogInformation(ex, "Connection failure");
         }
 
-        peer.Dispose();
-
         Peers.TryRemove(peer.ClientId, out _);
 
         _ = Task.Run(() => PeerDisconnected?.Invoke(peer, new PeerDisconnectedEventArgs(webSocket.CloseStatus ?? WebSocketCloseStatus.Empty)));
