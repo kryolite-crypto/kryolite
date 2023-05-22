@@ -137,6 +137,15 @@ public class MeshNetwork : IMeshNetwork
             .ToList();
     }
 
+    public List<Peer> GetConnections()
+    {
+        using var _lock = rwlock.EnterReadLockEx();
+
+        return Peers
+            .Select(x => x.Value)
+            .ToList();
+    }
+
     public ulong GetServerId()
     {
         return serverId;
@@ -173,11 +182,20 @@ public class MeshNetwork : IMeshNetwork
         var token = tokenSource.Token;
         var timeout = TimeSpan.FromSeconds(5);
 
-        var outgoing = GetOutgoingConnections();
+        await cLock.WaitAsync(token);
 
-        if (outgoing.Any(x => x.Uri == uri))
+        try
         {
-            return false;
+            var connection = GetConnections();
+
+            if (connection.Any(x => x.Uri == uri))
+            {
+                return false;
+            }
+        }
+        finally
+        {
+            cLock.Release();
         }
 
         try
@@ -201,7 +219,7 @@ public class MeshNetwork : IMeshNetwork
 
                     var client = new ClientWebSocket();
 
-                    client.Options.KeepAliveInterval = TimeSpan.FromSeconds(60);
+                    client.Options.KeepAliveInterval = TimeSpan.FromMilliseconds(configuration.GetValue<int?>("KeepAliveInterval") ?? 60_000);
                     client.Options.SetRequestHeader("kryo-apilevel", Constant.API_LEVEL.ToString());
                     client.Options.SetRequestHeader("kryo-client-id", serverId.ToString());
                     client.Options.SetRequestHeader("kryo-network", networkName);
@@ -227,16 +245,16 @@ public class MeshNetwork : IMeshNetwork
                                 return false;
                             }
 
-                            if (apiLevel < Constant.MIN_API_LEVEL)
+                            if (Peers.ContainsKey(clientId))
                             {
-                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported apilevel: {apiLevel}");
+                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, already connected");
                                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                                 return false;
                             }
 
-                            if (Peers.ContainsKey(clientId) && Peers[clientId].ConnectionType == ConnectionType.OUT)
+                            if (apiLevel < Constant.MIN_API_LEVEL)
                             {
-                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, already connected");
+                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported apilevel: {apiLevel}");
                                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                                 return false;
                             }
@@ -355,6 +373,8 @@ public class MeshNetwork : IMeshNetwork
         {
             logger.LogInformation(ex, "Connection failure");
         }
+
+        peer.Dispose();
 
         Peers.TryRemove(peer.ClientId, out _);
 

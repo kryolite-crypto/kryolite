@@ -9,7 +9,7 @@ public enum ConnectionType
     OUT
 }
 
-public class Peer
+public class Peer : IDisposable
 {
     public ulong ClientId { get; private init; }
     public Uri Uri { get; private init; }
@@ -100,5 +100,10 @@ public class Peer
         {
             _lock.Release();
         }
+    }
+
+    public void Dispose()
+    {
+        Socket.Dispose();
     }
 }
