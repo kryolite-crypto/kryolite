@@ -21,7 +21,6 @@ public interface IBlockchainManager
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
     ulong GetBalance(Address address);
-    Block? GetBlock(long Id);
     //BigInteger GetTotalWork();
     /*SHA256Hash? GetLastBlockhash();
     List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true);
