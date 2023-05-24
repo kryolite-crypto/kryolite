@@ -20,12 +20,10 @@ public interface IBlockchainManager
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
-
-    /*SHA256Hash? GetLastBlockhash();
-    BigInteger GetTotalWork();
     ulong GetBalance(Address address);
-    PowBlock? GetPowBlock(long Id);
-    PosBlock? GetPosBlock(long Id);
+    Block? GetBlock(long Id);
+    //BigInteger GetTotalWork();
+    /*SHA256Hash? GetLastBlockhash();
     List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true);
     void AddTransactionsToQueue(Transaction transaction);
     List<PowBlock> GetLastBlocks(int count);
@@ -35,7 +33,7 @@ public interface IBlockchainManager
     List<PowBlock> GetPowFrom(long id);
     bool AddVote(Vote vote);
     List<Vote> AddVotes(IList<Vote> votes);
-    void ResetChain();
+    void ResetChain();*/
     Contract? GetContract(Address address);
     List<LedgerWallet> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
@@ -44,7 +42,7 @@ public interface IBlockchainManager
     string? CallContractMethod(Address address, CallMethod call);
     Token? GetToken(SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
-    List<Token> GetContractTokens(Address contractAddress);*/
+    List<Token> GetContractTokens(Address contractAddress);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
     IDisposable OnBlockAdded(ITargetBlock<Block> action);

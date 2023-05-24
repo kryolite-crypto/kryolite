@@ -869,41 +869,17 @@ public class BlockchainManager : IBlockchainManager
         return chainState.Height;
     }
 
-    /*
-    public SHA256Hash? GetLastBlockhash()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.Last()?.GetHash();
-    }*/
-
     public ulong GetBalance(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        if (address.IsContract()) {
+        if (address.IsContract())
+        {
             return blockchainRepository.GetContract(address)?.Balance ?? 0;
         }
 
         return blockchainRepository.GetWallet(address)?.Balance ?? 0;
-    }
-
-    private void NextEpoch(Block? epochStart, Block epochEnd, ChainState chainState)
-    {
-        if (epochStart == null)
-        {
-            throw new Exception("Epoch Start block not found");
-        }
-
-        var elapsed = epochEnd.Timestamp - epochStart.Timestamp;
-        var expected = Constant.TARGET_BLOCK_TIME_S * Constant.EPOCH_LENGTH_BLOCKS;
-
-        var target = ((chainState.CurrentDifficulty.ToWork() * 1_000) * new BigInteger((expected / (double)elapsed) * 1_000)) / new BigInteger(1_000L * 1_000L);
-        chainState.CurrentDifficulty = target.ToDifficulty();
-
-        Logger.LogInformation($"Epoch {epochEnd.Height / 100 + 1}: difficulty {target.ToDifficulty()}, target = {target}");
     }
 
     /*public BigInteger GetTotalWork()
@@ -912,7 +888,7 @@ public class BlockchainManager : IBlockchainManager
         using var blockchainRepository = new BlockchainRepository();
 
         var chainState = blockchainRepository.GetChainState();
-        return chainState.POW.TotalWork;
+        return chainState.TotalWork;
     }
 
     public List<PowBlock> GetLastBlocks(int count)
@@ -1146,7 +1122,7 @@ public class BlockchainManager : IBlockchainManager
             wallet.Balance = 0;
             walletRepository.Update(wallet);
         }
-    }
+    }*/
 
     public Contract? GetContract(Address address)
     {
@@ -1176,7 +1152,7 @@ public class BlockchainManager : IBlockchainManager
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetTransaction(hash);
+        return blockchainRepository.Get<Transaction>(hash);
     }
 
     public LedgerWallet? GetLedgerWallet(Address address)
@@ -1186,13 +1162,13 @@ public class BlockchainManager : IBlockchainManager
 
         return blockchainRepository.GetWallet(address);
     }
-
+    
     public string? CallContractMethod(Address address, CallMethod call)
     {
         using var _ = rwlock.EnterReadLockEx();
         using var blockchainRepository = new BlockchainRepository();
 
-        var contract = blockchainRepository.GetContract(address) ?? throw new ExecutionException(ExecutionResult.INVALID_CONTRACT);
+        var contract = blockchainRepository.GetContract(address) ?? throw new Exception(ExecutionResult.INVALID_CONTRACT.ToString());
 
         var snapshot = contract.Snapshots
             .OrderByDescending(x => x.Height)
@@ -1200,7 +1176,7 @@ public class BlockchainManager : IBlockchainManager
 
         if (snapshot == null)
         {
-            throw new ExecutionException(ExecutionResult.CONTRACT_SNAPSHOT_MISSING);
+            throw new Exception(ExecutionResult.CONTRACT_SNAPSHOT_MISSING.ToString());
         }
 
         var methodName = $"{call.Method}";
@@ -1210,7 +1186,7 @@ public class BlockchainManager : IBlockchainManager
 
         if (method == null)
         {
-            throw new ExecutionException(ExecutionResult.INVALID_METHOD);
+            throw new Exception(ExecutionResult.INVALID_METHOD.ToString());
         }
 
         if (!method.IsReadonly)
@@ -1218,14 +1194,14 @@ public class BlockchainManager : IBlockchainManager
             throw new Exception("only readonly methods can be called without transaction");
         }
 
-        var methodParams = new List<object> { contract.EntryPoint ?? throw new ExecutionException(ExecutionResult.CONTRACT_ENTRYPOINT_MISSING) };
+        var methodParams = new List<object> { contract.EntryPoint ?? throw new Exception(ExecutionResult.CONTRACT_ENTRYPOINT_MISSING.ToString()) };
 
         if (call.Params is not null)
         {
             methodParams.AddRange(call.Params);
         }
 
-        var vmContext = new VMContext(contract, new Transaction { To = address }, 0, logger);
+        var vmContext = new VMContext(contract, new Transaction { To = address }, Random.Shared, Logger);
 
         using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
             .WithContext(vmContext);
@@ -1295,7 +1271,7 @@ public class BlockchainManager : IBlockchainManager
 
         if (token is null)
         {
-            logger.LogWarning($"Trying to rollback nonexisting token: {effect.TokenId}");
+            Logger.LogWarning($"Trying to rollback nonexisting token: {effect.TokenId}");
             return;
         }
 
@@ -1313,7 +1289,7 @@ public class BlockchainManager : IBlockchainManager
         {
             token.Wallet = fromWallet;
         }
-    }*/
+    }
 
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
     {
