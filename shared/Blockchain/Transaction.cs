@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
+using Kryolite.Shared.Dto;
 using MessagePack;
 using NSec.Cryptography;
 
@@ -8,42 +9,47 @@ namespace Kryolite.Shared.Blockchain;
 public class Transaction : IComparable<Transaction>
 {
     [JsonIgnore]
-    [IgnoreMember]
     public Guid Id { get; set; }
-    [IgnoreMember]
     public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
-    [IgnoreMember]
     public long? Height { get; set; }
 
-    [Key(0)]
     public TransactionType TransactionType { get; set; }
-    [Key(1)]
     public virtual PublicKey? PublicKey { get; set; }
-    [Key(2)]
     public virtual Address? To { get; set; } = new Address();
-    [Key(3)]
     public ulong Value { get; set; }
-    [Key(4)]
     public SHA256Hash Pow { get; set; } = new SHA256Hash();
-    [Key(5)]
     public byte[]? Data { get; set; }
-    [Key(6)]
     public long Timestamp { get; set; }
-    [Key(7)]
     public virtual Signature? Signature { get; set; }
-    [Key(8)]
-    public List<Transaction> Validates { get; set; } = new List<Transaction>();
-    [Key(9)]
-    public List<Transaction> ValidatedBy { get; set; } = new List<Transaction>();
+    public ExecutionResult ExecutionResult { get; set; }
 
-    [IgnoreMember]
+    public List<Transaction> Validates { get; set; } = new List<Transaction>();
+    public List<Transaction> ValidatedBy { get; set; } = new List<Transaction>();
     public virtual List<Effect> Effects { get; set; } = new();
 
-    [IgnoreMember]
     public Address From
     {
         get => PublicKey?.ToAddress() ?? new Address();
         private set { }
+    }
+
+    public Transaction()
+    {
+
+    }
+
+    public Transaction(TransactionDto tx, List<Transaction> validates)
+    {
+        TransactionType = tx.TransactionType;
+        PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");
+        To = tx.To;
+        Value = tx.Value;
+        Pow = tx.Pow ?? throw new Exception("tx has null pow");
+        Data = tx.Data;
+        Timestamp = tx.Timestamp;
+        Signature = tx.Signature ?? throw new Exception("payment requires signature");
+        Validates = validates;
+        TransactionId = CalculateHash();
     }
 
     public virtual void Sign(PrivateKey privateKey)
@@ -53,7 +59,7 @@ public class Transaction : IComparable<Transaction>
         using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
 
-        stream.Write(BitConverter.GetBytes((short)TransactionType));
+        stream.WriteByte((byte)TransactionType);
         stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
         
         if (To is not null)
@@ -67,7 +73,7 @@ public class Transaction : IComparable<Transaction>
 
         foreach (var tx in Validates.OrderBy(x => x.TransactionId))
         {
-            stream.Write(tx.CalculateHash());
+            stream.Write(tx.TransactionId);
         }
 
         stream.Flush();
@@ -81,7 +87,7 @@ public class Transaction : IComparable<Transaction>
 
         using var stream = new MemoryStream();
 
-        stream.Write(BitConverter.GetBytes((short)TransactionType));
+        stream.WriteByte((byte)TransactionType);
         stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
         
         if (To is not null)
@@ -95,7 +101,7 @@ public class Transaction : IComparable<Transaction>
 
         foreach (var tx in Validates.OrderBy(x => x.TransactionId))
         {
-            stream.Write(tx.CalculateHash());
+            stream.Write(tx.TransactionId);
         }
 
         stream.Flush();
@@ -108,6 +114,8 @@ public class Transaction : IComparable<Transaction>
     {
         using var sha256 = SHA256.Create();
         using var stream = new MemoryStream();
+
+        stream.WriteByte((byte)TransactionType);
 
         if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
         {
@@ -127,7 +135,7 @@ public class Transaction : IComparable<Transaction>
 
         foreach (var tx in Validates.OrderBy(x => x.TransactionId))
         {
-            stream.Write(tx.CalculateHash());
+            stream.Write(tx.TransactionId);
         }
 
         stream.Flush();

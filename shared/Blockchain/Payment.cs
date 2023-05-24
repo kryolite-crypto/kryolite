@@ -1,4 +1,5 @@
-﻿using NSec.Cryptography;
+﻿using Kryolite.Shared.Dto;
+using NSec.Cryptography;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,12 @@ namespace Kryolite.Shared.Blockchain;
 
 public class Payment : Transaction
 {
-    public new PublicKey PublicKey { get; set; } = new PublicKey();
-    public new Signature Signature { get; set; } = new Signature();
+    public new PublicKey PublicKey { get; set; }
+    public new Signature Signature { get; set; }
+
+    public Payment()
+    {
+        PublicKey = new PublicKey();
+        Signature = new Signature();
+    }
 }

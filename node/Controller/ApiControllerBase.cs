@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
@@ -136,17 +137,17 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid blocktemplate");
         }
 
-        return blockchainManager.AddBlock(blocktemplate);
+        return blockchainManager.AddBlock(blocktemplate, true);
     }
 
     [HttpPost("tx")]
-    public void PostTransaction([FromBody] Transaction tx)
+    public void PostTransaction([FromBody] TransactionDto tx)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid transaction");
         }
 
-        // blockchainManager.AddTransactionsToQueue(tx);
+        blockchainManager.AddTransaction(tx, true);
     }
 
     [HttpGet("richlist")]

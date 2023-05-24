@@ -3,6 +3,7 @@ using System.Net.WebSockets;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using DnsClient;
+using Kryolite.Node.Executor;
 using Kryolite.Shared;
 using LettuceEncrypt.Acme;
 using Microsoft.AspNetCore.Builder;
@@ -277,6 +278,7 @@ public class Startup
                 .AddSingleton<INetworkManager, NetworkManager>()
                 .AddSingleton<IWalletManager, WalletManager>()
                 .AddSingleton<IMeshNetwork, MeshNetwork>()
+                .AddSingleton<IExecutorFactory, ExecutorFactory>()
                 .AddHostedService<NetworkService>()
                 .AddHostedService<BlockchainService>()
                 .AddHostedService<ValidatorService>()

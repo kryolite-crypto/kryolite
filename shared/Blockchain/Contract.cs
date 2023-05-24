@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -19,6 +20,9 @@ public class Contract
     public ContractManifest Manifest { get; set; }
     public List<ContractSnapshot> Snapshots { get; set; } = new();
     public List<Token> Tokens { get; set; } = new();
+
+    [NotMapped]
+    public ContractSnapshot? CurrentSnapshot { get; set; }
 
     public Contract()
     {

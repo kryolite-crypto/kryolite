@@ -215,6 +215,12 @@ pragma mmap_size = -1;
         Context.SaveChanges();
     }
 
+    public void UpdateWallets(params LedgerWallet[] wallets)
+    {
+        Context.LedgerWallets.UpdateRange(wallets);
+        Context.SaveChanges();
+    }
+
     public void AddVote(Vote vote)
     {
         Context.Votes.Add(vote);
@@ -289,26 +295,19 @@ pragma mmap_size = -1;
             .ToList();
     }
 
-    public Transaction? GetTransaction(SHA256Hash transactionId)
-    {
-        return Context.Transactions
-            .Where(x => x.TransactionId == transactionId)
-            .FirstOrDefault();
-    }
-
     public List<Transaction> GetTransactionsToValidate()
     {
         var transactions = Context.Transactions
             .Where(x => x.Height == null)
             .ToList();
 
-        if (transactions.Count == 1)
+        if (transactions.Count < 2)
         {
             var tx = Context.Transactions
                 .OrderByDescending(x => x.Height)
-                .First();
+                .Take(2 - transactions.Count);
 
-            transactions.Add(tx);
+            transactions.AddRange(tx);
         }
 
         return transactions;

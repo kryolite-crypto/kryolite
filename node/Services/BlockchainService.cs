@@ -71,7 +71,7 @@ public class BlockchainService : BackgroundService
             Signature = new Signature(),            
             Validates = new List<Transaction>
             {
-                new Transaction { Timestamp = timestamp, Value = Constant.COLLATERAL, PublicKey = "aSDj8ob2rbAkiqLb5WLVYd6J5U5vDupMTgLgqCpDCs6f", Signature = "5sWSVrgswgV1P3xY9vKtgw1DbBx6sUSSQA1L3C7bqH7YNJcxmxaPaQ9RUxjMTuu9j3Cer4SMQ6arypLv7uFPW3L2" }
+                new Transaction { TransactionType = TransactionType.REGISTER_VALIDATOR, Timestamp = timestamp, Value = Constant.COLLATERAL, PublicKey = "aSDj8ob2rbAkiqLb5WLVYd6J5U5vDupMTgLgqCpDCs6f", Signature = "5sWSVrgswgV1P3xY9vKtgw1DbBx6sUSSQA1L3C7bqH7YNJcxmxaPaQ9RUxjMTuu9j3Cer4SMQ6arypLv7uFPW3L2" }
             }
         };
 
@@ -108,6 +108,6 @@ public class BlockchainService : BackgroundService
 
         view.Votes.Add(vote);
 
-        BlockchainManager.AddView(view);
+        BlockchainManager.AddView(view, false);
     }
 }

@@ -2,21 +2,24 @@ using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 
 namespace Kryolite.Node;
 
 public interface IBlockchainManager
 {
     bool AddGenesis(Genesis genesis);
-    bool AddView(View view);
+    bool AddView(View view, bool broadcast);
+    bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
+    bool AddTransaction(TransactionDto tx, bool broadcast);
+    bool AddVote(Vote vote, bool broadcast);
+
     View GetLastView();
     List<Transaction> GetTransactionToValidate();
-
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
-    bool AddBlock(Blocktemplate blocktemplate);
 
     /*SHA256Hash? GetLastBlockhash();
     BigInteger GetTotalWork();

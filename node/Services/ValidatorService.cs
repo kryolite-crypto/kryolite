@@ -115,9 +115,7 @@ public class ValidatorService : BackgroundService
         nextView.Vote(Node.PrivateKey);
 
         // TODO: Asynchronously add to not skip execution
-        blockchainManager.AddView(nextView);
-
-        logger.LogInformation("Generated view #{height}", height);
+        blockchainManager.AddView(nextView, true);
     }
 
     private async Task SynchronizeViewGenerator(CancellationToken stoppingToken)
