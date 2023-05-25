@@ -58,7 +58,6 @@ pragma mmap_size = -1;
     public void Add<T>(T tx) where T : Transaction
     {
         Context.Update<T>(tx);
-        Context.SaveChanges();
     }
 
     public Genesis GetGenesis()
@@ -91,7 +90,6 @@ pragma mmap_size = -1;
     public void SaveState(ChainState chainState)
     {
         Context.Update(chainState);
-        Context.SaveChanges();
     }
 
     public Block GetBlockAt(int skip)
@@ -212,13 +210,11 @@ pragma mmap_size = -1;
     public void UpdateWallets(IEnumerable<LedgerWallet> wallets)
     {
         Context.LedgerWallets.UpdateRange(wallets);
-        Context.SaveChanges();
     }
 
     public void UpdateWallets(params LedgerWallet[] wallets)
     {
         Context.LedgerWallets.UpdateRange(wallets);
-        Context.SaveChanges();
     }
 
     public void AddVote(Vote vote)
@@ -279,13 +275,11 @@ pragma mmap_size = -1;
     public void UpdateContracts(IEnumerable<Contract> contracts)
     {
         Context.Contracts.UpdateRange(contracts);
-        Context.SaveChanges();
     }
 
     public void UpdateTokens(IEnumerable<Token> tokens)
     {
         Context.Tokens.UpdateRange(tokens);
-        Context.SaveChanges();
     }
 
     public List<Transaction> GetTransactions(Address address)

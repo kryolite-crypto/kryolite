@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Kryolite.Shared;
 
 namespace Kryolite.Node;
 
@@ -35,7 +36,6 @@ public class MDNSService : BackgroundService
     {
         try
         {
-            await startup.Application.WaitOneAsync();
             var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
 
             var nameBytes = walletManager.GetNodeWallet()?.PublicKey.ToAddress().ToString()
@@ -86,6 +86,10 @@ public class MDNSService : BackgroundService
             mdns.Start();
 
             logger.LogInformation("mDNS          [UP]");
+        }
+        catch (TaskCanceledException)
+        {
+
         }
         catch (Exception ex)
         {

@@ -11,9 +11,6 @@ using System.Collections.Generic;
 using System.Reactive.Linq;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
-using Kryolite.Shared;
-using Avalonia.Styling;
-using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Wallet;
 
@@ -59,9 +56,14 @@ public partial class MainWindow : Window
             });
         };
 
-        var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
-
         ChainObserver.BeginSync += async (object? sender, long total) => {
+            var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
+
+            if (syncProgress is null)
+            {
+                return;
+            }
+
             await Dispatcher.UIThread.InvokeAsync(() => {
                 syncProgress.Value = 0;
                 syncProgress.Minimum = 0;
@@ -82,6 +84,13 @@ public partial class MainWindow : Window
         };
 
         ChainObserver.EndSync += async (object? sender, EventArgs args) => {
+            var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
+
+            if (syncProgress is null)
+            {
+                return;
+            }
+
             await Dispatcher.UIThread.InvokeAsync(() => {
                 syncProgress.Value = 0;
                 syncProgress.IsEnabled = false;
@@ -91,34 +100,18 @@ public partial class MainWindow : Window
 
         BlockchainManager.OnChainUpdated(new ActionBlock<ChainState>(async state => {
             await Dispatcher.UIThread.InvokeAsync(() => {
-                // Model.Blocks = state.Height;
+                Model.Blocks = state.Height;
             });
         }));
 
         BlockchainManager.OnWalletUpdated(new ActionBlock<Kryolite.Shared.Wallet>(async wallet => await OnWalletUpdated(wallet)));
-
-        // TODO: Initialize these before app is fully started to not miss any?
-        var transactionAddedBuffer = new BufferBlock<Transaction>(new DataflowBlockOptions { BoundedCapacity = Constant.MAX_MEMPOOL_TX });
-
-        transactionAddedBuffer.AsObservable()
-            .Buffer(TimeSpan.FromSeconds(1))
-            .Subscribe(async transactions => await OnTransactionAdded(transactions));
-
-        // MempoolManager.OnTransactionAdded(transactionAddedBuffer);
-
-        var transactionRemovedBuffer = new BufferBlock<Transaction>(new DataflowBlockOptions { BoundedCapacity = Constant.MAX_MEMPOOL_TX });
-
-        transactionRemovedBuffer.AsObservable()
-            .Buffer(TimeSpan.FromSeconds(1))
-            .Subscribe(async transactions => await OnTransactionRemoved(transactions));
-
-        // MempoolManager.OnTransactionRemoved(transactionRemovedBuffer);
     }
 
     private void OnInitialized(object? sender, EventArgs args)
     {
         Task.Run(async () => {
             var wallets = WalletManager.GetWallets().Values
+                .Where(wallet => wallet.WalletType == Shared.WalletType.WALLET)
                 .Select(wallet => new WalletModel {
                     Description = wallet.Description,
                     Address = wallet.Address,
@@ -143,11 +136,11 @@ public partial class MainWindow : Window
         });
 
         Task.Run(async () => {
-            /*var state = BlockchainManager.GetChainState();
+            var state = BlockchainManager.GetChainState();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Blocks = state.POS.Height;
-            });*/
+                Model.Blocks = state.Height;
+            });
         });
 
         Model.ConnectedPeers = MeshNetwork.GetPeers().Count;
@@ -155,40 +148,13 @@ public partial class MainWindow : Window
 
     private async Task OnWalletUpdated(Kryolite.Shared.Wallet wallet)
     {
+        if (wallet.WalletType != Shared.WalletType.WALLET)
+        {
+            return;
+        }
+
         await Dispatcher.UIThread.InvokeAsync(() => {
             Model.SetWallet(wallet);
-        });
-    }
-
-    private async Task OnTransactionAdded(IList<Transaction> transactions)
-    {
-        var wallets = Model.Wallets.Select(x => x.Address).ToHashSet();
-        var pending = Model.Pending;
-
-        foreach (var tx in transactions) {
-            if (wallets.Contains(tx.PublicKey!.ToAddress().ToString())) {
-                pending += tx.Value;
-            }
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => {
-            Model.Pending = pending;
-        });
-    }
-
-    private async Task OnTransactionRemoved(IList<Transaction> transactions)
-    {
-        var wallets = Model.Wallets.Select(x => x.Address).ToHashSet();
-        var pending = Model.Pending;
-
-        foreach (var tx in transactions) {
-            if (wallets.Contains(tx.PublicKey!.ToAddress().ToString())) {
-                pending -= tx.Value;
-            }
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => {
-            Model.Pending = pending;
         });
     }
 

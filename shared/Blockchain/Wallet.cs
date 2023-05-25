@@ -12,7 +12,8 @@ public class Wallet
     public PublicKey PublicKey { get; set; }
     public PrivateKey PrivateKey { get; set; }
     public ulong Balance { get; set; }
-    public WalletType Type { get; set; }
+    public ulong Pending { get; set; }
+    public WalletType WalletType { get; set; }
     public bool Updated { get; set; }
 
     public List<WalletTransaction> WalletTransactions { get; set; } = new();

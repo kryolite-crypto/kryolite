@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Text;
 
 namespace Kryolite.Shared;
@@ -16,6 +17,10 @@ public static class Constant
     public const int MAX_BLOCK_TX = 20000;
     public const int MAX_PEERS = 6;
     public const long DECIMAL_MULTIPLIER = 1_000_000;
+
+    public static readonly ImmutableArray<PublicKey> SEED_VALIDATORS = ImmutableArray.Create<PublicKey>(
+        "r9Lk4qxPGNZGBaLEjcWtAZmu8LRj5FQe7NCyRzNsnaX"
+    );
 
     // Placeholder
     public const long COLLATERAL = 100_000 * DECIMAL_MULTIPLIER;

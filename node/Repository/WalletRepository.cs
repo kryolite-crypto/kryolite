@@ -17,7 +17,8 @@ public class WalletRepository : IDisposable
             .Options;
 
         Context = new WalletContext(options);
-        Context.Database.Migrate();
+        //Context.Database.Migrate();
+        Context.Database.EnsureCreated();
     }
 
     public void Add(Wallet wallet)
@@ -54,9 +55,17 @@ public class WalletRepository : IDisposable
         Context.SaveChanges();
     }
 
+    public Wallet? GetWallet(string address)
+    {
+        return Context.Wallets
+            .Where(x => x.Address == address)
+            .FirstOrDefault();
+    }
+
     public Dictionary<string, Wallet> GetWallets()
     {
-        return Context.Wallets.ToDictionary(x => x.Address, x => x);
+        return Context.Wallets
+            .ToDictionary(x => x.Address, x => x);
     }
 
     public List<WalletTransaction> GetLastTransactions(int count)
@@ -70,7 +79,7 @@ public class WalletRepository : IDisposable
     public Wallet? GetNodeWallet()
     {
         return Context.Wallets
-            .Where(x => x.Type == WalletType.VALIDATOR)
+            .Where(x => x.WalletType == WalletType.VALIDATOR)
             .SingleOrDefault();
     }
 

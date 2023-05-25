@@ -22,8 +22,8 @@ public class WalletModel : NotifyPropertyChanged
     public string? Address { get; set; }
 
     public PublicKey PublicKey { get; set; }
-    
     public PrivateKey PrivateKey { get; set; }
+
     private ulong? _Balance;
     public ulong? Balance { 
         get => _Balance;
@@ -31,6 +31,20 @@ public class WalletModel : NotifyPropertyChanged
             if (_Balance != value)
             {
                 _Balance = value;
+                RaisePropertyChanged();
+            }
+        }
+    }
+
+    private ulong? _Pending;
+    public ulong? Pending
+    {
+        get => _Pending;
+        set
+        {
+            if (_Pending != value)
+            {
+                _Pending = value;
                 RaisePropertyChanged();
             }
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Node.Executor;
@@ -56,6 +57,7 @@ public class BlockchainManager : IBlockchainManager
             };
 
             blockchainRepository.SaveState(chainState);
+            blockchainRepository.Context.SaveChanges();
 
             tx.Commit();
 
@@ -111,6 +113,8 @@ public class BlockchainManager : IBlockchainManager
 
             blockchainRepository.Add(view);
 
+            var sw = Stopwatch.StartNew();
+
             var toExecute = new List<Transaction>();
 
             blockchainRepository.Context.Entry(view)
@@ -127,8 +131,6 @@ public class BlockchainManager : IBlockchainManager
                 TraverseTransaction(blockchainRepository.Context, child, height, toExecute);
             }
 
-            blockchainRepository.Context.SaveChanges();
-
             var context = new ExecutorContext(blockchainRepository);
             var executor = ExecutorFactory.Create(context);
 
@@ -140,7 +142,7 @@ public class BlockchainManager : IBlockchainManager
 
             executor.Execute(toExecute);
 
-            Logger.LogInformation($"Finalized {toExecute.Count} transactions");
+            Logger.LogInformation($"Finalized {toExecute.Count} transactions in {sw.ElapsedMilliseconds}ms");
 
             if (height > 0)
             {
@@ -170,15 +172,42 @@ public class BlockchainManager : IBlockchainManager
             Logger.LogInformation($"Next difficulty {chainState.CurrentDifficulty}");
 
             blockchainRepository.SaveState(chainState);
+            blockchainRepository.Context.SaveChanges();
 
             tx.Commit();
+
+            ChainStateBroadcast.Post(chainState);
+
+            var wallets = WalletManager.GetWallets();
+            var addresses = new List<string>();
+
+            foreach (var transaction in toExecute)
+            {
+                if (transaction.PublicKey is not null)
+                {
+                    addresses.Add(transaction.PublicKey.ToAddress().ToString());
+                }
+
+                if (transaction.To is not null)
+                {
+                    addresses.Add(transaction.To.ToString());
+                }
+            }
+
+            foreach (var address in addresses.Distinct())
+            {
+                if(wallets.TryGetValue(address, out var wallet))
+                {
+                    WalletBroadcast.Post(wallet);
+                }
+            }
 
             if (broadcast)
             {
                 TransactionBroadcast.Post(view);
             }
 
-            Logger.LogInformation("Added view #{height}", height);
+            Logger.LogInformation($"Added view #{height}");
 
             return true;
         }
@@ -279,10 +308,18 @@ public class BlockchainManager : IBlockchainManager
                 to.Pending += block.Value;
             }
 
+            var wallet = WalletManager.GetWallet(to.Address.ToString());
+
+            if (wallet is not null)
+            {
+                WalletBroadcast.Post(wallet);
+            }
+
             chainState.Blocks++;
 
             blockchainRepository.Add(block);
             blockchainRepository.SaveState(chainState);
+            blockchainRepository.Context.SaveChanges();
 
             tx.Commit();
 
@@ -391,8 +428,23 @@ public class BlockchainManager : IBlockchainManager
                 to.Pending += transaction.Value;
             }
 
+            var fromWallet = WalletManager.GetWallet(from.Address.ToString());
+
+            if (fromWallet is not null)
+            {
+                WalletBroadcast.Post(fromWallet);
+            }
+
+            var toWallet = WalletManager.GetWallet(to.Address.ToString());
+
+            if (toWallet is not null)
+            {
+                WalletBroadcast.Post(toWallet);
+            }
+
             blockchainRepository.Add(transaction);
             blockchainRepository.UpdateWallets(from, to);
+            blockchainRepository.Context.SaveChanges();
 
             dbTx.Commit();
 

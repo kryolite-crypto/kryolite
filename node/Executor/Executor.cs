@@ -30,7 +30,7 @@ public class Executor
 
         Context.SetRand((long)transactions.Average(x => x.Timestamp));
 
-        foreach (var tx in transactions.OrderBy(x => x.TransactionId))
+        foreach (var tx in transactions.OrderBy(x => x.Timestamp).ThenBy(x => x.TransactionId))
         {
             switch (tx.TransactionType)
             {

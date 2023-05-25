@@ -52,7 +52,6 @@ public class BlockchainService : BackgroundService
             }*/
 
             Logger.LogInformation($"Blockchain    [UP][{configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
-            startup.Blockchain.Set();
         }
         catch (Exception ex)
         {
@@ -63,22 +62,14 @@ public class BlockchainService : BackgroundService
     private void InitializeGenesisBlock()
     {
         var timestamp = new DateTimeOffset(2023, 1, 1, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+
         var genesis = new Genesis {
             NetworkName = configuration.GetValue<string?>("NetworkName") ?? "MAINNET",
             Pow = GenesisSeed,
             Timestamp = timestamp,
             PublicKey = new PublicKey(),
-            Signature = new Signature(),            
-            Validates = new List<Transaction>
-            {
-                new Transaction { TransactionType = TransactionType.REGISTER_VALIDATOR, Timestamp = timestamp, Value = Constant.COLLATERAL, PublicKey = "aSDj8ob2rbAkiqLb5WLVYd6J5U5vDupMTgLgqCpDCs6f", Signature = "5sWSVrgswgV1P3xY9vKtgw1DbBx6sUSSQA1L3C7bqH7YNJcxmxaPaQ9RUxjMTuu9j3Cer4SMQ6arypLv7uFPW3L2" }
-            }
+            Signature = new Signature()
         };
-
-        foreach (var validates in genesis.Validates)
-        {
-            validates.TransactionId = validates.CalculateHash();
-        }
 
         if(!BlockchainManager.AddGenesis(genesis))
         {
@@ -102,8 +93,8 @@ public class BlockchainService : BackgroundService
         var vote = new Vote
         {
             TransactionId = view.TransactionId,
-            PublicKey = "aSDj8ob2rbAkiqLb5WLVYd6J5U5vDupMTgLgqCpDCs6f",
-            Signature = "5sWSVrgswgV1P3xY9vKtgw1DbBx6sUSSQA1L3C7bqH7YNJcxmxaPaQ9RUxjMTuu9j3Cer4SMQ6arypLv7uFPW3L2"
+            PublicKey = "r9Lk4qxPGNZGBaLEjcWtAZmu8LRj5FQe7NCyRzNsnaX",
+            Signature = "3GAvVpJcujfYEL4mMhZk6C4gpzWmDtuVxsww1Kw3iR8GqVpnnhbwfaGoZTspwsNwVpxro3CZfR9RuqGJvLmecbiZ"
         };
 
         view.Votes.Add(vote);

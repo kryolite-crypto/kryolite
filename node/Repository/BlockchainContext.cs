@@ -21,7 +21,6 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
     public DbSet<View> Views => Set<View>();
     public DbSet<Vote> Votes => Set<Vote>();
     public DbSet<Block> Blocks => Set<Block>();
-    public DbSet<Payment> Payments => Set<Payment>();
     public DbSet<ChainState> ChainState => Set<ChainState>();
 
     public DbSet<LedgerWallet> LedgerWallets => Set<LedgerWallet>();
@@ -97,6 +96,7 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.UseTphMappingStrategy();
 
             entity.HasIndex(x => x.TransactionId)
+                .IsUnique()
                 .HasDatabaseName("ix_tx_txid");
 
             entity.HasIndex(x => x.From)
@@ -204,9 +204,6 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
         });
 
         builder.Entity<View>(entity => {
-            entity.HasIndex(x => x.Height)
-                .HasDatabaseName("ix_view_height");
-
             entity.HasMany(x => x.Votes)
                 .WithOne()
                 .HasForeignKey(x => x.TransactionId)
@@ -221,6 +218,7 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasName("pk_vote");
 
             entity.HasIndex(x => x.TransactionId)
+                .IsUnique()
                 .HasDatabaseName("ix_vote_txid");
 
             //entity.HasIndex(x => x.Height)
@@ -236,20 +234,13 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasConversion(pubKeyConverter);
         });
 
-        builder.Entity<Payment>(entity => {
-            entity.Property(x => x.Signature)
-                .HasConversion(signConverter);
-
-            entity.Property(x => x.PublicKey)
-                .HasConversion(pubKeyConverter);
-        });
-
         builder.Entity<LedgerWallet>(entity => {
             entity.ToTable("LedgerWallets")
                 .HasKey(e => e.Id)
                 .HasName("pk_ledger_wallet");
 
             entity.HasIndex(x => x.Address)
+                .IsUnique()
                 .HasDatabaseName("ix_ledger_wallet_address");
 
             entity.Property(x => x.Address)

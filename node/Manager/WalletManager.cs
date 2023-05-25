@@ -12,6 +12,14 @@ public class WalletManager : IWalletManager
 
     }
 
+    public Wallet? GetWallet(string address)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        using var walletRepository = new WalletRepository();
+
+        return walletRepository.GetWallet(address);
+    }
+
     public Dictionary<string, Wallet> GetWallets()
     {
         using var _ = rwlock.EnterReadLockEx();
@@ -43,7 +51,7 @@ public class WalletManager : IWalletManager
 
         var wallet = new Wallet
         {
-            Type = walletType
+            WalletType = walletType
         };
 
         walletRepository.Add(wallet);

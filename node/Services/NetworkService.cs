@@ -8,6 +8,8 @@ using System.Reactive.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Security.Claims;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using System.Timers;
 using DnsClient;
@@ -219,7 +221,9 @@ public class NetworkService : BackgroundService
                 await meshNetwork.BroadcastAsync(msg);
             });
 
-        await startup.Application.WaitOneAsync();
+        logger.LogInformation("Network       [UP]");
+
+        await Task.Run(() => startup.Application.Wait(stoppingToken));
 
         await DiscoverPeers();
 

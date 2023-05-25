@@ -150,5 +150,7 @@ public class ExecutorContext : IExecutorContext
         Repository.UpdateWallets(Wallets.Values);
         Repository.UpdateContracts(Contracts.Values);
         Repository.UpdateTokens(Tokens.Values);
+
+        Repository.Context.SaveChanges();
     }
 }

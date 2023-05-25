@@ -66,8 +66,8 @@ public class MainWindowViewModel : NotifyPropertyChanged
         }
     }
 
-    private ulong _Pending;
-    public ulong Pending
+    private long _Pending;
+    public long Pending
     {
         get 
         {
@@ -131,6 +131,7 @@ public class MainWindowViewModel : NotifyPropertyChanged
                 PublicKey = wallet.PublicKey,
                 PrivateKey = wallet.PrivateKey,
                 Balance = wallet.Balance,
+                Pending = wallet.Pending,
                 WalletTransactions = wallet.WalletTransactions,
                 Wallet = wallet
             });
@@ -140,6 +141,8 @@ public class MainWindowViewModel : NotifyPropertyChanged
         }
 
         Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
+        Pending = Wallets.Sum(x => (long)(x.Pending ?? 0));
+
         Transactions = Wallets.SelectMany(wallet => wallet.WalletTransactions)
             .OrderByDescending(tx => tx.Timestamp)
             .Take(5)

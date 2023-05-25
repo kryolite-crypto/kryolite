@@ -15,8 +15,8 @@ public class ValidatorService : BackgroundService
     private readonly ILogger<ValidatorService> logger;
     private readonly StartupSequence startup;
 
-    private bool Enabled { get; set; }
     private Wallet Node { get; set; }
+    private ManualResetEventSlim AllowExecution { get; set; } = new(true);
 
     public ValidatorService(IWalletManager walletManager, IBlockchainManager blockchainManager, ILogger<ValidatorService> logger, StartupSequence startup)
     {
@@ -24,23 +24,62 @@ public class ValidatorService : BackgroundService
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
+
+        Node = walletManager.GetNodeWallet() ?? walletManager.CreateWallet(WalletType.VALIDATOR);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
-            await Task.Run(() => startup.Blockchain.WaitOne());
-            Node = walletManager.GetNodeWallet() ?? walletManager.CreateWallet(WalletType.VALIDATOR);
+            await Task.Run(() => startup.Application.Wait(stoppingToken));
+
+            var task = StartValidator(stoppingToken);
 
             blockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(wallet => {
-                // TODO: Create transaction to register as node
+                if (wallet.WalletType != WalletType.VALIDATOR)
+                {
+                    return;
+                }
+
+                if (!AllowExecution.IsSet && wallet.Balance >= Constant.COLLATERAL)
+                {
+                    AllowExecution.Set();
+                }
+
+                if (AllowExecution.IsSet && wallet.Balance < Constant.COLLATERAL)
+                {
+                    AllowExecution.Reset();
+                }
             }));
 
-            Enabled = true;
-            logger.LogInformation("Validator     \x1B[32m[ACTIVE]\x1B[37m");
+            if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey))
+            {
+                AllowExecution.Set();
+            }
 
-            await StartValidator(stoppingToken);
+            if (walletManager.GetNodeWallet()?.Balance >= Constant.COLLATERAL)
+            {
+                AllowExecution.Set();
+            }
+
+            /*use this to generate seed signatures
+             * var v = new Vote
+            {
+                TransactionId = "5kxwZ17DyJWDwZypH1p9vRny93CyGjGF57Te78ebLuCN",
+                PublicKey = "r9Lk4qxPGNZGBaLEjcWtAZmu8LRj5FQe7NCyRzNsnaX",
+                Signature = "3GAvVpJcujfYEL4mMhZk6C4gpzWmDtuVxsww1Kw3iR8GqVpnnhbwfaGoZTspwsNwVpxro3CZfR9RuqGJvLmecbiZ"
+            };
+
+            v.Sign(Node.PrivateKey);
+
+            logger.LogInformation(v.Signature.ToString());*/
+
+            await task;
+        }
+        catch (TaskCanceledException)
+        {
+
         }
         catch (Exception ex)
         {
@@ -54,6 +93,9 @@ public class ValidatorService : BackgroundService
     {
         try
         {
+            await Task.Run(() => AllowExecution.Wait(stoppingToken));
+            logger.LogInformation("Validator     [ACTIVE]");
+
             await SynchronizeViewGenerator(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -91,8 +133,21 @@ public class ValidatorService : BackgroundService
 
                 Banned.Clear();
 
+                if(!AllowExecution.IsSet)
+                {
+                    logger.LogInformation("Validator     [INACTIVE]");
+                    await Task.Run(() => AllowExecution.Wait(stoppingToken));
+                    logger.LogInformation("Validator     [ACTIVE]");
+
+                    nextView = blockchainManager.GetLastView();
+                }
+
                 await SynchronizeViewGenerator(nextView, stoppingToken);
             }
+        }
+        catch (TaskCanceledException)
+        {
+
         }
         catch (Exception ex)
         {

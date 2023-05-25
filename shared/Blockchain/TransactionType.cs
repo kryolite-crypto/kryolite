@@ -2,10 +2,10 @@ namespace Kryolite.Shared;
 
 public enum TransactionType : byte
 {
-    GENESIS,
     PAYMENT,
+    GENESIS,
     BLOCK,
     VIEW,
     CONTRACT,
-    REGISTER_VALIDATOR
+    VALIDATOR
 }
