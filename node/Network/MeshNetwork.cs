@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Net.WebSockets;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.AspNetCore.Hosting.Server;
@@ -42,6 +43,7 @@ public class MeshNetwork : IMeshNetwork
     private string networkName;
     private CancellationTokenSource tokenSource = new CancellationTokenSource();
 
+    private HttpClient HttpClient { get;  } = new HttpClient();
     public MeshNetwork(IServer server, IConfiguration configuration, ILogger<MeshNetwork> logger, StartupSequence startup)
     {
         logger.LogInformation("Initializing WebSocket server");
@@ -66,6 +68,23 @@ public class MeshNetwork : IMeshNetwork
         logger.LogInformation($"node.id = {serverId}");
 
         networkName = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
+    }
+
+    public async Task<List<string>> DownloadPeerListAsync(Uri uri)
+    {
+        var builder = new UriBuilder(uri);
+        builder.Path = "/peers";
+
+        var result = await HttpClient.GetAsync(builder.Uri);
+
+        if (!result.IsSuccessStatusCode)
+        {
+            return new();
+        }
+
+        var content = await result.Content.ReadAsStringAsync();
+
+        return JsonSerializer.Deserialize<List<string>>(content) ?? new();
     }
 
     public async Task BroadcastAsync(IPacket packet)
@@ -125,16 +144,6 @@ public class MeshNetwork : IMeshNetwork
     public Dictionary<ulong, Peer> GetPeers()
     {
         return Peers.ToDictionary(x => x.Key, x => x.Value);
-    }
-
-    public List<Peer> GetOutgoingConnections()
-    {
-        using var _lock = rwlock.EnterReadLockEx();
-
-        return Peers
-            .Where(x => x.Value.ConnectionType == ConnectionType.OUT)
-            .Select(x => x.Value)
-            .ToList();
     }
 
     public List<Peer> GetConnections()
@@ -259,8 +268,6 @@ public class MeshNetwork : IMeshNetwork
                                 return false;
                             }
 
-                            logger.LogInformation($"Connected to {uri.ToHostname()}");
-
                             var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, apiLevel);
 
                             _ = AddSocketAsync(client, peer);
@@ -274,7 +281,14 @@ public class MeshNetwork : IMeshNetwork
                 }
                 catch (WebSocketException wsEx)
                 {
-                    logger.LogInformation($"Error connecting to {uri.ToHostname()}: {wsEx.Message}");
+                    if (wsEx.WebSocketErrorCode == WebSocketError.NotAWebSocket)
+                    {
+                        logger.LogInformation($"Error connecting to {uri.ToHostname()}: Node is unreachable or offline");
+                    }
+                    else
+                    {
+                        logger.LogInformation($"Error connecting to {uri.ToHostname()}: {wsEx.Message}");
+                    }
                 }
 
                 token.WaitHandle.WaitOne(1000);

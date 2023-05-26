@@ -47,8 +47,16 @@ public class ApiControllerBase : Controller
     [HttpGet("peers")]
     public List<string> GetPeers()
     {
+        return networkManager.GetHosts()
+            .Where(x => x.IsReachable)
+            .Select(x => x.Url.ToHostname())
+            .ToList();
+    }
+
+    [HttpGet("peers/connected")]
+    public List<string> GetAllPeers()
+    {
         return meshNetwork.GetPeers()
-            .Where(x => x.Value.IsReachable)
             .Select(x => x.Value.Uri.ToHostname())
             .ToList();
     }

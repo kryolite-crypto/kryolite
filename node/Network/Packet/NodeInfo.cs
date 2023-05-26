@@ -24,15 +24,6 @@ public class NodeInfo : IPacket
         context.Logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
         var chainState2 = context.BlockchainManager.GetChainState();
 
-        var nodeHost = new NodeHost(peer.Uri)
-        {
-            NodeInfo = this,
-            LastSeen = DateTime.UtcNow,
-            IsReachable = Connection.TestConnection(peer.Uri)
-        };
-
-        //context.NetworkManager.AddHost(nodeHost);
-
         var totalWork = context.BlockchainManager.GetTotalWork();
 
         if (TotalWork > totalWork)

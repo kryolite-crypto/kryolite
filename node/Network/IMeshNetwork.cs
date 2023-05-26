@@ -10,9 +10,9 @@ public interface IMeshNetwork
 
     List<Uri> GetEndpoints();
     Dictionary<ulong, Peer> GetPeers();
-    List<Peer> GetOutgoingConnections();
     ulong GetServerId();
     Peer? GetPeer(Uri uri);
+    Task<List<string>> DownloadPeerListAsync(Uri uri);
 
     event EventHandler<PeerConnectedEventArgs>? PeerConnected;
     event EventHandler<PeerDisconnectedEventArgs>? PeerDisconnected;

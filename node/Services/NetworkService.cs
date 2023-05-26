@@ -58,32 +58,48 @@ public class NetworkService : BackgroundService
         await startup.Blockchain.WaitOneAsync();
         await startup.Mempool.WaitOneAsync();
 
+        var cleanupTimer = new System.Timers.Timer(TimeSpan.FromMinutes(30));
+
+        cleanupTimer.AutoReset = true;
+        cleanupTimer.Elapsed += HostCleanup;
+        cleanupTimer.Enabled = true;
+
+        var discoveryTimer = new System.Timers.Timer(TimeSpan.FromMinutes(10));
+
+        discoveryTimer.AutoReset = true;
+        discoveryTimer.Elapsed += PeerDiscovery;
+        discoveryTimer.Enabled = true;
+
         SyncBuffer.AsObservable().Subscribe(new ChainObserver(meshNetwork, blockchainManager, logger));
 
         var voteBuffer = new BufferBlock<Vote>();
         var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer);
 
         meshNetwork.PeerConnected += async (object? sender, PeerConnectedEventArgs args) => {
-            var outgoing = meshNetwork.GetOutgoingConnections();
+            discoveryTimer.Interval = TimeSpan.FromMinutes(10).TotalMilliseconds;
 
-            if (outgoing.Count >= Constant.MAX_PEERS)
-            {
-                var peer = outgoing.OrderBy(x => x.ConnectedSince)
-                    .First();
-
-                logger.LogInformation($"Disconnecting from {peer.Uri}");
-
-                await peer.DisconnectAsync();
-            }
-        };
-
-        meshNetwork.PeerDisconnected += async (object? sender, PeerDisconnectedEventArgs args) => {
-            if (sender is not Peer client) 
+            if (sender is not Peer peer)
             {
                 return;
             }
 
-            var peerCount = meshNetwork.GetOutgoingConnections().Count();
+            logger.LogInformation($"{peer.Uri.ToHostname()} connected");
+
+            if (peer.ConnectionType == ConnectionType.OUT)
+            {
+                await peer.SendAsync(new QueryNodeInfo());
+            }
+        };
+
+        meshNetwork.PeerDisconnected += async (object? sender, PeerDisconnectedEventArgs args) => {
+            if (sender is not Peer peer)
+            {
+                return;
+            }
+
+            logger.LogInformation($"{peer.Uri.ToHostname()} disconnected");
+
+            var peerCount = meshNetwork.GetPeers().Count;
 
             if (peerCount >= Constant.MAX_PEERS)
             {
@@ -98,14 +114,11 @@ public class NetworkService : BackgroundService
                 .OrderBy(x => Guid.NewGuid())
                 .ToList();
 
-            foreach (var peer in randomized)
+            foreach (var nextPeer in randomized)
             {
-                if (await meshNetwork.ConnectToAsync(peer.Url))
-                {
-                    peerCount++;
-                }
+                await meshNetwork.ConnectToAsync(nextPeer.Url);
 
-                if (peerCount >= Constant.MAX_PEERS)
+                if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
                 {
                     break;
                 }
@@ -114,7 +127,10 @@ public class NetworkService : BackgroundService
             if (meshNetwork.GetPeers().Count == 0)
             {
                 logger.LogWarning("All peers disconnected, trying to reconnect..");
-                ReconnectToNetwork();
+
+                discoveryTimer.Interval = TimeSpan.FromSeconds(30).TotalMilliseconds;
+
+                await DiscoverPeers();
             }
         };
 
@@ -202,23 +218,11 @@ public class NetworkService : BackgroundService
         NetworkChange.NetworkAvailabilityChanged += new
             NetworkAvailabilityChangedEventHandler(NetworkAvailabilityChanged);
 
-        var timer = new System.Timers.Timer(TimeSpan.FromMinutes(30));
-
-        timer.AutoReset = true;
-        timer.Elapsed += HostCleanup;
-        timer.Enabled = true;
-
-        var timer2 = new System.Timers.Timer(TimeSpan.FromMinutes(10));
-
-        timer2.AutoReset = true;
-        timer2.Elapsed += PeerDiscovery;
-        timer2.Enabled = true;
-
         logger.LogInformation("Network       [UP]");
         startup.Network.Set();
     }
 
-    private async Task<List<string>> ResolveInitialPeers()
+    private async Task<List<string>> DownloadPeerList()
     {
         logger.LogInformation("Resolving peers from testnet.kryolite.io");
 
@@ -229,86 +233,89 @@ public class NetworkService : BackgroundService
             throw new InvalidOperationException(result.ErrorMessage);
         }
 
-        List<string> peers = new();
+        var peers = new List<Uri>();
 
         foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
         {
             logger.LogInformation($"Peer: {txtRecord}");
 
             var uriBuilder = new UriBuilder(txtRecord);
-            peers.Add(uriBuilder.Uri.ToString().TrimEnd('/'));
+            peers.Add(uriBuilder.Uri);
         }
 
-        return peers;
+        var ret = new List<string>(peers.Select(x => x.ToString()));
+
+        foreach (var peer in peers)
+        {
+            var list = await meshNetwork.DownloadPeerListAsync(peer);
+
+            if (list.Count > 0)
+            {
+                logger.LogInformation($"Downloaded {list.Count} peers from {peer.ToHostname()}");
+
+                foreach (var url in list)
+                {
+                    // Convert to uri to make sure it is valid, wel also want to have string ending with / to be consistent
+                    if (Uri.TryCreate(url, new UriCreationOptions(), out var uri))
+                    {
+                        ret.Add(uri.ToString());
+                    }
+                }
+
+                break;
+            }
+        }
+
+        return ret.Distinct().OrderBy(x => Guid.NewGuid()).ToList();
     }
 
-    private async Task<bool> DiscoverPeers()
+    private async Task DiscoverPeers()
     {
         var publicUrl = configuration.GetValue<string?>("PublicUrl");
         var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
 
         if (peers.Count == 0)
         {
-            peers.AddRange(await ResolveInitialPeers());
+            peers.AddRange(await DownloadPeerList());
         }
-
-        var hosts = networkManager.GetHosts()
-            .Where(x => x.IsReachable)
-            .Select(x => x.Url.ToString());
-
-        peers.AddRange(hosts);
 
         peers = peers
             .Where(x => x != publicUrl)
+            .Distinct()
             .OrderBy(x => Guid.NewGuid())
             .ToList();
 
-        var connected = false;
-
-        foreach (var url in peers.Distinct())
+        foreach (var url in peers)
         {
-            logger.LogInformation("Connecting to peer {}", url);
-
             if (!Uri.TryCreate(url, new UriCreationOptions(), out var peerUri))
             {
                 logger.LogWarning("Invalid uri format {}", url);
                 continue;
             }
 
-            if (await meshNetwork.ConnectToAsync(peerUri))
-            {
-                var peer = meshNetwork.GetPeer(peerUri);
+            await meshNetwork.ConnectToAsync(peerUri);
 
-                if (peer != null)
-                {
-                    await peer.SendAsync(new QueryNodeList());
-                    connected = true;
-                }
-            }
-
-            if (peers.Count >= Constant.MAX_PEERS)
+            if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
             {
                 break;
             }
         }
 
-        if (peers.Count == 0)
+        if (meshNetwork.GetPeers().Count == 0)
         {
             logger.LogInformation("No peers resolved. Manually add peers in configuration.");
-            return false;
         }
-
-        return connected;
     }
 
     private async void PeerDiscovery(object? sender, ElapsedEventArgs e)
     {
-        if (meshNetwork.GetOutgoingConnections().Count() < Constant.MAX_PEERS)
+        var peers = meshNetwork.GetPeers();
+
+        if (peers.Count() < Constant.MAX_PEERS)
         {
             await DiscoverPeers();
         }
 
-        var peers = meshNetwork.GetPeers();
         var inPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.IN);
         var outPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.OUT);
 
@@ -336,21 +343,6 @@ public class NetworkService : BackgroundService
         }
     }
 
-    private void ReconnectToNetwork()
-    {
-        _ = Task.Run(async () => {
-            var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
-
-            while (await timer.WaitForNextTickAsync())
-            {
-                if(await DiscoverPeers())
-                {
-                    break;
-                }
-            }
-        });
-    }
-
     private async void NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
     {
         logger.LogInformation($"Network status changed, new status: {e.IsAvailable}");
@@ -359,7 +351,6 @@ public class NetworkService : BackgroundService
         {
             logger.LogInformation($"Network connected, restoring peer connections");
 
-            var count = meshNetwork.GetOutgoingConnections().Count();
             var peers = networkManager.GetHosts()
                 .Where(x => x.IsReachable)
                 .OrderBy(x => Guid.NewGuid())
@@ -367,12 +358,9 @@ public class NetworkService : BackgroundService
 
             foreach (var peer in peers)
             {
-                if(await meshNetwork.ConnectToAsync(peer.Url))
-                {
-                    count++;
-                }
+                await meshNetwork.ConnectToAsync(peer.Url);
 
-                if (count >= Constant.MAX_PEERS)
+                if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
                 {
                     break;
                 }

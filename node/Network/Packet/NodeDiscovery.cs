@@ -28,11 +28,14 @@ public class NodeDiscovery : IPacket
 
         context.NetworkManager.AddHost(nodeHost);
 
-        if (context.MeshNetwork.GetOutgoingConnections().Count < Constant.MAX_PEERS)
+        if (context.MeshNetwork.GetPeers().Count < Constant.MAX_PEERS)
         {
             _ = context.MeshNetwork.ConnectToAsync(Uri);
         }
 
-        args.Rebroadcast = true;
+        if (nodeHost.IsReachable)
+        {
+            args.Rebroadcast = true;
+        }
     }
 }
