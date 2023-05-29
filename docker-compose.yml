@@ -18,6 +18,7 @@ services:
       - ./node:/src/node
       - ./daemon:/src/daemon
       - daemon-build:/build
+
   daemon:
     depends_on:
       - daemon-builder
@@ -49,6 +50,38 @@ services:
       - ./daemon/entrypoint.sh:/kryolite/entrypoint.sh
       - ./daemon/appsettings.daemons.json:/kryolite/appsettings.json
       - /kryolite/data
+      - daemon-build:/build
+    environment:
+      - KRYOLITE__DAEMON__CLEAN=${KRYOLITE__DAEMON__CLEAN:-none}
+
+  daemon-first:
+    depends_on:
+      - daemon-builder
+    image: kryolite:dev
+    working_dir: "/kryolite"
+    entrypoint:
+      - /kryolite/entrypoint.sh
+      - daemon
+    volumes:
+      - ./daemon/entrypoint.sh:/kryolite/entrypoint.sh
+      - ./daemon/appsettings.daemon.json:/kryolite/appsettings.json
+      - ./datas/first:/kryolite/data
+      - daemon-build:/build
+    environment:
+      - KRYOLITE__DAEMON__CLEAN=${KRYOLITE__DAEMON__CLEAN:-none}
+
+  daemon-second:
+    depends_on:
+      - daemon-builder
+    image: kryolite:dev
+    working_dir: "/kryolite"
+    entrypoint:
+      - /kryolite/entrypoint.sh
+      - daemon
+    volumes:
+      - ./daemon/entrypoint.sh:/kryolite/entrypoint.sh
+      - ./daemon/appsettings.daemon.json:/kryolite/appsettings.json
+      - ./datas/first:/kryolite/data
       - daemon-build:/build
     environment:
       - KRYOLITE__DAEMON__CLEAN=${KRYOLITE__DAEMON__CLEAN:-none}
