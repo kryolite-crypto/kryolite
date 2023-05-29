@@ -116,21 +116,27 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            var peers = meshNetwork.GetPeers();
+            // prevent connection spam when only a few nodes are available
+            Thread.Sleep(TimeSpan.FromSeconds(1));
 
-            var randomized = networkManager.GetHosts()
-                .Where(x => !peers.ContainsKey(x.ClientId))
-                .Where(x => x.IsReachable)
-                .OrderBy(x => Guid.NewGuid())
-                .ToList();
-
-            foreach (var nextPeer in randomized)
+            if (peer.ConnectionType == ConnectionType.OUT)
             {
-                await meshNetwork.ConnectToAsync(nextPeer.Url);
+                var peers = meshNetwork.GetPeers();
 
-                if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
+                var randomized = networkManager.GetHosts()
+                    .Where(x => !peers.ContainsKey(x.ClientId))
+                    .Where(x => x.IsReachable)
+                    .OrderBy(x => Guid.NewGuid())
+                    .ToList();
+
+                foreach (var nextPeer in randomized)
                 {
-                    break;
+                    await meshNetwork.ConnectToAsync(nextPeer.Url);
+
+                    if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
+                    {
+                        break;
+                    }
                 }
             }
 

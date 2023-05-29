@@ -18,6 +18,12 @@ public class Message
 
     }
 
+    public Message(ulong id, IPacket packet)
+    {
+        Id = id;
+        Payload = packet;
+    }
+
     public Message(IPacket packet)
     {
         Id = (uint)Random.Shared.NextInt64();

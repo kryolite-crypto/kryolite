@@ -1,10 +1,7 @@
-using System.Numerics;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
-using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
 

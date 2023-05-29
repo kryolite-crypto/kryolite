@@ -321,15 +321,19 @@ public class MeshNetwork : IMeshNetwork
         var token = tokenSource.Token;
         var buffer = new byte[64 * 1024];
 
-        if(Peers.TryAdd(peer.ClientId, peer))
+        if (!Peers.TryAdd(peer.ClientId, peer))
         {
-            if (peer.ConnectionType == ConnectionType.IN && peer.IsReachable)
-            {
-                var discovery = new NodeDiscovery(peer.Uri);
-                var msg = new Message(discovery);
+            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "already connected", token);
+            return;
+        }
 
-                await BroadcastAsync(msg);
-            }
+        if (peer.ConnectionType == ConnectionType.IN && peer.IsReachable)
+        {
+            // notify other nodes of this new connection
+            var discovery = new NodeDiscovery(peer.Uri);
+            var msg = new Message(peer.ClientId, discovery);
+
+            await BroadcastAsync(msg);
         }
 
         _ = Task.Run(() => PeerConnected?.Invoke(peer, new PeerConnectedEventArgs()));
