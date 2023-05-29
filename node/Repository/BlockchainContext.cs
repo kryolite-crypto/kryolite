@@ -196,9 +196,6 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.Property(x => x.Difficulty)
                 .HasConversion(diffConverter);
 
-            entity.HasIndex(x => x.Height)
-                .HasDatabaseName("ix_block_height");
-
             entity.Property(x => x.ParentHash)
                 .HasConversion(sha256Converter);
         });
@@ -218,11 +215,7 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasName("pk_vote");
 
             entity.HasIndex(x => x.TransactionId)
-                .IsUnique()
                 .HasDatabaseName("ix_vote_txid");
-
-            //entity.HasIndex(x => x.Height)
-                //.HasDatabaseName("ix_vote_height");
 
             entity.Property(x => x.TransactionId)
                 .HasConversion(sha256Converter);
@@ -262,6 +255,9 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
             entity.ToTable("ChainState")
                 .HasKey(e => e.Id)
                 .HasName("pk_chain_state");
+
+            entity.Property(x => x.Weight)
+                .HasConversion(bigIntConverter);
 
             entity.Property(x => x.CurrentDifficulty)
                 .HasConversion(diffConverter);

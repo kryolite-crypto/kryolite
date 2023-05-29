@@ -1,4 +1,5 @@
-﻿using MessagePack;
+﻿using Kryolite.Shared.Blockchain;
+using MessagePack;
 using NSec.Cryptography;
 using System.ComponentModel.DataAnnotations;
 using KeyAttribute = MessagePack.KeyAttribute;
@@ -58,5 +59,23 @@ public class TransactionDto
         stream.Flush();
 
         Signature = algorithm.Sign(key, stream.ToArray());
+    }
+
+    public TransactionDto()
+    {
+
+    }
+    
+    public TransactionDto(Transaction tx)
+    {
+        TransactionType = tx.TransactionType;
+        PublicKey = tx.PublicKey;
+        To = tx.To;
+        Value = tx.Value;
+        Pow = tx.Pow;
+        Data = tx.Data;
+        Timestamp = tx.Timestamp;
+        Signature = tx.Signature;
+        Validates = tx.Validates.Select(x => x.TransactionId).ToList();
     }
 }

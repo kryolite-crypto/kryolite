@@ -10,15 +10,15 @@ public class QueryNodeInfo : IPacket
 {
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        /*context.Logger.LogInformation($"Node query received from {peer.Uri.ToHostname()}");
+        context.Logger.LogInformation($"Node query received from {peer.Uri.ToHostname()}");
 
-        var chainState3 = context.BlockchainManager.GetChainState();
+        var chainState = context.BlockchainManager.GetChainState();
         var response = new NodeInfo
         {
-            Height = chainState3.POS.Height,
-            TotalWork = chainState3.POW.TotalWork,
-            LastHash = context.BlockchainManager.GetLastBlockhash() ?? new SHA256Hash(),
-            CurrentTime = DateTime.UtcNow
+            Height = chainState.Height,
+            Weight = chainState.Weight,
+            LastHash = context.BlockchainManager.GetLastView().TransactionId ?? new SHA256Hash(),
+            CurrentTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
 
         _ = peer.SendAsync(response);

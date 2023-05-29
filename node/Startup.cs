@@ -246,7 +246,7 @@ public class Startup
         BlockchainService.DATA_PATH = dataDir;
 
         PacketFormatter.Register<NodeInfo>(Packet.NodeInfo);
-        PacketFormatter.Register<Blockchain>(Packet.Blockchain);
+        PacketFormatter.Register<TransactionBatch>(Packet.Blockchain);
         PacketFormatter.Register<NewBlock>(Packet.NewBlock);
         PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
         PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);

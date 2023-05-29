@@ -11,13 +11,13 @@ namespace Kryolite.Node;
 public class NodeInfo : IPacket
 {
     [Key(0)]
-    public DateTime CurrentTime { get; init; } // TODO unixtime
+    public long CurrentTime { get; init; }
     [Key(1)]
     public long Height { get; init; }
     [Key(2)]
-    public BigInteger TotalWork { get; init; }
+    public BigInteger Weight { get; init; }
     [Key(3)]
-    public SHA256Hash LastHash { get; init; }
+    public SHA256Hash? LastHash { get; init; }
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {

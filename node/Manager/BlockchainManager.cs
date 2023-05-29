@@ -20,10 +20,10 @@ public class BlockchainManager : IBlockchainManager
 
     private ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    private BroadcastBlock<Transaction> TransactionBroadcast = new(i => i);
+    private BroadcastBlock<TransactionDto> TransactionBroadcast = new(i => i);
+
     private BroadcastBlock<Vote> VoteBroadcast = new(i => i);
     private BroadcastBlock<ChainState> ChainStateBroadcast = new(i => i);
-    private BroadcastBlock<Block> BlockBroadcast = new(i => i);
     private BroadcastBlock<Wallet> WalletBroadcast = new(i => i);
     private BroadcastBlock<TransferTokenEventArgs> TokenTransferredBroadcast = new(i => i);
     private BroadcastBlock<ConsumeTokenEventArgs> TokenConsumedBroadcast = new(i => i);
@@ -110,6 +110,7 @@ public class BlockchainManager : IBlockchainManager
 
             chainState.Height++;
             chainState.LastHash = view.TransactionId;
+            chainState.Weight += chainState.CurrentDifficulty.ToWork() * votes.Count;
 
             blockchainRepository.Add(view);
 
@@ -165,6 +166,7 @@ public class BlockchainManager : IBlockchainManager
                         totalWork += block.Difficulty.ToWork();
                     }
 
+                    chainState.Weight += totalWork;
                     chainState.CurrentDifficulty = totalWork.ToDifficulty();
                 }
             }
@@ -204,7 +206,7 @@ public class BlockchainManager : IBlockchainManager
 
             if (broadcast)
             {
-                TransactionBroadcast.Post(view);
+                TransactionBroadcast.Post(new TransactionDto(view));
             }
 
             Logger.LogInformation($"Added view #{height}");
@@ -325,7 +327,7 @@ public class BlockchainManager : IBlockchainManager
 
             if (broadcast)
             {
-                TransactionBroadcast.Post(block);
+                TransactionBroadcast.Post(new TransactionDto(block));
             }
 
             Logger.LogInformation($"Added block #{chainState.Blocks} [diff = {block.Difficulty}]");
@@ -463,7 +465,7 @@ public class BlockchainManager : IBlockchainManager
 
             if (broadcast)
             {
-                TransactionBroadcast.Post(transaction);
+                TransactionBroadcast.Post(tx);
             }
 
             return true;
@@ -487,6 +489,15 @@ public class BlockchainManager : IBlockchainManager
 
         using var _ = rwlock.EnterWriteLockEx();
         using var blockchainRepository = new BlockchainRepository();
+
+        var chainState = blockchainRepository.GetChainState();
+        var view = blockchainRepository.Get<View>(vote.TransactionId);
+
+        if (view is not null && view.Height < chainState.Height)
+        {
+            Logger.LogInformation("AddVote rejected (reason = references finalized view)");
+            return false;
+        }
 
         blockchainRepository.AddVote(vote);
 
@@ -1346,11 +1357,6 @@ public class BlockchainManager : IBlockchainManager
     public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
     {
         return ChainStateBroadcast.LinkTo(action);
-    }
-
-    public IDisposable OnBlockAdded(ITargetBlock<Block> action)
-    {
-        return BlockBroadcast.LinkTo(action);
     }
 
     public IDisposable OnWalletUpdated(ITargetBlock<Wallet> action)

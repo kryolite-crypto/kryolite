@@ -1,3 +1,5 @@
+using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using MessagePack;
 using Microsoft.Extensions.Logging;
 
@@ -7,35 +9,37 @@ namespace Kryolite.Node;
 public class RequestChainSync : IPacket
 {
     [Key(0)]
-    public long StartBlock { get; init; }
-    [Key(1)]
-    public byte[]? StartHash { get; init; }
+    public SHA256Hash? LastHash { get; init; }
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {
-        /*context.Logger.LogInformation($"Chain sync requested from {peer.Uri.ToHostname()}");
+        context.Logger.LogInformation($"Chain sync requested by {peer.Uri.ToHostname()}");
 
-        var block = context.BlockchainManager.GetPosBlock(StartBlock);
+        var chain = new TransactionBatch();
 
-        var chain = new Blockchain();
+        if (LastHash is null) {
+            chain.Transactions = context.BlockchainManager.GetTransactionsAfterHeight(0, 1_000)
+                .Select(x => new Shared.Dto.TransactionDto(x))
+                .ToList();
 
-        if (block == null) {
-            chain.Blocks = context.BlockchainManager.GetPosFrom(0);
             goto answer;
         }
 
-        if (!Enumerable.SequenceEqual(block.GetHash().Buffer, StartHash!)) {
-            chain.Blocks = context.BlockchainManager.GetPosFrom(0);
+        var view = context.BlockchainManager.GetView(LastHash);
+
+        if (view is null) {
+            chain.Transactions = context.BlockchainManager.GetTransactionsAfterHeight(0, 1_000)
+                .Select(x => new Shared.Dto.TransactionDto(x))
+                .ToList();
+
             goto answer;
         }
 
-        if (StartBlock == context.BlockchainManager.GetCurrentHeight()) {
-            return;
-        }
+        chain.Transactions = context.BlockchainManager.GetTransactionsAfterHeight(view.Height ?? 0, 1_000)
+            .Select(x => new Shared.Dto.TransactionDto(x))
+            .ToList();
 
-        chain.Blocks = context.BlockchainManager.GetPosFrom(StartBlock);
-
-answer:
-        _ = peer.SendAsync(chain);*/
+        answer:
+        _ = peer.SendAsync(chain);
     }
 }

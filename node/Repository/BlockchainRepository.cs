@@ -81,12 +81,6 @@ pragma mmap_size = -1;
             .ToList();
     }
 
-    /*public void Add(List<Transaction> txs)
-    {
-        Context.Transactions.AddRange(txs);
-        Context.SaveChanges();
-    }*/
-
     public void SaveState(ChainState chainState)
     {
         Context.Update(chainState);

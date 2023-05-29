@@ -1,16 +1,17 @@
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class Blockchain : IPacket
+public class TransactionBatch : IPacket
 {
     [Key(0)]
-    public List<Block>? Blocks { get; set; }
+    public List<TransactionDto>? Transactions { get; set; }
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
     {

@@ -14,7 +14,9 @@ public interface IBlockchainManager
     bool AddTransaction(TransactionDto tx, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
 
+    View? GetView(SHA256Hash transactionId);
     View GetLastView();
+    List<Transaction> GetTransactionsAfterHeight(long height, int batchSize);
     List<Transaction> GetTransactionToValidate();
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
@@ -44,7 +46,6 @@ public interface IBlockchainManager
     List<Token> GetContractTokens(Address contractAddress);
 
     IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
-    IDisposable OnBlockAdded(ITargetBlock<Block> action);
     IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
     IDisposable OnVoteAdded(ITargetBlock<Vote> action);
     IDisposable OnTokenTransferred(ITargetBlock<TransferTokenEventArgs> action);
