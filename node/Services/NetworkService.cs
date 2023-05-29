@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
 
@@ -84,6 +85,15 @@ public class NetworkService : BackgroundService
             }
 
             logger.LogInformation($"{peer.Uri.ToHostname()} connected");
+
+            var nodeHost = new NodeHost(peer.Uri)
+            {
+                ClientId = peer.ClientId,
+                LastSeen = DateTime.UtcNow,
+                IsReachable = peer.IsReachable
+            };
+
+            networkManager.AddHost(nodeHost);
 
             if (peer.ConnectionType == ConnectionType.OUT)
             {
