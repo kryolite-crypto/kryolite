@@ -1,4 +1,5 @@
-﻿using MessagePack;
+﻿using Kryolite.Shared.Dto;
+using MessagePack;
 using Microsoft.EntityFrameworkCore.Metadata.Internal;
 using System.Security.Cryptography;
 
@@ -10,19 +11,33 @@ public class View : Transaction
     [IgnoreMember]
     public List<Vote> Votes { get; set; } = new List<Vote>();
 
-    public static View Create(PublicKey publicKey, long height)
+    public View()
     {
-        var view = new View
-        {
-            TransactionType = TransactionType.VIEW,
-            Value = Constant.VALIDATOR_REWARD,
-            Data = BitConverter.GetBytes(height),
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Height = height,
-            PublicKey = publicKey
-        };
 
-        return view;
+    }
+
+    public View(PublicKey publicKey, long height)
+    {
+        TransactionType = TransactionType.VIEW;
+        Value = Constant.VALIDATOR_REWARD;
+        Data = BitConverter.GetBytes(height);
+        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        Height = height;
+        PublicKey = publicKey;
+    }
+
+    public View(TransactionDto tx, List<Transaction> validates)
+    {
+        TransactionType = tx.TransactionType;
+        PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
+        To = tx.To;
+        Value = tx.Value;
+        Pow = tx.Pow ?? new SHA256Hash();
+        Data = tx.Data;
+        Timestamp = tx.Timestamp;
+        Signature = tx.Signature ?? throw new Exception("view requires signature");
+        Validates = validates;
+        TransactionId = CalculateHash();
     }
 
     public Vote Vote(PrivateKey privateKey)

@@ -27,6 +27,11 @@ public partial class AddressesTab : UserControl
 
         var walletGrid = this.FindControl<DataGrid>("WalletsGrid");
 
+        if (walletGrid is null)
+        {
+            throw new Exception("Addresses tab initialization failed");
+        }
+
         walletGrid.CellEditEnded += (object? sender, DataGridCellEditEndedEventArgs args) => {
             if (args.Row.DataContext is WalletModel walletModel) {
                 walletModel.Wallet.Description = walletModel.Description;

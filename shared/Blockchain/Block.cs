@@ -1,4 +1,6 @@
-﻿using MessagePack;
+﻿using Kryolite.Shared.Dto;
+using MessagePack;
+using System.Reactive;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
@@ -8,21 +10,32 @@ public class Block : Transaction
     public Difficulty Difficulty { get; set; }
     public SHA256Hash ParentHash { get; set; } = new SHA256Hash();
 
-    public static Block Create(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty)
+    public Block()
     {
-        var block = new Block()
-        {
-            TransactionType = TransactionType.BLOCK,
-            To = wallet,
-            Value = Constant.BLOCK_REWARD,
-            Timestamp = timestamp,
-            ParentHash = parentHash,
-            Difficulty = difficulty
-        };
 
-        block.Data = MessagePackSerializer.Serialize(new BlockPayload(block));
+    }
 
-        return block;
+    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty)
+    {
+        TransactionType = TransactionType.BLOCK;
+        To = wallet;
+        Value = Constant.BLOCK_REWARD;
+        Timestamp = timestamp;
+        ParentHash = parentHash;
+        Difficulty = difficulty;
+        Data = MessagePackSerializer.Serialize(new BlockPayload(this));
+    }
+
+    public Block(TransactionDto tx, List<Transaction> validates)
+    {
+        TransactionType = TransactionType.BLOCK;
+        To = tx.To;
+        Value = Constant.BLOCK_REWARD;
+        Timestamp = tx.Timestamp;
+        Validates = validates;
+        Data = tx.Data;
+        Pow = tx.Pow ?? new SHA256Hash();
+        TransactionId = CalculateHash();
     }
 
     public SHA256Hash GetHash()

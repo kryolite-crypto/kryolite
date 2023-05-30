@@ -18,33 +18,38 @@ namespace Kryolite.Wallet;
 
 public partial class SendTab : UserControl
 {
-    private IBlockchainManager BlockchainManager;
     private SendTabViewModel Model = new();
 
     public SendTab()
     {
-        BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
-
         AvaloniaXamlLoader.Load(this);
         DataContext = Model;
 
         Model.SendTransactionClicked += (object? sender, EventArgs args) => {
-            if (Model.Recipient == null || !Address.IsValid(Model.Recipient))
+            using var scope = Program.ServiceCollection.CreateScope();
+            var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+
+            if (Model.Recipient is null || Model.SelectedWallet is null || Model.Amount is null || !Address.IsValid(Model.Recipient))
             {
                 return;
             }
 
             var transaction = new Transaction {
                 TransactionType = TransactionType.PAYMENT,
-                PublicKey = Model.SelectedWallet!.PublicKey,
-                To = Model.Recipient!,
-                Value = (ulong)(decimal.Parse(Model.Amount!) * 1000000),
-                // MaxFee = 1,
+                PublicKey = Model.SelectedWallet.PublicKey,
+                To = Model.Recipient,
+                Value = (ulong)(decimal.Parse(Model.Amount) * 1000000),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Validates = blockchainManager.GetTransactionToValidate()
             };
 
             if (transaction.To.IsContract())
             {
+                if (Model.Method is null)
+                {
+                    return;
+                }
+
                 var transactionPayload = new TransactionPayload
                 {
                     Payload = new CallMethod
@@ -63,11 +68,11 @@ public partial class SendTab : UserControl
 
             transaction.Sign(Model.SelectedWallet!.PrivateKey);
 
-            // BlockchainManager.AddTransactionsToQueue(transaction);
+            blockchainManager.AddTransaction(transaction, true);
 
-            if (!Model.Addresses.Contains(Model.Recipient!))
+            if (!Model.Addresses.Contains(Model.Recipient))
             {
-                Model.Addresses.Add(Model.Recipient!);
+                Model.Addresses.Add(Model.Recipient);
             }
 
             Model.Recipient = "";
@@ -107,9 +112,12 @@ public partial class SendTab : UserControl
             return;
         }
 
-        // var contract = BlockchainManager.GetContract(addr);
+        using var scope = Program.ServiceCollection.CreateScope();
+        var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
 
-        /*Model.Manifest = new ManifestView()
+        var contract = blockchainManager.GetContract(addr);
+
+        Model.Manifest = new ManifestView()
         {
             Name = contract?.Manifest.Name ?? string.Empty,
             Methods = contract?.Manifest.Methods
@@ -125,7 +133,7 @@ public partial class SendTab : UserControl
                     .ToList()
                 })
                 .ToList() ?? new()
-        };*/
+        };
 
         container.IsVisible = true;
     }

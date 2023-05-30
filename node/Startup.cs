@@ -1,10 +1,15 @@
 using System.Net;
 using System.Net.WebSockets;
+using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using DnsClient;
 using Kryolite.Node.Executor;
+using Kryolite.Node.Repository;
+using Kryolite.Node.Services;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using LettuceEncrypt.Acme;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -14,10 +19,13 @@ using Microsoft.AspNetCore.DataProtection.XmlEncryption;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using Redbus;
+using Redbus.Interfaces;
 
 namespace Kryolite.Node;
 
@@ -246,11 +254,10 @@ public class Startup
         BlockchainService.DATA_PATH = dataDir;
 
         PacketFormatter.Register<NodeInfo>(Packet.NodeInfo);
-        PacketFormatter.Register<TransactionBatch>(Packet.Blockchain);
-        PacketFormatter.Register<NewBlock>(Packet.NewBlock);
+        PacketFormatter.Register<ChainData>(Packet.Blockchain);
         PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
         PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);
-        PacketFormatter.Register<TransactionData>(Packet.TransactionData);
+        PacketFormatter.Register<TransactionBatch>(Packet.TransactionData);
         PacketFormatter.Register<VoteBatch>(Packet.VoteBatch);
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
@@ -273,8 +280,10 @@ public class Startup
             services.AddLettuceEncrypt(c => c.AllowedChallengeTypes = ChallengeType.Http01);
         }
 
-        services.AddSingleton<IBlockchainManager, BlockchainManager>()
-                .AddSingleton<Lazy<IBlockchainManager>>(c => new Lazy<IBlockchainManager>(c.GetService<IBlockchainManager>()!))
+        var dataSource = Path.Join(dataDir, "blocks.dat");
+
+        services.AddTransient<IBlockchainRepository, BlockchainRepository>()
+                .AddTransient<IBlockchainManager, BlockchainManager>()
                 .AddSingleton<INetworkManager, NetworkManager>()
                 .AddSingleton<IWalletManager, WalletManager>()
                 .AddSingleton<IMeshNetwork, MeshNetwork>()
@@ -284,8 +293,15 @@ public class Startup
                 .AddHostedService<NetworkService>()
                 .AddHostedService<ValidatorService>()
                 .AddHostedService<MDNSService>()
+                .AddSingleton<IBufferService<TransactionDto>, TransactionService>()
+                .AddHostedService(p => (TransactionService)p.GetRequiredService<IBufferService<TransactionDto>>())
+                .AddSingleton<IBufferService<Vote>, VoteService>()
+                .AddHostedService(p => (VoteService)p.GetRequiredService<IBufferService<Vote>>())
+                .AddSingleton<IBufferService<Chain>, SyncService>()
+                .AddHostedService(p => (SyncService)p.GetRequiredService<IBufferService<Chain>>())
                 .AddSingleton<StartupSequence>()
                 .AddSingleton<ILookupClient>(new LookupClient())
+                .AddSingleton<IEventBus, EventBus>()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
                     .AllowAnyOrigin()

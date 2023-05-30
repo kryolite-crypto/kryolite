@@ -22,16 +22,18 @@ public class ViewExecutor : IViewExecutor
             return ExecutionResult.INVALID_TRANSACTION_TYPE;
         }
 
-        var voteCount = view.Votes.Count;
+        var votes = view.Votes
+            .Where(x => !Constant.SEED_VALIDATORS.Contains(x.PublicKey))
+            .ToList();
 
-        if (voteCount == 0)
+        if (votes.Count == 0)
         {
             return ExecutionResult.NO_VOTES;
         }
 
-        var reward = Constant.VALIDATOR_REWARD / voteCount;
+        var reward = Constant.VALIDATOR_REWARD / votes.Count;
 
-        foreach (var vote in view.Votes)
+        foreach (var vote in votes)
         {
             var wallet = Context.GetOrNewWallet(vote.PublicKey.ToAddress());
 

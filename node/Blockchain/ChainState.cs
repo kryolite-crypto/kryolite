@@ -1,9 +1,10 @@
 using System.Numerics;
 using Kryolite.Shared;
+using Redbus.Events;
 
 namespace Kryolite.Node;
 
-public class ChainState
+public class ChainState : EventBase
 {
     public int Id { get; set; } = 1;
 

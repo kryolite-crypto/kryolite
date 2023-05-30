@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using System.Numerics;
 using Kryolite.Shared;
 using MessagePack;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using static Kryolite.Node.NetworkManager;
 
@@ -19,24 +20,28 @@ public class NodeInfo : IPacket
     [Key(3)]
     public SHA256Hash? LastHash { get; init; }
 
-    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        /*context.Logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
-        var chainState2 = context.BlockchainManager.GetChainState();
+        using var scope = serviceProvider.CreateScope();
 
-        var totalWork = context.BlockchainManager.GetTotalWork();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<BlockchainManager>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfo>>();
 
-        if (TotalWork > totalWork)
+        logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
+        var chainState = blockchainManager.GetChainState();
+
+        if (Weight > chainState.Weight)
         {
+            var lastView = blockchainManager.GetLastView();
+
             var msg = new RequestChainSync
             {
-                StartBlock = chainState2.POS.Height,
-                StartHash = chainState2.POS.LastHash
+                LastHash = lastView.TransactionId
             };
 
-            context.Logger.LogInformation($"{peer.Uri.ToHostname()} has greater TotalWork ({TotalWork}) compared to local ({totalWork}). Requesting chain sync");
+            logger.LogInformation($"{peer.Uri.ToHostname()} has greater weight ({Weight}) compared to local ({chainState.Weight}). Initiating chain download...");
 
             _ = peer.SendAsync(msg);
-        }*/
+        }
     }
 }

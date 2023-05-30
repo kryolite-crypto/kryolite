@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -10,18 +11,18 @@ namespace Kryolite.Node;
 
 public class ValidatorService : BackgroundService
 {
+    private readonly IServiceProvider serviceProvider;
     private readonly IWalletManager walletManager;
-    private readonly IBlockchainManager blockchainManager;
     private readonly ILogger<ValidatorService> logger;
     private readonly StartupSequence startup;
 
     private Wallet Node { get; set; }
     private ManualResetEventSlim AllowExecution { get; set; } = new(true);
 
-    public ValidatorService(IWalletManager walletManager, IBlockchainManager blockchainManager, ILogger<ValidatorService> logger, StartupSequence startup)
+    public ValidatorService(IServiceProvider serviceProvider, IWalletManager walletManager, ILogger<ValidatorService> logger, StartupSequence startup)
     {
+        this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         this.walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
-        this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
@@ -36,7 +37,7 @@ public class ValidatorService : BackgroundService
 
             var task = StartValidator(stoppingToken);
 
-            blockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(wallet => {
+            /*blockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(wallet => {
                 if (wallet.WalletType != WalletType.VALIDATOR)
                 {
                     return;
@@ -51,7 +52,7 @@ public class ValidatorService : BackgroundService
                 {
                     AllowExecution.Reset();
                 }
-            }));
+            }));*/
 
             if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey))
             {
@@ -100,6 +101,10 @@ public class ValidatorService : BackgroundService
 
             while (!stoppingToken.IsCancellationRequested)
             {
+                using var scope = serviceProvider.CreateScope();
+
+                var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
+
                 var lastView = blockchainManager.GetLastView();
                 var nextLeader = lastView.Votes
                     .Where(x => !Banned.Contains(x.PublicKey))
@@ -117,7 +122,7 @@ public class ValidatorService : BackgroundService
 
                 if (nextLeader == Node.PublicKey)
                 {
-                    GenerateView(lastView);
+                    GenerateView(blockchainManager, lastView);
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
@@ -155,12 +160,12 @@ public class ValidatorService : BackgroundService
         }
     }
 
-    private void GenerateView(View lastView)
+    private void GenerateView(IBlockchainManager blockchainManager, View lastView)
     {
         var height = (lastView?.Height ?? 0) + 1L;
         var toValidate = blockchainManager.GetTransactionToValidate();
 
-        var nextView = View.Create(Node.PublicKey, height);
+        var nextView = new View(Node.PublicKey, height);
 
         foreach (var tx in toValidate)
         {
@@ -175,6 +180,10 @@ public class ValidatorService : BackgroundService
 
     private async Task SynchronizeViewGenerator(CancellationToken stoppingToken)
     {
+        using var scope = serviceProvider.CreateScope();
+
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
+
         logger.LogInformation($"Synchronize view generator");
         var lastView = blockchainManager.GetLastView() ?? throw new Exception("view not initialized");
 

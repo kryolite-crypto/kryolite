@@ -9,6 +9,5 @@ public interface INetworkManager
     //void AddHosts(List<NetworkManager.NodeHost> hosts);
     int GetHostCount();
     List<NetworkManager.NodeHost> GetHosts();
-    DateTimeOffset GetNetworkTime();
     void RemoveHost (NetworkManager.NodeHost host);
 }

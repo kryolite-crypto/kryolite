@@ -2,6 +2,7 @@ using MessagePack;
 using Microsoft.Extensions.Logging;
 using Kryolite.Shared;
 using static Kryolite.Node.NetworkManager;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Node;
 
@@ -15,9 +16,15 @@ public class NodeDiscovery : IPacket
         Uri = uri;
     }
 
-    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        context.Logger.LogInformation($"Received NodeDiscovery from {peer.Uri.ToHostname()}");
+        using var scope = serviceProvider.CreateScope();
+
+        var networkManager = scope.ServiceProvider.GetRequiredService<NetworkManager>();
+        var meshNetwork = scope.ServiceProvider.GetRequiredService<MeshNetwork>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeDiscovery>>();
+
+        logger.LogInformation($"Received NodeDiscovery from {peer.Uri.ToHostname()}");
 
         var nodeHost = new NodeHost(Uri)
         {
@@ -26,11 +33,11 @@ public class NodeDiscovery : IPacket
             IsReachable = Connection.TestConnection(Uri)
         };
 
-        context.NetworkManager.AddHost(nodeHost);
+        networkManager.AddHost(nodeHost);
 
-        if (context.MeshNetwork.GetPeers().Count < Constant.MAX_PEERS)
+        if (meshNetwork.GetPeers().Count < Constant.MAX_PEERS)
         {
-            _ = context.MeshNetwork.ConnectToAsync(Uri);
+            _ = meshNetwork.ConnectToAsync(Uri);
         }
 
         if (nodeHost.IsReachable)

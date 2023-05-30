@@ -67,7 +67,8 @@ public class WalletContext : DbContext, IDesignTimeDbContextFactory<WalletContex
             entity.Property(x => x.Balance)
                 .HasConversion(ulongConverter);
 
-            entity.Ignore(x => x.Updated);
+            entity.Property(x => x.Pending)
+                .HasConversion(ulongConverter);
         });
 
         builder.Entity<WalletTransaction>(entity =>

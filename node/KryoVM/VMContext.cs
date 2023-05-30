@@ -1,6 +1,7 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
+using Redbus.Events;
 
 namespace Kryolite.Node;
 
@@ -13,7 +14,7 @@ public class VMContext
     public List<object> EventData { get; set; } = new ();
     public long Balance { get; set; }
     public string? Returns { get; set; }
-    public List<EventArgs> Events { get; set; } = new ();
+    public List<EventBase> Events { get; set; } = new ();
 
     public VMContext(Contract contract, Transaction transaction, Random rand, ILogger logger)
     {

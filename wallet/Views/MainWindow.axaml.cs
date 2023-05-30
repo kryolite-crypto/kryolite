@@ -11,24 +11,27 @@ using System.Collections.Generic;
 using System.Reactive.Linq;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
+using Redbus.Interfaces;
+using System.Diagnostics;
+using Kryolite.Shared;
 
 namespace Kryolite.Wallet;
 
 public partial class MainWindow : Window
 {
-    private IBlockchainManager BlockchainManager;
     private INetworkManager NetworkManager;
     private IWalletManager WalletManager;
     private IMeshNetwork MeshNetwork;
+    private IEventBus EventBus;
 
     private MainWindowViewModel Model = new MainWindowViewModel();
 
     public MainWindow()
     {
-        BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
         NetworkManager = Program.ServiceCollection.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
         WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
         MeshNetwork = Program.ServiceCollection.GetService<IMeshNetwork>() ?? throw new ArgumentNullException(nameof(IMeshNetwork));
+        EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IEventBus));
 
         AvaloniaXamlLoader.Load(this);
 
@@ -56,34 +59,14 @@ public partial class MainWindow : Window
             });
         };
 
-        ChainObserver.BeginSync += async (object? sender, long total) => {
-            var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
 
-            if (syncProgress is null)
-            {
-                return;
-            }
-
-            await Dispatcher.UIThread.InvokeAsync(() => {
-                syncProgress.Value = 0;
-                syncProgress.Minimum = 0;
-                syncProgress.Maximum = 100;
-                syncProgress.IsEnabled = true;
-                syncProgress.IsVisible = true;
-            });
-        };
-
-        var progressUpdatedBuffer = new BufferBlock<SyncEventArgs>();
+        var progressUpdatedBuffer = new BufferBlock<SyncProgress>();
 
         progressUpdatedBuffer.AsObservable()
-            .Buffer(TimeSpan.FromSeconds(1), 250)
+            .Buffer(TimeSpan.FromSeconds(1), 1000)
             .Subscribe(async syncArgs => await OnProgressUpdated(syncArgs));
 
-        ChainObserver.SyncProgress += (object? sender, SyncEventArgs e) => {
-            progressUpdatedBuffer.Post(e);
-        };
-
-        ChainObserver.EndSync += async (object? sender, EventArgs args) => {
+        EventBus.Subscribe<SyncProgress>((progress) => {
             var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
 
             if (syncProgress is null)
@@ -91,20 +74,25 @@ public partial class MainWindow : Window
                 return;
             }
 
-            await Dispatcher.UIThread.InvokeAsync(() => {
-                syncProgress.Value = 0;
-                syncProgress.IsEnabled = false;
-                syncProgress.IsVisible = false;
-            });
-        };
+            progressUpdatedBuffer.Post(progress);
+        });
 
-        BlockchainManager.OnChainUpdated(new ActionBlock<ChainState>(async state => {
+        EventBus.Subscribe<ChainState>(async state => {
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.Blocks = state.Height;
             });
-        }));
+        });
 
-        BlockchainManager.OnWalletUpdated(new ActionBlock<Kryolite.Shared.Wallet>(async wallet => await OnWalletUpdated(wallet)));
+        EventBus.Subscribe<Shared.Wallet>(async wallet => {
+            if (wallet.WalletType != WalletType.WALLET)
+            {
+                return;
+            }
+
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                Model.SetWallet(wallet);
+            });
+        });
     }
 
     private void OnInitialized(object? sender, EventArgs args)
@@ -136,7 +124,10 @@ public partial class MainWindow : Window
         });
 
         Task.Run(async () => {
-            var state = BlockchainManager.GetChainState();
+            using var scope = Program.ServiceCollection.CreateScope();
+            var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+
+            var state = blockchainManager.GetChainState();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
                 Model.Blocks = state.Height;
@@ -146,19 +137,7 @@ public partial class MainWindow : Window
         Model.ConnectedPeers = MeshNetwork.GetPeers().Count;
     }
 
-    private async Task OnWalletUpdated(Kryolite.Shared.Wallet wallet)
-    {
-        if (wallet.WalletType != Shared.WalletType.WALLET)
-        {
-            return;
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => {
-            Model.SetWallet(wallet);
-        });
-    }
-
-    private async Task OnProgressUpdated(IList<SyncEventArgs> syncArgs)
+    private async Task OnProgressUpdated(IList<SyncProgress> syncArgs)
     {
         if (syncArgs.Count == 0)
         {
@@ -166,6 +145,11 @@ public partial class MainWindow : Window
         }
 
         var max = syncArgs.MaxBy(x => x.Progress);
+
+        if (max is null)
+        {
+            return;
+        }
 
         await Dispatcher.UIThread.InvokeAsync(() => {
             var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
@@ -175,13 +159,11 @@ public partial class MainWindow : Window
                 return;
             }
 
-            if (syncProgress.IsEnabled)
-            {
-                syncProgress.ProgressTextFormat = $$"""{{max.Status}}: {1:0}%""";
-                syncProgress.Value = max.Progress;
-                syncProgress.Minimum = 0;
-                syncProgress.Maximum = 100;
-            }
+            syncProgress.Value = max.Progress;
+            syncProgress.Minimum = 0;
+            syncProgress.Maximum = 100;
+            syncProgress.IsEnabled = !max.Completed;
+            syncProgress.IsVisible = !max.Completed;
         });
     }
 }

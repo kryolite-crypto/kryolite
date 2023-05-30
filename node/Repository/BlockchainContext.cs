@@ -41,8 +41,6 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
-        // Reduces EF memory usage by effectivily disabling all caching
-        // optionsBuilder.UseInternalServiceProvider(new ServiceCollection().AddEntityFrameworkSqlite().BuildServiceProvider());
         base.OnConfiguring(optionsBuilder);
     }
 
@@ -215,6 +213,9 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasName("pk_vote");
 
             entity.HasIndex(x => x.TransactionId)
+                .HasDatabaseName("ix_vote_txid");
+
+            entity.HasIndex(x => x.Signature)
                 .HasDatabaseName("ix_vote_txid");
 
             entity.Property(x => x.TransactionId)

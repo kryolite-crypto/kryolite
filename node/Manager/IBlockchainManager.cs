@@ -11,9 +11,11 @@ public interface IBlockchainManager
     bool AddGenesis(Genesis genesis);
     bool AddView(View view, bool broadcast);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
+    bool AddTransaction(Transaction tx, bool broadcast);
     bool AddTransaction(TransactionDto tx, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
 
+    Genesis? GetGenesis();
     View? GetView(SHA256Hash transactionId);
     View GetLastView();
     List<Transaction> GetTransactionsAfterHeight(long height, int batchSize);
@@ -23,18 +25,15 @@ public interface IBlockchainManager
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
     ulong GetBalance(Address address);
-    //BigInteger GetTotalWork();
-    /*SHA256Hash? GetLastBlockhash();
-    List<Transaction> AddTransactionsToQueue(IList<Transaction> transactions, bool broadcast = true);
-    void AddTransactionsToQueue(Transaction transaction);
-    List<PowBlock> GetLastBlocks(int count);
-    List<PowBlock> GetLastBlocks(long start, int count);
+    
+    void AddTransactionBatch(IList<TransactionDto> transactions);
+    void AddVoteBatch(IList<Vote> votes);
+
+    /*
     bool SetChain(List<PosBlock> blocks);
-    List<PosBlock> GetPosFrom(long id);
-    List<PowBlock> GetPowFrom(long id);
-    bool AddVote(Vote vote);
-    List<Vote> AddVotes(IList<Vote> votes);
-    void ResetChain();*/
+    */
+    void ResetChain();
+
     Contract? GetContract(Address address);
     List<LedgerWallet> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
@@ -44,10 +43,4 @@ public interface IBlockchainManager
     Token? GetToken(SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
     List<Token> GetContractTokens(Address contractAddress);
-
-    IDisposable OnChainUpdated(ITargetBlock<ChainState> action);
-    IDisposable OnWalletUpdated(ITargetBlock<Wallet> action);
-    IDisposable OnVoteAdded(ITargetBlock<Vote> action);
-    IDisposable OnTokenTransferred(ITargetBlock<TransferTokenEventArgs> action);
-    IDisposable OnTokenConsumed(ITargetBlock<ConsumeTokenEventArgs> action);
 }

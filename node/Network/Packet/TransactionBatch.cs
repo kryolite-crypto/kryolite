@@ -1,8 +1,8 @@
-using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MessagePack;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
@@ -11,16 +11,24 @@ namespace Kryolite.Node;
 public class TransactionBatch : IPacket
 {
     [Key(0)]
-    public List<TransactionDto>? Transactions { get; set; }
+    public IList<TransactionDto> Transactions { get; set; } = new List<TransactionDto>();
 
-    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        context.Logger.LogInformation($"Received blockchain from {peer.Uri.ToHostname()}");
-
-        /*if (Blocks != null && !ChainObserver.InProgress)
+        if (Transactions.Count == 0)
         {
-            var chain = new Chain(peer, Blocks);
-            context.SyncBuffer.Post<Chain>(chain);
-        }*/
+            return;
+        }
+
+        using var scope = serviceProvider.CreateScope();
+
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<BlockchainManager>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBatch>>();
+
+        // TODO: Check that validated transactions exists, query for more if not
+
+        logger.LogInformation($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
+
+        blockchainManager.AddTransactionBatch(Transactions);
     }
 }

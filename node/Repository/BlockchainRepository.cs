@@ -3,9 +3,9 @@ using Kryolite.Shared.Blockchain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
-namespace Kryolite.Node;
+namespace Kryolite.Node.Repository;
 
-public class BlockchainRepository : IDisposable
+public class BlockchainRepository : IBlockchainRepository
 {
     public BlockchainContext Context { get; private set; }
 
@@ -13,6 +13,8 @@ public class BlockchainRepository : IDisposable
 
     public BlockchainRepository()
     {
+        //Context = context ?? throw new ArgumentNullException(nameof(context));
+
         if (Factory is null)
         {
             var walletPath = Path.Join(BlockchainService.DATA_PATH, "blocks.dat");
@@ -33,14 +35,20 @@ public class BlockchainRepository : IDisposable
         Context = Factory.CreateDbContext();
 
         FormattableString cmd = $@"
-pragma threads = 4;
-pragma journal_mode = wal; 
-pragma synchronous = normal;
-pragma temp_store = default; 
-pragma mmap_size = -1;
-";
+            pragma threads = 4;
+            pragma journal_mode = wal; 
+            pragma synchronous = normal;
+            pragma temp_store = default; 
+            pragma mmap_size = -1;";
 
         Context.Database.ExecuteSql(cmd);
+
+        //Context.Database.EnsureCreated();
+    }
+
+    public DbContext GetContext()
+    {
+        return Context;
     }
 
     public long Count()
@@ -55,14 +63,21 @@ pragma mmap_size = -1;
             .FirstOrDefault();
     }
 
+    public T? Get<T>(long height) where T : Transaction
+    {
+        return Context.Set<T>()
+            .Where(x => x.Height == height)
+            .FirstOrDefault();
+    }
+
     public void Add<T>(T tx) where T : Transaction
     {
         Context.Update<T>(tx);
     }
 
-    public Genesis GetGenesis()
+    public Genesis? GetGenesis()
     {
-        return Context.Genesis.First();
+        return Context.Genesis.FirstOrDefault();
     }
 
     public View GetLastView()
@@ -72,6 +87,11 @@ pragma mmap_size = -1;
             .Include(x => x.Votes)
             .AsNoTracking()
             .First();
+    }
+
+    public bool VoteExists(Signature signature)
+    {
+        return Context.Votes.Any(x => x.Signature == signature);
     }
 
     public List<Vote> GetVotes(SHA256Hash transactionId)
@@ -84,14 +104,6 @@ pragma mmap_size = -1;
     public void SaveState(ChainState chainState)
     {
         Context.Update(chainState);
-    }
-
-    public Block GetBlockAt(int skip)
-    {
-        return Context.Blocks
-            .OrderByDescending(x => x.Timestamp)
-            .Skip(skip)
-            .First();
     }
 
     public List<Block> GetBlocks(long height)
@@ -331,10 +343,5 @@ pragma mmap_size = -1;
             .Where(x => x.Contract.Address == contractAddress)
             .Include(x => x.Wallet)
             .ToList();
-    }
-
-    public void Dispose()
-    {
-        Context.Dispose();
     }
 }

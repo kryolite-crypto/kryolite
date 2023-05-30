@@ -1,9 +1,10 @@
 using System.Text.Json.Serialization;
 using NSec.Cryptography;
+using Redbus.Events;
 
 namespace Kryolite.Shared;
 
-public class Wallet
+public class Wallet : EventBase
 {
     [JsonIgnore]
     public Guid Id { get; set; }
@@ -14,7 +15,6 @@ public class Wallet
     public ulong Balance { get; set; }
     public ulong Pending { get; set; }
     public WalletType WalletType { get; set; }
-    public bool Updated { get; set; }
 
     public List<WalletTransaction> WalletTransactions { get; set; } = new();
 

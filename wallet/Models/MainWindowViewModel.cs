@@ -136,8 +136,9 @@ public class MainWindowViewModel : NotifyPropertyChanged
                 Wallet = wallet
             });
         } else {
-            Wallets[Wallets.IndexOf(existing)].Balance = wallet.Balance;
-            Wallets[Wallets.IndexOf(existing)].WalletTransactions.AddRange(wallet.WalletTransactions);
+            existing.Balance = wallet.Balance;
+            existing.Pending = wallet.Pending;
+            existing.WalletTransactions.AddRange(wallet.WalletTransactions);
         }
 
         Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));

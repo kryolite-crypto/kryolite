@@ -1,4 +1,6 @@
-﻿using Kryolite.Shared;
+﻿using Kryolite.Node.Repository;
+using Kryolite.Shared;
+using Redbus.Events;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -21,9 +23,9 @@ public interface IExecutorContext
     Token? GetToken(SHA256Hash tokenId);
     void AddToken(Token token);
 
-    List<EventArgs> GetEvents();
-    void AddEvents(List<EventArgs> events);
+    List<EventBase> GetEvents();
+    void AddEvents(List<EventBase> events);
 
-    BlockchainRepository GetRepository();
+    IBlockchainRepository GetRepository();
     void Save();
 }

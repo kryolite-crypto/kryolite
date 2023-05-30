@@ -1,18 +1,20 @@
-﻿using Kryolite.Shared;
+﻿using Kryolite.Node.Repository;
+using Kryolite.Shared;
+using Redbus.Events;
 using Wasmtime;
 
 namespace Kryolite.Node.Executor;
 
 public class ExecutorContext : IExecutorContext
 {
-    public BlockchainRepository Repository { get; }
+    public IBlockchainRepository Repository { get; }
     private Dictionary<Address, LedgerWallet> Wallets { get; } = new();
     private Dictionary<Address, Contract> Contracts { get; } = new();
     private Dictionary<SHA256Hash, Token> Tokens { get; } = new();
-    private List<EventArgs> Events { get; } = new();
+    private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
 
-    public ExecutorContext(BlockchainRepository repository)
+    public ExecutorContext(IBlockchainRepository repository)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
@@ -120,17 +122,17 @@ public class ExecutorContext : IExecutorContext
         Tokens.Add(token.TokenId, token);
     }
 
-    public List<EventArgs> GetEvents()
+    public List<EventBase> GetEvents()
     {
         return Events;
     }
 
-    public void AddEvents(List<EventArgs> events)
+    public void AddEvents(List<EventBase> events)
     {
         Events.AddRange(events);
     }
 
-    public BlockchainRepository GetRepository()
+    public IBlockchainRepository GetRepository()
     {
         return Repository;
     }
@@ -151,6 +153,6 @@ public class ExecutorContext : IExecutorContext
         Repository.UpdateContracts(Contracts.Values);
         Repository.UpdateTokens(Tokens.Values);
 
-        Repository.Context.SaveChanges();
+        Repository.GetContext().SaveChanges();
     }
 }

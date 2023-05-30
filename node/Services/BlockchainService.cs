@@ -3,6 +3,7 @@ using System.Text.Unicode;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -11,15 +12,18 @@ namespace Kryolite.Node;
 public class BlockchainService : BackgroundService
 {
     public static string DATA_PATH = string.Empty;
+    private SHA256Hash GenesisSeed;
 
-    private readonly StartupSequence startup;
-    private readonly IConfiguration configuration;
+    public IServiceProvider ServiceProvider { get; }
+    public StartupSequence Startup { get; }
+    private ILogger<BlockchainService> Logger { get; }
+    public IConfiguration Configuration { get; }
 
-    public BlockchainService(IBlockchainManager blockchainManager, StartupSequence startup, ILogger<BlockchainService> logger, IConfiguration configuration) {
-        BlockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
-        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
+    public BlockchainService(IServiceProvider serviceProvider, StartupSequence startup, ILogger<BlockchainService> logger, IConfiguration configuration) {
+        ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        Startup = startup ?? throw new ArgumentNullException(nameof(startup));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
         // TODO: build argument?? or configuration property?
         var bytes = Encoding.UTF8.GetBytes(configuration.GetValue<string?>("NetworkName") ?? "MAINNET");
@@ -28,30 +32,28 @@ public class BlockchainService : BackgroundService
         GenesisSeed = new SHA256Hash(bytes);
     }
 
-    private IBlockchainManager BlockchainManager { get; }
-    private ILogger<BlockchainService> Logger { get; }
-
-    private SHA256Hash GenesisSeed;
-
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
-            //var genesis = BlockchainManager.GetPosBlock(0);
+            using var scope = ServiceProvider.CreateScope();
+            var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
 
-            //if (genesis) 
-            //{
-                InitializeGenesisBlock();
-            //}
+            var genesis = blockchainManager.GetGenesis();
 
-            /*if (genesis != null && genesis.Pow != GenesisSeed)
+            if (genesis is null)
+            {
+                InitializeGenesisBlock(blockchainManager);
+            }
+
+            if (genesis != null && genesis.Pow != GenesisSeed)
             {
                 Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
-                BlockchainManager.ResetChain();
-                InitializeGenesisBlock();
-            }*/
+                blockchainManager.ResetChain();
+                InitializeGenesisBlock(blockchainManager);
+            }
 
-            Logger.LogInformation($"Blockchain    [UP][{configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
+            Logger.LogInformation($"Blockchain    [UP][{Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
         }
         catch (Exception ex)
         {
@@ -59,19 +61,19 @@ public class BlockchainService : BackgroundService
         }
     }
 
-    private void InitializeGenesisBlock()
+    private void InitializeGenesisBlock(IBlockchainManager blockchainManager)
     {
         var timestamp = new DateTimeOffset(2023, 1, 1, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
         var genesis = new Genesis {
-            NetworkName = configuration.GetValue<string?>("NetworkName") ?? "MAINNET",
+            NetworkName = Configuration.GetValue<string?>("NetworkName") ?? "MAINNET",
             Pow = GenesisSeed,
             Timestamp = timestamp,
             PublicKey = new PublicKey(),
             Signature = new Signature()
         };
 
-        if(!BlockchainManager.AddGenesis(genesis))
+        if(!blockchainManager.AddGenesis(genesis))
         {
             Logger.LogError("Failed to initialize Genesis");
         }
@@ -85,7 +87,7 @@ public class BlockchainService : BackgroundService
             Height = 0,
             PublicKey = new PublicKey(),
             Signature = new Signature(),
-            Validates = BlockchainManager.GetTransactionToValidate()
+            Validates = blockchainManager.GetTransactionToValidate()
         };
 
         view.TransactionId = view.CalculateHash();
@@ -99,6 +101,6 @@ public class BlockchainService : BackgroundService
 
         view.Votes.Add(vote);
 
-        BlockchainManager.AddView(view, false);
+        blockchainManager.AddView(view, false);
     }
 }

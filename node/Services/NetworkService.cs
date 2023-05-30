@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -15,40 +16,44 @@ using System.Timers;
 using DnsClient;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using Makaretu.Dns;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Redbus.Events;
+using Redbus.Interfaces;
 using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
 
 public class NetworkService : BackgroundService
 {
-    private readonly IServer server;
-    private readonly IMeshNetwork meshNetwork;
-    private readonly IConfiguration configuration;
-    private readonly StartupSequence startup;
-    private readonly INetworkManager networkManager;
-    private readonly IBlockchainManager blockchainManager;
-    private readonly ILogger<NetworkService> logger;
-    private readonly BufferBlock<Chain> SyncBuffer = new BufferBlock<Chain>();
-    private readonly ILookupClient LookupClient;
+    private IServiceProvider ServiceProvider { get; }
+    private IServer Server { get; }
+    private IMeshNetwork MeshNetwork { get; }
+    private IConfiguration Configuration { get; }
+    private INetworkManager NetworkManager { get; }
+    private ILogger<NetworkService> Logger { get; }
+    private ILookupClient LookupClient { get; }
+    private StartupSequence Startup { get; }
+
     private readonly MulticastService mdns;
     private readonly ServiceDiscovery serviceDiscovery;
 
-    public NetworkService(IServer server, IMeshNetwork meshNetwork, IConfiguration configuration, StartupSequence startup, ILogger<NetworkService> logger, INetworkManager networkManager, IBlockchainManager blockchainManager, ILookupClient lookupClient)
+    public NetworkService(IServiceProvider serviceProvider)
     {
-        this.server = server ?? throw new ArgumentNullException(nameof(server));
-        this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
-        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
-        this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
-        LookupClient = lookupClient ?? throw new ArgumentNullException(nameof(lookupClient));
+        ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        Server = serviceProvider.GetRequiredService<IServer>();
+        MeshNetwork = serviceProvider.GetRequiredService<IMeshNetwork>();
+        Configuration = serviceProvider.GetRequiredService<IConfiguration>();
+        NetworkManager = serviceProvider.GetRequiredService<INetworkManager>();
+        Logger = serviceProvider.GetRequiredService<ILogger<NetworkService>>();
+        LookupClient = serviceProvider.GetRequiredService<ILookupClient>();
+        Startup = serviceProvider.GetRequiredService<StartupSequence>();
 
         MulticastService.IncludeLoopbackInterfaces = true;
         mdns = new MulticastService();
@@ -57,8 +62,6 @@ public class NetworkService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        await startup.Blockchain.WaitOneAsync();
-
         var cleanupTimer = new System.Timers.Timer(TimeSpan.FromMinutes(30));
 
         cleanupTimer.AutoReset = true;
@@ -71,12 +74,7 @@ public class NetworkService : BackgroundService
         discoveryTimer.Elapsed += PeerDiscovery;
         discoveryTimer.Enabled = true;
 
-        SyncBuffer.AsObservable().Subscribe(new ChainObserver(meshNetwork, blockchainManager, logger));
-
-        var voteBuffer = new BufferBlock<Vote>();
-        var context = new PacketContext(blockchainManager, networkManager, meshNetwork, configuration, logger, SyncBuffer, voteBuffer);
-
-        meshNetwork.PeerConnected += async (object? sender, PeerConnectedEventArgs args) => {
+        MeshNetwork.PeerConnected += async (object? sender, PeerConnectedEventArgs args) => {
             discoveryTimer.Interval = TimeSpan.FromMinutes(10).TotalMilliseconds;
 
             if (sender is not Peer peer)
@@ -84,7 +82,7 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            logger.LogInformation($"{peer.Uri.ToHostname()} connected");
+            Logger.LogInformation($"{peer.Uri.ToHostname()} connected");
 
             var nodeHost = new NodeHost(peer.Uri)
             {
@@ -93,7 +91,7 @@ public class NetworkService : BackgroundService
                 IsReachable = peer.IsReachable
             };
 
-            networkManager.AddHost(nodeHost);
+            NetworkManager.AddHost(nodeHost);
 
             if (peer.ConnectionType == ConnectionType.OUT)
             {
@@ -101,15 +99,15 @@ public class NetworkService : BackgroundService
             }
         };
 
-        meshNetwork.PeerDisconnected += async (object? sender, PeerDisconnectedEventArgs args) => {
+        MeshNetwork.PeerDisconnected += async (object? sender, PeerDisconnectedEventArgs args) => {
             if (sender is not Peer peer)
             {
                 return;
             }
 
-            logger.LogInformation($"{peer.Uri.ToHostname()} disconnected");
+            Logger.LogInformation($"{peer.Uri.ToHostname()} disconnected");
 
-            var peerCount = meshNetwork.GetPeers().Count;
+            var peerCount = MeshNetwork.GetPeers().Count;
 
             if (peerCount >= Constant.MAX_PEERS)
             {
@@ -121,9 +119,9 @@ public class NetworkService : BackgroundService
 
             if (peer.ConnectionType == ConnectionType.OUT)
             {
-                var peers = meshNetwork.GetPeers();
+                var peers = MeshNetwork.GetPeers();
 
-                var randomized = networkManager.GetHosts()
+                var randomized = NetworkManager.GetHosts()
                     .Where(x => !peers.ContainsKey(x.ClientId))
                     .Where(x => x.IsReachable)
                     .OrderBy(x => Guid.NewGuid())
@@ -131,18 +129,18 @@ public class NetworkService : BackgroundService
 
                 foreach (var nextPeer in randomized)
                 {
-                    await meshNetwork.ConnectToAsync(nextPeer.Url);
+                    await MeshNetwork.ConnectToAsync(nextPeer.Url);
 
-                    if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
+                    if (MeshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
                     {
                         break;
                     }
                 }
             }
 
-            if (meshNetwork.GetPeers().Count == 0)
+            if (MeshNetwork.GetPeers().Count == 0)
             {
-                logger.LogWarning("All peers disconnected, trying to reconnect..");
+                Logger.LogWarning("All peers disconnected, trying to reconnect..");
 
                 discoveryTimer.Interval = TimeSpan.FromSeconds(30).TotalMilliseconds;
 
@@ -150,93 +148,54 @@ public class NetworkService : BackgroundService
             }
         };
 
-        meshNetwork.MessageReceived += (object? sender, MessageReceivedEventArgs args) =>
+        MeshNetwork.MessageReceived += (object? sender, MessageReceivedEventArgs args) =>
         {
             try
             {
                 if (sender is not Peer peer) 
                 {
-                    logger.LogWarning("Message received from unknown source");
+                    Logger.LogWarning("Message received from unknown source");
                     return;
                 }
 
                 if (args.Message.Payload is not IPacket packet) 
                 {
-                    logger.LogWarning("Invalid payload type received {}", args.Message.Payload?.GetType());
+                    Logger.LogWarning("Invalid payload type received {}", args.Message.Payload?.GetType());
                     return;
                 }
 
-                packet.Handle(peer, args, context);
+                packet.Handle(peer, args, ServiceProvider);
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Error while handling packet {}", args.Message.Payload?.GetType());
+                Logger.LogWarning(ex, "Error while handling packet {}", args.Message.Payload?.GetType());
             }
         };
 
-        blockchainManager.OnBlockAdded(new ActionBlock<Block>(async block => {
-            await meshNetwork.BroadcastAsync(new NewBlock(block));
-        }));
-
-        blockchainManager.OnVoteAdded(new ActionBlock<Vote>(async signature => {
+        /*blockchainManager.OnVoteAdded(new ActionBlock<Vote>(async signature => {
             var msg = new VoteBatch
             {
                 Votes = new List<Vote> { signature }
             };
 
             await meshNetwork.BroadcastAsync(msg);
-        }));
+        }));*/
 
-        var transactionBuffer = new BufferBlock<Transaction>();
+        Logger.LogInformation("Network       [UP]");
 
-        transactionBuffer.AsObservable()
-            .Buffer(TimeSpan.FromMilliseconds(100), Constant.MAX_BLOCK_TX)
-            .Subscribe(async transactions => {
-                if (transactions.Count() == 0)
-                {
-                    return;
-                }
-
-                var msg = new TransactionData
-                {
-                    Transactions = transactions
-                };
-
-                await meshNetwork.BroadcastAsync(msg);
-            });
-
-        voteBuffer.AsObservable()
-            .Buffer(TimeSpan.FromMilliseconds(100))
-            .Subscribe(async signatures => {
-                if (signatures.Count == 0)
-                {
-                    return;
-                }
-
-                var msg = new VoteBatch
-                {
-                    Votes = signatures
-                };
-
-                await meshNetwork.BroadcastAsync(msg);
-            });
-
-        logger.LogInformation("Network       [UP]");
-
-        await Task.Run(() => startup.Application.Wait(stoppingToken));
+        await Task.Run(() => Startup.Application.Wait(stoppingToken));
 
         await DiscoverPeers();
 
         NetworkChange.NetworkAvailabilityChanged += new
             NetworkAvailabilityChangedEventHandler(NetworkAvailabilityChanged);
 
-        logger.LogInformation("Network       [UP]");
-        startup.Network.Set();
+        Logger.LogInformation("Network       [UP]");
     }
 
     private async Task<List<string>> DownloadPeerList()
     {
-        logger.LogInformation("Resolving peers from testnet.kryolite.io");
+        Logger.LogInformation("Resolving peers from testnet.kryolite.io");
 
         var result = await LookupClient.QueryAsync("testnet.kryolite.io", QueryType.TXT);
 
@@ -249,7 +208,7 @@ public class NetworkService : BackgroundService
 
         foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
         {
-            logger.LogInformation($"Peer: {txtRecord}");
+            Logger.LogInformation($"Peer: {txtRecord}");
 
             var uriBuilder = new UriBuilder(txtRecord);
             peers.Add(uriBuilder.Uri);
@@ -259,11 +218,11 @@ public class NetworkService : BackgroundService
 
         foreach (var peer in peers)
         {
-            var list = await meshNetwork.DownloadPeerListAsync(peer);
+            var list = await MeshNetwork.DownloadPeerListAsync(peer);
 
             if (list.Count > 0)
             {
-                logger.LogInformation($"Downloaded {list.Count} peers from {peer.ToHostname()}");
+                Logger.LogInformation($"Downloaded {list.Count} peers from {peer.ToHostname()}");
 
                 foreach (var url in list)
                 {
@@ -283,8 +242,8 @@ public class NetworkService : BackgroundService
 
     private async Task DiscoverPeers()
     {
-        var publicUrl = configuration.GetValue<string?>("PublicUrl");
-        var peers = configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
+        var publicUrl = Configuration.GetValue<string?>("PublicUrl");
+        var peers = Configuration.GetSection("Peers").Get<List<string>>() ?? new List<string>();
 
         if (peers.Count == 0)
         {
@@ -301,27 +260,27 @@ public class NetworkService : BackgroundService
         {
             if (!Uri.TryCreate(url, new UriCreationOptions(), out var peerUri))
             {
-                logger.LogWarning("Invalid uri format {}", url);
+                Logger.LogWarning("Invalid uri format {}", url);
                 continue;
             }
 
-            await meshNetwork.ConnectToAsync(peerUri);
+            await MeshNetwork.ConnectToAsync(peerUri);
 
-            if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
+            if (MeshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
             {
                 break;
             }
         }
 
-        if (meshNetwork.GetPeers().Count == 0)
+        if (MeshNetwork.GetPeers().Count == 0)
         {
-            logger.LogInformation("No peers resolved. Manually add peers in configuration.");
+            Logger.LogInformation("No peers resolved. Manually add peers in configuration.");
         }
     }
 
     private async void PeerDiscovery(object? sender, ElapsedEventArgs e)
     {
-        var peers = meshNetwork.GetPeers();
+        var peers = MeshNetwork.GetPeers();
 
         if (peers.Count() < Constant.MAX_PEERS)
         {
@@ -331,48 +290,48 @@ public class NetworkService : BackgroundService
         var inPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.IN);
         var outPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.OUT);
 
-        logger.LogInformation($"Connected to {peers.Count} peers [in = {inPeers.Count()}, out = {outPeers.Count()}]");
+        Logger.LogInformation($"Connected to {peers.Count} peers [in = {inPeers.Count()}, out = {outPeers.Count()}]");
     }
 
     private void HostCleanup(object? sender, ElapsedEventArgs e)
     {
-        if (meshNetwork.GetPeers().Count == 0)
+        if (MeshNetwork.GetPeers().Count == 0)
         {
             // not connected to network, do ping hosts
             return;
         }
 
-        logger.LogInformation("Cleaning up stale nodes");
-        var hosts = networkManager.GetHosts();
+        Logger.LogInformation("Cleaning up stale nodes");
+        var hosts = NetworkManager.GetHosts();
 
         foreach (var host in hosts)
         {
             if(!Connection.TestConnection(host.Url))
             {
-                logger.LogDebug($"Host {host.Url} not reachable, removing host");
-                networkManager.RemoveHost(host);
+                Logger.LogDebug($"Host {host.Url} not reachable, removing host");
+                NetworkManager.RemoveHost(host);
             }
         }
     }
 
     private async void NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
     {
-        logger.LogInformation($"Network status changed, new status: {e.IsAvailable}");
+        Logger.LogInformation($"Network status changed, new status: {e.IsAvailable}");
 
         if (e.IsAvailable)
         {
-            logger.LogInformation($"Network connected, restoring peer connections");
+            Logger.LogInformation($"Network connected, restoring peer connections");
 
-            var peers = networkManager.GetHosts()
+            var peers = NetworkManager.GetHosts()
                 .Where(x => x.IsReachable)
                 .OrderBy(x => Guid.NewGuid())
                 .ToList();
 
             foreach (var peer in peers)
             {
-                await meshNetwork.ConnectToAsync(peer.Url);
+                await MeshNetwork.ConnectToAsync(peer.Url);
 
-                if (meshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
+                if (MeshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
                 {
                     break;
                 }
@@ -384,19 +343,20 @@ public class NetworkService : BackgroundService
 public class Chain
 {
     public Peer Peer { get; set; }
-    public List<Block> Blocks { get; set; }
+    public List<TransactionDto> Transactions { get; set; }
 
-    public Chain(Peer peer, List<Block> blocks)
+    public Chain(Peer peer, List<TransactionDto> transactions)
     {
         Peer = peer;
-        Blocks = blocks;
+        Transactions = transactions;
     }
 }
 
-public class SyncEventArgs
+public class SyncProgress : EventBase
 {
     public string Status { get; set; } = string.Empty;
     public double Progress { get; set; }
+    public bool Completed { get; set; }
 }
 
 public class ChainObserver : IObserver<Chain>
@@ -404,32 +364,26 @@ public class ChainObserver : IObserver<Chain>
     private readonly IMeshNetwork nodeNetwork;
     private readonly IBlockchainManager blockchainManager;
     private readonly ILogger<NetworkService> logger;
-
-    // TODO: quick hack, create proper events
-    public static event EventHandler<long>? BeginSync;
-    public static event EventHandler<SyncEventArgs>? SyncProgress;
-    public static event EventHandler<EventArgs>? EndSync;
+    private readonly IEventBus eventBus;
 
     // TODO: Make better Sync state control
     public static bool InProgress;
 
-    public ChainObserver(IMeshNetwork nodeNetwork, IBlockchainManager blockchainManager, ILogger<NetworkService> logger)
+    public ChainObserver(IServiceProvider serviceProvider)
     {
         this.nodeNetwork = nodeNetwork ?? throw new ArgumentNullException(nameof(nodeNetwork));
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        this.eventBus = eventBus ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public static void ReportProgress(string status, double progress, double total)
+    public void ReportProgress(string status, double progress, double total)
     {
-        if (SyncProgress is not null)
+        eventBus.Publish(new SyncProgress
         {
-            SyncProgress?.Invoke(null, new SyncEventArgs
-            {
-                Status = status,
-                Progress = progress / total * 100d
-            });
-        }
+            Status = status,
+            Progress = progress / total * 100d
+        });
     }
     
     public void OnCompleted()
@@ -440,7 +394,12 @@ public class ChainObserver : IObserver<Chain>
     public void OnError(Exception error)
     {
         logger.LogError(error, "Chain sync failed");
-        EndSync?.Invoke(this, EventArgs.Empty);
+
+        eventBus.Publish(new SyncProgress
+        {
+            Status = "",
+            Progress = 100
+        });
     }
 
     public void OnNext(Chain chain)

@@ -44,7 +44,7 @@ public class Transaction : IComparable<Transaction>
         PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow ?? throw new Exception("tx has null pow");
+        Pow = tx.Pow ?? new SHA256Hash();
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("payment requires signature");

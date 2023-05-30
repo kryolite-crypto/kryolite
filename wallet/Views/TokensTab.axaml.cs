@@ -6,6 +6,7 @@ using Kryolite.Shared;
 using Material.Icons;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json.Linq;
+using Redbus.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,15 +19,15 @@ namespace Kryolite.Wallet;
 
 public partial class TokensTab : UserControl
 {
-    private IBlockchainManager BlockchainManager;
     private IWalletManager WalletManager;
+    private IEventBus EventBus;
 
     private TokensTabViewModel Model = new();
 
     public TokensTab()
     {
-        BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
         WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
+        EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IWalletManager));
 
         InitializeComponent();
         DataContext = Model;
@@ -57,6 +58,9 @@ public partial class TokensTab : UserControl
                     return;
                 }
 
+                using var scope = Program.ServiceCollection.CreateScope();
+                var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+
                 var wallets = WalletManager.GetWallets();
 
                 foreach (var token in tokens)
@@ -68,7 +72,7 @@ public partial class TokensTab : UserControl
                     if (exists is null)
                     {
                         // Query token from db and add to model
-                        /*var newToken = BlockchainManager.GetToken(token.TokenId);
+                        var newToken = blockchainManager.GetToken(token.TokenId);
 
                         if (newToken is null)
                         {
@@ -84,7 +88,7 @@ public partial class TokensTab : UserControl
                                 Description = newToken.Description,
                                 IsConsumed = newToken.IsConsumed
                             });
-                        });*/
+                        });
                         continue;
                     }
 
@@ -107,7 +111,7 @@ public partial class TokensTab : UserControl
                 }
             });
 
-        BlockchainManager.OnTokenTransferred(tokenTransferredBuffer);
+        EventBus.Subscribe<TransferTokenEventArgs>(e => tokenTransferredBuffer.Post(e));
 
         var tokenConsumedBuffer = new BufferBlock<ConsumeTokenEventArgs>();
 
@@ -136,7 +140,7 @@ public partial class TokensTab : UserControl
                 }
             });
 
-        BlockchainManager.OnTokenConsumed(tokenConsumedBuffer);
+        EventBus.Subscribe<ConsumeTokenEventArgs>(e => tokenConsumedBuffer.Post(e));
     }
 
     private void InitializeData()
@@ -145,9 +149,12 @@ public partial class TokensTab : UserControl
             var wallets = WalletManager.GetWallets();
             var collection = new List<TokenModel>();
 
+            using var scope = Program.ServiceCollection.CreateScope();
+            var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+
             foreach (var wallet in wallets)
             {
-                /*var tokens = BlockchainManager.GetTokens(wallet.Key)
+                var tokens = blockchainManager.GetTokens(wallet.Key)
                     .Select(token => new TokenModel
                     {
                         TokenId = token.TokenId,
@@ -157,7 +164,7 @@ public partial class TokensTab : UserControl
                         IsConsumed = token.IsConsumed
                     });
 
-                collection.AddRange(tokens.ToList());*/
+                collection.AddRange(tokens.ToList());
             }
 
             Model.Tokens = new ObservableCollection<TokenModel>(collection);

@@ -9,7 +9,7 @@ public static class Constant
     public const int MIN_API_LEVEL = 1;
 
     public const int HEARTBEAT_INTERVAL = 60;
-    public const byte STARTING_DIFFICULTY = 8;
+    public const byte STARTING_DIFFICULTY = 4;
     public const int TARGET_BLOCK_TIME_S = 60;
     public const int EPOCH_LENGTH_BLOCKS = 100;
     public const string ADDR_PREFIX = "kryo:";

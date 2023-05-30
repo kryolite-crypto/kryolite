@@ -1,52 +1,52 @@
 using System;
 using System.Diagnostics;
 using System.Numerics;
-using System.Threading.Tasks.Dataflow;
 using Kryolite.Node.Executor;
+using Kryolite.Node.Repository;
+using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Redbus.Interfaces;
 
 namespace Kryolite.Node;
 
 public class BlockchainManager : IBlockchainManager
 {
+    private IBlockchainRepository Repository { get; }
+    private IBufferService<TransactionDto> TransactionBuffer { get; }
+    private IBufferService<Vote> VoteBuffer { get; }
     private IExecutorFactory ExecutorFactory { get; }
     private INetworkManager NetworkManager { get; }
     private IWalletManager WalletManager { get; }
+    private IEventBus EventBus { get; }
     private ILogger<BlockchainManager> Logger { get; }
 
-    private ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
+    private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    private BroadcastBlock<TransactionDto> TransactionBroadcast = new(i => i);
-
-    private BroadcastBlock<Vote> VoteBroadcast = new(i => i);
-    private BroadcastBlock<ChainState> ChainStateBroadcast = new(i => i);
-    private BroadcastBlock<Wallet> WalletBroadcast = new(i => i);
-    private BroadcastBlock<TransferTokenEventArgs> TokenTransferredBroadcast = new(i => i);
-    private BroadcastBlock<ConsumeTokenEventArgs> TokenConsumedBroadcast = new(i => i);
-
-    public BlockchainManager(IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, ILogger<BlockchainManager> logger)
+    public BlockchainManager(IBlockchainRepository repository, IBufferService<TransactionDto> transactionBuffer, IBufferService<Vote> voteBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, ILogger<BlockchainManager> logger)
     {
+        Repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        TransactionBuffer = transactionBuffer ?? throw new ArgumentNullException(nameof(transactionBuffer));
+        VoteBuffer = voteBuffer ?? throw new ArgumentNullException(nameof(voteBuffer));
         ExecutorFactory = executorFactory ?? throw new ArgumentNullException(nameof(executorFactory));
         NetworkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         WalletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
+        EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     public bool AddGenesis(Genesis genesis)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-        using var tx = blockchainRepository.Context.Database.BeginTransaction();
 
         try
         {
             genesis.TransactionId = genesis.CalculateHash();
 
-            blockchainRepository.Add(genesis);
+            Repository.Add(genesis);
 
             var chainState = new ChainState
             {
@@ -56,16 +56,13 @@ public class BlockchainManager : IBlockchainManager
                 CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty()
             };
 
-            blockchainRepository.SaveState(chainState);
-            blockchainRepository.Context.SaveChanges();
-
-            tx.Commit();
+            Repository.SaveState(chainState);
+            Repository.GetContext().SaveChanges();
 
             return true;
         }
         catch (Exception ex)
         {
-            tx.Rollback();
             Logger.LogError(ex, "AddGenesis error");
         }
 
@@ -75,8 +72,6 @@ public class BlockchainManager : IBlockchainManager
     public bool AddView(View view, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-        using var tx = blockchainRepository.Context.Database.BeginTransaction();
 
         try
         {
@@ -84,7 +79,7 @@ public class BlockchainManager : IBlockchainManager
 
             view.TransactionId = view.CalculateHash();
 
-            var chainState = blockchainRepository.GetChainState();
+            var chainState = Repository.GetChainState();
 
             if (height != chainState.Height + 1)
             {
@@ -94,7 +89,7 @@ public class BlockchainManager : IBlockchainManager
 
             if (height > 0)
             {
-                var lastView = blockchainRepository.GetLastView();
+                var lastView = Repository.GetLastView();
                 var earliest = lastView.Timestamp + Constant.HEARTBEAT_INTERVAL;
 
                 if (view.Timestamp < earliest)
@@ -105,20 +100,20 @@ public class BlockchainManager : IBlockchainManager
             }
 
             // Add any received votes for current view
-            var votes = blockchainRepository.GetVotes(view.TransactionId);
+            var votes = Repository.GetVotes(view.TransactionId);
             view.Votes.AddRange(votes);
 
             chainState.Height++;
             chainState.LastHash = view.TransactionId;
             chainState.Weight += chainState.CurrentDifficulty.ToWork() * votes.Count;
 
-            blockchainRepository.Add(view);
+            Repository.Add(view);
 
             var sw = Stopwatch.StartNew();
 
             var toExecute = new List<Transaction>();
 
-            blockchainRepository.Context.Entry(view)
+            Repository.GetContext().Entry(view)
                 .Collection(x => x.Validates)
                 .Load();
 
@@ -129,15 +124,15 @@ public class BlockchainManager : IBlockchainManager
                     continue;
                 }
 
-                TraverseTransaction(blockchainRepository.Context, child, height, toExecute);
+                TraverseTransaction(Repository.GetContext(), child, height, toExecute);
             }
 
-            var context = new ExecutorContext(blockchainRepository);
+            var context = new ExecutorContext(Repository);
             var executor = ExecutorFactory.Create(context);
 
             if (height > 0)
             {
-                var lastView = blockchainRepository.GetLastView();
+                var lastView = Repository.GetLastView();
                 toExecute.Add(lastView);
             }
 
@@ -147,7 +142,7 @@ public class BlockchainManager : IBlockchainManager
 
             if (height > 0)
             {
-                var blocks = blockchainRepository.GetBlocks(height);
+                var blocks = Repository.GetBlocks(height);
 
                 if (blocks.Count == 0)
                 {
@@ -173,12 +168,10 @@ public class BlockchainManager : IBlockchainManager
 
             Logger.LogInformation($"Next difficulty {chainState.CurrentDifficulty}");
 
-            blockchainRepository.SaveState(chainState);
-            blockchainRepository.Context.SaveChanges();
+            Repository.SaveState(chainState);
+            Repository.GetContext().SaveChanges();
 
-            tx.Commit();
-
-            ChainStateBroadcast.Post(chainState);
+            EventBus.Publish(chainState);
 
             var wallets = WalletManager.GetWallets();
             var addresses = new List<string>();
@@ -198,15 +191,28 @@ public class BlockchainManager : IBlockchainManager
 
             foreach (var address in addresses.Distinct())
             {
-                if(wallets.TryGetValue(address, out var wallet))
+                var ledgerWallet = context.GetWallet(address);
+
+                if (ledgerWallet is null)
                 {
-                    WalletBroadcast.Post(wallet);
+                    // should not be null since we have already gone thru every transaction
+                    continue;
+                }
+
+                if (wallets.TryGetValue(address, out var wallet))
+                {
+                    wallet.Balance = ledgerWallet.Balance;
+                    wallet.Pending = ledgerWallet.Pending;
+
+                    EventBus.Publish(wallet);
                 }
             }
 
+            WalletManager.UpdateWallets(wallets.Values);
+
             if (broadcast)
             {
-                TransactionBroadcast.Post(new TransactionDto(view));
+                TransactionBuffer.Add(new TransactionDto(view));
             }
 
             Logger.LogInformation($"Added view #{height}");
@@ -215,40 +221,126 @@ public class BlockchainManager : IBlockchainManager
         }
         catch (Exception ex)
         {
-            tx.Rollback();
             Logger.LogError(ex, "AddView error");
         }
 
         return false;
     }
 
+    public bool AddBlock(Block block, bool broadcast)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+
+        if (block.To is null)
+        {
+            Logger.LogInformation("AddBlock rejected (reason = null to address)");
+            return false;
+        }
+
+        if (block.Value != Constant.BLOCK_REWARD)
+        {
+            Logger.LogInformation("AddBlock rejected (reason = invalid reward)");
+            return false;
+        }
+
+        if (block.Validates.Count < 2)
+        {
+            Logger.LogInformation("AddBlock rejected (reason = not enought transactions referenced)");
+            return false;
+        }
+
+        block.TransactionId = block.CalculateHash();
+
+        var chainState = Repository.GetChainState();
+
+        if (block.Difficulty != chainState.CurrentDifficulty)
+        {
+            Logger.LogInformation("AddBlock rejected (reason = invalid difficulty)");
+            return false;
+        }
+
+        if (block.ParentHash != chainState.LastHash)
+        {
+            Logger.LogInformation("AddBlock rejected (reason = invalid parent hash)");
+            return false;
+        }
+
+        var lastView = Repository.GetLastView();
+
+        if (block.Timestamp < lastView.Timestamp)
+        {
+            Logger.LogInformation("AddBlock rejected (reason = invalid timestamp)");
+            return false;
+        }
+
+        var exists = Repository.Get<Block>(block.TransactionId);
+
+        if (exists is not null)
+        {
+            Logger.LogInformation("AddBlock rejected (reason = already exists)");
+            return false;
+        }
+
+        if (!block.VerifyNonce())
+        {
+            Logger.LogInformation("AddBlock rejected (reason = invalid nonce)");
+            return false;
+        }
+
+        var to = Repository.GetWallet(block.To);
+
+        if (to is null)
+        {
+            to = new LedgerWallet(block.To);
+            Repository.UpdateWallet(to);
+        }
+
+        checked
+        {
+            to.Pending += block.Value;
+        }
+
+        var wallet = WalletManager.GetWallet(to.Address.ToString());
+
+        if (wallet is not null)
+        {
+            wallet.Pending = to.Pending;
+            wallet.Balance = to.Balance;
+
+            WalletManager.UpdateWallet(wallet);
+
+            EventBus.Publish(wallet);
+        }
+
+        chainState.Blocks++;
+
+        Repository.Add(block);
+        Repository.SaveState(chainState);
+        Repository.GetContext().SaveChanges();
+
+        if (broadcast)
+        {
+            TransactionBuffer.Add(new TransactionDto(block));
+        }
+
+        Logger.LogInformation($"Added block #{chainState.Blocks} [diff = {block.Difficulty}]");
+
+        return true;
+    }
+
     public bool AddBlock(Blocktemplate blocktemplate, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-        using var tx = blockchainRepository.Context.Database.BeginTransaction();
 
         try
         {
-            var block = Block.Create(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty);
-
-            if (block.To is null)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = null to address)");
-                return false;
-            }
-
-            if (block.Value != Constant.BLOCK_REWARD)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = invalid reward)");
-                return false;
-            }
+            var block = new Block(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty);
 
             block.Pow = blocktemplate.Solution;
 
             foreach (var txhash in blocktemplate.Validates)
             {
-                var transaction = blockchainRepository.Get<Transaction>(txhash);
+                var transaction = Repository.Get<Transaction>(txhash);
 
                 if (transaction is null)
                 {
@@ -259,98 +351,28 @@ public class BlockchainManager : IBlockchainManager
                 block.Validates.Add(transaction);
             }
 
-            if (block.Validates.Count < 2)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = not enought transactions referenced)");
-                return false;
-            }
-
-            block.TransactionId = block.CalculateHash();
-
-            var chainState = blockchainRepository.GetChainState();
-
-            if (block.Difficulty != chainState.CurrentDifficulty)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = invalid difficulty)");
-                return false;
-            }
-
-            if (block.ParentHash != chainState.LastHash)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = invalid parent hash)");
-                return false;
-            }
-
-            var lastView = blockchainRepository.GetLastView();
-
-            if (block.Timestamp < lastView.Timestamp)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = invalid timestamp)");
-                return false;
-            }
-
-            var exists = blockchainRepository.Get<Block>(block.TransactionId);
-
-            if (exists is not null)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = already exists)");
-                return false;
-            }
-
-            if (!block.VerifyNonce())
-            {
-                Logger.LogInformation("AddBlock rejected (reason = invalid nonce)");
-                return false;
-            }
-
-            var to = blockchainRepository.GetWallet(block.To) ?? new LedgerWallet(block.To);
-
-            checked
-            {
-                to.Pending += block.Value;
-            }
-
-            var wallet = WalletManager.GetWallet(to.Address.ToString());
-
-            if (wallet is not null)
-            {
-                WalletBroadcast.Post(wallet);
-            }
-
-            chainState.Blocks++;
-
-            blockchainRepository.Add(block);
-            blockchainRepository.SaveState(chainState);
-            blockchainRepository.Context.SaveChanges();
-
-            tx.Commit();
-
-            if (broadcast)
-            {
-                TransactionBroadcast.Post(new TransactionDto(block));
-            }
-
-            Logger.LogInformation($"Added block #{chainState.Blocks} [diff = {block.Difficulty}]");
-
-            return true;
+            return AddBlock(block, broadcast);
         }
         catch (Exception ex)
         {
-            tx.Rollback();
-            Logger.LogError(ex, "AddView error");
+            Logger.LogError(ex, "AddBlock error");
         }
 
         return false;
     }
 
-    public bool AddTransaction(TransactionDto tx, bool broadcast)
+    public bool AddTransaction(Transaction tx, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-        using var dbTx = blockchainRepository.Context.Database.BeginTransaction();
 
         try
         {
+            if (tx.TransactionType != TransactionType.PAYMENT && tx.TransactionType != TransactionType.BLOCK)
+            {
+                Logger.LogInformation("AddTransaction rejected (reason = wrong transaction type)");
+                return false;
+            }
+
             if (tx.TransactionType == TransactionType.PAYMENT && tx.Value == 0)
             {
                 Logger.LogInformation("AddTransaction rejected (reason = zero payment)");
@@ -363,52 +385,29 @@ public class BlockchainManager : IBlockchainManager
                 return false;
             }
 
-            var lastView = blockchainRepository.GetLastView();
-
-            if (tx.Timestamp < lastView.Timestamp)
-            {
-                Logger.LogInformation("AddTransaction rejected (reason = invalid timestamp)");
-                return false;
-            }
-
-            var validates = new List<Transaction>();
-
-            foreach (var txId in tx.Validates)
-            {
-                var parentTx = blockchainRepository.Get<Transaction>(txId);
-
-                if (parentTx is null)
-                {
-                    Logger.LogInformation("AddTransaction rejected (reason = unknown transaction reference)");
-                    return false;
-                }
-
-                validates.Add(parentTx);
-            }
-
-            var transaction = new Transaction(tx, validates);
-
-            if (transaction.To is null)
+            if (tx.To is null)
             {
                 Logger.LogInformation("AddTransaction rejected (reason = null 'to' address)");
                 return false;
             }
 
-            if (!transaction.Verify())
+            if (!tx.Verify())
             {
                 Logger.LogInformation("AddTransaction rejected (reason = signature verification failed)");
                 return false;
             }
 
-            var exists = blockchainRepository.Get<Transaction>(transaction.TransactionId);
+            tx.TransactionId = tx.CalculateHash();
+
+            var exists = Repository.Get<Transaction>(tx.TransactionId);
 
             if (exists is not null)
             {
-                Logger.LogInformation("AddTransaction rejected (reason = already exists)");
-                return false;
+                // no need to do anything, we have this already
+                return true;
             }
 
-            var from = blockchainRepository.GetWallet(transaction.From);
+            var from = Repository.GetWallet(tx.From);
 
             if (from is null)
             {
@@ -422,61 +421,97 @@ public class BlockchainManager : IBlockchainManager
                 return false;
             }
 
-            var to = blockchainRepository.GetWallet(transaction.To) ?? new LedgerWallet(transaction.To);
+            var to = Repository.GetWallet(tx.To) ?? new LedgerWallet(tx.To);
 
             checked
             {
-                from.Balance -= transaction.Value;
-                to.Pending += transaction.Value;
+                from.Balance -= tx.Value;
+                to.Pending += tx.Value;
             }
 
             var fromWallet = WalletManager.GetWallet(from.Address.ToString());
 
             if (fromWallet is not null)
             {
-                WalletBroadcast.Post(fromWallet);
+                fromWallet.Balance = from.Balance;
+                fromWallet.Pending = from.Pending;
+
+                WalletManager.UpdateWallet(fromWallet);
+
+                EventBus.Publish(fromWallet);
             }
 
             var toWallet = WalletManager.GetWallet(to.Address.ToString());
 
             if (toWallet is not null)
             {
-                WalletBroadcast.Post(toWallet);
+                toWallet.Balance = to.Balance;
+                toWallet.Pending = to.Pending;
+
+                WalletManager.UpdateWallet(toWallet);
+
+                EventBus.Publish(toWallet);
             }
 
-            blockchainRepository.Add(transaction);
-            blockchainRepository.UpdateWallets(from, to);
-            blockchainRepository.Context.SaveChanges();
-
-            dbTx.Commit();
-
-            var wallets = WalletManager.GetWallets();
-
-            if (wallets.TryGetValue(transaction.From.ToString(), out var wallet))
-            {
-                wallet.Balance = from.Balance;
-
-                WalletBroadcast.Post(wallet);
-            }
-
-            WalletManager.UpdateWallets(wallets.Values);
+            Repository.Add(tx);
+            Repository.UpdateWallets(from, to);
+            Repository.GetContext().SaveChanges();
 
             Logger.LogInformation($"Added transaction [type = {tx.TransactionType}, value = {tx.Value}]");
 
             if (broadcast)
             {
-                TransactionBroadcast.Post(tx);
+                TransactionBuffer.Add(new TransactionDto(tx));
             }
 
             return true;
         }
         catch (Exception ex) 
         {
-            dbTx.Rollback();
             Logger.LogError(ex, "AddTransaction error");
         }
 
         return false;
+    }
+
+    public bool AddTransaction(TransactionDto tx, bool broadcast)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+
+        var validates = new List<Transaction>();
+
+        foreach (var txId in tx.Validates)
+        {
+            var parentTx = Repository.Get<Transaction>(txId);
+
+            if (parentTx is null)
+            {
+                Logger.LogInformation("AddTransaction rejected (reason = unknown transaction reference)");
+                return false;
+            }
+
+            if (tx.Timestamp < parentTx.Timestamp)
+            {
+                Logger.LogInformation("AddTransaction rejected (reason = invalid timestamp)");
+                return false;
+            }
+
+            validates.Add(parentTx);
+        }
+
+        switch (tx.TransactionType)
+        {
+            case TransactionType.BLOCK:
+                return AddBlock(new Block(tx, validates), broadcast);
+            case TransactionType.PAYMENT:
+            case TransactionType.CONTRACT:
+                return AddTransaction(new Transaction(tx, validates), broadcast);
+            case TransactionType.VIEW:
+                return AddView(new View(tx, validates), broadcast);
+            default:
+                Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
+                return false;
+        }
     }
 
     public bool AddVote(Vote vote, bool broadcast)
@@ -488,10 +523,9 @@ public class BlockchainManager : IBlockchainManager
         }
 
         using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        var chainState = blockchainRepository.GetChainState();
-        var view = blockchainRepository.Get<View>(vote.TransactionId);
+        var chainState = Repository.GetChainState();
+        var view = Repository.Get<View>(vote.TransactionId);
 
         if (view is not null && view.Height < chainState.Height)
         {
@@ -499,17 +533,25 @@ public class BlockchainManager : IBlockchainManager
             return false;
         }
 
-        blockchainRepository.AddVote(vote);
+        var exists = Repository.VoteExists(vote.Signature);
+
+        if (exists)
+        {
+            // we already have this
+            return true;
+        }
+
+        Repository.AddVote(vote);
 
         if (broadcast)
         {
-            VoteBroadcast.Post(vote);
+            VoteBuffer.Add(vote);
         }
 
         return true;
     }
 
-    private void TraverseTransaction(BlockchainContext context, Transaction transaction, long height, List<Transaction> toExecute)
+    private void TraverseTransaction(DbContext context, Transaction transaction, long height, List<Transaction> toExecute)
     {
         transaction.Height = height;
 
@@ -535,20 +577,80 @@ public class BlockchainManager : IBlockchainManager
         toExecute.Add(transaction);
     }
 
+    public Genesis? GetGenesis()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetGenesis();
+    }
+
     public View GetLastView()
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.GetLastView();
+        return Repository.GetLastView();
     }
 
     public List<Transaction> GetTransactionToValidate()
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
+        return Repository.GetTransactionsToValidate();
+    }
 
-        return blockchainRepository.GetTransactionsToValidate();
+    public void AddTransactionBatch(IList<TransactionDto> transactions)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var dbTx = Repository.GetContext().Database.BeginTransaction();
+
+        try
+        {
+            var valid = new List<TransactionDto>();
+
+            foreach (var tx in transactions)
+            {
+                var validates = new List<Transaction>();
+                
+                if (AddTransaction(tx, false))
+                {
+                    valid.Add(tx);
+                }
+            }
+
+            dbTx.Commit();
+
+            TransactionBuffer.Add(valid);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AddTransactionBatch error");
+            dbTx.Rollback();
+        }
+    }
+
+    public void AddVoteBatch(IList<Vote> votes)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var dbTx = Repository.GetContext().Database.BeginTransaction();
+
+        try
+        {
+            var valid = new List<Vote>();
+
+            foreach (var vote in votes)
+            {
+                if (AddVote(vote, false))
+                {
+                    valid.Add(vote);
+                }
+            }
+
+            dbTx.Commit();
+
+            VoteBuffer.Add(valid);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AddVoteBatch error");
+            dbTx.Rollback();
+        }
     }
 
     /*public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
@@ -884,14 +986,13 @@ public class BlockchainManager : IBlockchainManager
     public Blocktemplate GetBlocktemplate(Address wallet)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        var chainState = blockchainRepository.GetChainState();
-        var block = Block.Create(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty);
+        var chainState = Repository.GetChainState();
+        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty);
 
-        block.Validates = blockchainRepository.GetTransactionsToValidate();
+        block.Validates = Repository.GetTransactionsToValidate();
 
         return new Blocktemplate
         {
@@ -909,67 +1010,38 @@ public class BlockchainManager : IBlockchainManager
     public ChainState GetChainState()
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.GetChainState();
+        return Repository.GetChainState();
     }
 
     public Difficulty GetCurrentDifficulty()
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        var chainState = blockchainRepository.GetChainState();
+        var chainState = Repository.GetChainState();
         return chainState.CurrentDifficulty;
     }
 
     public long GetCurrentHeight()
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        var chainState = blockchainRepository.GetChainState();
+        var chainState = Repository.GetChainState();
         return chainState.Height;
     }
 
     public ulong GetBalance(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
         if (address.IsContract())
         {
-            return blockchainRepository.GetContract(address)?.Balance ?? 0;
+            return Repository.GetContract(address)?.Balance ?? 0;
         }
 
-        return blockchainRepository.GetWallet(address)?.Balance ?? 0;
+        return Repository.GetWallet(address)?.Balance ?? 0;
     }
 
-    /*public BigInteger GetTotalWork()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        var chainState = blockchainRepository.GetChainState();
-        return chainState.TotalWork;
-    }
-
-    public List<PowBlock> GetLastBlocks(int count)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.Tail(count);
-    }
-
-    public List<PowBlock> GetLastBlocks(long start, int count)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.Tail(start, count);
-    }
-
+    /*
     public bool SetChain(List<PosBlock> blocks)
     {
         using var _ = rwlock.EnterWriteLockEx();
@@ -1148,30 +1220,14 @@ public class BlockchainManager : IBlockchainManager
             throw new Exception("Chain rollback failed", ex);
         }
     }
-
-    public List<PosBlock> GetPosFrom(long id)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.GetPosFrom(id);
-    }
-
-    public List<PowBlock> GetPowFrom(long id)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-
-        return blockchainRepository.GetPowFrom(id);
-    }
+    */
 
     public void ResetChain()
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        blockchainRepository.Context.Database.EnsureDeleted();
-        blockchainRepository.Context.Database.Migrate();
+        Repository.GetContext().Database.EnsureDeleted();
+        Repository.GetContext().Database.Migrate();
 
         using var walletRepository = new WalletRepository();
         var wallets = walletRepository.GetWallets()
@@ -1185,53 +1241,47 @@ public class BlockchainManager : IBlockchainManager
             wallet.Balance = 0;
             walletRepository.Update(wallet);
         }
-    }*/
+    }
 
     public Contract? GetContract(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetContract(address, true);
+        return Repository.GetContract(address, true);
     }
 
     public List<LedgerWallet> GetRichList(int count)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetRichList(count);
+        return Repository.GetRichList(count);
     }
     public List<Transaction> GetTransactionsForAddress(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetTransactions(address);
+        return Repository.GetTransactions(address);
     }
 
     public Transaction? GetTransactionForHash(SHA256Hash hash)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.Get<Transaction>(hash);
+        return Repository.Get<Transaction>(hash);
     }
 
     public LedgerWallet? GetLedgerWallet(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetWallet(address);
+        return Repository.GetWallet(address);
     }
     
     public string? CallContractMethod(Address address, CallMethod call)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        var contract = blockchainRepository.GetContract(address) ?? throw new Exception(ExecutionResult.INVALID_CONTRACT.ToString());
+        var contract = Repository.GetContract(address) ?? throw new Exception(ExecutionResult.INVALID_CONTRACT.ToString());
 
         var snapshot = contract.Snapshots
             .OrderByDescending(x => x.Height)
@@ -1279,25 +1329,22 @@ public class BlockchainManager : IBlockchainManager
     public Token? GetToken(SHA256Hash tokenId)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetToken(tokenId);
+        return Repository.GetToken(tokenId);
     }
 
     public List<Token> GetTokens(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetTokens(address);
+        return Repository.GetTokens(address);
     }
 
     public List<Token> GetContractTokens(Address contractAddress)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var blockchainRepository = new BlockchainRepository();
 
-        return blockchainRepository.GetContractTokens(contractAddress);
+        return Repository.GetContractTokens(contractAddress);
     }
 
     private void RollbackEffectBalance(BlockchainRepository repository, Dictionary<string, LedgerWallet> walletCache, Contract contract, Effect effect)
@@ -1354,28 +1401,13 @@ public class BlockchainManager : IBlockchainManager
         }
     }
 
-    public IDisposable OnChainUpdated(ITargetBlock<ChainState> action)
+    public View? GetView(SHA256Hash transactionId)
     {
-        return ChainStateBroadcast.LinkTo(action);
+        throw new NotImplementedException();
     }
 
-    public IDisposable OnWalletUpdated(ITargetBlock<Wallet> action)
+    public List<Transaction> GetTransactionsAfterHeight(long height, int batchSize)
     {
-        return WalletBroadcast.LinkTo(action);
-    }
-
-    public IDisposable OnVoteAdded(ITargetBlock<Vote> action)
-    {
-        return VoteBroadcast.LinkTo(action);
-    }
-
-    public IDisposable OnTokenTransferred(ITargetBlock<TransferTokenEventArgs> action)
-    {
-        return TokenTransferredBroadcast.LinkTo(action);
-    }
-
-    public IDisposable OnTokenConsumed(ITargetBlock<ConsumeTokenEventArgs> action)
-    {
-        return TokenConsumedBroadcast.LinkTo(action);
+        throw new NotImplementedException();
     }
 }
