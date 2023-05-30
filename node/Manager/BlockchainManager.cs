@@ -7,6 +7,7 @@ using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using MessagePack;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Redbus.Interfaces;
@@ -75,6 +76,8 @@ public class BlockchainManager : IBlockchainManager
 
         try
         {
+            var sw = Stopwatch.StartNew();
+
             var height = view.Height ?? 0;
 
             view.TransactionId = view.CalculateHash();
@@ -87,6 +90,8 @@ public class BlockchainManager : IBlockchainManager
                 return false;
             }
 
+            var toExecute = new List<Transaction>();
+
             if (height > 0)
             {
                 var lastView = Repository.GetLastView();
@@ -97,6 +102,8 @@ public class BlockchainManager : IBlockchainManager
                     Logger.LogInformation("Discarding view #{height} (reason = timestamp too early)", view.Height);
                     return false;
                 }
+
+                toExecute.Add(lastView);
             }
 
             // Add any received votes for current view
@@ -109,13 +116,8 @@ public class BlockchainManager : IBlockchainManager
 
             Repository.Add(view);
 
-            var sw = Stopwatch.StartNew();
-
-            var toExecute = new List<Transaction>();
-
             Repository.GetContext().Entry(view)
-                .Collection(x => x.Validates)
-                .Load();
+                .Collection(x => x.Validates);
 
             foreach (var child in view.Validates)
             {
@@ -130,21 +132,11 @@ public class BlockchainManager : IBlockchainManager
             var context = new ExecutorContext(Repository);
             var executor = ExecutorFactory.Create(context);
 
-            if (height > 0)
-            {
-                var lastView = Repository.GetLastView();
-                toExecute.Add(lastView);
-            }
-
-            executor.Execute(toExecute);
-
-            Logger.LogInformation($"Finalized {toExecute.Count} transactions in {sw.ElapsedMilliseconds}ms");
+            executor.Execute(toExecute, out var blockCount);
 
             if (height > 0)
             {
-                var blocks = Repository.GetBlocks(height);
-
-                if (blocks.Count == 0)
+                if (blockCount == 0)
                 {
                     var work = chainState.CurrentDifficulty.ToWork();
                     var nextTarget = work / 4 * 3;
@@ -154,12 +146,7 @@ public class BlockchainManager : IBlockchainManager
                 }
                 else
                 {
-                    var totalWork = new BigInteger();
-
-                    foreach (var block in blocks)
-                    {
-                        totalWork += block.Difficulty.ToWork();
-                    }
+                    var totalWork = chainState.CurrentDifficulty.ToWork() * blockCount;
 
                     chainState.Weight += totalWork;
                     chainState.CurrentDifficulty = totalWork.ToDifficulty();
@@ -168,10 +155,13 @@ public class BlockchainManager : IBlockchainManager
 
             Logger.LogInformation($"Next difficulty {chainState.CurrentDifficulty}");
 
+            Repository.UpdateRange(toExecute);
             Repository.SaveState(chainState);
             Repository.GetContext().SaveChanges();
 
             EventBus.Publish(chainState);
+
+            Logger.LogInformation($"Finalized {toExecute.Count} transactions in {sw.ElapsedMilliseconds}ms");
 
             var wallets = WalletManager.GetWallets();
             var addresses = new List<string>();
@@ -273,9 +263,9 @@ public class BlockchainManager : IBlockchainManager
             return false;
         }
 
-        var exists = Repository.Get<Block>(block.TransactionId);
+        var exists = Repository.Exists<Block>(block.TransactionId);
 
-        if (exists is not null)
+        if (exists)
         {
             Logger.LogInformation("AddBlock rejected (reason = already exists)");
             return false;
@@ -399,9 +389,9 @@ public class BlockchainManager : IBlockchainManager
 
             tx.TransactionId = tx.CalculateHash();
 
-            var exists = Repository.Get<Transaction>(tx.TransactionId);
+            var exists = Repository.Exists<Transaction>(tx.TransactionId);
 
-            if (exists is not null)
+            if (exists)
             {
                 // no need to do anything, we have this already
                 return true;
@@ -555,14 +545,8 @@ public class BlockchainManager : IBlockchainManager
     {
         transaction.Height = height;
 
-        if (context.Entry(transaction).State == EntityState.Detached)
-        {
-            context.Update(transaction);
-        }
-
         context.Entry(transaction)
-            .Collection(x => x.Validates)
-            .Load();
+            .Collection(x => x.Validates);
 
         foreach (var tx in transaction.Validates)
         {

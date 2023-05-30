@@ -13,9 +13,11 @@ public interface IBlockchainRepository
 {
     DbContext GetContext();
     long Count();
+    bool Exists<T>(SHA256Hash transactionId) where T : Transaction;
     T? Get<T>(SHA256Hash transactionId) where T : Transaction;
     T? Get<T>(long height) where T : Transaction;
     void Add<T>(T tx) where T : Transaction;
+    void UpdateRange<T>(List<T> txs) where T : Transaction;
     Genesis? GetGenesis();
     View GetLastView();
     List<Vote> GetVotes(SHA256Hash transactionId);

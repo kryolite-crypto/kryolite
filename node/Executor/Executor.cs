@@ -21,8 +21,10 @@ public class Executor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public void Execute(List<Transaction> transactions)
+    public void Execute(List<Transaction> transactions, out long blockCount)
     {
+        blockCount = 0;
+
         if (transactions.Count == 0)
         {
             return;
@@ -34,8 +36,10 @@ public class Executor
         {
             switch (tx.TransactionType)
             {
-                case TransactionType.PAYMENT:
                 case TransactionType.BLOCK:
+                    blockCount++;
+                    goto case TransactionType.PAYMENT;
+                case TransactionType.PAYMENT:
                     if (tx.To is null)
                     {
                         // skip

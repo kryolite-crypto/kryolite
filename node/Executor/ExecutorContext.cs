@@ -1,5 +1,6 @@
 ﻿using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using Redbus.Events;
 using Wasmtime;
 
@@ -152,7 +153,5 @@ public class ExecutorContext : IExecutorContext
         Repository.UpdateWallets(Wallets.Values);
         Repository.UpdateContracts(Contracts.Values);
         Repository.UpdateTokens(Tokens.Values);
-
-        Repository.GetContext().SaveChanges();
     }
 }

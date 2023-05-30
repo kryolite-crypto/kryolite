@@ -216,7 +216,7 @@ public class BlockchainContext : DbContext, IDesignTimeDbContextFactory<Blockcha
                 .HasDatabaseName("ix_vote_txid");
 
             entity.HasIndex(x => x.Signature)
-                .HasDatabaseName("ix_vote_txid");
+                .HasDatabaseName("ix_vote_sign");
 
             entity.Property(x => x.TransactionId)
                 .HasConversion(sha256Converter);

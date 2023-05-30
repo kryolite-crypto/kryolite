@@ -13,15 +13,14 @@ public class BlockchainRepository : IBlockchainRepository
 
     public BlockchainRepository()
     {
-        //Context = context ?? throw new ArgumentNullException(nameof(context));
-
         if (Factory is null)
         {
             var walletPath = Path.Join(BlockchainService.DATA_PATH, "blocks.dat");
 
             var options = new DbContextOptionsBuilder<BlockchainContext>()
                 .UseSqlite($"Data Source={walletPath}")
-                .EnableSensitiveDataLogging()
+                .EnableThreadSafetyChecks(false)
+                //.EnableSensitiveDataLogging()
                 //.LogTo(Console.WriteLine)
                 .Options;
 
@@ -30,20 +29,18 @@ public class BlockchainRepository : IBlockchainRepository
             //db.Migrate();
             ctx.Database.EnsureDeleted();
             ctx.Database.EnsureCreated();
-        }
 
-        Context = Factory.CreateDbContext();
-
-        FormattableString cmd = $@"
+            FormattableString cmd = $@"
             pragma threads = 4;
             pragma journal_mode = wal; 
             pragma synchronous = normal;
             pragma temp_store = default; 
             pragma mmap_size = -1;";
 
-        Context.Database.ExecuteSql(cmd);
+            ctx.Database.ExecuteSql(cmd);
+        }
 
-        //Context.Database.EnsureCreated();
+        Context = Factory.CreateDbContext();
     }
 
     public DbContext GetContext()
@@ -54,6 +51,12 @@ public class BlockchainRepository : IBlockchainRepository
     public long Count()
     {
         return Context.Blocks.Count();
+    }
+
+    public bool Exists<T>(SHA256Hash transactionId) where T : Transaction
+    {
+        return Context.Set<T>()
+            .Any(x => x.TransactionId == transactionId);
     }
 
     public T? Get<T>(SHA256Hash transactionId) where T : Transaction
@@ -85,19 +88,14 @@ public class BlockchainRepository : IBlockchainRepository
         return Context.Views
             .OrderByDescending(x => x.Height)
             .Include(x => x.Votes)
-            .AsNoTracking()
             .First();
-    }
-
-    public bool VoteExists(Signature signature)
-    {
-        return Context.Votes.Any(x => x.Signature == signature);
     }
 
     public List<Vote> GetVotes(SHA256Hash transactionId)
     {
         return Context.Votes
             .Where(x => x.TransactionId == transactionId)
+            .AsNoTracking()
             .ToList();
     }
 
@@ -110,8 +108,12 @@ public class BlockchainRepository : IBlockchainRepository
     {
         return Context.Blocks
             .Where(x => x.Height == height)
-            .Include(x => x.Validates)
             .ToList();
+    }
+
+    public void UpdateRange<T>(List<T> txs) where T : Transaction
+    {
+        Context.Transactions.UpdateRange(txs);
     }
 
     /*private static readonly Func<BlockchainContext, long, PosBlock?> QueryPosBlock =

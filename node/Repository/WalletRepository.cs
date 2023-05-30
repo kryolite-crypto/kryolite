@@ -8,17 +8,39 @@ public class WalletRepository : IDisposable
 {
     public WalletContext Context { get; }
 
+    private static PooledDbContextFactory<WalletContext>? Factory { get; set; }
+
     public WalletRepository()
     {
-        var walletPath = Path.Join(BlockchainService.DATA_PATH, "wallet.dat");
+        if (Factory is null)
+        {
+            var walletPath = Path.Join(BlockchainService.DATA_PATH, "wallet.dat");
 
-        var options = new DbContextOptionsBuilder<WalletContext>()
-            .UseSqlite($"Data Source={walletPath}")
-            .Options;
+            var options = new DbContextOptionsBuilder<WalletContext>()
+                .UseSqlite($"Data Source={walletPath}")
+                .EnableThreadSafetyChecks(false)
+                //.EnableSensitiveDataLogging()
+                //.LogTo(Console.WriteLine)
+                .Options;
 
-        Context = new WalletContext(options);
-        //Context.Database.Migrate();
-        Context.Database.EnsureCreated();
+            Factory = new PooledDbContextFactory<WalletContext>(options);
+
+            var ctx = Factory.CreateDbContext();
+
+            //Context.Database.Migrate();
+            ctx.Database.EnsureCreated();
+
+            FormattableString cmd = $@"
+            pragma threads = 4;
+            pragma journal_mode = wal; 
+            pragma synchronous = normal;
+            pragma temp_store = default; 
+            pragma mmap_size = -1;";
+
+            ctx.Database.ExecuteSql(cmd);
+        }
+
+        Context = Factory.CreateDbContext();
     }
 
     public void Add(Wallet wallet)
