@@ -17,8 +17,8 @@ public interface IExecutorContext
     Contract? GetContract(Address? address);
     void AddContract(Contract contract);
 
-    LedgerWallet? GetWallet(Address? address);
-    LedgerWallet GetOrNewWallet(Address? address);
+    Ledger? GetWallet(Address? address);
+    Ledger GetOrNewWallet(Address? address);
 
     Token? GetToken(SHA256Hash tokenId);
     void AddToken(Token token);

@@ -105,7 +105,7 @@ public class ValidatorService : BackgroundService
 
                 var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
 
-                var lastView = blockchainManager.GetLastView();
+                var lastView = blockchainManager.GetLastView(true);
                 var nextLeader = lastView.Votes
                     .Where(x => !Banned.Contains(x.PublicKey))
                     .MinBy(x => x.Signature)?.PublicKey;
@@ -163,15 +163,9 @@ public class ValidatorService : BackgroundService
     private void GenerateView(IBlockchainManager blockchainManager, View lastView)
     {
         var height = (lastView?.Height ?? 0) + 1L;
-        var toValidate = blockchainManager.GetTransactionToValidate();
+        var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate());
 
-        var nextView = new View(Node.PublicKey, height);
-
-        foreach (var tx in toValidate)
-        {
-            nextView.Validates.Add(tx);
-        }
-
+        nextView.Sign(Node.PrivateKey);
         nextView.Vote(Node.PrivateKey);
 
         // TODO: Asynchronously add to not skip execution

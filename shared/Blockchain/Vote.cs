@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using DuckDB.NET.Data;
 using MessagePack;
 using NSec.Cryptography;
 
@@ -7,11 +8,6 @@ namespace Kryolite.Shared.Blockchain;
 [MessagePackObject]
 public class Vote
 {
-    [IgnoreMember]
-    [JsonIgnore]
-    public long Id { get; set; }
-
-
     [Key(0)]
     public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
 
@@ -49,5 +45,15 @@ public class Vote
 
         var key = NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, PublicKey, KeyBlobFormat.RawPublicKey);
         return algorithm.Verify(key, stream.ToArray(), Signature);
+    }
+
+    public static Vote Read(DuckDBDataReader reader)
+    {
+        return new Vote
+        {
+            Signature = reader.GetString(0),
+            PublicKey = reader.GetString(1),
+            TransactionId = reader.GetString(2),
+        };
     }
 }

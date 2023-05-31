@@ -40,7 +40,7 @@ public partial class SendTab : UserControl
                 To = Model.Recipient,
                 Value = (ulong)(decimal.Parse(Model.Amount) * 1000000),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Validates = blockchainManager.GetTransactionToValidate()
+                Parents = blockchainManager.GetTransactionToValidate()
             };
 
             if (transaction.To.IsContract())

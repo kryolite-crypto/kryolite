@@ -17,9 +17,9 @@ public interface IBlockchainManager
 
     Genesis? GetGenesis();
     View? GetView(SHA256Hash transactionId);
-    View GetLastView();
+    View GetLastView(bool includeVotes = false);
     List<Transaction> GetTransactionsAfterHeight(long height, int batchSize);
-    List<Transaction> GetTransactionToValidate();
+    List<SHA256Hash> GetTransactionToValidate();
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
@@ -35,10 +35,10 @@ public interface IBlockchainManager
     void ResetChain();
 
     Contract? GetContract(Address address);
-    List<LedgerWallet> GetRichList(int count);
+    List<Ledger> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
     Transaction? GetTransactionForHash(SHA256Hash hash);
-    LedgerWallet? GetLedgerWallet(Address address);
+    Ledger? GetLedgerWallet(Address address);
     string? CallContractMethod(Address address, CallMethod call);
     Token? GetToken(SHA256Hash tokenId);
     List<Token> GetTokens(Address address);

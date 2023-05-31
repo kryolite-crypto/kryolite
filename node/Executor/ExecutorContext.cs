@@ -9,7 +9,7 @@ namespace Kryolite.Node.Executor;
 public class ExecutorContext : IExecutorContext
 {
     public IBlockchainRepository Repository { get; }
-    private Dictionary<Address, LedgerWallet> Wallets { get; } = new();
+    private Dictionary<Address, Ledger> Wallets { get; } = new();
     private Dictionary<Address, Contract> Contracts { get; } = new();
     private Dictionary<SHA256Hash, Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
@@ -57,7 +57,7 @@ public class ExecutorContext : IExecutorContext
         Contracts.Add(contract.Address, contract);
     }
 
-    public LedgerWallet? GetWallet(Address? address)
+    public Ledger? GetWallet(Address? address)
     {
         if (address is null)
         {
@@ -79,7 +79,7 @@ public class ExecutorContext : IExecutorContext
         return wallet;
     }
 
-    public LedgerWallet GetOrNewWallet(Address? address)
+    public Ledger GetOrNewWallet(Address? address)
     {
         if (address is null)
         {
@@ -92,7 +92,7 @@ public class ExecutorContext : IExecutorContext
 
             if (wallet is null)
             {
-                wallet = new LedgerWallet(address);
+                wallet = new Ledger(address);
             }
 
             Wallets.Add(address, wallet);

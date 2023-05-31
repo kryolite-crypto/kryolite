@@ -15,7 +15,7 @@ public class Block : Transaction
 
     }
 
-    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty)
+    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty, List<SHA256Hash> parents)
     {
         TransactionType = TransactionType.BLOCK;
         To = wallet;
@@ -23,18 +23,20 @@ public class Block : Transaction
         Timestamp = timestamp;
         ParentHash = parentHash;
         Difficulty = difficulty;
+        Parents = parents;
         Data = MessagePackSerializer.Serialize(new BlockPayload(this));
+        TransactionId = CalculateHash();
     }
 
-    public Block(TransactionDto tx, List<Transaction> validates)
+    public Block(TransactionDto tx, List<SHA256Hash> parents)
     {
         TransactionType = TransactionType.BLOCK;
         To = tx.To;
         Value = Constant.BLOCK_REWARD;
         Timestamp = tx.Timestamp;
-        Validates = validates;
         Data = tx.Data;
         Pow = tx.Pow ?? new SHA256Hash();
+        Parents = parents;
         TransactionId = CalculateHash();
     }
 
@@ -44,7 +46,12 @@ public class Block : Transaction
         using var stream = new MemoryStream();
 
         stream.Write(To!);
-        stream.Write(new MerkleTree(Validates).RootHash);
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
+        }
+
         stream.Write(BitConverter.GetBytes(Difficulty.Value));
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Write(Data);

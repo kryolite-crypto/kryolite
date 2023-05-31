@@ -16,7 +16,7 @@ public class View : Transaction
 
     }
 
-    public View(PublicKey publicKey, long height)
+    public View(PublicKey publicKey, long height, List<SHA256Hash> parents)
     {
         TransactionType = TransactionType.VIEW;
         Value = Constant.VALIDATOR_REWARD;
@@ -24,9 +24,10 @@ public class View : Transaction
         Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         Height = height;
         PublicKey = publicKey;
+        Parents = parents;
     }
 
-    public View(TransactionDto tx, List<Transaction> validates)
+    public View(TransactionDto tx, List<SHA256Hash> parents)
     {
         TransactionType = tx.TransactionType;
         PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
@@ -36,8 +37,22 @@ public class View : Transaction
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("view requires signature");
-        Validates = validates;
+        Parents = parents;
         TransactionId = CalculateHash();
+    }
+
+    public View(Transaction tx)
+    {
+        TransactionId = tx.TransactionId;
+        TransactionType = tx.TransactionType;
+        PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
+        Height = tx.Height;
+        To = tx.To;
+        Value = tx.Value;
+        Pow = tx.Pow ?? new SHA256Hash();
+        Data = tx.Data;
+        Timestamp = tx.Timestamp;
+        Signature = tx.Signature ?? throw new Exception("view requires signature");
     }
 
     public Vote Vote(PrivateKey privateKey)
@@ -63,9 +78,9 @@ public class View : Transaction
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
 
-        foreach (var tx in Validates.OrderBy(x => x.TransactionId).ToList())
+        foreach (var hash in Parents.Order())
         {
-            stream.Write(tx.TransactionId);
+            stream.Write(hash);
         }
 
         stream.Flush();

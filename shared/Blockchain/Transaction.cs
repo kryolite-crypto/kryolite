@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json.Serialization;
+using DuckDB.NET.Data;
 using Kryolite.Shared.Dto;
 using MessagePack;
 using NSec.Cryptography;
@@ -8,8 +9,6 @@ namespace Kryolite.Shared.Blockchain;
 
 public class Transaction : IComparable<Transaction>
 {
-    [JsonIgnore]
-    public Guid Id { get; set; }
     public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
     public long? Height { get; set; }
 
@@ -22,10 +21,9 @@ public class Transaction : IComparable<Transaction>
     public long Timestamp { get; set; }
     public virtual Signature? Signature { get; set; }
     public ExecutionResult ExecutionResult { get; set; }
+    public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
 
-    public List<Transaction> Validates { get; set; } = new List<Transaction>();
-    public List<Transaction> ValidatedBy { get; set; } = new List<Transaction>();
-    public virtual List<Effect> Effects { get; set; } = new();
+    public List<Effect> Effects { get; set; } = new();
 
     public Address From
     {
@@ -38,7 +36,7 @@ public class Transaction : IComparable<Transaction>
 
     }
 
-    public Transaction(TransactionDto tx, List<Transaction> validates)
+    public Transaction(TransactionDto tx, List<SHA256Hash> parents)
     {
         TransactionType = tx.TransactionType;
         PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");
@@ -48,7 +46,7 @@ public class Transaction : IComparable<Transaction>
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("payment requires signature");
-        Validates = validates;
+        Parents = parents;
         TransactionId = CalculateHash();
     }
 
@@ -61,7 +59,12 @@ public class Transaction : IComparable<Transaction>
 
         stream.WriteByte((byte)TransactionType);
         stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
-        
+
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
         if (To is not null)
         {
             stream.Write(To);
@@ -71,9 +74,9 @@ public class Transaction : IComparable<Transaction>
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
 
-        foreach (var tx in Validates.OrderBy(x => x.TransactionId))
+        foreach (var hash in Parents.Order())
         {
-            stream.Write(tx.TransactionId);
+            stream.Write(hash);
         }
 
         stream.Flush();
@@ -99,9 +102,14 @@ public class Transaction : IComparable<Transaction>
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
 
-        foreach (var tx in Validates.OrderBy(x => x.TransactionId))
+        if (Parents.Count < 2)
         {
-            stream.Write(tx.TransactionId);
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
         }
 
         stream.Flush();
@@ -133,9 +141,14 @@ public class Transaction : IComparable<Transaction>
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Write(Pow);
 
-        foreach (var tx in Validates.OrderBy(x => x.TransactionId))
+        if (Parents.Count < 2)
         {
-            stream.Write(tx.TransactionId);
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
         }
 
         stream.Flush();
@@ -147,5 +160,36 @@ public class Transaction : IComparable<Transaction>
     public int CompareTo(Transaction? other)
     {
         return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)TransactionId.Buffer, (ReadOnlySpan<byte>)(other?.TransactionId.Buffer ?? new byte[0]));
+    }
+
+    public static Transaction Read(DuckDBDataReader reader)
+    {
+        var tx = new Transaction();
+
+        tx.TransactionId = reader.GetString(0);
+        tx.TransactionType = (TransactionType)reader.GetByte(1);
+        if (!reader.IsDBNull(2))
+            tx.Height = reader.GetInt64(2);
+        if (!reader.IsDBNull(3))
+            tx.PublicKey = reader.GetString(3);
+        if (!reader.IsDBNull(4))
+            tx.To = reader.GetString(4);
+        tx.Value = (ulong)reader.GetInt64(5);
+        if (!reader.IsDBNull(6))
+            tx.Pow = reader.GetString(6);
+        if (!reader.IsDBNull(7))
+        {
+            using var ms = new MemoryStream();
+            reader.GetStream(7).CopyTo(ms);
+            tx.Data = ms.ToArray();
+        }
+        tx.Timestamp = reader.GetInt64(8);
+        if (!reader.IsDBNull(9))
+        {
+            tx.Signature = reader.GetString(9);
+        }
+        tx.ExecutionResult = (ExecutionResult)reader.GetByte(10);
+
+        return tx;
     }
 }

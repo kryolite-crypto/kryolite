@@ -3,14 +3,13 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using Crypto.RIPEMD;
+using DuckDB.NET.Data;
 using MessagePack;
 
 namespace Kryolite.Shared;
 
 public class Contract
 {
-    [JsonIgnore]
-    public Guid Id { get; set; }
     public Address Address { get; set; }
     public Address Owner { get; set; }
     public string Name { get; set; }
@@ -64,11 +63,22 @@ public class Contract
 
         return addressBytes.ToArray();
     }
+
+    public static Contract Read(DuckDBDataReader reader)
+    {
+        return new Contract
+        {
+            Address = reader.GetString(0),
+            Owner = reader.GetString(1),
+            Name = reader.GetString(2),
+            Balance = (ulong)reader.GetInt64(3),
+            EntryPoint = (IntPtr)reader.GetInt64(4)
+        };
+    }
 }
 
 public class ContractSnapshot
 {
-    public Guid Id { get; set; }
     public long Height { get; set; }
     public byte[] Snapshot { get; init; }
 

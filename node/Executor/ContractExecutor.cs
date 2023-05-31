@@ -133,13 +133,13 @@ public class ContractExecutor : IContractExecutor
                             TokenId = effect.TokenId,
                             Name = tokenBase.Name,
                             Description = tokenBase.Description,
-                            Contract = contract
+                            Contract = contract.Address
                         };
 
                         Context.AddToken(token);
                     }
 
-                    token.Wallet = wallet;
+                    token.Ledger = wallet.Address;
                     token.IsConsumed = effect.ConsumeToken;
                 }
 

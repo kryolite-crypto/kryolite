@@ -1,15 +1,25 @@
-﻿using System.Text.Json.Serialization;
+﻿using DuckDB.NET.Data;
+using System.Text.Json.Serialization;
 
 namespace Kryolite.Shared;
 
 public class Token : TokenBase
 {
-    [JsonIgnore]
-    public Guid Id { get; set; }
     public SHA256Hash TokenId { get; set; } = new();
     public bool IsConsumed { get; set; }
-    public LedgerWallet Wallet { get; set; } = new();
-    public Contract Contract { get; set; } = new();
+    public Address Ledger { get; set; } = new();
+    public Address Contract { get; set; } = new();
+
+    public static Token Read(DuckDBDataReader reader)
+    {
+        return new Token
+        {
+            TokenId = reader.GetString(0),
+            IsConsumed = reader.GetBoolean(1),
+            Ledger = reader.GetString(2),
+            Contract = reader.GetString(3)
+        };
+    }
 }
 
 public class TokenBase

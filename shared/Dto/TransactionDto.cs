@@ -30,7 +30,7 @@ public class TransactionDto
     [Required]
     public Signature? Signature { get; set; }
     [Key(8)]
-    public List<SHA256Hash> Validates { get; set; } = new List<SHA256Hash>();
+    public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
 
     public void Sign(PrivateKey privateKey)
     {
@@ -51,7 +51,7 @@ public class TransactionDto
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
 
-        foreach (var txId in Validates.Order())
+        foreach (var txId in Parents.Order())
         {
             stream.Write(txId);
         }
@@ -76,6 +76,6 @@ public class TransactionDto
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;
-        Validates = tx.Validates.Select(x => x.TransactionId).ToList();
+        Parents = tx.Parents;
     }
 }

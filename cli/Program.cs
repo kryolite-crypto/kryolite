@@ -65,7 +65,7 @@ public class Program
 
             var wallet = new Wallet
             {
-                Type = WalletType.WALLET
+                WalletType = WalletType.WALLET
             };
 
             walletRepository.Add(wallet);

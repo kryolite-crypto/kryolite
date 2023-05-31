@@ -1,349 +1,964 @@
+using DuckDB.NET.Data;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Kryolite.Node.Repository;
 
 public class BlockchainRepository : IBlockchainRepository
 {
-    public BlockchainContext Context { get; private set; }
-
-    private static PooledDbContextFactory<BlockchainContext>? Factory { get; set; }
+    private static DuckDBConnection? Connection { get; set; }
 
     public BlockchainRepository()
     {
-        if (Factory is null)
+        if (Connection is null)
         {
-            var walletPath = Path.Join(BlockchainService.DATA_PATH, "blocks.dat");
+            var storePath = Path.Join(BlockchainService.DATA_PATH, "store.dat");
+            Connection = new DuckDBConnection($"Data Source={storePath}");
 
-            var options = new DbContextOptionsBuilder<BlockchainContext>()
-                .UseSqlite($"Data Source={walletPath}")
-                .EnableThreadSafetyChecks(false)
-                //.EnableSensitiveDataLogging()
-                //.LogTo(Console.WriteLine)
-                .Options;
+            Connection.Open();
 
-            Factory = new PooledDbContextFactory<BlockchainContext>(options);
-            var ctx = Factory.CreateDbContext();
-            //db.Migrate();
-            ctx.Database.EnsureDeleted();
-            ctx.Database.EnsureCreated();
+            using var cmd = Connection.CreateCommand();
 
-            FormattableString cmd = $@"
-            pragma threads = 4;
-            pragma journal_mode = wal; 
-            pragma synchronous = normal;
-            pragma temp_store = default; 
-            pragma mmap_size = -1;";
+            cmd.CommandText = $@"
+                CREATE TABLE IF NOT EXISTS Transaction (
+                    TransactionId VARCHAR PRIMARY KEY,
+                    TransactionType TINYINT,
+                    Height LONG,
+                    PublicKey VARCHAR,
+                    Sender VARCHAR,
+                    Recipient VARCHAR,
+                    Value BIGINT,
+                    Pow VARCHAR,
+                    Data BLOB,
+                    Timestamp BIGINT,
+                    Signature VARCHAR,
+                    ExecutionResult TINYINT
+                );
 
-            ctx.Database.ExecuteSql(cmd);
+                CREATE TABLE IF NOT EXISTS Ledger (
+                    Address VARCHAR PRIMARY KEY,
+                    Balance BIGINT,
+                    Pending BIGINT,
+                );
+
+                CREATE TABLE IF NOT EXISTS Contract (
+                    Address VARCHAR PRIMARY KEY,
+                    Owner VARCHAR,
+                    Name VARCHAR,
+                    Balance BIGINT,
+                    Code BLOB,
+                    EntryPoint BIGINT
+                );
+            ";
+            
+            cmd.ExecuteNonQuery();
+
+            using var cmd2 = Connection.CreateCommand();
+
+            cmd2.CommandText = $@"
+                CREATE TABLE IF NOT EXISTS TransactionTransaction (
+                    ParentId VARCHAR, -- REFERENCES Transaction (TransactionId),
+                    ChildId VARCHAR, -- REFERENCES Transaction (TransactionId),
+                    Height INTEGER
+                );
+
+                CREATE TABLE IF NOT EXISTS Vote (
+                    Signature VARCHAR PRIMARY KEY,
+                    PublicKey VARCHAR,
+                    TransactionId VARCHAR
+                );
+
+                CREATE TABLE IF NOT EXISTS ChainState (
+                    Id INT PRIMARY KEY,
+                    Weight BLOB,
+                    Height BIGINT,
+                    Blocks BIGINT,
+                    LastHash VARCHAR,
+                    CurrentDifficulty INTEGER
+                );
+
+                CREATE TABLE IF NOT EXISTS Token (
+                    TokenId VARCHAR PRIMARY KEY,
+                    IsConsumed BOOLEAN,
+                    Ledger VARCHAR REFERENCES Ledger (Address),
+                    Contract VARCHAR REFERENCES Contract (Address)
+                );
+
+                CREATE TABLE IF NOT EXISTS ContractSnapshot (
+                    Id VARCHAR PRIMARY KEY,
+                    Height INTEGER,
+                    Snapshot BLOB,
+                    Address VARCHAR REFERENCES Contract (Address)
+                );
+            ";
+
+            cmd2.ExecuteNonQuery();
+
+            using var cmd3 = Connection.CreateCommand();
+
+            cmd3.CommandText = $@"
+                CREATE TABLE IF NOT EXISTS Effect (
+                    Id VARCHAR PRIMARY KEY,
+                    TransactionId VARCHAR REFERENCES Transaction (TransactionId),
+                    TokenId VARCHAR REFERENCES Token (TokenId),
+                    Sender VARCHAR,
+                    Recipient VARCHAR,
+                    Value BIGINT,
+                    ConsumeToken BOOLEAN
+                );
+            ";
+
+            cmd3.ExecuteNonQuery();
+
+            using var cmd4 = Connection.CreateCommand();
+
+            cmd4.CommandText = $@"
+                -- CREATE INDEX ix_tx_height ON Transaction (Height);
+                CREATE INDEX ix_tx_from ON Transaction (Sender);
+                CREATE INDEX ix_tx_to ON Transaction (Recipient);
+
+                CREATE INDEX ix_tx_parent ON TransactionTransaction (ParentId);
+                CREATE INDEX ix_tx_child ON TransactionTransaction (ChildId);
+
+                CREATE INDEX vote_txid ON Vote (TransactionId);
+
+                CREATE INDEX ledger_address ON Ledger (Address);
+
+                CREATE INDEX effect_txid ON Effect (TransactionId);
+
+                CREATE INDEX snapshot_height ON ContractSnapshot (Height);
+
+                CREATE INDEX token_ledger ON Token (Ledger);
+                CREATE INDEX token_contract ON Token (Contract);
+            ";
+
+            cmd4.ExecuteNonQuery();
+        }
+    }
+
+    public DuckDBTransaction BeginTransaction()
+    {
+        return Connection!.BeginTransaction();
+    }
+
+    public bool Exists(SHA256Hash transactionId)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                count(*)
+            FROM
+                Transaction
+            WHERE
+                TransactionId = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+
+        var count = (long)cmd.ExecuteScalar();
+
+        return count > 0;
+    }
+
+    public Transaction? Get(SHA256Hash transactionId)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TransactionId,
+                TransactionType,
+                Height,
+                PublicKey,
+                Recipient,
+                Value,
+                Pow,
+                Data,
+                Timestamp,
+                Signature,
+                ExecutionResult
+            FROM
+                Transaction
+            WHERE
+                TransactionId = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        if (!reader.Read())
+        {
+            return null;
         }
 
-        Context = Factory.CreateDbContext();
+        return Transaction.Read(reader);
     }
 
-    public DbContext GetContext()
+    public List<Transaction> GetParents(SHA256Hash transactionId)
     {
-        return Context;
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TransactionId,
+                TransactionType,
+                Height,
+                PublicKey,
+                Recipient,
+                Value,
+                Pow,
+                Data,
+                Timestamp,
+                Signature,
+                ExecutionResult
+            FROM
+                Transaction
+            WHERE
+                TransactionId IN (
+                    SELECT ParentId FROM TransactionTransaction WHERE Height IS NULL
+                )
+        ";
+
+        //cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Transaction>();
+
+        while (reader.Read())
+        {
+            results.Add(Transaction.Read(reader));
+        }
+
+        return results;
     }
 
-    public long Count()
+    public void UpdateHeight(Transaction transaction)
     {
-        return Context.Blocks.Count();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            UPDATE
+                Transaction
+            SET
+                Height = ?
+            WHERE
+                TransactionId = ?;
+
+            UPDATE
+                TransactionTransaction
+            SET
+                Height = ?
+            WHERE
+                ParentId = ?;
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(transaction.Height));
+        cmd.Parameters.Add(new DuckDBParameter(transaction.TransactionId.ToString()));
+
+        cmd.ExecuteNonQuery();
     }
 
-    public bool Exists<T>(SHA256Hash transactionId) where T : Transaction
+    public List<SHA256Hash> GetParentHashes(SHA256Hash transactionId)
     {
-        return Context.Set<T>()
-            .Any(x => x.TransactionId == transactionId);
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT 
+                ValidatesId 
+            FROM
+                TransactionTransaction
+            WHERE
+                ChildId = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<SHA256Hash>();
+
+        if (!reader.HasRows)
+        {
+            return results;
+        }
+
+        while (reader.Read())
+        {
+            results.Add(reader.GetString(0));
+        }
+
+        return results;
     }
 
-    public T? Get<T>(SHA256Hash transactionId) where T : Transaction
+    public void Add(Transaction tx)
     {
-        return Context.Set<T>()
-            .Where(x => x.TransactionId == transactionId)
-            .FirstOrDefault();
-    }
+        using var cmd = Connection!.CreateCommand();
 
-    public T? Get<T>(long height) where T : Transaction
-    {
-        return Context.Set<T>()
-            .Where(x => x.Height == height)
-            .FirstOrDefault();
-    }
+        cmd.CommandText = @"
+            INSERT INTO Transaction (
+                TransactionId,
+                TransactionType,
+                Height,
+                PublicKey,
+                Sender,
+                Recipient,
+                Value,
+                Pow,
+                Data,
+                Timestamp,
+                Signature,
+                ExecutionResult
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+        ";
 
-    public void Add<T>(T tx) where T : Transaction
-    {
-        Context.Update<T>(tx);
+        cmd.Parameters.Add(new DuckDBParameter(tx.TransactionId.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter((byte)tx.TransactionType));
+        cmd.Parameters.Add(new DuckDBParameter(tx.Height));
+        cmd.Parameters.Add(new DuckDBParameter(tx.PublicKey?.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(tx.PublicKey?.ToAddress().ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(tx.To?.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(tx.Value));
+        cmd.Parameters.Add(new DuckDBParameter(tx.Pow?.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(tx.Data));
+        cmd.Parameters.Add(new DuckDBParameter(tx.Timestamp));
+        cmd.Parameters.Add(new DuckDBParameter(tx.Signature?.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter((byte)tx.ExecutionResult));
+
+        cmd.ExecuteNonQuery();
+
+        if (tx.TransactionType == TransactionType.GENESIS)
+        {
+            return;
+        }
+
+        foreach (var parent in tx.Parents)
+        {
+            using var refCmd = Connection!.CreateCommand();
+
+            refCmd.CommandText = @"
+                INSERT INTO TransactionTransaction (
+                    ParentId,
+                    ChildId
+                ) VALUES (?, ?);
+            ";
+
+            refCmd.Parameters.Add(new DuckDBParameter(parent.ToString()));
+            refCmd.Parameters.Add(new DuckDBParameter(tx.TransactionId.ToString()));
+
+            refCmd.ExecuteNonQuery();
+        }
     }
 
     public Genesis? GetGenesis()
     {
-        return Context.Genesis.FirstOrDefault();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TransactionId,
+                TransactionType,
+                Height,
+                PublicKey,
+                Recipient,
+                Value,
+                Pow,
+                Data,
+                Timestamp,
+                Signature,
+                ExecutionResult
+            FROM
+                Transaction
+            WHERE
+                TransactionType = ?
+                AND
+                Height = 0
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter((byte)TransactionType.GENESIS));
+
+        using var reader = cmd.ExecuteReader();
+
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return new Genesis(Transaction.Read(reader));
     }
 
-    public View GetLastView()
+    public View GetLastView(bool includeVotes = false)
     {
-        return Context.Views
-            .OrderByDescending(x => x.Height)
-            .Include(x => x.Votes)
-            .First();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TransactionId,
+                TransactionType,
+                Height,
+                PublicKey,
+                Recipient,
+                Value,
+                Pow,
+                Data,
+                Timestamp,
+                Signature,
+                ExecutionResult
+            FROM
+                Transaction
+            WHERE
+                TransactionType = ?
+            ORDER BY Height DESC LIMIT 1;
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter((byte)TransactionType.VIEW));
+
+        using var reader = cmd.ExecuteReader();
+
+        if (!reader.Read())
+        {
+            throw new Exception("view not found");
+        }
+
+        var view = new View(Transaction.Read(reader));
+
+        if (includeVotes)
+        {
+            view.Votes = GetVotes(view.TransactionId);
+        }
+
+        return view;
+    }
+
+    public bool VoteExists(Signature signature)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                count(*)
+            FROM
+                Vote
+            WHERE
+                Signature = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(signature.ToString()));
+
+        var count = (long)cmd.ExecuteScalar();
+
+        return count > 0;
+    }
+
+    public void AddVote(Vote vote)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            INSERT OR REPLACE INTO Vote ( 
+                Signature,
+                PublicKey,
+                TransactionId
+            ) VALUES (?, ?, ?, ?, ?);
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(vote.Signature.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(vote.PublicKey.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(vote.TransactionId.ToString()));
+
+        cmd.ExecuteNonQuery();
     }
 
     public List<Vote> GetVotes(SHA256Hash transactionId)
     {
-        return Context.Votes
-            .Where(x => x.TransactionId == transactionId)
-            .AsNoTracking()
-            .ToList();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                Signature,
+                PublicKey,
+                TransactionId
+            FROM
+                Vote
+            WHERE
+                TransactionId = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Vote>();
+
+        while (reader.Read())
+        {
+            results.Add(Vote.Read(reader));
+        }
+
+        return results;
+    }
+
+    public ChainState GetChainState()
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                Weight,
+                Height,
+                Blocks,
+                LastHash,
+                CurrentDifficulty
+            FROM
+                ChainState
+            WHERE
+                Id = 0
+        ";
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Vote>();
+
+        if (!reader.Read())
+        {
+            return new ChainState();
+        }
+
+        return ChainState.Read(reader);
     }
 
     public void SaveState(ChainState chainState)
     {
-        Context.Update(chainState);
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            INSERT OR REPLACE INTO ChainState (
+                Id,
+                Weight,
+                Height,
+                Blocks,
+                LastHash,
+                CurrentDifficulty
+            ) VALUES (0, ?, ?, ?, ?, ?);
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(chainState.Weight.ToByteArray()));
+        cmd.Parameters.Add(new DuckDBParameter(chainState.Height));
+        cmd.Parameters.Add(new DuckDBParameter(chainState.Blocks));
+        cmd.Parameters.Add(new DuckDBParameter(chainState.LastHash.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter((int)chainState.CurrentDifficulty.Value));
+
+        cmd.ExecuteNonQuery();
     }
 
-    public List<Block> GetBlocks(long height)
-    {
-        return Context.Blocks
-            .Where(x => x.Height == height)
-            .ToList();
-    }
-
-    public void UpdateRange<T>(List<T> txs) where T : Transaction
-    {
-        Context.Transactions.UpdateRange(txs);
-    }
-
-    /*private static readonly Func<BlockchainContext, long, PosBlock?> QueryPosBlock =
-        EF.CompileQuery((BlockchainContext context, long height) =>
-            context.PosBlocks
-                .Where(x => x.Height == height)
-                .Include(x => x.Votes)
-                .Include(x => x.Pow)
-                    .ThenInclude(x => x!.Transactions)
-                        .ThenInclude(x => x.Effects)
-                .OrderByDescending(x => x.Votes.Count)
-                .FirstOrDefault());
-
-    public PosBlock? GetPosBlock(long height)
-    {
-        return QueryPosBlock(Context, height);
-    }*/
-
-    public void Delete(Transaction tx)
+    /*public void Delete(Transaction tx)
     {
         Context.Transactions.Remove(tx);
         Context.SaveChanges();
-    }
+    }*/
 
-    public void DeleteContractSnapshot(long height)
+    /*public void DeleteContractSnapshot(long height)
     {
         var snapshots = Context.ContractSnapshots.Where(x => x.Height > height);
 
         Context.ContractSnapshots.RemoveRange(snapshots);
         Context.SaveChanges();
-    }
-
-    public ChainState GetChainState()
-    {
-        return Context.ChainState.First(x => x.Id == 1);
-    }
-
-    /*public List<PowBlock> Tail(int count)
-    {
-        var start = Context.PowBlocks
-            .Select(x => x.Height)
-            .DefaultIfEmpty()
-            .Max();
-
-        var results = Context.PowBlocks
-            .Where(x => x.Height >= start - count)
-            .Include(x => x.Transactions)
-            .OrderBy(x => x.Height)
-            .ToList();
-
-        return results!;
-    }
-
-    public List<PowBlock> Tail(long start, int count)
-    {
-        var results = Context.PowBlocks
-            .Where(x => x.Height < start && x.Height >= start - count)
-            .Include(x => x.Transactions)
-            .OrderBy(x => x.Height)
-            .ToList();
-
-        return results!;
-    }
-
-    public PowBlock? Last()
-    {
-        return Context.PowBlocks
-            .OrderByDescending(x => x.Height)
-            .FirstOrDefault();
-    }
-
-    public List<PosBlock> GetPosFrom(long height)
-    {
-        return Context.PosBlocks
-            .Where(x => x.Height > height)
-            .Include(x => x.Votes)
-            .Include(x => x.Pow)
-                .ThenInclude(x => x!.Transactions)
-            .ToList();
-    }
-
-    public List<PowBlock> GetPowFrom(long height)
-    {
-        return Context.PowBlocks
-            .Where(x => x.Height > height)
-            .ToList();
     }*/
 
-    public LedgerWallet? GetWallet(Address address)
+    public Ledger? GetWallet(Address address)
     {
-        return Context.LedgerWallets
-            .Where(x => x.Address == address)
-            .FirstOrDefault();
-    }
+        using var cmd = Connection!.CreateCommand();
 
-    public void UpdateWallet(LedgerWallet wallet)
-    {
-        Context.LedgerWallets.Update(wallet);
-        Context.SaveChanges();
-    }
+        cmd.CommandText = @"
+            SELECT
+                Address,
+                Balance,
+                Pending
+            FROM
+                Ledger
+            WHERE
+                Address = ?
+        ";
 
-    public void UpdateWallets(IEnumerable<LedgerWallet> wallets)
-    {
-        Context.LedgerWallets.UpdateRange(wallets);
-    }
+        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
 
-    public void UpdateWallets(params LedgerWallet[] wallets)
-    {
-        Context.LedgerWallets.UpdateRange(wallets);
-    }
+        using var reader = cmd.ExecuteReader();
 
-    public void AddVote(Vote vote)
-    {
-        Context.Votes.Add(vote);
-        Context.SaveChanges();
-    }
-
-    public void AddVote(List<Vote> votes)
-    {
-        Context.Votes.AddRange(votes);
-        Context.SaveChanges();
-    }
-
-    public bool VoteExists(Signature signature)
-    {
-        return Context.Votes
-            .Any(x => x.Signature == signature);
-    }
-
-    public Contract? GetContract(Address address, bool noCode = false)
-    {
-        if (noCode)
+        if (!reader.Read())
         {
-            return Context.Contracts
-                .Where(x => x.Address == address)
-                .Select(x => new Contract(x.Owner, x.Manifest, Array.Empty<byte>())
-                    {
-                        Id = x.Id,
-                        Address = x.Address,
-                        Balance = x.Balance,
-                        Manifest = x.Manifest
-                    }
-                )
-                .FirstOrDefault();
+            return null;
         }
 
-        return Context.Contracts
-            .Where(x => x.Address == address)
-            .Include(x => x.Snapshots)
-            .FirstOrDefault();
+        return Ledger.Read(reader);
     }
 
-    public List<LedgerWallet> GetRichList(int count)
+    public void UpdateWallet(Ledger wallet)
     {
-        return Context.LedgerWallets
-            .OrderByDescending(x => x.Balance)
-            .Take(count)
-            .ToList();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            INSERT OR REPLACE INTO Ledger ( 
+                Address,
+                Balance,
+                Pending
+            ) VALUES (?, ?, ?);
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(wallet.Address.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter((long)wallet.Balance));
+        cmd.Parameters.Add(new DuckDBParameter((long)wallet.Pending));
+
+        cmd.ExecuteNonQuery();
+    }
+
+    public void UpdateWallets(IEnumerable<Ledger> wallets)
+    {
+        foreach (var wallet in wallets)
+        {
+            UpdateWallet(wallet);
+        }
+    }
+
+    public void UpdateWallets(params Ledger[] wallets)
+    {
+        foreach (var wallet in wallets)
+        {
+            UpdateWallet(wallet);
+        }
+    }
+
+    public Contract? GetContract(Address address)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                Address,
+                Owner,
+                Name,
+                Balance,
+                EntryPoint
+            FROM
+                Contract
+            WHERE
+                Address = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return Contract.Read(reader);
+    }
+
+    public List<Ledger> GetRichList(int count)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                Address,
+                Balance,
+                Pending
+            FROM
+                Ledger
+            WHERE
+                Address = ?
+            ORDER BY Balance DESC
+            LIMIT ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(count));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Ledger>();
+
+        while (reader.Read())
+        {
+            results.Add(Ledger.Read(reader));
+        }
+
+        return results;
     }
 
     public void AddContract(Contract contract)
     {
-        Context.Contracts.Add(contract);
-        Context.SaveChanges();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            INSERT OR REPLACE INTO Contract ( 
+                Address,
+                Owner,
+                Name,
+                Balance,
+                EntryPoint
+            ) VALUES (?, ?, ?, ?, ?);
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(contract.Address.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(contract.Owner.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(contract.Name));
+        cmd.Parameters.Add(new DuckDBParameter(contract.Balance));
+        cmd.Parameters.Add(new DuckDBParameter(contract.EntryPoint));
+
+        cmd.ExecuteNonQuery();
     }
 
     public void UpdateContracts(IEnumerable<Contract> contracts)
     {
-        Context.Contracts.UpdateRange(contracts);
+        foreach (var contract in contracts)
+        {
+            AddContract(contract);
+        }
+    }
+
+    public void UpdateToken(Token token)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            INSERT OR REPLACE INTO Token ( 
+                TokenId,
+                IsConsumed,
+                Ledger,
+                Contract
+            ) VALUES (?, ?, ?);
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(token.TokenId.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(token.IsConsumed));
+        cmd.Parameters.Add(new DuckDBParameter(token.Ledger.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(token.Contract.ToString()));
+
+        cmd.ExecuteNonQuery();
     }
 
     public void UpdateTokens(IEnumerable<Token> tokens)
     {
-        Context.Tokens.UpdateRange(tokens);
+        foreach (var token in tokens)
+        {
+            UpdateToken(token);
+        }
     }
 
     public List<Transaction> GetTransactions(Address address)
     {
-        return Context.Transactions
-            .Where(x => (x.From != null && x.From == address) || x.To == address)
-            .ToList();
-    }
+        using var cmd = Connection!.CreateCommand();
 
-    public List<Transaction> GetTransactionsToValidate()
-    {
-        var transactions = Context.Transactions
-            .Where(x => x.Height == null)
-            .ToList();
+        cmd.CommandText = @"
+            SELECT
+                TransactionId,
+                TransactionType,
+                Height,
+                PublicKey,
+                Recipient,
+                Value,
+                Pow,
+                Data,
+                Timestamp,
+                Signature,
+                ExecutionResult
+            FROM
+                Transaction
+            WHERE
+                Sender = ?
+                OR
+                Recipient = ?
+        ";
 
-        if (transactions.Count < 2)
+        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Transaction>();
+
+        while (reader.Read())
         {
-            var tx = Context.Transactions
-                .OrderByDescending(x => x.Height)
-                .Take(2 - transactions.Count);
-
-            transactions.AddRange(tx);
+            results.Add(Transaction.Read(reader));
         }
 
-        return transactions;
+        return results;
+    }
+
+    public List<SHA256Hash> GetTransactionsToValidate()
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TransactionId
+            FROM
+                Transaction
+            WHERE
+                TransactionId NOT IN (
+                    SELECT ParentId FROM TransactionTransaction
+                )
+        ";
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<SHA256Hash>();
+
+        while (reader.Read())
+        {
+            results.Add(reader.GetString(0));
+        }
+
+        if (results.Count < 2)
+        {
+            using var cmd2 = Connection!.CreateCommand();
+
+            // return few extra to not get duplicates
+            cmd2.CommandText = "SELECT TransactionId FROM Transaction ORDER BY Height DESC NULLS FIRST LIMIT ?";
+            cmd2.Parameters.Add(new DuckDBParameter(2 + results.Count));
+
+            using var reader2 = cmd2.ExecuteReader();
+
+            while (reader2.Read())
+            {
+                var id = (SHA256Hash)reader2.GetString(0);
+                
+                if (!results.Contains(id))
+                {
+                    results.Add(id);
+                }
+
+                if (results.Count >= 2)
+                {
+                    break;
+                }
+            }
+        }
+
+        return results;
     }
 
     public Token? GetToken(SHA256Hash tokenId)
     {
-        return Context.Tokens
-            .Where(x => x.TokenId == tokenId)
-            .Include(x => x.Wallet)
-            .FirstOrDefault();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TokenId,
+                IsConsumed,
+                Ledger,
+                Contract
+            FROM
+                Token
+            WHERE
+                TokenId = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(tokenId));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Token>();
+
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return Token.Read(reader);
     }
 
-    public Token? GetToken(Address from, SHA256Hash tokenId)
+    public Token? GetToken(Address ledger, SHA256Hash tokenId)
     {
-        return Context.Tokens
-            .Where(x => x.Wallet.Address == from && x.TokenId == tokenId)
-            .Include(x => x.Wallet)
-            .FirstOrDefault();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TokenId,
+                IsConsumed,
+                Ledger,
+                Contract
+            FROM
+                Token
+            WHERE
+                TokenId = ? && Ledger = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(tokenId.ToString()));
+        cmd.Parameters.Add(new DuckDBParameter(ledger.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Token>();
+
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return Token.Read(reader);
     }
 
-    public List<Token> GetTokens(Address from)
+    public List<Token> GetTokens(Address ledger)
     {
-        return Context.Tokens
-            .Where(x => x.Wallet.Address == from)
-            .Include(x => x.Wallet)
-            .ToList();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TokenId,
+                IsConsumed,
+                Ledger,
+                Contract
+            FROM
+                Token
+            WHERE
+                Ledger = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(ledger.ToString()));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Token>();
+
+        while (reader.Read())
+        {
+            results.Add(Token.Read(reader));
+        }
+
+        return results;
     }
 
     public List<Token> GetContractTokens(Address contractAddress)
     {
-        return Context.Tokens
-            .Where(x => x.Contract.Address == contractAddress)
-            .Include(x => x.Wallet)
-            .ToList();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                TokenId,
+                IsConsumed,
+                Address
+            FROM
+                Token
+            WHERE
+                ContractAddress = ?
+        ";
+
+        cmd.Parameters.Add(new DuckDBParameter(contractAddress));
+
+        using var reader = cmd.ExecuteReader();
+
+        var results = new List<Token>();
+
+        while (reader.Read())
+        {
+            results.Add(Token.Read(reader));
+        }
+
+        return results;
     }
 }

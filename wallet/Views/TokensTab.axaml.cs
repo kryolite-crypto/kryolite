@@ -79,11 +79,18 @@ public partial class TokensTab : UserControl
                             continue;
                         }
 
+                        var contract = blockchainManager.GetContract(newToken.Contract);
+
+                        if (contract is null)
+                        {
+                            continue;
+                        }
+
                         await Dispatcher.UIThread.InvokeAsync(() => {
                             Model.Tokens.Add(new TokenModel
                             {
                                 TokenId = newToken.TokenId,
-                                Owner = newToken.Contract.Owner,
+                                Owner = contract.Owner,
                                 Name = newToken.Name,
                                 Description = newToken.Description,
                                 IsConsumed = newToken.IsConsumed
@@ -158,7 +165,7 @@ public partial class TokensTab : UserControl
                     .Select(token => new TokenModel
                     {
                         TokenId = token.TokenId,
-                        Owner = token.Contract.Owner,
+                        Owner = blockchainManager.GetContract(token.Contract)?.Owner ?? new Address(),
                         Name = token.Name,
                         Description = token.Description,
                         IsConsumed = token.IsConsumed

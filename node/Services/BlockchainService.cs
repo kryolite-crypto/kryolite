@@ -66,14 +66,18 @@ public class BlockchainService : BackgroundService
         var timestamp = new DateTimeOffset(2023, 1, 1, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
         var genesis = new Genesis {
-            NetworkName = Configuration.GetValue<string?>("NetworkName") ?? "MAINNET",
+            TransactionType = TransactionType.GENESIS,
+            Data = Encoding.UTF8.GetBytes(Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"),
             Pow = GenesisSeed,
             Timestamp = timestamp,
             PublicKey = new PublicKey(),
             Signature = new Signature()
         };
 
-        if(!blockchainManager.AddGenesis(genesis))
+        genesis.Parents.Add(new SHA256Hash());
+        genesis.Parents.Add(new SHA256Hash());
+
+        if (!blockchainManager.AddGenesis(genesis))
         {
             Logger.LogError("Failed to initialize Genesis");
         }
@@ -87,7 +91,7 @@ public class BlockchainService : BackgroundService
             Height = 0,
             PublicKey = new PublicKey(),
             Signature = new Signature(),
-            Validates = blockchainManager.GetTransactionToValidate()
+            Parents = blockchainManager.GetTransactionToValidate()
         };
 
         view.TransactionId = view.CalculateHash();
