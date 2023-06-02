@@ -1,4 +1,5 @@
 ﻿using DuckDB.NET.Data;
+using System.Data.Common;
 using System.Text.Json.Serialization;
 
 namespace Kryolite.Shared;
@@ -10,7 +11,7 @@ public class Token : TokenBase
     public Address Ledger { get; set; } = new();
     public Address Contract { get; set; } = new();
 
-    public static Token Read(DuckDBDataReader reader)
+    public static Token Read(DbDataReader reader)
     {
         return new Token
         {

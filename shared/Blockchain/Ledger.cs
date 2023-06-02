@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Common;
 using System.Text.Json.Serialization;
 using DuckDB.NET.Data;
 using MessagePack;
@@ -12,6 +13,7 @@ public class Ledger
     public ulong Balance { get; set; }
     public ulong Pending { get; set; }
     public List<Token> Tokens { get; set; } = new();
+    public bool IsNew { get; set; } = false;
 
     public Ledger()
     {
@@ -21,9 +23,10 @@ public class Ledger
     public Ledger(Address address)
     {
         Address = address;
+        IsNew = true;
     }
 
-    public static Ledger Read(DuckDBDataReader reader)
+    public static Ledger Read(DbDataReader reader)
     {
         return new Ledger
         {

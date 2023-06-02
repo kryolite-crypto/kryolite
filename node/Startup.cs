@@ -258,7 +258,6 @@ public class Startup
         PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
         PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);
         PacketFormatter.Register<TransactionBatch>(Packet.TransactionData);
-        PacketFormatter.Register<VoteBatch>(Packet.VoteBatch);
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
@@ -295,8 +294,6 @@ public class Startup
                 .AddHostedService<MDNSService>()
                 .AddSingleton<IBufferService<TransactionDto>, TransactionService>()
                 .AddHostedService(p => (TransactionService)p.GetRequiredService<IBufferService<TransactionDto>>())
-                .AddSingleton<IBufferService<Vote>, VoteService>()
-                .AddHostedService(p => (VoteService)p.GetRequiredService<IBufferService<Vote>>())
                 .AddSingleton<IBufferService<Chain>, SyncService>()
                 .AddHostedService(p => (SyncService)p.GetRequiredService<IBufferService<Chain>>())
                 .AddSingleton<StartupSequence>()

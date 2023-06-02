@@ -9,15 +9,16 @@ namespace Kryolite.Node.Executor;
 public class ExecutorContext : IExecutorContext
 {
     public IBlockchainRepository Repository { get; }
-    private Dictionary<Address, Ledger> Wallets { get; } = new();
+    private Dictionary<Address, Ledger> Wallets { get; }
     private Dictionary<Address, Contract> Contracts { get; } = new();
     private Dictionary<SHA256Hash, Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
 
-    public ExecutorContext(IBlockchainRepository repository)
+    public ExecutorContext(IBlockchainRepository repository, Dictionary<Address, Ledger> wallets)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
     }
 
     public Random GetRand()

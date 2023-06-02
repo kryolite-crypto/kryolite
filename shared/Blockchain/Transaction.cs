@@ -1,8 +1,6 @@
+using System.Data.Common;
 using System.Security.Cryptography;
-using System.Text.Json.Serialization;
-using DuckDB.NET.Data;
 using Kryolite.Shared.Dto;
-using MessagePack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
@@ -14,7 +12,7 @@ public class Transaction : IComparable<Transaction>
 
     public TransactionType TransactionType { get; set; }
     public virtual PublicKey? PublicKey { get; set; }
-    public virtual Address? To { get; set; } = new Address();
+    public virtual Address? To { get; set; }
     public ulong Value { get; set; }
     public SHA256Hash Pow { get; set; } = new SHA256Hash();
     public byte[]? Data { get; set; }
@@ -162,33 +160,33 @@ public class Transaction : IComparable<Transaction>
         return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)TransactionId.Buffer, (ReadOnlySpan<byte>)(other?.TransactionId.Buffer ?? new byte[0]));
     }
 
-    public static Transaction Read(DuckDBDataReader reader)
+    public static Transaction Read(DbDataReader reader, int offset = 0)
     {
         var tx = new Transaction();
 
-        tx.TransactionId = reader.GetString(0);
-        tx.TransactionType = (TransactionType)reader.GetByte(1);
-        if (!reader.IsDBNull(2))
-            tx.Height = reader.GetInt64(2);
-        if (!reader.IsDBNull(3))
-            tx.PublicKey = reader.GetString(3);
-        if (!reader.IsDBNull(4))
-            tx.To = reader.GetString(4);
-        tx.Value = (ulong)reader.GetInt64(5);
-        if (!reader.IsDBNull(6))
-            tx.Pow = reader.GetString(6);
-        if (!reader.IsDBNull(7))
+        tx.TransactionId = reader.GetString(offset);
+        tx.TransactionType = (TransactionType)reader.GetByte(++offset);
+        if (!reader.IsDBNull(++offset))
+            tx.Height = reader.GetInt64(offset);
+        if (!reader.IsDBNull(++offset))
+            tx.PublicKey = reader.GetString(offset);
+        if (!reader.IsDBNull(++offset))
+            tx.To = reader.GetString(offset);
+        tx.Value = (ulong)reader.GetInt64(++offset);
+        if (!reader.IsDBNull(++offset))
+            tx.Pow = reader.GetString(offset);
+        if (!reader.IsDBNull(++offset))
         {
             using var ms = new MemoryStream();
-            reader.GetStream(7).CopyTo(ms);
+            reader.GetStream(offset).CopyTo(ms);
             tx.Data = ms.ToArray();
         }
-        tx.Timestamp = reader.GetInt64(8);
-        if (!reader.IsDBNull(9))
+        tx.Timestamp = reader.GetInt64(++offset);
+        if (!reader.IsDBNull(++offset))
         {
-            tx.Signature = reader.GetString(9);
+            tx.Signature = reader.GetString(offset);
         }
-        tx.ExecutionResult = (ExecutionResult)reader.GetByte(10);
+        tx.ExecutionResult = (ExecutionResult)reader.GetByte(++offset);
 
         return tx;
     }

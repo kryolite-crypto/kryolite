@@ -1,124 +1,129 @@
+using Dapper;
+using DuckDB.NET;
 using DuckDB.NET.Data;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using System.Data;
+using System.Data.SQLite;
+using System.Diagnostics;
+using System.Reflection.PortableExecutable;
+using System.Runtime.InteropServices;
 
 namespace Kryolite.Node.Repository;
 
 public class BlockchainRepository : IBlockchainRepository
 {
-    private static DuckDBConnection? Connection { get; set; }
+    private static SQLiteConnection? Connection { get; set; }
 
     public BlockchainRepository()
     {
         if (Connection is null)
         {
             var storePath = Path.Join(BlockchainService.DATA_PATH, "store.dat");
-            Connection = new DuckDBConnection($"Data Source={storePath}");
+            File.Delete(storePath);
+
+            SQLiteConnection.CreateFile(storePath);
+            Connection = new SQLiteConnection($"Data Source={storePath};Version=3;");
 
             Connection.Open();
+
+            Connection.Flags |= SQLiteConnectionFlags.NoVerifyTextAffinity;
 
             using var cmd = Connection.CreateCommand();
 
             cmd.CommandText = $@"
-                CREATE TABLE IF NOT EXISTS Transaction (
-                    TransactionId VARCHAR PRIMARY KEY,
-                    TransactionType TINYINT,
-                    Height LONG,
-                    PublicKey VARCHAR,
-                    Sender VARCHAR,
-                    Recipient VARCHAR,
-                    Value BIGINT,
-                    Pow VARCHAR,
+                CREATE TABLE Transactions (
+                    TransactionId TEXT PRIMARY KEY,
+                    TransactionType INTEGER,
+                    Height INTEGER,
+                    PublicKey TEXT,
+                    Sender TEXT,
+                    Recipient TEXT,
+                    Value INTEGER,
+                    Pow TEXT,
                     Data BLOB,
-                    Timestamp BIGINT,
-                    Signature VARCHAR,
-                    ExecutionResult TINYINT
+                    Timestamp INTEGER,
+                    Signature TEXT,
+                    ExecutionResult INTEGER
                 );
 
-                CREATE TABLE IF NOT EXISTS Ledger (
-                    Address VARCHAR PRIMARY KEY,
+                CREATE TABLE Ledger (
+                    Address TEXT PRIMARY KEY,
                     Balance BIGINT,
-                    Pending BIGINT,
+                    Pending BIGINT
                 );
 
-                CREATE TABLE IF NOT EXISTS Contract (
-                    Address VARCHAR PRIMARY KEY,
-                    Owner VARCHAR,
-                    Name VARCHAR,
+                CREATE TABLE Contract (
+                    Address TEXT PRIMARY KEY,
+                    Owner TEXT,
+                    Name TEXT,
                     Balance BIGINT,
                     Code BLOB,
                     EntryPoint BIGINT
                 );
             ";
-            
+
             cmd.ExecuteNonQuery();
 
-            using var cmd2 = Connection.CreateCommand();
-
-            cmd2.CommandText = $@"
-                CREATE TABLE IF NOT EXISTS TransactionTransaction (
-                    ParentId VARCHAR, -- REFERENCES Transaction (TransactionId),
-                    ChildId VARCHAR, -- REFERENCES Transaction (TransactionId),
-                    Height INTEGER
+            cmd.CommandText = $@"
+                CREATE TABLE TransactionTransaction (
+                    ParentId TEXT REFERENCES Transactions (TransactionId),
+                    ChildId TEXT REFERENCES Transactions (TransactionId)
                 );
 
-                CREATE TABLE IF NOT EXISTS Vote (
-                    Signature VARCHAR PRIMARY KEY,
-                    PublicKey VARCHAR,
-                    TransactionId VARCHAR
+                CREATE TABLE Vote (
+                    Signature TEXT PRIMARY KEY,
+                    PublicKey TEXT,
+                    TransactionId TEXT
                 );
 
-                CREATE TABLE IF NOT EXISTS ChainState (
+                CREATE TABLE ChainState (
                     Id INT PRIMARY KEY,
                     Weight BLOB,
                     Height BIGINT,
                     Blocks BIGINT,
-                    LastHash VARCHAR,
+                    LastHash TEXT,
                     CurrentDifficulty INTEGER
                 );
 
-                CREATE TABLE IF NOT EXISTS Token (
-                    TokenId VARCHAR PRIMARY KEY,
+                CREATE TABLE Token (
+                    TokenId TEXT PRIMARY KEY,
                     IsConsumed BOOLEAN,
-                    Ledger VARCHAR REFERENCES Ledger (Address),
-                    Contract VARCHAR REFERENCES Contract (Address)
+                    Ledger TEXT REFERENCES Ledger (Address),
+                    Contract TEXT REFERENCES Contract (Address)
                 );
 
-                CREATE TABLE IF NOT EXISTS ContractSnapshot (
-                    Id VARCHAR PRIMARY KEY,
+                CREATE TABLE ContractSnapshot (
+                    Id TEXT PRIMARY KEY,
                     Height INTEGER,
                     Snapshot BLOB,
-                    Address VARCHAR REFERENCES Contract (Address)
+                    Address TEXT REFERENCES Contract (Address)
                 );
             ";
 
-            cmd2.ExecuteNonQuery();
+            cmd.ExecuteNonQuery();
 
-            using var cmd3 = Connection.CreateCommand();
-
-            cmd3.CommandText = $@"
-                CREATE TABLE IF NOT EXISTS Effect (
-                    Id VARCHAR PRIMARY KEY,
-                    TransactionId VARCHAR REFERENCES Transaction (TransactionId),
-                    TokenId VARCHAR REFERENCES Token (TokenId),
-                    Sender VARCHAR,
-                    Recipient VARCHAR,
+            cmd.CommandText = $@"
+                CREATE TABLE Effect (
+                    Id TEXT PRIMARY KEY,
+                    TransactionId TEXT REFERENCES Transactions (TransactionId),
+                    TokenId TEXT REFERENCES Token (TokenId),
+                    Sender TEXT,
+                    Recipient TEXT,
                     Value BIGINT,
                     ConsumeToken BOOLEAN
                 );
             ";
 
-            cmd3.ExecuteNonQuery();
+            cmd.ExecuteNonQuery();
 
-            using var cmd4 = Connection.CreateCommand();
+            cmd.CommandText = $@"
+                CREATE INDEX ix_tx_height ON Transactions (Height);
+                CREATE INDEX ix_tx_from ON Transactions (Sender);
+                CREATE INDEX ix_tx_to ON Transactions (Recipient);
 
-            cmd4.CommandText = $@"
-                -- CREATE INDEX ix_tx_height ON Transaction (Height);
-                CREATE INDEX ix_tx_from ON Transaction (Sender);
-                CREATE INDEX ix_tx_to ON Transaction (Recipient);
-
-                CREATE INDEX ix_tx_parent ON TransactionTransaction (ParentId);
-                CREATE INDEX ix_tx_child ON TransactionTransaction (ChildId);
+                CREATE INDEX ix_txtx_parent ON TransactionTransaction (ParentId);
+                CREATE INDEX ix_txtx_child ON TransactionTransaction (ChildId);
 
                 CREATE INDEX vote_txid ON Vote (TransactionId);
 
@@ -132,11 +137,21 @@ public class BlockchainRepository : IBlockchainRepository
                 CREATE INDEX token_contract ON Token (Contract);
             ";
 
-            cmd4.ExecuteNonQuery();
+            cmd.ExecuteNonQuery();
+
+            cmd.CommandText = $@"
+                pragma threads = 4;
+                pragma journal_mode = wal; 
+                pragma synchronous = normal;
+                pragma locking_mode = exclusive;
+                pragma temp_store = default; 
+                pragma mmap_size = -1;";
+
+            cmd.ExecuteNonQuery();
         }
     }
 
-    public DuckDBTransaction BeginTransaction()
+    public SQLiteTransaction BeginTransaction()
     {
         return Connection!.BeginTransaction();
     }
@@ -149,12 +164,12 @@ public class BlockchainRepository : IBlockchainRepository
             SELECT
                 count(*)
             FROM
-                Transaction
+                Transactions
             WHERE
-                TransactionId = ?
+                TransactionId = @txid
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@txid", transactionId.ToString()));
 
         var count = (long)cmd.ExecuteScalar();
 
@@ -179,14 +194,14 @@ public class BlockchainRepository : IBlockchainRepository
                 Signature,
                 ExecutionResult
             FROM
-                Transaction
+                Transactions
             WHERE
-                TransactionId = ?
+                TransactionId = @txid
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@txid", transactionId.ToString()));
 
-        using var reader = cmd.ExecuteReader();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
         if (!reader.Read())
         {
@@ -196,69 +211,77 @@ public class BlockchainRepository : IBlockchainRepository
         return Transaction.Read(reader);
     }
 
-    public List<Transaction> GetParents(SHA256Hash transactionId)
+    public List<Transaction> GetPending()
     {
         using var cmd = Connection!.CreateCommand();
 
         cmd.CommandText = @"
             SELECT
-                TransactionId,
-                TransactionType,
-                Height,
-                PublicKey,
-                Recipient,
-                Value,
-                Pow,
-                Data,
-                Timestamp,
-                Signature,
-                ExecutionResult
+                ttx.ParentId,
+                ttx.ChildId,
+                tx.TransactionId,
+                tx.TransactionType,
+                tx.Height,
+                tx.PublicKey,
+                tx.Recipient,
+                tx.Value,
+                tx.Pow,
+                tx.Data,
+                tx.Timestamp,
+                tx.Signature,
+                tx.ExecutionResult
             FROM
-                Transaction
+                TransactionTransaction ttx
+            JOIN
+                Transactions tx ON ttx.ChildId = tx.TransactionId
             WHERE
-                TransactionId IN (
-                    SELECT ParentId FROM TransactionTransaction WHERE Height IS NULL
-                )
+                tx.Height IS NULL
         ";
 
-        //cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+        var lookup = new Dictionary<SHA256Hash, Transaction>();
 
-        using var reader = cmd.ExecuteReader();
-
-        var results = new List<Transaction>();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
         while (reader.Read())
         {
-            results.Add(Transaction.Read(reader));
+            var parentId = (SHA256Hash)reader.GetString(0);
+            var childId = (SHA256Hash)reader.GetString(1);
+
+            ref var tx = ref CollectionsMarshal.GetValueRefOrAddDefault(lookup, childId, out var existed);
+
+            if (!existed)
+            {
+                tx = Transaction.Read(reader, 2);
+            }
+
+            tx!.Parents.Add(parentId);
         }
 
-        return results;
+        return lookup.Values.ToList();
     }
 
-    public void UpdateHeight(Transaction transaction)
+    public void UpdateStatus(List<Transaction> transactions)
     {
-        using var cmd = Connection!.CreateCommand();
+        var cmd = Connection!.CreateCommand();
 
-        cmd.CommandText = @"
-            UPDATE
-                Transaction
-            SET
-                Height = ?
-            WHERE
-                TransactionId = ?;
+        cmd.CommandText += $@"
+                UPDATE
+                    Transactions
+                SET
+                    Height = @height,
+                    ExecutionResult = @status
+                WHERE
+                    TransactionId = @txid";
 
-            UPDATE
-                TransactionTransaction
-            SET
-                Height = ?
-            WHERE
-                ParentId = ?;
-        ";
+        foreach (var tx in transactions)
+        {
+            cmd.Parameters.Clear();
+            cmd.Parameters.AddWithValue("txid", tx.TransactionId);
+            cmd.Parameters.AddWithValue("height", tx.Height);
+            cmd.Parameters.AddWithValue("status", (byte)tx.ExecutionResult);
 
-        cmd.Parameters.Add(new DuckDBParameter(transaction.Height));
-        cmd.Parameters.Add(new DuckDBParameter(transaction.TransactionId.ToString()));
-
-        cmd.ExecuteNonQuery();
+            cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
+        }
     }
 
     public List<SHA256Hash> GetParentHashes(SHA256Hash transactionId)
@@ -271,12 +294,12 @@ public class BlockchainRepository : IBlockchainRepository
             FROM
                 TransactionTransaction
             WHERE
-                ChildId = ?
+                ChildId = @txid
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@txid", transactionId.ToString()));
 
-        using var reader = cmd.ExecuteReader();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
         var results = new List<SHA256Hash>();
 
@@ -298,7 +321,7 @@ public class BlockchainRepository : IBlockchainRepository
         using var cmd = Connection!.CreateCommand();
 
         cmd.CommandText = @"
-            INSERT INTO Transaction (
+            INSERT INTO Transactions (
                 TransactionId,
                 TransactionType,
                 Height,
@@ -311,44 +334,47 @@ public class BlockchainRepository : IBlockchainRepository
                 Timestamp,
                 Signature,
                 ExecutionResult
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            ) VALUES (@txid, @txtype, @height, @pubk, @sender, @recipient, @value, @pow, @data, @timestamp, @sign, @result);
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(tx.TransactionId.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter((byte)tx.TransactionType));
-        cmd.Parameters.Add(new DuckDBParameter(tx.Height));
-        cmd.Parameters.Add(new DuckDBParameter(tx.PublicKey?.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(tx.PublicKey?.ToAddress().ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(tx.To?.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(tx.Value));
-        cmd.Parameters.Add(new DuckDBParameter(tx.Pow?.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(tx.Data));
-        cmd.Parameters.Add(new DuckDBParameter(tx.Timestamp));
-        cmd.Parameters.Add(new DuckDBParameter(tx.Signature?.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter((byte)tx.ExecutionResult));
+        cmd.Parameters.Add(new SQLiteParameter("@txid", tx.TransactionId.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@txtype", (byte)tx.TransactionType));
+        cmd.Parameters.Add(new SQLiteParameter("@height", tx.Height));
+        cmd.Parameters.Add(new SQLiteParameter("@pubk", tx.PublicKey?.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@sender", tx.PublicKey?.ToAddress().ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@recipient", tx.To?.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@value", tx.Value));
+        cmd.Parameters.Add(new SQLiteParameter("@pow", tx.Pow?.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@data", tx.Data));
+        cmd.Parameters.Add(new SQLiteParameter("@timestamp", tx.Timestamp));
+        cmd.Parameters.Add(new SQLiteParameter("@sign", tx.Signature?.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@result", (byte)tx.ExecutionResult));
 
-        cmd.ExecuteNonQuery();
+        cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
 
         if (tx.TransactionType == TransactionType.GENESIS)
         {
             return;
         }
 
-        foreach (var parent in tx.Parents)
-        {
-            using var refCmd = Connection!.CreateCommand();
+        using var refCmd = Connection!.CreateCommand();
 
-            refCmd.CommandText = @"
+        refCmd.CommandText = @"
                 INSERT INTO TransactionTransaction (
                     ParentId,
                     ChildId
-                ) VALUES (?, ?);
+                ) VALUES (@parent, @child);
             ";
 
-            refCmd.Parameters.Add(new DuckDBParameter(parent.ToString()));
-            refCmd.Parameters.Add(new DuckDBParameter(tx.TransactionId.ToString()));
+        refCmd.Parameters.Add(new SQLiteParameter("@parent"));
+        refCmd.Parameters.Add(new SQLiteParameter("@child"));
 
-            refCmd.ExecuteNonQuery();
+        foreach (var parent in tx.Parents)
+        {
+            refCmd.Parameters[0].Value = parent.ToString();
+            refCmd.Parameters[1].Value = tx.TransactionId.ToString();
+
+            refCmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
         }
     }
 
@@ -370,16 +396,16 @@ public class BlockchainRepository : IBlockchainRepository
                 Signature,
                 ExecutionResult
             FROM
-                Transaction
+                Transactions
             WHERE
-                TransactionType = ?
+                TransactionType = @txtype
                 AND
                 Height = 0
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter((byte)TransactionType.GENESIS));
+        cmd.Parameters.Add(new SQLiteParameter("@txtype", (byte)TransactionType.GENESIS));
 
-        using var reader = cmd.ExecuteReader();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
         if (!reader.Read())
         {
@@ -389,7 +415,7 @@ public class BlockchainRepository : IBlockchainRepository
         return new Genesis(Transaction.Read(reader));
     }
 
-    public View GetLastView(bool includeVotes = false)
+    public View? GetLastView()
     {
         using var cmd = Connection!.CreateCommand();
 
@@ -407,86 +433,51 @@ public class BlockchainRepository : IBlockchainRepository
                 Signature,
                 ExecutionResult
             FROM
-                Transaction
+                Transactions
             WHERE
-                TransactionType = ?
+                TransactionType = @txtype
             ORDER BY Height DESC LIMIT 1;
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter((byte)TransactionType.VIEW));
+        cmd.Parameters.Add(new SQLiteParameter("@txtype", (byte)TransactionType.VIEW));
 
-        using var reader = cmd.ExecuteReader();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
         if (!reader.Read())
         {
-            throw new Exception("view not found");
+            return null;
         }
 
-        var view = new View(Transaction.Read(reader));
-
-        if (includeVotes)
-        {
-            view.Votes = GetVotes(view.TransactionId);
-        }
-
-        return view;
+        return new View(Transaction.Read(reader));
     }
 
-    public bool VoteExists(Signature signature)
+    public List<Vote> GetVotesAtHeight(long height)
     {
         using var cmd = Connection!.CreateCommand();
 
         cmd.CommandText = @"
             SELECT
-                count(*)
-            FROM
-                Vote
-            WHERE
-                Signature = ?
-        ";
-
-        cmd.Parameters.Add(new DuckDBParameter(signature.ToString()));
-
-        var count = (long)cmd.ExecuteScalar();
-
-        return count > 0;
-    }
-
-    public void AddVote(Vote vote)
-    {
-        using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            INSERT OR REPLACE INTO Vote ( 
-                Signature,
+                TransactionId,
+                TransactionType,
+                Height,
                 PublicKey,
-                TransactionId
-            ) VALUES (?, ?, ?, ?, ?);
-        ";
-
-        cmd.Parameters.Add(new DuckDBParameter(vote.Signature.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(vote.PublicKey.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(vote.TransactionId.ToString()));
-
-        cmd.ExecuteNonQuery();
-    }
-
-    public List<Vote> GetVotes(SHA256Hash transactionId)
-    {
-        using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            SELECT
+                Recipient,
+                Value,
+                Pow,
+                Data,
+                Timestamp,
                 Signature,
-                PublicKey,
-                TransactionId
+                ExecutionResult
             FROM
-                Vote
+                Transactions
             WHERE
-                TransactionId = ?
+                Height = @height
+                AND
+                TransactionType = @txtype
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(transactionId.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@height", height));
+        cmd.Parameters.Add(new SQLiteParameter("@txtype", (byte)TransactionType.VOTE));
 
         using var reader = cmd.ExecuteReader();
 
@@ -494,7 +485,7 @@ public class BlockchainRepository : IBlockchainRepository
 
         while (reader.Read())
         {
-            results.Add(Vote.Read(reader));
+            results.Add(new Vote(Transaction.Read(reader)));
         }
 
         return results;
@@ -517,7 +508,7 @@ public class BlockchainRepository : IBlockchainRepository
                 Id = 0
         ";
 
-        using var reader = cmd.ExecuteReader();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
         var results = new List<Vote>();
 
@@ -529,28 +520,54 @@ public class BlockchainRepository : IBlockchainRepository
         return ChainState.Read(reader);
     }
 
-    public void SaveState(ChainState chainState)
+    public void CreateState(ChainState chainState)
     {
         using var cmd = Connection!.CreateCommand();
 
         cmd.CommandText = @"
-            INSERT OR REPLACE INTO ChainState (
+            INSERT INTO ChainState (
                 Id,
                 Weight,
                 Height,
                 Blocks,
                 LastHash,
                 CurrentDifficulty
-            ) VALUES (0, ?, ?, ?, ?, ?);
+            ) VALUES (0, @weight, @height, @blocks, @lasthash, @diff);
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(chainState.Weight.ToByteArray()));
-        cmd.Parameters.Add(new DuckDBParameter(chainState.Height));
-        cmd.Parameters.Add(new DuckDBParameter(chainState.Blocks));
-        cmd.Parameters.Add(new DuckDBParameter(chainState.LastHash.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter((int)chainState.CurrentDifficulty.Value));
+        cmd.Parameters.Add(new SQLiteParameter("@weight", chainState.Weight.ToByteArray()));
+        cmd.Parameters.Add(new SQLiteParameter("@height", chainState.Height));
+        cmd.Parameters.Add(new SQLiteParameter("@blocks", chainState.Blocks));
+        cmd.Parameters.Add(new SQLiteParameter("@lasthash", chainState.LastHash.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@diff", (int)chainState.CurrentDifficulty.Value));
 
-        cmd.ExecuteNonQuery();
+        cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
+    }
+
+    public void SaveState(ChainState chainState)
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            UPDATE
+                ChainState
+            SET
+                Weight = @weight,
+                Height = @height,
+                Blocks = @blocks,
+                LastHash = @lasthash,
+                CurrentDifficulty = @diff
+            WHERE
+                Id = 0
+        ";
+
+        cmd.Parameters.Add(new SQLiteParameter("@weight", chainState.Weight.ToByteArray()));
+        cmd.Parameters.Add(new SQLiteParameter("@height", chainState.Height));
+        cmd.Parameters.Add(new SQLiteParameter("@blocks", chainState.Blocks));
+        cmd.Parameters.Add(new SQLiteParameter("@lasthash", chainState.LastHash.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@diff", (int)chainState.CurrentDifficulty.Value));
+
+        cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
     }
 
     /*public void Delete(Transaction tx)
@@ -579,12 +596,12 @@ public class BlockchainRepository : IBlockchainRepository
             FROM
                 Ledger
             WHERE
-                Address = ?
+                Address = @addr
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
 
-        using var reader = cmd.ExecuteReader();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
         if (!reader.Read())
         {
@@ -598,19 +615,34 @@ public class BlockchainRepository : IBlockchainRepository
     {
         using var cmd = Connection!.CreateCommand();
 
-        cmd.CommandText = @"
-            INSERT OR REPLACE INTO Ledger ( 
-                Address,
-                Balance,
-                Pending
-            ) VALUES (?, ?, ?);
-        ";
+        if (wallet.IsNew)
+        {
+            cmd.CommandText = @"
+                INSERT OR REPLACE INTO Ledger ( 
+                    Address,
+                    Balance,
+                    Pending
+                ) VALUES (@addr, @balance, @pending);
+            ";
+        }
+        else
+        {
+            cmd.CommandText = @"
+                UPDATE
+                    Ledger
+                SET
+                    Balance = @balance,
+                    Pending = @pending
+                WHERE
+                    Address = @addr
+            ";
+        }
 
-        cmd.Parameters.Add(new DuckDBParameter(wallet.Address.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter((long)wallet.Balance));
-        cmd.Parameters.Add(new DuckDBParameter((long)wallet.Pending));
+        cmd.Parameters.Add(new SQLiteParameter("@addr", wallet.Address.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@balance", (long)wallet.Balance));
+        cmd.Parameters.Add(new SQLiteParameter("@pending", (long)wallet.Pending));
 
-        cmd.ExecuteNonQuery();
+        cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
     }
 
     public void UpdateWallets(IEnumerable<Ledger> wallets)
@@ -643,10 +675,10 @@ public class BlockchainRepository : IBlockchainRepository
             FROM
                 Contract
             WHERE
-                Address = ?
+                Address = @addr
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
 
         using var reader = cmd.ExecuteReader();
 
@@ -669,13 +701,11 @@ public class BlockchainRepository : IBlockchainRepository
                 Pending
             FROM
                 Ledger
-            WHERE
-                Address = ?
             ORDER BY Balance DESC
-            LIMIT ?
+            LIMIT @count
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(count));
+        cmd.Parameters.Add(new SQLiteParameter("@count", count));
 
         using var reader = cmd.ExecuteReader();
 
@@ -694,20 +724,20 @@ public class BlockchainRepository : IBlockchainRepository
         using var cmd = Connection!.CreateCommand();
 
         cmd.CommandText = @"
-            INSERT OR REPLACE INTO Contract ( 
+            INSERT INTO Contract ( 
                 Address,
                 Owner,
                 Name,
                 Balance,
                 EntryPoint
-            ) VALUES (?, ?, ?, ?, ?);
+            ) VALUES (@addr, @owner, @name, @balance, @entry);
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(contract.Address.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(contract.Owner.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(contract.Name));
-        cmd.Parameters.Add(new DuckDBParameter(contract.Balance));
-        cmd.Parameters.Add(new DuckDBParameter(contract.EntryPoint));
+        cmd.Parameters.Add(new SQLiteParameter("@addr", contract.Address.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@owner", contract.Owner.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@name", contract.Name));
+        cmd.Parameters.Add(new SQLiteParameter("@balance", contract.Balance));
+        cmd.Parameters.Add(new SQLiteParameter("@entry", contract.EntryPoint));
 
         cmd.ExecuteNonQuery();
     }
@@ -730,13 +760,13 @@ public class BlockchainRepository : IBlockchainRepository
                 IsConsumed,
                 Ledger,
                 Contract
-            ) VALUES (?, ?, ?);
+            ) VALUES (@id, @isconsumed, @ledger, @contract);
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(token.TokenId.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(token.IsConsumed));
-        cmd.Parameters.Add(new DuckDBParameter(token.Ledger.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(token.Contract.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@tokenid", token.TokenId.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@isconsumed", token.IsConsumed));
+        cmd.Parameters.Add(new SQLiteParameter("@ledger", token.Ledger.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@contract", token.Contract.ToString()));
 
         cmd.ExecuteNonQuery();
     }
@@ -767,15 +797,14 @@ public class BlockchainRepository : IBlockchainRepository
                 Signature,
                 ExecutionResult
             FROM
-                Transaction
+                Transactions
             WHERE
-                Sender = ?
+                Sender = @addr
                 OR
-                Recipient = ?
+                Recipient = @addr
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(address.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
 
         using var reader = cmd.ExecuteReader();
 
@@ -797,7 +826,7 @@ public class BlockchainRepository : IBlockchainRepository
             SELECT
                 TransactionId
             FROM
-                Transaction
+                Transactions
             WHERE
                 TransactionId NOT IN (
                     SELECT ParentId FROM TransactionTransaction
@@ -818,8 +847,8 @@ public class BlockchainRepository : IBlockchainRepository
             using var cmd2 = Connection!.CreateCommand();
 
             // return few extra to not get duplicates
-            cmd2.CommandText = "SELECT TransactionId FROM Transaction ORDER BY Height DESC NULLS FIRST LIMIT ?";
-            cmd2.Parameters.Add(new DuckDBParameter(2 + results.Count));
+            cmd2.CommandText = "SELECT TransactionId FROM Transactions ORDER BY Height DESC NULLS FIRST LIMIT @count";
+            cmd2.Parameters.Add(new SQLiteParameter("@count", 2 + results.Count));
 
             using var reader2 = cmd2.ExecuteReader();
 
@@ -855,10 +884,10 @@ public class BlockchainRepository : IBlockchainRepository
             FROM
                 Token
             WHERE
-                TokenId = ?
+                TokenId = @tokenid
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(tokenId));
+        cmd.Parameters.Add(new SQLiteParameter("@tokenid", tokenId));
 
         using var reader = cmd.ExecuteReader();
 
@@ -885,11 +914,11 @@ public class BlockchainRepository : IBlockchainRepository
             FROM
                 Token
             WHERE
-                TokenId = ? && Ledger = ?
+                TokenId = @tokenid && Ledger = @ledger
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(tokenId.ToString()));
-        cmd.Parameters.Add(new DuckDBParameter(ledger.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@tokenid", tokenId.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@ledger", ledger.ToString()));
 
         using var reader = cmd.ExecuteReader();
 
@@ -916,10 +945,10 @@ public class BlockchainRepository : IBlockchainRepository
             FROM
                 Token
             WHERE
-                Ledger = ?
+                Ledger = @ledger
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(ledger.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@ledger", ledger.ToString()));
 
         using var reader = cmd.ExecuteReader();
 
@@ -945,10 +974,10 @@ public class BlockchainRepository : IBlockchainRepository
             FROM
                 Token
             WHERE
-                ContractAddress = ?
+                ContractAddress = @contract
         ";
 
-        cmd.Parameters.Add(new DuckDBParameter(contractAddress));
+        cmd.Parameters.Add(new SQLiteParameter("@contract", contractAddress));
 
         using var reader = cmd.ExecuteReader();
 

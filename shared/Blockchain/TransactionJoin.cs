@@ -8,6 +8,6 @@ namespace Kryolite.Shared.Blockchain;
 
 public class TransactionJoin
 {
-    public SHA256Hash ValidatesId { get; set; } = new SHA256Hash();
-    public SHA256Hash ValidatedById { get; set; } = new SHA256Hash();
+    public SHA256Hash ParentId { get; set; } = new SHA256Hash();
+    public SHA256Hash ChildId { get; set; } = new SHA256Hash();
 }

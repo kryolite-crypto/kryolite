@@ -8,9 +8,6 @@ namespace Kryolite.Shared.Blockchain;
 [MessagePackObject]
 public class View : Transaction
 {
-    [IgnoreMember]
-    public List<Vote> Votes { get; set; } = new List<Vote>();
-
     public View()
     {
 
@@ -29,7 +26,7 @@ public class View : Transaction
 
     public View(TransactionDto tx, List<SHA256Hash> parents)
     {
-        TransactionType = tx.TransactionType;
+        TransactionType = TransactionType.VIEW;
         PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
         To = tx.To;
         Value = tx.Value;
@@ -44,7 +41,7 @@ public class View : Transaction
     public View(Transaction tx)
     {
         TransactionId = tx.TransactionId;
-        TransactionType = tx.TransactionType;
+        TransactionType = TransactionType.VIEW;
         PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
         Height = tx.Height;
         To = tx.To;
@@ -53,21 +50,6 @@ public class View : Transaction
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("view requires signature");
-    }
-
-    public Vote Vote(PrivateKey privateKey)
-    {
-        var vote = new Vote
-        {
-            TransactionId = CalculateHash(),
-            PublicKey = PublicKey ?? throw new Exception("View requires PublicKey")
-        };
-
-        vote.Sign(privateKey);
-
-        Votes.Add(vote);
-
-        return vote;
     }
 
     public override SHA256Hash CalculateHash()

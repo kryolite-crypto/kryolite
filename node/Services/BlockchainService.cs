@@ -94,17 +94,6 @@ public class BlockchainService : BackgroundService
             Parents = blockchainManager.GetTransactionToValidate()
         };
 
-        view.TransactionId = view.CalculateHash();
-
-        var vote = new Vote
-        {
-            TransactionId = view.TransactionId,
-            PublicKey = "r9Lk4qxPGNZGBaLEjcWtAZmu8LRj5FQe7NCyRzNsnaX",
-            Signature = "3GAvVpJcujfYEL4mMhZk6C4gpzWmDtuVxsww1Kw3iR8GqVpnnhbwfaGoZTspwsNwVpxro3CZfR9RuqGJvLmecbiZ"
-        };
-
-        view.Votes.Add(vote);
-
         blockchainManager.AddView(view, false);
     }
 }

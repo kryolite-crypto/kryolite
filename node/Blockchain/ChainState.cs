@@ -1,3 +1,4 @@
+using System.Data.Common;
 using System.Numerics;
 using DuckDB.NET.Data;
 using Kryolite.Shared;
@@ -13,7 +14,7 @@ public class ChainState : EventBase
     public SHA256Hash LastHash { get; set; } = new SHA256Hash();
     public Difficulty CurrentDifficulty { get; set; }
 
-    public static ChainState Read(DuckDBDataReader reader)
+    public static ChainState Read(DbDataReader reader)
     {
         using var ms = new MemoryStream();
 

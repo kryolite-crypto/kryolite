@@ -4,6 +4,7 @@ using Kryolite.Shared.Blockchain;
 using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
+using System.Data.SQLite;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,23 +15,22 @@ public interface IBlockchainRepository
 {
     bool Exists(SHA256Hash transactionId);
     Transaction? Get(SHA256Hash transactionId);
-    List<Transaction> GetParents(SHA256Hash transactionId);
+    List<Transaction> GetPending();
     List<SHA256Hash> GetParentHashes(SHA256Hash transactionId);
     void Add(Transaction tx);
     Genesis? GetGenesis();
-    View GetLastView(bool includeVotes = false);
-    List<Vote> GetVotes(SHA256Hash transactionId);
+    View? GetLastView();
+    List<Vote> GetVotesAtHeight(long height);
+    void CreateState(ChainState chainState);
     void SaveState(ChainState chainState);
     // void Delete(Transaction tx);
     // void DeleteContractSnapshot(long height);
     ChainState GetChainState();
     Ledger? GetWallet(Address address);
-    void UpdateHeight(Transaction transaction);
+    public void UpdateStatus(List<Transaction> transactions);
     void UpdateWallet(Ledger wallet);
     void UpdateWallets(IEnumerable<Ledger> wallets);
     void UpdateWallets(params Ledger[] wallets);
-    void AddVote(Vote vote);
-    bool VoteExists(Signature signature);
     Contract? GetContract(Address address);
     List<Ledger> GetRichList(int count);
     void AddContract(Contract contract);
@@ -43,5 +43,5 @@ public interface IBlockchainRepository
     List<Token> GetTokens(Address from);
     List<Token> GetContractTokens(Address contractAddress);
 
-    DuckDBTransaction BeginTransaction();
+    SQLiteTransaction BeginTransaction();
 }

@@ -1,59 +1,56 @@
+using System.Data.Common;
 using System.Text.Json.Serialization;
 using DuckDB.NET.Data;
+using Kryolite.Shared.Dto;
 using MessagePack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class Vote
+public class Vote : Transaction
 {
-    [Key(0)]
-    public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
-
-    [Key(1)]
-    public Shared.PublicKey PublicKey { get; set; } = new PublicKey();
-
-    [Key(2)]
-    public Signature Signature { get; set; } = new Signature();
-
-    public void Sign(PrivateKey privateKey)
+    public Vote(PublicKey publicKey, List<SHA256Hash> parents, View view)
     {
-        var algorithm = SignatureAlgorithm.Ed25519;
+        TransactionType = TransactionType.VIEW;
+        PublicKey = publicKey;
+        Value = 0;
+        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+        Parents = parents;
 
-        using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
-        using var stream = new MemoryStream();
-
-        stream.Write(TransactionId);
-        stream.Write(PublicKey);
-
-        stream.Flush();
-
-        Signature = algorithm.Sign(key, stream.ToArray());
-    }
-
-    public bool Verify()
-    {
-        var algorithm = SignatureAlgorithm.Ed25519;
-
-        using var stream = new MemoryStream();
-
-        stream.Write(TransactionId);
-        stream.Write(PublicKey);
-
-        stream.Flush();
-
-        var key = NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, PublicKey, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, stream.ToArray(), Signature);
-    }
-
-    public static Vote Read(DuckDBDataReader reader)
-    {
-        return new Vote
+        if (!Parents.Contains(view.TransactionId))
         {
-            Signature = reader.GetString(0),
-            PublicKey = reader.GetString(1),
-            TransactionId = reader.GetString(2),
-        };
+            Parents.Add(view.TransactionId);
+        }
+
+        TransactionId = CalculateHash();
+    }
+
+    public Vote(TransactionDto tx, List<SHA256Hash> parents)
+    {
+        TransactionType = TransactionType.VOTE;
+        PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");
+        To = tx.To;
+        Value = tx.Value;
+        Pow = tx.Pow ?? new SHA256Hash();
+        Data = tx.Data;
+        Timestamp = tx.Timestamp;
+        Signature = tx.Signature ?? throw new Exception("vote requires signature");
+        Parents = parents;
+        TransactionId = CalculateHash();
+    }
+
+    public Vote(Transaction tx)
+    {
+        TransactionId = tx.TransactionId;
+        TransactionType = TransactionType.VOTE;
+        PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");
+        Height = tx.Height;
+        To = tx.To;
+        Value = tx.Value;
+        Pow = tx.Pow ?? new SHA256Hash();
+        Data = tx.Data;
+        Timestamp = tx.Timestamp;
+        Signature = tx.Signature ?? throw new Exception("vote requires signature");
     }
 }

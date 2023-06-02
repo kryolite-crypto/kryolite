@@ -17,7 +17,8 @@ public interface IBlockchainManager
 
     Genesis? GetGenesis();
     View? GetView(SHA256Hash transactionId);
-    View GetLastView(bool includeVotes = false);
+    View? GetLastView();
+    List<Vote> GetVotesAtHeight(long height);
     List<Transaction> GetTransactionsAfterHeight(long height, int batchSize);
     List<SHA256Hash> GetTransactionToValidate();
     Blocktemplate GetBlocktemplate(Address wallet);
@@ -27,7 +28,6 @@ public interface IBlockchainManager
     ulong GetBalance(Address address);
     
     void AddTransactionBatch(IList<TransactionDto> transactions);
-    void AddVoteBatch(IList<Vote> votes);
 
     /*
     bool SetChain(List<PosBlock> blocks);

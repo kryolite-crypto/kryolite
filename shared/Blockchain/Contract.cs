@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -64,7 +65,7 @@ public class Contract
         return addressBytes.ToArray();
     }
 
-    public static Contract Read(DuckDBDataReader reader)
+    public static Contract Read(DbDataReader reader)
     {
         return new Contract
         {

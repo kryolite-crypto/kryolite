@@ -22,7 +22,7 @@ public class ViewExecutor : IViewExecutor
             return ExecutionResult.INVALID_TRANSACTION_TYPE;
         }
 
-        var votes = view.Votes
+        /*var votes = view.Votes
             .Where(x => !Constant.SEED_VALIDATORS.Contains(x.PublicKey))
             .ToList();
 
@@ -41,7 +41,7 @@ public class ViewExecutor : IViewExecutor
             {
                 wallet.Balance += (ulong)reward;
             }
-        }
+        }*/
 
         return ExecutionResult.SUCCESS;
     }

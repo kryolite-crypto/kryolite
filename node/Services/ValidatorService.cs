@@ -105,12 +105,13 @@ public class ValidatorService : BackgroundService
 
                 var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
 
-                var lastView = blockchainManager.GetLastView(true);
-                var nextLeader = lastView.Votes
+                var lastView = blockchainManager.GetLastView();
+                var votes = blockchainManager.GetVotesAtHeight(lastView?.Height ?? 0);
+                var nextLeader = votes
                     .Where(x => !Banned.Contains(x.PublicKey))
                     .MinBy(x => x.Signature)?.PublicKey;
 
-                logger.LogInformation("View #{viewId} received {} votes", lastView.Height, lastView.Votes.Count());
+                logger.LogInformation("View #{} received {} votes", lastView?.Height, votes.Count);
 
                 if (nextLeader is null)
                 {
@@ -166,10 +167,15 @@ public class ValidatorService : BackgroundService
         var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate());
 
         nextView.Sign(Node.PrivateKey);
-        nextView.Vote(Node.PrivateKey);
 
         // TODO: Asynchronously add to not skip execution
-        blockchainManager.AddView(nextView, true);
+        if (blockchainManager.AddView(nextView, true))
+        {
+            var vote = new Vote(Node.PublicKey, nextView.Parents.Take(1).ToList(), nextView);
+            vote.Sign(Node.PrivateKey);
+
+            blockchainManager.AddVote(vote, true);
+        }
     }
 
     private async Task SynchronizeViewGenerator(CancellationToken stoppingToken)
