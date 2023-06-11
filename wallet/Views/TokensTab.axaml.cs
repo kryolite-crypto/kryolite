@@ -59,7 +59,7 @@ public partial class TokensTab : UserControl
                 }
 
                 using var scope = Program.ServiceCollection.CreateScope();
-                var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+                var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
 
                 var wallets = WalletManager.GetWallets();
 
@@ -153,11 +153,11 @@ public partial class TokensTab : UserControl
     private void InitializeData()
     {
         _ = Task.Run(() => {
-            var wallets = WalletManager.GetWallets();
+            /*var wallets = WalletManager.GetWallets();
             var collection = new List<TokenModel>();
 
             using var scope = Program.ServiceCollection.CreateScope();
-            var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+            var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
 
             foreach (var wallet in wallets)
             {
@@ -174,7 +174,7 @@ public partial class TokensTab : UserControl
                 collection.AddRange(tokens.ToList());
             }
 
-            Model.Tokens = new ObservableCollection<TokenModel>(collection);
+            Model.Tokens = new ObservableCollection<TokenModel>(collection);*/
         }); 
     }
 }

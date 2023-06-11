@@ -24,7 +24,7 @@ public class NodeInfo : IPacket
     {
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<BlockchainManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfo>>();
 
         logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");

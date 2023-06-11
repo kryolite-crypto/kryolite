@@ -1,112 +1,171 @@
+using Kryolite.Node.Migrations;
+using Kryolite.Node.Repository;
 using Kryolite.Shared;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
+using System.Data;
+using System.Data.SQLite;
 
 namespace Kryolite.Node;
 
-public class WalletRepository : IDisposable
+public class WalletRepository : IWalletRepository
 {
-    public WalletContext Context { get; }
-
-    private static PooledDbContextFactory<WalletContext>? Factory { get; set; }
+    private static SQLiteConnection? Connection { get; set; }
 
     public WalletRepository()
     {
-        if (Factory is null)
+        if (Connection is null)
         {
             var walletPath = Path.Join(BlockchainService.DATA_PATH, "wallet.dat");
+            var migrate = !Path.Exists(walletPath);
 
-            var options = new DbContextOptionsBuilder<WalletContext>()
-                .UseSqlite($"Data Source={walletPath}")
-                .EnableThreadSafetyChecks(false)
-                //.EnableSensitiveDataLogging()
-                //.LogTo(Console.WriteLine)
-                .Options;
+            Connection = new SQLiteConnection($"Data Source={walletPath};Version=3;");
 
-            Factory = new PooledDbContextFactory<WalletContext>(options);
+            Connection.Open();
 
-            var ctx = Factory.CreateDbContext();
+            if (migrate)
+            {
+                new WalletMigration(Connection).Baseline();
+            }
 
-            //Context.Database.Migrate();
-            ctx.Database.EnsureCreated();
+            Connection.Flags |= SQLiteConnectionFlags.NoVerifyTextAffinity;
+            Connection.Flags |= SQLiteConnectionFlags.NoVerifyTypeAffinity;
 
-            FormattableString cmd = $@"
-            pragma threads = 4;
-            pragma journal_mode = wal; 
-            pragma synchronous = normal;
-            pragma temp_store = default; 
-            pragma mmap_size = -1;";
+            using var cmd = Connection.CreateCommand();
 
-            ctx.Database.ExecuteSql(cmd);
+            cmd.CommandText = $@"
+                pragma threads = 4;
+                pragma journal_mode = wal; 
+                pragma synchronous = normal;
+                pragma temp_store = default; 
+                pragma mmap_size = -1;";
+
+            cmd.ExecuteNonQuery();
         }
-
-        Context = Factory.CreateDbContext();
     }
 
     public void Add(Wallet wallet)
     {
-        Context.Wallets.Add(wallet);
-        Context.SaveChanges();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            INSERT INTO Wallet (
+                Address,
+                Description,
+                PublicKey,
+                PrivateKey,
+                WalletType
+            ) VALUES (@addr, @desc, @pubk, @priv, @wtype);
+        ";
+
+        cmd.Parameters.Add(new SQLiteParameter("@addr", wallet.Address.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@desc", wallet.Description));
+        cmd.Parameters.Add(new SQLiteParameter("@pubk", wallet.PublicKey.ToString()));
+        cmd.Parameters.Add(new SQLiteParameter("@priv", wallet.PrivateKey.Buffer));
+        cmd.Parameters.Add(new SQLiteParameter("@wtype", (byte)wallet.WalletType));
+
+        cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
     }
 
     public Wallet? Get(Address address)
     {
-        return Context.Wallets
-            .Where(x => x.Address == address.ToString())
-            .FirstOrDefault();
-    }
+        using var cmd = Connection!.CreateCommand();
 
-    public void Update(Wallet wallet)
-    {
-        Context.Wallets.Update(wallet);
-        Context.SaveChanges();
-    }
+        cmd.CommandText = @"
+            SELECT
+                Address,
+                Description,
+                PublicKey,
+                PrivateKey,
+                WalletType
+            FROM
+                Wallet
+            WHERE
+                Address = @addr
+        ";
 
-    public void UpdateWallets(IEnumerable<Wallet> wallets)
-    {
-        Context.Wallets.UpdateRange(wallets);
-        Context.SaveChanges();
-    }
+        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
 
-    public void RollbackWallets(IEnumerable<Wallet> wallets, long height)
-    {
-        var toRemove = Context.Transactions.Where(x => x.Height >= height)
-            .ToList();
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
-        Context.Transactions.RemoveRange(toRemove);
-        Context.SaveChanges();
-    }
+        if (!reader.Read())
+        {
+            return null;
+        }
 
-    public Wallet? GetWallet(string address)
-    {
-        return Context.Wallets
-            .Where(x => x.Address == address)
-            .FirstOrDefault();
-    }
-
-    public Dictionary<string, Wallet> GetWallets()
-    {
-        return Context.Wallets
-            .ToDictionary(x => x.Address, x => x);
-    }
-
-    public List<WalletTransaction> GetLastTransactions(int count)
-    {
-        return Context.Transactions
-            .OrderByDescending(x => x.Timestamp)
-            .Take(count)
-            .ToList();
+        return Wallet.Read(reader);
     }
 
     public Wallet? GetNodeWallet()
     {
-        return Context.Wallets
-            .Where(x => x.WalletType == WalletType.VALIDATOR)
-            .SingleOrDefault();
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                Address,
+                Description,
+                PublicKey,
+                PrivateKey,
+                WalletType
+            FROM
+                Wallet
+            WHERE
+                WalletType = @wtype
+        ";
+
+        cmd.Parameters.Add(new SQLiteParameter("@wtype", (byte)WalletType.VALIDATOR));
+
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
+
+        if (!reader.Read())
+        {
+            return null;
+        }
+
+        return Wallet.Read(reader);
     }
 
-    public void Dispose()
+    public void UpdateDescription(Address address, string description)
     {
-        Context.Dispose();
+        var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText += $@"
+                UPDATE
+                    Wallet
+                SET
+                    Description = @desc
+                WHERE
+                    Address = @addr";
+
+        cmd.Parameters.Add(new SQLiteParameter("@desc", description));
+        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
+
+        cmd.ExecuteNonQuery();
+    }
+
+    public Dictionary<Address, Wallet> GetWallets()
+    {
+        using var cmd = Connection!.CreateCommand();
+
+        cmd.CommandText = @"
+            SELECT
+                Address,
+                Description,
+                PublicKey,
+                PrivateKey,
+                WalletType
+            FROM
+                Wallet
+        ";
+
+        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
+
+        var results = new Dictionary<Address, Wallet>();
+
+        while (reader.Read())
+        {
+            var wallet = Wallet.Read(reader);
+            results.TryAdd(wallet.Address, wallet);
+        }
+
+        return results;
     }
 }

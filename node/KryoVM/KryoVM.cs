@@ -256,7 +256,7 @@ public class KryoVM : IDisposable
             }
 
             Context!.Balance = balance;
-            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, addr, (ulong)value));
+            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, addr, value));
         }));
 
         Linker.Define("env", "__approval", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {

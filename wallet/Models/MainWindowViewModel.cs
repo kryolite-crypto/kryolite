@@ -1,10 +1,8 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
 using System.Linq;
 using System;
 using System.Collections.ObjectModel;
-using Avalonia.Data;
 using System.Collections.Generic;
+using Kryolite.Shared.Blockchain;
 using Kryolite.Shared;
 
 namespace Kryolite.Wallet;
@@ -83,8 +81,8 @@ public class MainWindowViewModel : NotifyPropertyChanged
         }
     }
 
-    private List<WalletTransaction> _Transactions = new List<WalletTransaction>();
-    public List<WalletTransaction> Transactions
+    private List<Transaction> _Transactions = new List<Transaction>();
+    public List<Transaction> Transactions
     {
         get 
         {
@@ -118,28 +116,33 @@ public class MainWindowViewModel : NotifyPropertyChanged
         }
     }
 
-    public void SetWallet(Kryolite.Shared.Wallet wallet)
+    public void AddWallet(Shared.Wallet wallet)
+    {
+        Wallets.Add(new WalletModel
+        {
+            Address = wallet.Address,
+            Description = wallet.Description,
+            PublicKey = wallet.PublicKey,
+            PrivateKey = wallet.PrivateKey,
+            Balance = 0,
+            Pending = 0
+        });
+    }
+
+    public void UpdateWallet(Ledger ledger, List<Transaction> transactions)
     {
         var existing = Wallets
-                .Where(x => x.Address == wallet.Address)
+                .Where(x => x.Address == ledger.Address)
                 .FirstOrDefault();
 
-        if (existing == null) {
-            _Wallets.Insert(_Wallets.Count, new WalletModel {
-                Description = wallet.Description,
-                Address = wallet.Address,
-                PublicKey = wallet.PublicKey,
-                PrivateKey = wallet.PrivateKey,
-                Balance = wallet.Balance,
-                Pending = wallet.Pending,
-                WalletTransactions = wallet.WalletTransactions,
-                Wallet = wallet
-            });
-        } else {
-            existing.Balance = wallet.Balance;
-            existing.Pending = wallet.Pending;
-            existing.WalletTransactions.AddRange(wallet.WalletTransactions);
+        if (existing == null)
+        {
+            return;
         }
+
+        existing.Balance = ledger.Balance;
+        existing.Pending = ledger.Pending;
+        existing.WalletTransactions = transactions;
 
         Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
         Pending = Wallets.Sum(x => (long)(x.Pending ?? 0));

@@ -34,8 +34,7 @@ public partial class AddressesTab : UserControl
 
         walletGrid.CellEditEnded += (object? sender, DataGridCellEditEndedEventArgs args) => {
             if (args.Row.DataContext is WalletModel walletModel) {
-                walletModel.Wallet.Description = walletModel.Description;
-                WalletManager.UpdateWallet(walletModel.Wallet);
+                WalletManager.UpdateDescription(walletModel.Address, walletModel.Description ?? string.Empty);
             }
         };
 
@@ -44,15 +43,20 @@ public partial class AddressesTab : UserControl
 
             await Dispatcher.UIThread.InvokeAsync(() => {
                 if (this.VisualRoot is MainWindow mw)
-                if (mw.DataContext is MainWindowViewModel model) {
-                    model.SetWallet(wallet);
+                {
+                    if (mw.DataContext is MainWindowViewModel model)
+                    {
+                        model.AddWallet(wallet);
+                    }
+
+                    mw.Wallets.TryAdd(wallet.Address, wallet);
                 }
             });
         };
 
         Model.CopyAddressClicked += async (object? sender, EventArgs args) => {
             var wallet = (WalletModel)walletGrid.SelectedItem;
-            await Application.Current!.Clipboard!.SetTextAsync(wallet.Address ?? "");
+            await Application.Current!.Clipboard!.SetTextAsync(wallet.Address.ToString() ?? "");
         };
     }
 }

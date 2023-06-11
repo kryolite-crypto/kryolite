@@ -18,10 +18,9 @@ public class TransactionDto
     [Required]
     public Address? To { get; set; }
     [Key(3)]
-    public ulong Value { get; set; }
+    public long Value { get; set; }
     [Key(4)]
-    [Required]
-    public SHA256Hash? Pow { get; set; }
+    public byte[]? Pow { get; set; }
     [Key(5)]
     public byte[]? Data { get; set; }
     [Key(6)]
@@ -31,6 +30,9 @@ public class TransactionDto
     public Signature? Signature { get; set; }
     [Key(8)]
     public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
+
+    [IgnoreMember]
+    public bool IsVerified { get; set; }
 
     public void Sign(PrivateKey privateKey)
     {
@@ -50,6 +52,7 @@ public class TransactionDto
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(Pow);
 
         foreach (var txId in Parents.Order())
         {
@@ -77,5 +80,39 @@ public class TransactionDto
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;
         Parents = tx.Parents;
+    }
+
+    public bool Verify()
+    {
+        var algorithm = new Ed25519();
+        using var stream = new MemoryStream();
+
+        stream.WriteByte((byte)TransactionType);
+        stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
+
+        if (To is not null)
+        {
+            stream.Write(To);
+        }
+
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(Data);
+        stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(Pow);
+
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
+        }
+
+        stream.Flush();
+
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
+        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
     }
 }

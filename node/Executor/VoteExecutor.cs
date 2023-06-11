@@ -4,12 +4,12 @@ using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
 
-public class ViewExecutor : IViewExecutor
+public class VoteExecutor : IExecutor
 {
     private IExecutorContext Context { get; }
     private ILogger Logger { get; }
 
-    public ViewExecutor(IExecutorContext context, ILogger logger)
+    public VoteExecutor(IExecutorContext context, ILogger logger)
     {
         Context = context ?? throw new ArgumentNullException(nameof(context));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -44,5 +44,10 @@ public class ViewExecutor : IViewExecutor
         }*/
 
         return ExecutionResult.SUCCESS;
+    }
+
+    public void Rollback(Transaction tx)
+    {
+        throw new NotImplementedException();
     }
 }

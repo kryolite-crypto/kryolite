@@ -6,6 +6,7 @@ using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Redbus.Interfaces;
 
 namespace Kryolite.Node;
 
@@ -18,11 +19,13 @@ public class ValidatorService : BackgroundService
 
     private Wallet Node { get; set; }
     private ManualResetEventSlim AllowExecution { get; set; } = new(true);
+    private IEventBus EventBus { get; }
 
-    public ValidatorService(IServiceProvider serviceProvider, IWalletManager walletManager, ILogger<ValidatorService> logger, StartupSequence startup)
+    public ValidatorService(IServiceProvider serviceProvider, IWalletManager walletManager, IEventBus eventBus, ILogger<ValidatorService> logger, StartupSequence startup)
     {
         this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         this.walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
+        EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
@@ -37,31 +40,38 @@ public class ValidatorService : BackgroundService
 
             var task = StartValidator(stoppingToken);
 
-            /*blockchainManager.OnWalletUpdated(new ActionBlock<Wallet>(wallet => {
-                if (wallet.WalletType != WalletType.VALIDATOR)
-                {
-                    return;
-                }
-
-                if (!AllowExecution.IsSet && wallet.Balance >= Constant.COLLATERAL)
-                {
-                    AllowExecution.Set();
-                }
-
-                if (AllowExecution.IsSet && wallet.Balance < Constant.COLLATERAL)
-                {
-                    AllowExecution.Reset();
-                }
-            }));*/
-
             if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey))
             {
                 AllowExecution.Set();
             }
-
-            if (walletManager.GetNodeWallet()?.Balance >= Constant.COLLATERAL)
+            else
             {
-                AllowExecution.Set();
+
+                EventBus.Subscribe<Ledger>(ledger => {
+                    if (ledger.Address != Node.Address)
+                    {
+                        return;
+                    }
+
+                    if (!AllowExecution.IsSet && ledger.Balance >= Constant.COLLATERAL)
+                    {
+                        AllowExecution.Set();
+                    }
+
+                    if (AllowExecution.IsSet && ledger.Balance < Constant.COLLATERAL)
+                    {
+                        AllowExecution.Reset();
+                    }
+                });
+
+                using var scope = serviceProvider.CreateScope();
+
+                var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
+                if (storeManager.GetLedger(Node.Address)?.Balance >= Constant.COLLATERAL)
+                {
+                    AllowExecution.Set();
+                }
             }
 
             /*use this to generate seed signatures
@@ -103,9 +113,10 @@ public class ValidatorService : BackgroundService
             {
                 using var scope = serviceProvider.CreateScope();
 
-                var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
+                var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
-                var lastView = blockchainManager.GetLastView();
+                var lastView = blockchainManager.GetLastView() ?? throw new Exception("LastView returned null");
+
                 var votes = blockchainManager.GetVotesAtHeight(lastView?.Height ?? 0);
                 var nextLeader = votes
                     .Where(x => !Banned.Contains(x.PublicKey))
@@ -161,17 +172,18 @@ public class ValidatorService : BackgroundService
         }
     }
 
-    private void GenerateView(IBlockchainManager blockchainManager, View lastView)
+    private void GenerateView(IStoreManager blockchainManager, View lastView)
     {
         var height = (lastView?.Height ?? 0) + 1L;
         var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate());
 
-        nextView.Sign(Node.PrivateKey);
-
-        // TODO: Asynchronously add to not skip execution
-        if (blockchainManager.AddView(nextView, true))
+        if (blockchainManager.AddView(nextView, true, true))
         {
-            var vote = new Vote(Node.PublicKey, nextView.Parents.Take(1).ToList(), nextView);
+            var parents = nextView.Parents.Take(1).ToList();
+            parents.Add(nextView.TransactionId);
+
+            var vote = new Vote(Node.PublicKey, parents);
+
             vote.Sign(Node.PrivateKey);
 
             blockchainManager.AddVote(vote, true);
@@ -182,7 +194,7 @@ public class ValidatorService : BackgroundService
     {
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
         logger.LogInformation($"Synchronize view generator");
         var lastView = blockchainManager.GetLastView() ?? throw new Exception("view not initialized");

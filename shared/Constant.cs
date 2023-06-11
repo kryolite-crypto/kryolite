@@ -19,7 +19,7 @@ public static class Constant
     public const long DECIMAL_MULTIPLIER = 1_000_000;
 
     public static readonly ImmutableArray<PublicKey> SEED_VALIDATORS = ImmutableArray.Create<PublicKey>(
-        "r9Lk4qxPGNZGBaLEjcWtAZmu8LRj5FQe7NCyRzNsnaX"
+        "5rnRg3fop5Q9rxcy8y33xJ7QKm2svGJo9fjgyGFu7ipy"
     );
 
     // Placeholder

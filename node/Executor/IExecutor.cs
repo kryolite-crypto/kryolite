@@ -2,7 +2,8 @@
 
 namespace Kryolite.Node.Executor;
 
-public interface IViewExecutor
+public interface IExecutor
 {
     ExecutionResult Execute(Transaction tx);
+    void Rollback(Transaction tx);
 }

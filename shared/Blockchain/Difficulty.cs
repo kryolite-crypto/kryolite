@@ -13,16 +13,16 @@ public record struct Difficulty
     [Key(0)]
     [FieldOffset(0)]
     public uint Value;
-    [IgnoreMemberAttribute]
+    [IgnoreMember]
     [FieldOffset(0)]
     public byte b0;
-    [IgnoreMemberAttribute]
+    [IgnoreMember]
     [FieldOffset(1)]
     public byte b1;
-    [IgnoreMemberAttribute]
+    [IgnoreMember]
     [FieldOffset(2)]
     public byte b2;
-    [IgnoreMemberAttribute]
+    [IgnoreMember]
     [FieldOffset(3)]
     public byte b3;
 

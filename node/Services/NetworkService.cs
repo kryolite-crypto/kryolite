@@ -362,7 +362,7 @@ public class SyncProgress : EventBase
 public class ChainObserver : IObserver<Chain>
 {
     private readonly IMeshNetwork nodeNetwork;
-    private readonly IBlockchainManager blockchainManager;
+    private readonly IStoreManager blockchainManager;
     private readonly ILogger<NetworkService> logger;
     private readonly IEventBus eventBus;
 

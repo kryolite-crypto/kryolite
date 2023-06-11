@@ -5,9 +5,12 @@ using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
+[MessagePackObject]
 public class Block : Transaction
 {
+    [IgnoreMember]
     public Difficulty Difficulty { get; set; }
+    [IgnoreMember]
     public SHA256Hash ParentHash { get; set; } = new SHA256Hash();
 
     public Block()
@@ -35,7 +38,7 @@ public class Block : Transaction
         Value = Constant.BLOCK_REWARD;
         Timestamp = tx.Timestamp;
         Data = tx.Data;
-        Pow = tx.Pow ?? new SHA256Hash();
+        Pow = tx.Pow;
         Parents = parents;
         TransactionId = CalculateHash();
     }
@@ -67,7 +70,7 @@ public class Block : Transaction
         var basehash = GetHash();
         var concat = new Concat
         {
-            Buffer = basehash.Buffer.Concat(Pow.Buffer).ToArray()
+            Buffer = basehash.Buffer.Concat(Pow ?? new byte[0]).ToArray()
         };
 
         var hash = Grasshopper.Hash(ParentHash, concat);

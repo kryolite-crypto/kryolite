@@ -24,7 +24,7 @@
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Description" Binding="{Binding Description}"/>
-                <DataGridTextColumn Header="Address" Binding="{Binding Address}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Address" Binding="{Binding Address, Converter={StaticResource AddressConverter}}" IsReadOnly="True"/>
                 <DataGridTextColumn Header="Balance" Binding="{Binding Balance, Converter={StaticResource CurrencyConverter}}" IsReadOnly="True"/>
             </DataGrid.Columns>
         </DataGrid>

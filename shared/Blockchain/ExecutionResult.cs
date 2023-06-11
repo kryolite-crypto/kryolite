@@ -8,8 +8,8 @@ namespace Kryolite.Shared.Blockchain;
 
 public enum ExecutionResult
 {
-    PENDING,
     SUCCESS,
+    PENDING,
     TOO_LOW_BALANCE,
     INVALID_CONTRACT,
     CONTRACT_EXECUTION_FAILED,

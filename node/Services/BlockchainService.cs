@@ -37,7 +37,7 @@ public class BlockchainService : BackgroundService
         try
         {
             using var scope = ServiceProvider.CreateScope();
-            var blockchainManager = scope.ServiceProvider.GetRequiredService<IBlockchainManager>();
+            var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
             var genesis = blockchainManager.GetGenesis();
 
@@ -46,7 +46,7 @@ public class BlockchainService : BackgroundService
                 InitializeGenesisBlock(blockchainManager);
             }
 
-            if (genesis != null && genesis.Pow != GenesisSeed)
+            if (genesis != null && !Enumerable.SequenceEqual(genesis.Pow ?? new byte[0], GenesisSeed.Buffer))
             {
                 Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
                 blockchainManager.ResetChain();
@@ -61,7 +61,7 @@ public class BlockchainService : BackgroundService
         }
     }
 
-    private void InitializeGenesisBlock(IBlockchainManager blockchainManager)
+    private void InitializeGenesisBlock(IStoreManager blockchainManager)
     {
         var timestamp = new DateTimeOffset(2023, 1, 1, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
@@ -70,6 +70,7 @@ public class BlockchainService : BackgroundService
             Data = Encoding.UTF8.GetBytes(Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"),
             Pow = GenesisSeed,
             Timestamp = timestamp,
+            Height = 0,
             PublicKey = new PublicKey(),
             Signature = new Signature()
         };
@@ -90,10 +91,12 @@ public class BlockchainService : BackgroundService
             Timestamp = timestamp,
             Height = 0,
             PublicKey = new PublicKey(),
-            Signature = new Signature(),
-            Parents = blockchainManager.GetTransactionToValidate()
+            Signature = new Signature()
         };
 
-        blockchainManager.AddView(view, false);
+        view.Parents.Add(genesis.TransactionId);
+        view.Parents.Add(new SHA256Hash());
+
+        blockchainManager.AddView(view, false, false);
     }
 }

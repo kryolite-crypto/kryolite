@@ -1,14 +1,11 @@
 using System.Net;
 using System.Net.WebSockets;
-using System.Reflection;
-using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using DnsClient;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using LettuceEncrypt.Acme;
 using Microsoft.AspNetCore.Builder;
@@ -16,14 +13,11 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 using Microsoft.AspNetCore.DataProtection.XmlEncryption;
-using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using Redbus;
 using Redbus.Interfaces;
 
@@ -281,10 +275,11 @@ public class Startup
 
         var dataSource = Path.Join(dataDir, "blocks.dat");
 
-        services.AddTransient<IBlockchainRepository, BlockchainRepository>()
-                .AddTransient<IBlockchainManager, BlockchainManager>()
+        services.AddTransient<IStoreRepository, StoreRepository>()
+                .AddTransient<IStoreManager, StoreManager>()
+                .AddTransient<IWalletRepository, WalletRepository>()
+                .AddTransient<IWalletManager, WalletManager>()
                 .AddSingleton<INetworkManager, NetworkManager>()
-                .AddSingleton<IWalletManager, WalletManager>()
                 .AddSingleton<IMeshNetwork, MeshNetwork>()
                 .AddSingleton<IExecutorFactory, ExecutorFactory>()
                 .AddHostedService<BlockchainService>()
@@ -292,10 +287,12 @@ public class Startup
                 .AddHostedService<NetworkService>()
                 .AddHostedService<ValidatorService>()
                 .AddHostedService<MDNSService>()
-                .AddSingleton<IBufferService<TransactionDto>, TransactionService>()
-                .AddHostedService(p => (TransactionService)p.GetRequiredService<IBufferService<TransactionDto>>())
-                .AddSingleton<IBufferService<Chain>, SyncService>()
-                .AddHostedService(p => (SyncService)p.GetRequiredService<IBufferService<Chain>>())
+                .AddSingleton<IBufferService<TransactionDto, OutgoingTransactionService>, OutgoingTransactionService>()
+                .AddHostedService(p => (OutgoingTransactionService)p.GetRequiredService<IBufferService<TransactionDto, OutgoingTransactionService>>())
+                .AddSingleton<IBufferService<TransactionDto, IncomingTransactionService>, IncomingTransactionService>()
+                .AddHostedService(p => (IncomingTransactionService)p.GetRequiredService<IBufferService<TransactionDto, IncomingTransactionService>>())
+                .AddSingleton<IBufferService<Chain, SyncService>, SyncService>()
+                .AddHostedService(p => (SyncService)p.GetRequiredService<IBufferService<Chain, SyncService>>())
                 .AddSingleton<StartupSequence>()
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddSingleton<IEventBus, EventBus>()

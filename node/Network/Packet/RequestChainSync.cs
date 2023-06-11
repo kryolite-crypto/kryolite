@@ -16,7 +16,7 @@ public class RequestChainSync : IPacket
     {
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<BlockchainManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<RequestChainSync>>();
 
         logger.LogInformation($"Chain sync requested by {peer.Uri.ToHostname()}");

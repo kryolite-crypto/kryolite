@@ -32,6 +32,7 @@ public class Program
         SerializerOpts.Converters.Add(new DifficultyConverter());
         SerializerOpts.Converters.Add(new AddressConverter());
 
+
         var rootCmd = new RootCommand("Kryolite Miner");
 
         var nodeOption = new Option<string?>(name: "--url", description: "Node url");

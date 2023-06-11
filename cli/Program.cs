@@ -28,11 +28,6 @@ public class Program
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
 
-        var dataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-        Directory.CreateDirectory(dataDir);
-
-        BlockchainService.DATA_PATH = dataDir;
-
         var rootCmd = new RootCommand("Kryolite CLI");
 
         var nodeOption = new Option<string?>(name: "--node", description: "Node url");

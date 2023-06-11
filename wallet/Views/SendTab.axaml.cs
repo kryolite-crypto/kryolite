@@ -27,7 +27,7 @@ public partial class SendTab : UserControl
 
         Model.SendTransactionClicked += (object? sender, EventArgs args) => {
             using var scope = Program.ServiceCollection.CreateScope();
-            var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+            var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
 
             if (Model.Recipient is null || Model.SelectedWallet is null || Model.Amount is null || !Address.IsValid(Model.Recipient))
             {
@@ -38,7 +38,7 @@ public partial class SendTab : UserControl
                 TransactionType = TransactionType.PAYMENT,
                 PublicKey = Model.SelectedWallet.PublicKey,
                 To = Model.Recipient,
-                Value = (ulong)(decimal.Parse(Model.Amount) * 1000000),
+                Value = (long)(decimal.Parse(Model.Amount) * 1000000),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Parents = blockchainManager.GetTransactionToValidate()
             };
@@ -113,7 +113,7 @@ public partial class SendTab : UserControl
         }
 
         using var scope = Program.ServiceCollection.CreateScope();
-        var blockchainManager = scope.ServiceProvider.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
+        var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
 
         var contract = blockchainManager.GetContract(addr);
 

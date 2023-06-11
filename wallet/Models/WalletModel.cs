@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Wallet;
 
@@ -19,13 +20,13 @@ public class WalletModel : NotifyPropertyChanged
         }
     }
 
-    public string? Address { get; set; }
+    public Address Address { get; set; } = new Address();
 
-    public PublicKey PublicKey { get; set; }
-    public PrivateKey PrivateKey { get; set; }
+    public PublicKey PublicKey { get; set; } = new PublicKey();
+    public PrivateKey PrivateKey { get; set; } = new PrivateKey();
 
-    private ulong? _Balance;
-    public ulong? Balance { 
+    private long? _Balance;
+    public long? Balance { 
         get => _Balance;
         set {
             if (_Balance != value)
@@ -36,8 +37,8 @@ public class WalletModel : NotifyPropertyChanged
         }
     }
 
-    private ulong? _Pending;
-    public ulong? Pending
+    private long? _Pending;
+    public long? Pending
     {
         get => _Pending;
         set
@@ -50,7 +51,5 @@ public class WalletModel : NotifyPropertyChanged
         }
     }
 
-    public Kryolite.Shared.Wallet Wallet { get; set; }
-
-    public List<WalletTransaction> WalletTransactions { get; set; } = new List<WalletTransaction>();
+    public List<Transaction> WalletTransactions { get; set; } = new List<Transaction>();
 }

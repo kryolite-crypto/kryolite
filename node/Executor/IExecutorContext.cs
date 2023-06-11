@@ -26,6 +26,6 @@ public interface IExecutorContext
     List<EventBase> GetEvents();
     void AddEvents(List<EventBase> events);
 
-    IBlockchainRepository GetRepository();
+    IStoreRepository GetRepository();
     void Save();
 }

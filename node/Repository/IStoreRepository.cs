@@ -1,36 +1,30 @@
-﻿using DuckDB.NET.Data;
-using Kryolite.Shared;
+﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Data.SQLite;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using RocksDbSharp;
+using Microsoft.Data.Sqlite;
 
 namespace Kryolite.Node.Repository;
 
-public interface IBlockchainRepository
+public interface IStoreRepository
 {
     bool Exists(SHA256Hash transactionId);
     Transaction? Get(SHA256Hash transactionId);
     List<Transaction> GetPending();
-    List<SHA256Hash> GetParentHashes(SHA256Hash transactionId);
-    void Add(Transaction tx);
+    void Add(Transaction tx, WriteBatch? writeBatch = null);
     Genesis? GetGenesis();
     View? GetLastView();
     List<Vote> GetVotesAtHeight(long height);
-    void CreateState(ChainState chainState);
-    void SaveState(ChainState chainState);
+    void SaveState(ChainState chainState, WriteBatch? writeBatch = null);
+    void Finalize(List<Transaction> transactions, WriteBatch? writeBatch = null);
     // void Delete(Transaction tx);
     // void DeleteContractSnapshot(long height);
-    ChainState GetChainState();
+    long? GetTimestamp(SHA256Hash transactionId);
+    ChainState? GetChainState();
     Ledger? GetWallet(Address address);
-    public void UpdateStatus(List<Transaction> transactions);
-    void UpdateWallet(Ledger wallet);
-    void UpdateWallets(IEnumerable<Ledger> wallets);
-    void UpdateWallets(params Ledger[] wallets);
+    List<Transaction> GetLastNTransctions(Address address, int count);
+    void UpdateWallet(Ledger wallet, WriteBatch? writeBatch = null);
+    void UpdateWallets(IEnumerable<Ledger> wallets, WriteBatch? writeBatch = null);
+    void UpdateWallets(WriteBatch? writeBatch = null, params Ledger[] wallets);
     Contract? GetContract(Address address);
     List<Ledger> GetRichList(int count);
     void AddContract(Contract contract);
@@ -43,5 +37,5 @@ public interface IBlockchainRepository
     List<Token> GetTokens(Address from);
     List<Token> GetContractTokens(Address contractAddress);
 
-    SQLiteTransaction BeginTransaction();
+    void Write(WriteBatch writeBatch);
 }

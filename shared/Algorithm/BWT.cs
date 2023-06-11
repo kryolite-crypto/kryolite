@@ -1,14 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System;
-using System.Linq;
-using static System.Net.Mime.MediaTypeNames;
-using System.Xml.Linq;
-using System.Runtime.CompilerServices;
-using Microsoft.EntityFrameworkCore.Metadata.Internal;
+﻿using System.Runtime.CompilerServices;
 
 namespace Kryolite.Shared;
 

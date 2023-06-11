@@ -4,7 +4,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
 
-public class TransactionExecutor : ITransactionExecutor
+public class TransactionExecutor : IExecutor
 {
     private IExecutorContext Context { get; }
     private ILogger Logger { get; }

@@ -10,12 +10,12 @@ using System.Threading.Tasks;
 
 namespace Kryolite.Node.Services;
 
-public class SyncService : BackgroundService, IBufferService<Chain>
+public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 {
     private Channel<Chain> SyncChannel { get; } = Channel.CreateBounded<Chain>(3);
-    private ILogger<TransactionService> Logger { get; }
+    private ILogger<OutgoingTransactionService> Logger { get; }
 
-    public SyncService(ILogger<TransactionService> logger)
+    public SyncService(ILogger<OutgoingTransactionService> logger)
     {
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -55,5 +55,15 @@ public class SyncService : BackgroundService, IBufferService<Chain>
         {
             SyncChannel.Writer.TryWrite(item);
         }
+    }
+
+    public Task AddAsync(Chain item)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task AddAsync(List<Chain> items)
+    {
+        throw new NotImplementedException();
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Org.BouncyCastle.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,13 +11,13 @@ using System.Threading.Tasks;
 
 namespace Kryolite.Node.Services;
 
-public class TransactionService : BackgroundService, IBufferService<TransactionDto>
+public class OutgoingTransactionService : BackgroundService, IBufferService<TransactionDto, OutgoingTransactionService>
 {
     private Channel<TransactionDto> TxChannel { get; } = Channel.CreateUnbounded<TransactionDto>();
     private IMeshNetwork MeshNetwork { get; }
-    private ILogger<TransactionService> Logger { get; }
+    private ILogger<OutgoingTransactionService> Logger { get; }
 
-    public TransactionService(IMeshNetwork meshNetwork, ILogger<TransactionService> logger)
+    public OutgoingTransactionService(IMeshNetwork meshNetwork, ILogger<OutgoingTransactionService> logger)
     {
         MeshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -37,8 +38,17 @@ public class TransactionService : BackgroundService, IBufferService<TransactionD
             // buffer transactions for few moments
             await Task.Delay(100);
 
-            var items = TxChannel.Reader.ReadAllAsync(stoppingToken)
-                .ToBlockingEnumerable(stoppingToken);
+            var items = new List<TransactionDto>();
+
+            while (TxChannel.Reader.TryRead(out var item))
+            {
+                items.Add(item);
+
+                if (items.Count >= 10_000)
+                {
+                    break;
+                }
+            }
 
             var msg = new TransactionBatch
             {
@@ -60,5 +70,15 @@ public class TransactionService : BackgroundService, IBufferService<TransactionD
         {
             TxChannel.Writer.TryWrite(item);
         }
+    }
+
+    public Task AddAsync(TransactionDto item)
+    {
+        throw new NotImplementedException();
+    }
+
+    public Task AddAsync(List<TransactionDto> items)
+    {
+        throw new NotImplementedException();
     }
 }

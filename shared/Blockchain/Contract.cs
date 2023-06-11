@@ -4,7 +4,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using Crypto.RIPEMD;
-using DuckDB.NET.Data;
 using MessagePack;
 
 namespace Kryolite.Shared;
@@ -14,7 +13,7 @@ public class Contract
     public Address Address { get; set; }
     public Address Owner { get; set; }
     public string Name { get; set; }
-    public ulong Balance { get; set; }
+    public long Balance { get; set; }
     public byte[] Code { get; set; }
     public IntPtr? EntryPoint { get; set; }
     public ContractManifest Manifest { get; set; }
@@ -72,7 +71,7 @@ public class Contract
             Address = reader.GetString(0),
             Owner = reader.GetString(1),
             Name = reader.GetString(2),
-            Balance = (ulong)reader.GetInt64(3),
+            Balance = reader.GetInt64(3),
             EntryPoint = (IntPtr)reader.GetInt64(4)
         };
     }

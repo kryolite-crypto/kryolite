@@ -1,19 +1,23 @@
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Data.Common;
-using System.Text.Json.Serialization;
-using DuckDB.NET.Data;
 using MessagePack;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using Redbus.Events;
 
 namespace Kryolite.Shared;
 
-public class Ledger
+[MessagePackObject]
+public class Ledger : EventBase
 {
+    [Key(0)]
+    public long Id { get; set; }
+    [Key(1)]
     public Address Address { get; set; }
-    public ulong Balance { get; set; }
-    public ulong Pending { get; set; }
+    [Key(2)]
+    public long Balance { get; set; }
+    [Key(3)]
+    public long Pending { get; set; }
+    [Key(4)]
     public List<Token> Tokens { get; set; } = new();
-    public bool IsNew { get; set; } = false;
+    // public bool IsNew { get; set; }
 
     public Ledger()
     {
@@ -23,7 +27,7 @@ public class Ledger
     public Ledger(Address address)
     {
         Address = address;
-        IsNew = true;
+        // IsNew = true;
     }
 
     public static Ledger Read(DbDataReader reader)
@@ -31,8 +35,8 @@ public class Ledger
         return new Ledger
         {
             Address = reader.GetString(0),
-            Balance = (ulong)reader.GetInt64(1),
-            Pending = (ulong)reader.GetInt64(2)
+            Balance = reader.GetInt64(1),
+            Pending = reader.GetInt64(2)
         };
     }
 }

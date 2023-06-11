@@ -54,7 +54,7 @@
                                 <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
                                     <TextBlock Text="{Binding Timestamp, Converter={StaticResource TimestampConverter}}" Grid.Row="0" Grid.Column="0"/>
                                     <TextBlock Text="{Binding Value, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
-                                    <TextBlock Text="{Binding Recipient}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                                    <TextBlock Text="{Binding Recipient, Converter={StaticResource AddressConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

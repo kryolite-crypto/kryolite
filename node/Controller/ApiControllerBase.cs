@@ -1,4 +1,6 @@
 using System.ComponentModel.DataAnnotations;
+using System.Diagnostics;
+using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -11,15 +13,18 @@ namespace Kryolite.Node;
 [ApiController]
 public class ApiControllerBase : Controller
 {
-    private readonly IBlockchainManager blockchainManager;
+    private readonly IStoreManager blockchainManager;
     private readonly INetworkManager networkManager;
     private readonly IMeshNetwork meshNetwork;
 
-    public ApiControllerBase(IBlockchainManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork)
+    public IBufferService<TransactionDto, IncomingTransactionService> TxBuffer { get; }
+
+    public ApiControllerBase(IStoreManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork, IBufferService<TransactionDto, IncomingTransactionService> txBuffer)
     {
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
+        TxBuffer = txBuffer ?? throw new ArgumentNullException(nameof(txBuffer));
     }
 
     [HttpGet("blocktemplate")]
@@ -37,7 +42,7 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("balance")]
-    public ulong GetBalance([BindRequired, FromQuery] string wallet)
+    public long GetBalance([BindRequired, FromQuery] string wallet)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid parameter (address)");
@@ -118,13 +123,13 @@ public class ApiControllerBase : Controller
     }
 
     [HttpPost("tx")]
-    public void PostTransaction([FromBody] TransactionDto tx)
+    public async Task PostTransaction([FromBody] TransactionDto tx)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid transaction");
         }
 
-        blockchainManager.AddTransaction(tx, true);
+        await TxBuffer.AddAsync(tx);
     }
 
     [HttpGet("richlist")]
@@ -153,7 +158,7 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetLedgerWallet(address));
+        return Ok(blockchainManager.GetLedger(address));
     }
 
     [HttpGet("ledger/{address}/balance")]

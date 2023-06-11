@@ -1,17 +1,26 @@
 using System.Data.Common;
 using System.Numerics;
-using DuckDB.NET.Data;
 using Kryolite.Shared;
+using MessagePack;
 using Redbus.Events;
 
 namespace Kryolite.Node;
 
+[MessagePackObject]
 public class ChainState : EventBase
 {
+    [Key(0)]
+    public long Id {  get; set; }
+    //[Key(1)]
+    [IgnoreMember]
     public BigInteger Weight { get; set; } = new BigInteger(0);
+    [Key(1)]
     public long Height { get; set; } = -1;
+    [Key(2)]
     public long Blocks { get; set; }
+    [Key(3)]
     public SHA256Hash LastHash { get; set; } = new SHA256Hash();
+    [Key(4)]
     public Difficulty CurrentDifficulty { get; set; }
 
     public static ChainState Read(DbDataReader reader)

@@ -7,8 +7,10 @@ using System.Threading.Tasks;
 
 namespace Kryolite.Node.Services;
 
-public interface IBufferService<T> : IHostedService
+public interface IBufferService<T, Y> : IHostedService
 {
     void Add(T item);
+    Task AddAsync(T item);
     void Add(List<T> items);
+    Task AddAsync(List<T> items);
 }

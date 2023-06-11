@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MessagePack;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,8 +7,10 @@ using System.Threading.Tasks;
 
 namespace Kryolite.Shared.Blockchain;
 
+[MessagePackObject]
 public class Genesis : Transaction
 {
+    [IgnoreMember]
     public string NetworkName { get; set; } = string.Empty;
 
     public Genesis()

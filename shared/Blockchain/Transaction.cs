@@ -1,28 +1,45 @@
 using System.Data.Common;
 using System.Security.Cryptography;
+using System.Text;
 using Kryolite.Shared.Dto;
+using MessagePack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
+[MessagePackObject]
 public class Transaction : IComparable<Transaction>
 {
+    [Key(0)]
+    public ulong Id { get; set; }
+    [Key(1)]
     public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
+    [Key(2)]
     public long? Height { get; set; }
-
+    [Key(3)]
     public TransactionType TransactionType { get; set; }
-    public virtual PublicKey? PublicKey { get; set; }
-    public virtual Address? To { get; set; }
-    public ulong Value { get; set; }
-    public SHA256Hash Pow { get; set; } = new SHA256Hash();
+    [Key(4)]
+    public PublicKey? PublicKey { get; set; }
+    [Key(5)]
+    public Address? To { get; set; }
+    [Key(6)]
+    public long Value { get; set; }
+    [Key(7)]
+    public byte[]? Pow { get; set; }
+    [Key(8)]
     public byte[]? Data { get; set; }
+    [Key(9)]
     public long Timestamp { get; set; }
-    public virtual Signature? Signature { get; set; }
+    [Key(10)]
+    public Signature? Signature { get; set; }
+    [Key(11)]
     public ExecutionResult ExecutionResult { get; set; }
+    [Key(12)]
     public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
-
+    [Key(13)]
     public List<Effect> Effects { get; set; } = new();
 
+    [IgnoreMember]
     public Address From
     {
         get => PublicKey?.ToAddress() ?? new Address();
@@ -40,7 +57,7 @@ public class Transaction : IComparable<Transaction>
         PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow ?? new SHA256Hash();
+        Pow = tx.Pow;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("payment requires signature");
@@ -50,7 +67,7 @@ public class Transaction : IComparable<Transaction>
 
     public virtual void Sign(PrivateKey privateKey)
     {
-        var algorithm = SignatureAlgorithm.Ed25519;
+        var algorithm = new Ed25519();
 
         using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
@@ -71,6 +88,7 @@ public class Transaction : IComparable<Transaction>
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(Pow);
 
         foreach (var hash in Parents.Order())
         {
@@ -84,50 +102,11 @@ public class Transaction : IComparable<Transaction>
 
     public virtual bool Verify()
     {
-        var algorithm = SignatureAlgorithm.Ed25519;
-
+        var algorithm = new Ed25519();
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
         stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
-        
-        if (To is not null)
-        {
-            stream.Write(To);
-        }
-
-        stream.Write(BitConverter.GetBytes(Value));
-        stream.Write(Data);
-        stream.Write(BitConverter.GetBytes(Timestamp));
-
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
-
-        foreach (var hash in Parents.Order())
-        {
-            stream.Write(hash);
-        }
-
-        stream.Flush();
-
-        var key = NSec.Cryptography.PublicKey.Import(SignatureAlgorithm.Ed25519, PublicKey, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
-    }
-
-    public virtual SHA256Hash CalculateHash()
-    {
-        using var sha256 = SHA256.Create();
-        using var stream = new MemoryStream();
-
-        stream.WriteByte((byte)TransactionType);
-
-        if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
-        {
-            stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
-            stream.Write(Signature ?? throw new Exception("signature required when hashing payment"));
-        }
 
         if (To is not null)
         {
@@ -150,9 +129,44 @@ public class Transaction : IComparable<Transaction>
         }
 
         stream.Flush();
-        stream.Position = 0;
 
-        return sha256.ComputeHash(stream);
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
+        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
+    }
+
+    public virtual SHA256Hash CalculateHash()
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = new MemoryStream();
+
+        stream.WriteByte((byte)TransactionType);
+
+        if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
+        {
+            stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
+        }
+
+        if (To is not null)
+        {
+            stream.Write(To);
+        }
+
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(Data);
+        stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(Pow);
+
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
+        }
+
+        return sha256.ComputeHash(stream.ToArray());
     }
 
     public int CompareTo(Transaction? other)
@@ -171,10 +185,12 @@ public class Transaction : IComparable<Transaction>
         if (!reader.IsDBNull(++offset))
             tx.PublicKey = reader.GetString(offset);
         if (!reader.IsDBNull(++offset))
-            tx.To = reader.GetString(offset);
-        tx.Value = (ulong)reader.GetInt64(++offset);
+            tx.From = reader.GetString(offset);
         if (!reader.IsDBNull(++offset))
-            tx.Pow = reader.GetString(offset);
+            tx.To = reader.GetString(offset);
+        tx.Value = reader.GetInt64(++offset);
+        if (!reader.IsDBNull(++offset))
+            tx.Pow = Encoding.UTF8.GetBytes(reader.GetString(offset));
         if (!reader.IsDBNull(++offset))
         {
             using var ms = new MemoryStream();

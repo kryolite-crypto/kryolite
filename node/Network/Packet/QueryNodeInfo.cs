@@ -13,7 +13,7 @@ public class QueryNodeInfo : IPacket
     {
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<BlockchainManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<QueryNodeInfo>>();
 
         logger.LogInformation($"Node query received from {peer.Uri.ToHostname()}");

@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Kryolite.Node.Executor;
 
-public class ContractExecutor : IContractExecutor
+public class ContractExecutor : IExecutor
 {
     private IExecutorContext Context { get; }
     private ILogger Logger { get; }
@@ -170,5 +170,10 @@ public class ContractExecutor : IContractExecutor
 
             return ExecutionResult.CONTRACT_EXECUTION_FAILED;
         }
+    }
+
+    public void Rollback(Transaction tx)
+    {
+        throw new NotImplementedException();
     }
 }

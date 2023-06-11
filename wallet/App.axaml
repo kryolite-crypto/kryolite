@@ -18,5 +18,6 @@
         <vm:SnakeCaseConverter x:Key="SnakeCaseConverter"/>
         <vm:WidthToMarginConverter x:Key="WidthToMarginConverter"/>
         <vm:CapitalToSentenceConverter x:Key="CapitalToSentenceConverter" />
+        <vm:AddressConverter x:Key="AddressConverter" />
     </Application.Resources>
 </Application>

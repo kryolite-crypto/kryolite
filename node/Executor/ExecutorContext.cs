@@ -2,23 +2,29 @@
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Redbus.Events;
+using RocksDbSharp;
 using Wasmtime;
 
 namespace Kryolite.Node.Executor;
 
 public class ExecutorContext : IExecutorContext
 {
-    public IBlockchainRepository Repository { get; }
+    public IStoreRepository Repository { get; }
     private Dictionary<Address, Ledger> Wallets { get; }
+    public int VoteCount { get; }
+    public int BlockCount { get; }
     private Dictionary<Address, Contract> Contracts { get; } = new();
     private Dictionary<SHA256Hash, Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
+    private WriteBatch Batch = new WriteBatch();
 
-    public ExecutorContext(IBlockchainRepository repository, Dictionary<Address, Ledger> wallets)
+    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, int voteCount, int blockCount)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
+        VoteCount = voteCount;
+        BlockCount = blockCount;
     }
 
     public Random GetRand()
@@ -134,7 +140,7 @@ public class ExecutorContext : IExecutorContext
         Events.AddRange(events);
     }
 
-    public IBlockchainRepository GetRepository()
+    public IStoreRepository GetRepository()
     {
         return Repository;
     }
@@ -151,8 +157,13 @@ public class ExecutorContext : IExecutorContext
             contract.Value.Snapshots.Add(contract.Value.CurrentSnapshot);
         }
 
-        Repository.UpdateWallets(Wallets.Values);
+        Repository.UpdateWallets(Wallets.Values, Batch);
         Repository.UpdateContracts(Contracts.Values);
         Repository.UpdateTokens(Tokens.Values);
+    }
+
+    public WriteBatch GetBatch()
+    {
+        return Batch;
     }
 }

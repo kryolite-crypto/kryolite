@@ -19,9 +19,9 @@ public class ChainData : IPacket
     {
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<BlockchainManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<ChainData>>();
-        var syncService = scope.ServiceProvider.GetRequiredService<IBufferService<Chain>>();
+        var syncService = scope.ServiceProvider.GetRequiredService<IBufferService<Chain, SyncService>>();
 
         logger.LogInformation($"Received blockchain from {peer.Uri.ToHostname()}");
 

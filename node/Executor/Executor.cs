@@ -1,30 +1,29 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
+using System.Security.Cryptography;
 
 namespace Kryolite.Node.Executor;
 
 public class Executor
 {
-    private IContractExecutor ContractExecutor { get; }
-    private ITransactionExecutor TransactionExecutor { get; }
-    private IViewExecutor ViewExecutor { get; }
+    private IExecutor ContractExecutor { get; }
+    private IExecutor TransactionExecutor { get; }
+    private IExecutor VoteExecutor { get; }
     private IExecutorContext Context { get; }
     private ILogger Logger { get; set; }
 
-    public Executor(IContractExecutor contractExecutor, ITransactionExecutor transactionExecutor, IViewExecutor viewExecutor, IExecutorContext context, ILogger logger)
+    public Executor(IExecutor contractExecutor, IExecutor transactionExecutor, IExecutor voteExecutor, IExecutorContext context, ILogger logger)
     {
         ContractExecutor = contractExecutor ?? throw new ArgumentNullException(nameof(contractExecutor));
         TransactionExecutor = transactionExecutor ?? throw new ArgumentNullException(nameof(transactionExecutor));
-        ViewExecutor = viewExecutor ?? throw new ArgumentNullException(nameof(viewExecutor));
+        VoteExecutor = voteExecutor ?? throw new ArgumentNullException(nameof(voteExecutor));
         Context = context ?? throw new ArgumentNullException(nameof(context));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public void Execute(List<Transaction> transactions, out long blockCount)
+    public void Execute(List<Transaction> transactions)
     {
-        blockCount = 0;
-
         if (transactions.Count == 0)
         {
             return;
@@ -32,13 +31,11 @@ public class Executor
 
         Context.SetRand((long)transactions.Average(x => x.Timestamp));
 
-        foreach (var tx in transactions.OrderBy(x => x.Timestamp).ThenBy(x => x.TransactionId))
+        foreach (var tx in transactions.OrderBy(x => x.TransactionId))
         {
             switch (tx.TransactionType)
             {
                 case TransactionType.BLOCK:
-                    blockCount++;
-                    goto case TransactionType.PAYMENT;
                 case TransactionType.PAYMENT:
                     if (tx.To is null)
                     {
@@ -60,8 +57,8 @@ public class Executor
                     }
 
                     break;
-                case TransactionType.VIEW:
-                    ViewExecutor.Execute(tx);
+                case TransactionType.VOTE:
+                    tx.ExecutionResult = VoteExecutor.Execute(tx);
                     break;
             }
         }

@@ -22,7 +22,7 @@ public class TransactionBatch : IPacket
 
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<BlockchainManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBatch>>();
 
         // TODO: Check that validated transactions exists, query for more if not
