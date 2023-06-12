@@ -9,7 +9,7 @@ namespace Kryolite.Node.Storage;
 public interface IStorage
 {
     ulong GetCurrentKey();
-    ulong NextKey();
+    ulong NextKey(ITransaction? transaction = null);
 
     bool Exists(string ixName, ReadOnlySpan<byte> key);
 
@@ -19,9 +19,9 @@ public interface IStorage
     byte[][] GetMany(string ixName, byte[][] keys);
     List<T> GetMany<T>(string ixName, byte[][] keys);
 
-    void Put(string ixName, ReadOnlySpan<byte> key, byte[] bytes);
-    void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity);
-    void Delete(string ixName, ReadOnlySpan<byte> key);
+    void Put(string ixName, ReadOnlySpan<byte> key, byte[] bytes, ITransaction? transaction = null);
+    void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity, ITransaction? transaction = null);
+    void Delete(string ixName, ReadOnlySpan<byte> key, ITransaction? transaction = null);
 
     byte[]? FindFirst(string ixName, ReadOnlySpan<byte> keyPrefix);
     T? FindFirst<T>(string ixName, ReadOnlySpan<byte> keyPrefix);

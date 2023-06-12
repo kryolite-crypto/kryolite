@@ -5,6 +5,7 @@ using NSec.Cryptography;
 using Org.BouncyCastle.Crypto;
 using RocksDbSharp;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Configuration;
 using System.Data.Common;
@@ -14,13 +15,16 @@ using System.Numerics;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace Kryolite.Node.Storage;
 
 internal class RocksDBStorage : IStorage
 {
     private RocksDb Database { get; set; }
-    private ITransaction? CurrentTransaction { get; set; }
+    private Dictionary<string, ColumnFamilyHandle>  ColumnFamilies { get; } = new();
+
+
     private ulong CurrentKey = 0;
 
     public RocksDBStorage(IConfiguration configuration)
@@ -73,63 +77,42 @@ internal class RocksDBStorage : IStorage
 
         Database = RocksDb.Open(options, storePath, families);
 
+        ColumnFamilies.Add("Key", Database.GetColumnFamily("Key"));
+        ColumnFamilies.Add("ChainState", Database.GetColumnFamily("ChainState"));
+        ColumnFamilies.Add("Ledger", Database.GetColumnFamily("Ledger"));
+        ColumnFamilies.Add("Transaction", Database.GetColumnFamily("Transaction"));
+        ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
+        ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
+        ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
+        ColumnFamilies.Add("ixChildless", Database.GetColumnFamily("ixChildless"));
+
         CurrentKey = InitializeKey();
     }
 
     public ITransaction BeginTransaction()
     {
-        return CurrentTransaction = new RocksDBTransaction(Database, this);
+        return new RocksDBTransaction(Database, this);
     }
 
     public bool Exists(string ixName, ReadOnlySpan<byte> key)
     {
-        var ix = Database.GetColumnFamily(ixName);
-
-        if (CurrentTransaction is not null)
-        {
-            using var baseIterator = Database.NewIterator(ix);
-            using var iterator = CurrentTransaction.GetConnection().NewIterator(baseIterator);
-
-            iterator.Seek(key);
-
-            return iterator.Valid();
-        }
-
+        var ix = ColumnFamilies[ixName];
         return Database.HasKey(key, ix);
     }
 
     public byte[]? Get(string ixName, byte[] key)
     {
-        byte[] result;
-
-        var ix = Database.GetColumnFamily(ixName);
-
-        if (CurrentTransaction is not null)
-        {
-            result = CurrentTransaction.GetConnection().Get(Database, key, ix);
-        }
-        else
-        {
-            result = Database.Get(key, ix);
-        }
-
-        return result ?? default;
+        var ix = ColumnFamilies[ixName];
+        return Database.Get(key, ix) ?? default;
     }
 
     public T? Get<T>(string ixName, byte[] key)
     {
         byte[] result;
 
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
-        if (CurrentTransaction is not null)
-        {
-            result = CurrentTransaction.GetConnection().Get(Database, key, ix);
-        }
-        else
-        {
-            result = Database.Get(key, ix);
-        }
+        result = Database.Get(key, ix);
 
         if (result is null)
         {
@@ -141,7 +124,7 @@ internal class RocksDBStorage : IStorage
 
     public byte[][] GetMany(string ixName, byte[][] keys)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
         var handles = new ColumnFamilyHandle[keys.Length];
         Array.Fill(handles, ix);
@@ -159,7 +142,7 @@ internal class RocksDBStorage : IStorage
 
     public List<T> GetMany<T>(string ixName, byte[][] keys)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
         var handles = new ColumnFamilyHandle[keys.Length];
         Array.Fill(handles, ix);
@@ -175,40 +158,40 @@ internal class RocksDBStorage : IStorage
         return transactions;
     }
 
-    public void Put(string ixName, ReadOnlySpan<byte> key, byte[] bytes)
+    public void Put(string ixName, ReadOnlySpan<byte> key, byte[] bytes, ITransaction? transaction = null)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
-        if (CurrentTransaction is not null)
+        if (transaction is not null)
         {
-            CurrentTransaction.GetConnection().Put(key, bytes, ix);
+            transaction.GetConnection().Put(key, bytes, ix);
             return;
         }
 
         Database.Put(key, bytes, ix);
     }
 
-    public void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity)
+    public void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity, ITransaction? transaction = null)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
         var bytes = MessagePackSerializer.Serialize<T>(entity);
 
-        if (CurrentTransaction is not null)
+        if (transaction is not null)
         {
-            CurrentTransaction.GetConnection().Put(key, bytes, ix);
+            transaction.GetConnection().Put(key, bytes, ix);
             return;
         }
 
         Database.Put(key, bytes, ix);
     }
 
-    public void Delete(string ixName, ReadOnlySpan<byte> key)
+    public void Delete(string ixName, ReadOnlySpan<byte> key, ITransaction? transaction = null)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
-        if (CurrentTransaction is not null)
+        if (transaction is not null)
         {
-            CurrentTransaction.GetConnection().Delete(key, ix);
+            transaction.GetConnection().Delete(key, ix);
             return;
         }
 
@@ -217,7 +200,7 @@ internal class RocksDBStorage : IStorage
 
     public byte[]? FindFirst(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
         var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
 
@@ -225,11 +208,7 @@ internal class RocksDBStorage : IStorage
         readOptions.SetPrefixSameAsStart(true);
         readOptions.SetIterateUpperBound(upperBound.ToByteArray());
 
-        using var baseIterator = Database.NewIterator(ix, readOptions);
-
-        using var iterator = CurrentTransaction is not null ?
-            CurrentTransaction.GetConnection().NewIterator(baseIterator, ix) :
-            baseIterator;
+        using var iterator = Database.NewIterator(ix, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -243,7 +222,7 @@ internal class RocksDBStorage : IStorage
 
     public T? FindFirst<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
         var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
 
@@ -251,11 +230,7 @@ internal class RocksDBStorage : IStorage
         readOptions.SetPrefixSameAsStart(true);
         readOptions.SetIterateUpperBound(upperBound.ToByteArray());
 
-        using var baseIterator = Database.NewIterator(ix, readOptions);
-
-        using var iterator = CurrentTransaction is not null ?
-            CurrentTransaction.GetConnection().NewIterator(baseIterator, ix) :
-            baseIterator;
+        using var iterator = Database.NewIterator(ix, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -269,7 +244,7 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
         var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
 
@@ -277,11 +252,7 @@ internal class RocksDBStorage : IStorage
         readOptions.SetPrefixSameAsStart(true);
         readOptions.SetIterateUpperBound(upperBound.ToByteArray());
         
-        using var baseIterator = Database.NewIterator(ix, readOptions);
-
-        using var iterator = CurrentTransaction is not null ?
-            CurrentTransaction.GetConnection().NewIterator(baseIterator, ix) :
-            baseIterator;
+        using var iterator = Database.NewIterator(ix, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -298,7 +269,7 @@ internal class RocksDBStorage : IStorage
 
     public List<T> FindAll<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
         var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
 
@@ -306,11 +277,7 @@ internal class RocksDBStorage : IStorage
         readOptions.SetPrefixSameAsStart(true);
         readOptions.SetIterateUpperBound(upperBound.ToByteArray());
 
-        using var baseIterator = Database.NewIterator(ix, readOptions);
-
-        using var iterator = CurrentTransaction is not null ?
-            CurrentTransaction.GetConnection().NewIterator(baseIterator, ix) :
-            baseIterator;
+        using var iterator = Database.NewIterator(ix, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -327,16 +294,12 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> FindAll(string ixName)
     {
-        var ix = Database.GetColumnFamily(ixName);
+        var ix = ColumnFamilies[ixName];
 
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
 
-        using var baseIterator = Database.NewIterator(ix, readOptions);
-
-        using var iterator = CurrentTransaction is not null ?
-            CurrentTransaction.GetConnection().NewIterator(baseIterator, ix) :
-            baseIterator;
+        using var iterator = Database.NewIterator(ix, readOptions);
 
         iterator.SeekToFirst();
 
@@ -353,12 +316,8 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> FindLast(string ixName, int count)
     {
-        var ix = Database.GetColumnFamily(ixName);
-        using var baseIterator = Database.NewIterator(ix);
-
-        using var iterator = CurrentTransaction is not null ?
-            CurrentTransaction.GetConnection().NewIterator(baseIterator, ix) :
-            baseIterator;
+        var ix = ColumnFamilies[ixName];
+        using var iterator = Database.NewIterator(ix);
 
         iterator.SeekToLast();
 
@@ -383,16 +342,16 @@ internal class RocksDBStorage : IStorage
         return CurrentKey;
     }
 
-    public ulong NextKey()
+    public ulong NextKey(ITransaction? transaction = null)
     {
         var next = Interlocked.Increment(ref CurrentKey);
 
-        if (CurrentTransaction is null)
+        if (transaction is null)
         {
-            var keyColumn = Database.GetColumnFamily("Key");
+            var ix = ColumnFamilies["Key"];
             var key = new byte[1];
 
-            Database.Put(key, BitConverter.GetBytes(next), keyColumn);
+            Database.Put(key, BitConverter.GetBytes(next), ix);
         }
 
         return next;
@@ -400,16 +359,16 @@ internal class RocksDBStorage : IStorage
 
     private ulong InitializeKey()
     {
-        var keyColumn = Database.GetColumnFamily("Key");
+        var ix = ColumnFamilies["Key"];
 
         var key = new byte[1];
 
         if (Database.HasKey(key))
         {
-            return BitConverter.ToUInt64(Database.Get(key, keyColumn));
+            return BitConverter.ToUInt64(Database.Get(key, ix));
         }
 
-        Database.Put(key, BitConverter.GetBytes(0), keyColumn);
+        Database.Put(key, BitConverter.GetBytes(0), ix);
 
         return 0;
     }

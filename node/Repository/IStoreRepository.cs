@@ -1,4 +1,5 @@
-﻿using Kryolite.Shared;
+﻿using Kryolite.Node.Storage;
+using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Node.Repository;
@@ -34,4 +35,5 @@ public interface IStoreRepository
     Token? GetToken(Address from, SHA256Hash tokenId);
     List<Token> GetTokens(Address from);
     List<Token> GetContractTokens(Address contractAddress);
+    ITransaction BeginTransaction();
 }

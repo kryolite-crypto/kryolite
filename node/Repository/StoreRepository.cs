@@ -7,6 +7,7 @@ using NSec.Cryptography;
 using RocksDbSharp;
 using System;
 using System.Buffers;
+using System.Data.Entity;
 using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -31,16 +32,16 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         if (newEntity)
         {
-            tx.Id = Storage.NextKey();
+            tx.Id = Storage.NextKey(CurrentTransaction);
         }
 
         var id = BitConverter.GetBytes(tx.Id);
 
         // Transaction
-        Storage.Put("Transaction", id, MessagePackSerializer.Serialize(tx));
+        Storage.Put("Transaction", id, MessagePackSerializer.Serialize(tx), CurrentTransaction);
 
         // TransactionId index
-        Storage.Put("ixTransactionId", tx.TransactionId.Buffer, id);
+        Storage.Put("ixTransactionId", tx.TransactionId.Buffer, id, CurrentTransaction);
 
         // Address index
         var addrKey = keyMem.Slice(0, 34);
@@ -49,13 +50,13 @@ public class StoreRepository : IStoreRepository, IDisposable
         if (tx.PublicKey is not null)
         {
             tx.From.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, id);
+            Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
         }
 
         if (tx.To is not null)
         {
             tx.To.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, id);
+            Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
         }
 
         // Height, TransactionType index
@@ -68,14 +69,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         heightKey[8] = (byte)tx.TransactionType;
         id.CopyTo(heightKey.Slice(9));
 
-        Storage.Put("ixTransactionHeight", heightKey, id);
+        Storage.Put("ixTransactionHeight", heightKey, id, CurrentTransaction);
 
         // Childless index
-        Storage.Put("ixChildless", tx.TransactionId.Buffer, id);
+        Storage.Put("ixChildless", tx.TransactionId.Buffer, id, CurrentTransaction);
 
         foreach (var parent in tx.Parents)
         {
-            Storage.Delete("ixChildless", parent.Buffer);
+            Storage.Delete("ixChildless", parent.Buffer, CurrentTransaction);
         }
 
         ArrayPool<byte>.Shared.Return(keyBuf);
@@ -102,10 +103,10 @@ public class StoreRepository : IStoreRepository, IDisposable
             Array.Reverse(height);
 
             nullHeight.CopyTo(key, 0);
-            Storage.Delete("ixTransactionHeight", key);
+            Storage.Delete("ixTransactionHeight", key, CurrentTransaction);
 
             height.CopyTo(key, 0);
-            Storage.Put("ixTransactionHeight", key, id);
+            Storage.Put("ixTransactionHeight", key, id, CurrentTransaction);
         }
 
         ArrayPool<byte>.Shared.Return(key);
@@ -221,7 +222,7 @@ public class StoreRepository : IStoreRepository, IDisposable
     public void SaveState(ChainState chainState)
     {
         var chainKey = new byte[1];
-        Storage.Put<ChainState>("ChainState", chainKey, chainState);
+        Storage.Put<ChainState>("ChainState", chainKey, chainState, CurrentTransaction);
     }
 
     /*public void Delete(Transaction tx)
@@ -288,7 +289,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void UpdateWallet(Ledger ledger)
     {
-        Storage.Put<Ledger>("Ledger", ledger.Address.Buffer, ledger);
+        Storage.Put<Ledger>("Ledger", ledger.Address.Buffer, ledger, CurrentTransaction);
     }
 
     public void UpdateWallets(IEnumerable<Ledger> ledgers)
@@ -639,5 +640,17 @@ public class StoreRepository : IStoreRepository, IDisposable
     {
         return Get(transactionId)?.Timestamp;
         // throw new NotImplementedException();
+    }
+
+    private ITransaction? CurrentTransaction;
+
+    public ITransaction BeginTransaction()
+    {
+        if (CurrentTransaction is null || CurrentTransaction.IsDisposed)
+        {
+            CurrentTransaction = Storage.BeginTransaction();
+        }
+
+        return CurrentTransaction;
     }
 }

@@ -173,37 +173,4 @@ public class Transaction : IComparable<Transaction>
     {
         return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)TransactionId.Buffer, (ReadOnlySpan<byte>)(other?.TransactionId.Buffer ?? new byte[0]));
     }
-
-    public static Transaction Read(DbDataReader reader, int offset = 0)
-    {
-        var tx = new Transaction();
-
-        tx.TransactionId = reader.GetString(offset);
-        tx.TransactionType = (TransactionType)reader.GetByte(++offset);
-        if (!reader.IsDBNull(++offset))
-            tx.Height = reader.GetInt64(offset);
-        if (!reader.IsDBNull(++offset))
-            tx.PublicKey = reader.GetString(offset);
-        if (!reader.IsDBNull(++offset))
-            tx.From = reader.GetString(offset);
-        if (!reader.IsDBNull(++offset))
-            tx.To = reader.GetString(offset);
-        tx.Value = reader.GetInt64(++offset);
-        if (!reader.IsDBNull(++offset))
-            tx.Pow = Encoding.UTF8.GetBytes(reader.GetString(offset));
-        if (!reader.IsDBNull(++offset))
-        {
-            using var ms = new MemoryStream();
-            reader.GetStream(offset).CopyTo(ms);
-            tx.Data = ms.ToArray();
-        }
-        tx.Timestamp = reader.GetInt64(++offset);
-        if (!reader.IsDBNull(++offset))
-        {
-            tx.Signature = reader.GetString(offset);
-        }
-        tx.ExecutionResult = (ExecutionResult)reader.GetByte(++offset);
-
-        return tx;
-    }
 }

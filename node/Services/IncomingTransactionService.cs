@@ -1,18 +1,8 @@
-﻿using Crypto.RIPEMD;
-using Kryolite.Shared.Dto;
+﻿using Kryolite.Shared.Dto;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Org.BouncyCastle.Utilities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.PortableExecutable;
-using System.Text;
-using System.Threading;
 using System.Threading.Channels;
-using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 
 namespace Kryolite.Node.Services;
 
@@ -43,7 +33,7 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
             using var scope = Provider.CreateScope();
             var manager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
-            var items = new List<TransactionDto>();
+            var items = new List<TransactionDto>(20000);
 
             while (TxChannel.Reader.TryRead(out var item))
             {

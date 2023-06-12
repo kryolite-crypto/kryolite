@@ -1,11 +1,5 @@
 ﻿using RocksDbSharp;
-using System;
-using System.Collections.Generic;
-using System.Data.Entity;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using static System.Net.Mime.MediaTypeNames;
+using System.Collections.Concurrent;
 
 namespace Kryolite.Node.Storage;
 
@@ -13,26 +7,32 @@ internal class RocksDBTransaction : ITransaction
 {
     RocksDb Connection { get; }
     RocksDBStorage Store { get; }
-    WriteBatchWithIndex Batch { get; }
+    WriteBatch Batch { get; }
+
+    public bool IsDisposed => Disposed;
+
+    private bool Disposed = false;
+
+    private static FlushOptions opts = new RocksDbFlushOptions();
 
     public RocksDBTransaction(RocksDb connection, RocksDBStorage store)
     {
         Connection = connection ?? throw new ArgumentNullException(nameof(connection));
         Store = store ?? throw new ArgumentNullException(nameof(store));
-        Batch = new WriteBatchWithIndex();
+        Batch = new WriteBatch();
     }
 
     public void Commit()
     {
-        var opts = new FlushOptions();
-        opts.SetWaitForFlush(false);
-
         var keyColumn = Connection.GetColumnFamily("Key");
         var key = new byte[1];
 
         Batch.Put(key, BitConverter.GetBytes(Store.GetCurrentKey()), keyColumn);
 
-        Connection.Write(Batch);
+        var wOpts = new WriteOptions();
+        wOpts.SetSync(false);
+
+        Connection.Write(Batch, wOpts);
         Connection.Flush(opts);
     }
 
@@ -43,10 +43,11 @@ internal class RocksDBTransaction : ITransaction
 
     public void Dispose()
     {
+        Disposed = true;
         Batch.Dispose();
     }
 
-    public WriteBatchWithIndex GetConnection()
+    public WriteBatch GetConnection()
     {
         return Batch;
     }

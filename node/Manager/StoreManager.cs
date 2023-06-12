@@ -95,7 +95,7 @@ public class StoreManager : IStoreManager
     public bool AddGenesis(Genesis genesis)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        // using var dbtx = Repository.BeginTransaction();
+        using var dbtx = Repository.BeginTransaction();
 
         try
         {
@@ -117,12 +117,12 @@ public class StoreManager : IStoreManager
 
             PendingCache.Add(genesis.TransactionId, genesis);
 
-            //dbtx.Commit();
+            dbtx.Commit();
             return true;
         }
         catch (Exception ex)
         {
-            //dbtx.Rollback();
+            dbtx.Rollback();
             Logger.LogError(ex, "AddGenesis error");
         }
 
@@ -132,7 +132,7 @@ public class StoreManager : IStoreManager
     public bool AddView(View view, bool broadcast, bool selfCreated)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        //using var dbtx = Repository.BeginTransaction();
+        using var dbtx = Repository.BeginTransaction();
 
         try
         {
@@ -218,7 +218,7 @@ public class StoreManager : IStoreManager
             Repository.Add(view);
             Repository.Finalize(toExecute);
 
-            //dbtx.Commit();
+            dbtx.Commit();
 
             CurrentView = view;
 
@@ -243,7 +243,7 @@ public class StoreManager : IStoreManager
         }
         catch (Exception ex)
         {
-            //dbtx.Rollback();
+            dbtx.Rollback();
             Logger.LogError(ex, "AddView error");
 
             PendingCache = new();
@@ -351,7 +351,7 @@ public class StoreManager : IStoreManager
     public bool AddBlock(Blocktemplate blocktemplate, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        //using var dbtx = Repository.BeginTransaction();
+        using var dbtx = Repository.BeginTransaction();
 
         try
         {
@@ -384,13 +384,12 @@ public class StoreManager : IStoreManager
 
             var newblock = AddBlock(block, broadcast);
 
-            //dbtx.Commit();
-
+            dbtx.Commit();
             return newblock;
         }
         catch (Exception ex)
         {
-            //dbtx.Rollback();
+            dbtx.Rollback();
             Logger.LogError(ex, "AddBlock error");
         }
 
@@ -399,6 +398,7 @@ public class StoreManager : IStoreManager
 
     public bool AddTransaction(Transaction tx, bool broadcast)
     {
+        //using var dbtx = Repository.BeginTransaction();
         try
         {
             //var sw = Stopwatch.StartNew();
@@ -494,10 +494,12 @@ public class StoreManager : IStoreManager
             //sw.Stop();
             //Logger.LogInformation($"AddTransaction.Post {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
 
+            //dbtx.Commit();
             return true;
         }
         catch (Exception ex) 
         {
+            //dbtx.Rollback();
             Logger.LogError(ex, "AddTransaction error");
         }
 
@@ -506,9 +508,9 @@ public class StoreManager : IStoreManager
 
     public bool AddTransaction(TransactionDto tx, bool broadcast)
     {
-        if (tx.Parents.Count < 2)
+        if (tx.Parents.Distinct().Count() < 2)
         {
-            Logger.LogInformation("AddTransaction rejected (reason = not enought transactions referenced)");
+            Logger.LogInformation("AddTransaction rejected (reason = not enought unique transactions referenced)");
             return false;
         }
 
@@ -577,26 +579,37 @@ public class StoreManager : IStoreManager
     public bool AddVote(Vote vote, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        //using var dbtx = Repository.BeginTransaction();
+        using var dbtx = Repository.BeginTransaction();
 
-        var exists = Repository.Exists(vote.TransactionId);
-
-        if (exists)
+        try
         {
-            // we already have this
+            var exists = Repository.Exists(vote.TransactionId);
+
+            if (exists)
+            {
+                // we already have this
+                return true;
+            }
+
+            Repository.Add(vote);
+
+            PendingCache.Add(vote.TransactionId, vote);
+
+            if (broadcast)
+            {
+                TransactionBuffer.Add(new TransactionDto(vote));
+            }
+
+            dbtx.Commit();
             return true;
         }
-
-        Repository.Add(vote);
-
-        PendingCache.Add(vote.TransactionId, vote);
-
-        if (broadcast)
+        catch (Exception ex)
         {
-            TransactionBuffer.Add(new TransactionDto(vote));
+            dbtx.Rollback();
+            Logger.LogError(ex, "AddVote error.");
         }
-        //dbtx.Commit();
-        return true;
+
+        return false;
     }
 
     private void TraverseTransaction(Transaction transaction, long height, List<Transaction> toExecute, ref int voteCount, ref int blockCount)
@@ -671,7 +684,7 @@ public class StoreManager : IStoreManager
         });
 
         using var _ = rwlock.EnterWriteLockEx();
-        //using var dbtx = Repository.BeginTransaction();
+        using var dbtx = Repository.BeginTransaction();
 
         try
         {
@@ -685,11 +698,11 @@ public class StoreManager : IStoreManager
                 AddTransaction(tx, true);
             }
 
-            //dbtx.Commit();
+            dbtx.Commit();
         }
         catch (Exception ex)
         {
-            //dbtx.Rollback();
+            dbtx.Rollback();
             Logger.LogError(ex, "AddTransactionBatch error");
         }
     }
