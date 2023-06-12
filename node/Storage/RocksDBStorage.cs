@@ -10,6 +10,7 @@ using System.Configuration;
 using System.Data.Common;
 using System.Data.Entity;
 using System.Linq;
+using System.Numerics;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
@@ -218,8 +219,11 @@ internal class RocksDBStorage : IStorage
     {
         var ix = Database.GetColumnFamily(ixName);
 
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
+        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
 
         using var baseIterator = Database.NewIterator(ix, readOptions);
 
@@ -241,8 +245,11 @@ internal class RocksDBStorage : IStorage
     {
         var ix = Database.GetColumnFamily(ixName);
 
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
+        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
 
         using var baseIterator = Database.NewIterator(ix, readOptions);
 
@@ -264,8 +271,11 @@ internal class RocksDBStorage : IStorage
     {
         var ix = Database.GetColumnFamily(ixName);
 
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
+        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
         
         using var baseIterator = Database.NewIterator(ix, readOptions);
 
@@ -290,8 +300,11 @@ internal class RocksDBStorage : IStorage
     {
         var ix = Database.GetColumnFamily(ixName);
 
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
+        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
 
         using var baseIterator = Database.NewIterator(ix, readOptions);
 
@@ -349,12 +362,17 @@ internal class RocksDBStorage : IStorage
 
         iterator.SeekToLast();
 
-        var results = new List<byte[]>();
+        var results = new List<byte[]>(count);
 
         while (iterator.Valid())
         {
             results.Add(iterator.Value());
             iterator.Prev();
+
+            if (results.Count == count)
+            {
+                break;
+            }
         }
 
         return results;

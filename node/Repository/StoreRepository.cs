@@ -470,9 +470,11 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<SHA256Hash> GetTransactionsToValidate()
     {
-        var hashes = Storage.FindAll("ixChildless")
-            .Select(x => (SHA256Hash)x)
-            .ToList(); ;
+        var keys = Storage.FindAll("ixChildless");
+
+        var hashes = Storage.GetMany<Transaction>("Transaction", keys.ToArray())
+            .Select(x => x.TransactionId)
+            .ToList();
 
         if (hashes.Count < 2)
         {
@@ -483,6 +485,11 @@ public class StoreRepository : IStoreRepository, IDisposable
                 var tx = Storage.Get<Transaction>("Transaction", id);
 
                 if (tx is null)
+                {
+                    continue;
+                }
+
+                if (hashes.Contains(tx.TransactionId))
                 {
                     continue;
                 }
