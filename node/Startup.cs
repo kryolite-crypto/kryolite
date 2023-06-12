@@ -5,6 +5,7 @@ using DnsClient;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
+using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using LettuceEncrypt.Acme;
@@ -275,7 +276,8 @@ public class Startup
 
         var dataSource = Path.Join(dataDir, "blocks.dat");
 
-        services.AddTransient<IStoreRepository, StoreRepository>()
+        services.AddSingleton<IStorage, RocksDBStorage>()
+                .AddTransient<IStoreRepository, StoreRepository>()
                 .AddTransient<IStoreManager, StoreManager>()
                 .AddTransient<IWalletRepository, WalletRepository>()
                 .AddTransient<IWalletManager, WalletManager>()

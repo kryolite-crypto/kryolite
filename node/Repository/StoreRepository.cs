@@ -1,3 +1,4 @@
+using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using MessagePack;
@@ -14,94 +15,15 @@ namespace Kryolite.Node.Repository;
 
 public class StoreRepository : IStoreRepository, IDisposable
 {
-    private static RocksDb Database { get; set; }
+    private IStorage Storage { get; set; }
 
-    private static bool Recreated = false;
-    private static ulong CurrentKey = 0;
-
-    public StoreRepository()
+    public StoreRepository(IStorage storage)
     {
-        var storePath = Path.Join(BlockchainService.DATA_PATH, "store");
-
-        if (!Recreated)
-        {
-            if (Directory.Exists(storePath))
-            {
-                Directory.Delete(storePath, true);
-            }
-
-            Recreated = true;
-        }
-
-        if (Database is null)
-        {
-            var options = new DbOptions()
-                .SetCreateIfMissing(true)
-                .SetWalDir(storePath)
-                .SetLevelCompactionDynamicLevelBytes(true)
-                .SetBytesPerSync(1048576)
-                .SetMaxBackgroundCompactions(Environment.ProcessorCount)
-                .SetSoftPendingCompactionBytesLimit(49392123904)
-                .SetHardPendingCompactionBytesLimit(98784247808);
-
-            var opts = new ColumnFamilyOptions()
-                .SetCreateIfMissing(true)
-                .SetCreateMissingColumnFamilies(true)
-                .IncreaseParallelism(4);
-
-            using (var Database = RocksDb.Open(options, storePath, new ColumnFamilies()))
-            {
-                Database.CreateColumnFamily(opts, "Key");
-                Database.CreateColumnFamily(opts, "ChainState");
-                Database.CreateColumnFamily(opts, "Ledger");
-                Database.CreateColumnFamily(opts, "Transaction");
-                Database.CreateColumnFamily(opts, "ixTransactionId");
-                Database.CreateColumnFamily(opts, "ixTransactionAddress");
-                Database.CreateColumnFamily(opts, "ixTransactionHeight");
-                Database.CreateColumnFamily(opts, "ixChildless");
-            }
-
-            var families = new ColumnFamilies();
-
-            families.Add("Key", opts);
-            families.Add("ChainState", opts);
-            families.Add("Ledger", opts);
-            families.Add("Transaction", opts);
-            families.Add("ixTransactionId", opts);
-            families.Add("ixTransactionAddress", opts);
-            families.Add("ixTransactionHeight", opts);
-            families.Add("ixChildless", opts);
-
-            Database = RocksDb.Open(options, storePath, families);
-
-            var keyColumn = Database.GetColumnFamily("Key");
-
-            var key = new byte[1];
-
-            if (Database.HasKey(key))
-            {
-                CurrentKey = BitConverter.ToUInt64(Database.Get(key, keyColumn));
-            }
-
-            Database.Put(key, BitConverter.GetBytes(CurrentKey), keyColumn);
-        }
+        Storage = storage ?? throw new ArgumentNullException(nameof(storage));
     }
 
-    private ulong NextKey()
+    public void Add(Transaction tx)
     {
-        return ++CurrentKey;
-    }
-
-    public void Add(Transaction tx, WriteBatch? writeBatch = null)
-    {
-        writeBatch = null;
-        bool write = false;
-        if (writeBatch is null)
-        {
-            write = true;
-            writeBatch = new WriteBatch();
-        }
-
         var newEntity = tx.Id == 0;
 
         var keyBuf = ArrayPool<byte>.Shared.Rent(34);
@@ -109,33 +31,31 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         if (newEntity)
         {
-            tx.Id = NextKey();
+            tx.Id = Storage.NextKey();
         }
 
-        var id = BitConverter.GetBytes(((ulong?)tx.Id) ?? ulong.MaxValue);
-        Array.Reverse(id);
+        var id = BitConverter.GetBytes(tx.Id);
 
         // Transaction
-        writeBatch.Put(id, MessagePackSerializer.Serialize(tx), Database.GetColumnFamily("Transaction"));
+        Storage.Put("Transaction", id, MessagePackSerializer.Serialize(tx));
 
         // TransactionId index
-        writeBatch.Put(tx.TransactionId.Buffer, id, Database.GetColumnFamily("ixTransactionId"));
+        Storage.Put("ixTransactionId", tx.TransactionId.Buffer, id);
 
         // Address index
-        var addrColumn = Database.GetColumnFamily("ixTransactionAddress");
         var addrKey = keyMem.Slice(0, 34);
         id.CopyTo(addrKey.Slice(26));
 
         if (tx.PublicKey is not null)
         {
             tx.From.Buffer.CopyTo(addrKey);
-            writeBatch.Put(addrKey, id, addrColumn);
+            Storage.Put("ixTransactionAddress", addrKey, id);
         }
 
         if (tx.To is not null)
         {
             tx.To.Buffer.CopyTo(addrKey);
-            writeBatch.Put(addrKey, id, addrColumn);
+            Storage.Put("ixTransactionAddress", addrKey, id);
         }
 
         // Height, TransactionType index
@@ -143,45 +63,32 @@ public class StoreRepository : IStoreRepository, IDisposable
         Array.Reverse(height);
 
         var heightKey = keyMem.Slice(0, 17);
+
         height.CopyTo(heightKey);
         heightKey[8] = (byte)tx.TransactionType;
         id.CopyTo(heightKey.Slice(9));
 
-        writeBatch.Put(heightKey, id, Database.GetColumnFamily("ixTransactionHeight"));
+        Storage.Put("ixTransactionHeight", heightKey, id);
 
         // Childless index
-        var childlessColumn = Database.GetColumnFamily("ixChildless");
-        writeBatch.Put(tx.TransactionId.Buffer, id, childlessColumn);
+        Storage.Put("ixChildless", tx.TransactionId.Buffer, id);
 
         foreach (var parent in tx.Parents)
         {
-            writeBatch.Delete(parent.Buffer, childlessColumn);
+            Storage.Delete("ixChildless", parent.Buffer);
         }
 
         ArrayPool<byte>.Shared.Return(keyBuf);
-
-        if (write)
-        {
-            Database.Write(writeBatch);
-            writeBatch.Dispose();
-        }
     }
 
-    public unsafe void Finalize(List<Transaction> transactions, WriteBatch? writeBatch = null)
+    public void Finalize(List<Transaction> transactions)
     {
         if (transactions.Count == 0)
         {
             return;
         }
 
-        if (writeBatch is null)
-        {
-            writeBatch = new WriteBatch();
-        }
-
-        var heightColumn = Database.GetColumnFamily("ixTransactionHeight");
         var nullHeight = BitConverter.GetBytes(ulong.MaxValue);
-
         var key = ArrayPool<byte>.Shared.Rent(17);
 
         for (var i = 0; i < transactions.Count; i++)
@@ -189,240 +96,132 @@ public class StoreRepository : IStoreRepository, IDisposable
             key[8] = (byte)transactions[i].TransactionType;
 
             var id = BitConverter.GetBytes(transactions[i].Id);
-            Array.Reverse(id);
             id.CopyTo(key, 9);
 
             var height = BitConverter.GetBytes(((ulong?)transactions[i].Height) ?? ulong.MaxValue);
             Array.Reverse(height);
 
             nullHeight.CopyTo(key, 0);
-            writeBatch.Delete(key, heightColumn);
+            Storage.Delete("ixTransactionHeight", key);
 
             height.CopyTo(key, 0);
-            writeBatch.Put(key, id, heightColumn);
+            Storage.Put("ixTransactionHeight", key, id);
         }
-
-        // TODO: Move these to Write()
-        // update incremented primarykey
-        var pk = new byte[1];
-        writeBatch.Put(pk, BitConverter.GetBytes(CurrentKey), Database.GetColumnFamily("Key"));
 
         ArrayPool<byte>.Shared.Return(key);
     }
 
-    public void Write(WriteBatch writeBatch)
-    {
-        var key = new byte[1];
-        writeBatch.Put(key, BitConverter.GetBytes(CurrentKey), Database.GetColumnFamily("Key"));
-        Database.Write(writeBatch);
-    }
-
     public bool Exists(SHA256Hash transactionId)
     {
-        return Database.HasKey(transactionId.Buffer);
+        return Storage.Exists("ixTransactionId", transactionId.Buffer);
     }
 
     public Transaction? Get(SHA256Hash transactionId)
     {
-        var txidColumn = Database.GetColumnFamily("ixTransactionId");
+        var key = Storage.Get("ixTransactionId", transactionId.Buffer);
 
-        if (!Database.HasKey(transactionId.Buffer, txidColumn))
+        if (key is null)
         {
             return null;
         }
 
-        var key = Database.Get(transactionId.Buffer, txidColumn);
-        var tx = MessagePackSerializer.Deserialize<Transaction>(Database.Get(key, Database.GetColumnFamily("Transaction")));
-
-        return tx;
+        return Storage.Get<Transaction>("Transaction", key);
     }
 
     public List<Transaction> GetPending()
     {
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-
         var height = BitConverter.GetBytes(uint.MaxValue);
+        var ids = Storage.FindAll("ixTransactionHeight", height);
 
-        using var iterator = Database.NewIterator(Database.GetColumnFamily("ixTransactionHeight"), readOptions);
-
-        iterator.Seek(height);
-
-        var ids = new List<byte[]>();
-
-        while (iterator.Valid())
-        {
-            ids.Add(iterator.Value());
-
-            iterator.Next();
-        }
-
-        var handle = Database.GetColumnFamily("Transaction");
-        var handles = new ColumnFamilyHandle[ids.Count];
-
-        Array.Fill(handles, handle);
-
-        var results = Database.MultiGet(ids.ToArray(), handles);
-
-        var transactions = new List<Transaction>(results.Length);
-
-        foreach (var result in results)
-        {
-            transactions.Add(MessagePackSerializer.Deserialize<Transaction>(result.Value));
-        }
-
-        return transactions;
+        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
     public Genesis? GetGenesis()
     {
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
+        var prefix = new byte[9];
+        prefix[8] = (byte)TransactionType.GENESIS;
 
-        var heightColumn = Database.GetColumnFamily("ixTransactionHeight");
-        var txColumn = Database.GetColumnFamily("Transaction");
+        var key = Storage.FindFirst("ixTransactionHeight", prefix);
 
-        var key = new byte[9];
-        key[8] = (byte)TransactionType.GENESIS;
-
-        using var iterator = Database.NewIterator(heightColumn, readOptions);
-
-        iterator.Seek(key);
-
-        if (!iterator.Valid())
+        if (key is null)
         {
             return null;
         }
 
-        if (!Database.HasKey(iterator.Value(), txColumn))
+        var tx = Storage.Get<Transaction>("Transaction", key);
+
+        if (tx is null)
         {
             return null;
         }
 
-        return new Genesis(MessagePackSerializer.Deserialize<Transaction>(Database.Get(iterator.Value(), txColumn)));
+        return new Genesis(tx);
     }
 
     public View? GetLastView()
     {
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-
-        var chainColumn = Database.GetColumnFamily("ChainState");
-        var heightColumn = Database.GetColumnFamily("ixTransactionHeight");
-        var txColumn = Database.GetColumnFamily("Transaction");
-
-        long height = 0;
-
         var chainKey = new byte[1];
+        var chainState = Storage.Get<ChainState>("ChainState", chainKey);
 
-        if (Database.HasKey(chainKey, chainColumn))
-        {
-            height = MessagePackSerializer.Deserialize<ChainState>(Database.Get(chainKey, chainColumn)).Height;
-        }
-
-        var heightBytes = BitConverter.GetBytes(height);
+        var heightBytes = BitConverter.GetBytes(chainState?.Height ?? 0);
         Array.Reverse(heightBytes);
 
-        var key = new byte[9];
-        key[8] = (byte)TransactionType.VIEW;
+        var prefix = new byte[9];
 
-        heightBytes.CopyTo(key, 0);
+        heightBytes.CopyTo(prefix, 0);
+        prefix[8] = (byte)TransactionType.VIEW;
 
-        using var iterator = Database.NewIterator(heightColumn, readOptions);
+        var key = Storage.FindFirst("ixTransactionHeight", prefix);
 
-        iterator.Seek(key);
-
-        if (!iterator.Valid())
+        if (key is null)
         {
             return null;
         }
 
-        if (!Database.HasKey(iterator.Value(), txColumn))
+        var tx = Storage.Get<Transaction>("Transaction", key);
+
+        if (tx is null)
         {
             return null;
         }
 
-        return new View(MessagePackSerializer.Deserialize<Transaction>(Database.Get(iterator.Value(), txColumn)));
+        return new View(tx);
     }
 
     public List<Vote> GetVotesAtHeight(long height)
     {
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
+        var heightBytes = BitConverter.GetBytes(height);
+        Array.Reverse(heightBytes);
 
-        var heightColumn = Database.GetColumnFamily("ixTransactionHeight");
-        var txColumn = Database.GetColumnFamily("Transaction");
+        var prefix = new byte[9];
 
-        var key = BitConverter.GetBytes(height);
-        Array.Reverse(key);
-        Array.Resize(ref key, 9);
-        key[8] = (byte)TransactionType.VOTE;
+        heightBytes.CopyTo(prefix, 0);
+        prefix[8] = (byte)TransactionType.VOTE;
 
-        var upperBound = key;
-        upperBound[8] = (byte)TransactionType.VOTE + 1;
-        readOptions.SetIterateUpperBound(upperBound);
+        var voteIds = Storage.FindAll("ixTransactionHeight", prefix);
 
-        using var iterator = Database.NewIterator(heightColumn, readOptions);
-
-        iterator.Seek(key);
-
-        var ids = new List<byte[]>();
-
-        while (iterator.Valid())
+        if (voteIds.Count == 0)
         {
-            ids.Add(iterator.Value());
-            iterator.Next();
+            return new();
         }
 
-        var families = new ColumnFamilyHandle[ids.Count];
+        var votes = Storage.GetMany<Transaction>("Transaction", voteIds.ToArray());
 
-        Array.Fill(families, txColumn);
-
-        var results = Database.MultiGet(ids.ToArray(), families);
-        var votes = new List<Vote>(results.Length);
-
-        foreach (var result in results)
-        {
-            var tx = MessagePackSerializer.Deserialize<Transaction>(result.Value);
-            votes.Add(new Vote(tx));
-        }
-
-        return votes;
+        return votes.Where(x => x != null)
+            .Select(x => new Vote(x))
+            .ToList();
     }
 
     public ChainState? GetChainState()
     {
-        var chainColumn = Database.GetColumnFamily("ChainState");
         var chainKey = new byte[1];
-
-        if (!Database.HasKey(chainKey, chainColumn))
-        {
-            return null;
-        }
-
-        return MessagePackSerializer.Deserialize<ChainState>(Database.Get(chainKey, chainColumn));
+        return Storage.Get<ChainState>("ChainState", chainKey);
     }
 
-    public void SaveState(ChainState chainState, WriteBatch? writeBatch = null)
+    public void SaveState(ChainState chainState)
     {
-        bool write = false;
-
-        if (writeBatch is null)
-        {
-            write = true;
-            writeBatch = new WriteBatch();
-        }
-
-        var chainColumn = Database.GetColumnFamily("ChainState");
         var chainKey = new byte[1];
-
-        writeBatch.Put(chainKey, MessagePackSerializer.Serialize<ChainState>(chainState), chainColumn);
-
-        if (write)
-        {
-            Database.Write(writeBatch);
-            writeBatch.Dispose();
-        }
+        Storage.Put<ChainState>("ChainState", chainKey, chainState);
     }
 
     /*public void Delete(Transaction tx)
@@ -484,106 +283,27 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Ledger? GetWallet(Address address)
     {
-        var ledgerColumn = Database.GetColumnFamily("Ledger");
-
-        if (!Database.HasKey(address.Buffer, ledgerColumn))
-        {
-            return null;
-        }
-
-        return MessagePackSerializer.Deserialize<Ledger>(Database.Get(address.Buffer, ledgerColumn));
+        return Storage.Get<Ledger>("Ledger", address.Buffer);
     }
 
-    public void UpdateWallet(Ledger ledger, WriteBatch? writeBatch = null)
+    public void UpdateWallet(Ledger ledger)
     {
-        bool write = false;
-        if (writeBatch is null)
-        {
-            write = true;
-            writeBatch = new WriteBatch();
-        }
-        /*using var cmd = Connection!.CreateCommand();
-
-        if (wallet.IsNew)
-        {
-            cmd.CommandText = @"
-                INSERT OR REPLACE INTO Ledger ( 
-                    Address,
-                    Balance,
-                    Pending
-                ) VALUES (@addr, @balance, @pending);
-            ";
-        }
-        else
-        {
-            cmd.CommandText = @"
-                UPDATE
-                    Ledger
-                SET
-                    Balance = @balance,
-                    Pending = @pending
-                WHERE
-                    Address = @addr
-            ";
-        }
-
-        cmd.Parameters.Add(new SQLiteParameter("@addr", wallet.Address.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@balance", (long)wallet.Balance));
-        cmd.Parameters.Add(new SQLiteParameter("@pending", (long)wallet.Pending));
-
-        cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
-
-        wallet.IsNew = false;*/
-        var ledgerColumn = Database.GetColumnFamily("Ledger");
-
-        writeBatch.Put(ledger.Address.Buffer, MessagePackSerializer.Serialize(ledger), ledgerColumn);
-
-        if (write)
-        {
-            Database.Write(writeBatch);
-            writeBatch.Dispose();
-        }
+        Storage.Put<Ledger>("Ledger", ledger.Address.Buffer, ledger);
     }
 
-    public void UpdateWallets(IEnumerable<Ledger> ledgers, WriteBatch? writeBatch = null)
+    public void UpdateWallets(IEnumerable<Ledger> ledgers)
     {
-        bool write = false;
-        if (writeBatch is null)
-        {
-            write = true;
-            writeBatch = new WriteBatch();
-        }
-
         foreach (var ledger in ledgers)
         {
             UpdateWallet(ledger);
         }
-
-        if (write)
-        {
-            Database.Write(writeBatch);
-            writeBatch.Dispose();
-        }
     }
 
-    public void UpdateWallets(WriteBatch? writeBatch = null, params Ledger[] ledgers)
+    public void UpdateWallets(params Ledger[] ledgers)
     {
-        bool write = false;
-        if (writeBatch is null)
-        {
-            write = true;
-            writeBatch = new WriteBatch();
-        }
-
         foreach (var ledger in ledgers)
         {
             UpdateWallet(ledger);
-        }
-
-        if (write)
-        {
-            Database.Write(writeBatch);
-            writeBatch.Dispose();
         }
     }
 
@@ -750,43 +470,29 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<SHA256Hash> GetTransactionsToValidate()
     {
-        var column = Database.GetColumnFamily("ixChildless");
-
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-
-        using var iterator = Database.NewIterator(column, readOptions);
-
-        iterator.SeekToFirst();
-
-        var hashes = new List<SHA256Hash>();
-
-        while (iterator.Valid())
-        {
-            hashes.Add(iterator.Key());
-            iterator.Next();
-        }
+        var hashes = Storage.FindAll("ixChildless")
+            .Select(x => (SHA256Hash)x)
+            .ToList(); ;
 
         if (hashes.Count < 2)
         {
-            var heightColumn = Database.GetColumnFamily("ixTransactionHeight");
-            var txColumn = Database.GetColumnFamily("Transaction");
+            var ids = Storage.FindLast("ixTransactionHeight", 2 + hashes.Count);
 
-            using var hIterator = Database.NewIterator(heightColumn, readOptions);
-
-            iterator.SeekToLast();
-
-            while (iterator.Valid())
+            foreach (var id in ids)
             {
-                var tx = MessagePackSerializer.Deserialize<Transaction>(Database.Get(iterator.Value(), txColumn));
+                var tx = Storage.Get<Transaction>("Transaction", id);
+
+                if (tx is null)
+                {
+                    continue;
+                }
+
                 hashes.Add(tx.TransactionId);
 
                 if (hashes.Count >= 2)
                 {
                     break;
                 }
-
-                iterator.Prev();
             }
         }
 

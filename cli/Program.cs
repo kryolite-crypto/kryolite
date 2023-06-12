@@ -58,10 +58,7 @@ public class Program
         {
             var walletRepository = new WalletRepository();
 
-            var wallet = new Wallet
-            {
-                WalletType = WalletType.WALLET
-            };
+            var wallet = Wallet.Create(WalletType.WALLET);
 
             walletRepository.Add(wallet);
 
@@ -196,7 +193,7 @@ public class Program
                 TransactionType = TransactionType.PAYMENT,
                 PublicKey = wallet.PublicKey,
                 To = to,
-                Value = (ulong)(amount * 1000000),
+                Value = (long)(amount * 1000000),
                 //MaxFee = 1,
                 Timestamp = 69,
                 Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null

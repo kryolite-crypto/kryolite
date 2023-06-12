@@ -12,8 +12,8 @@ public interface IStoreManager
     bool AddGenesis(Genesis genesis);
     bool AddView(View view, bool broadcast, bool selfCreated);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
-    bool AddTransaction(Transaction tx, bool broadcast, WriteBatch? writeBatch = null);
-    bool AddTransaction(TransactionDto tx, bool broadcast, WriteBatch? writeBatch = null);
+    bool AddTransaction(Transaction tx, bool broadcast);
+    bool AddTransaction(TransactionDto tx, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
 
     Genesis? GetGenesis();

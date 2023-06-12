@@ -214,11 +214,9 @@ public class StoreManager : IStoreManager
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
-            Repository.SaveState(ChainState, context.GetBatch());
-            Repository.Add(view, context.GetBatch());
-            Repository.Finalize(toExecute, context.GetBatch());
-            Repository.Write(context.GetBatch());
-            context.GetBatch().Dispose();
+            Repository.SaveState(ChainState);
+            Repository.Add(view);
+            Repository.Finalize(toExecute);
 
             //dbtx.Commit();
 
@@ -399,7 +397,7 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddTransaction(Transaction tx, bool broadcast, WriteBatch? writeBatch = null)
+    public bool AddTransaction(Transaction tx, bool broadcast)
     {
         try
         {
@@ -459,21 +457,17 @@ public class StoreManager : IStoreManager
                 to.Balance += tx.Value;
             }
 
-            writeBatch = new WriteBatch();
-
             //sw.Stop();
             //Logger.LogInformation($"AddTransaction.Balance {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
             //sw.Restart();
 
-            Repository.Add(tx, writeBatch);
+            Repository.Add(tx);
 
             //sw.Stop();
             //Logger.LogInformation($"AddTransaction.Add {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
             //sw.Restart();
 
-            Repository.UpdateWallets(writeBatch, from, to);
-
-            Repository.Write(writeBatch);
+            Repository.UpdateWallets(from, to);
 
             //sw.Stop();
             //Logger.LogInformation($"AddTransaction.Update {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
@@ -510,7 +504,7 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddTransaction(TransactionDto tx, bool broadcast, WriteBatch? writeBatch = null)
+    public bool AddTransaction(TransactionDto tx, bool broadcast)
     {
         if (tx.Parents.Count < 2)
         {
@@ -543,7 +537,7 @@ public class StoreManager : IStoreManager
             case TransactionType.CONTRACT:
                 var payment = new Transaction(tx, tx.Parents);
 
-                return AddTransaction(payment, broadcast, writeBatch);
+                return AddTransaction(payment, broadcast);
             case TransactionType.VIEW:
                 var view = new View(tx, tx.Parents);
 

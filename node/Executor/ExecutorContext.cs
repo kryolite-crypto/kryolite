@@ -17,7 +17,6 @@ public class ExecutorContext : IExecutorContext
     private Dictionary<SHA256Hash, Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
-    private WriteBatch Batch = new WriteBatch();
 
     public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, int voteCount, int blockCount)
     {
@@ -157,13 +156,8 @@ public class ExecutorContext : IExecutorContext
             contract.Value.Snapshots.Add(contract.Value.CurrentSnapshot);
         }
 
-        Repository.UpdateWallets(Wallets.Values, Batch);
+        Repository.UpdateWallets(Wallets.Values);
         Repository.UpdateContracts(Contracts.Values);
         Repository.UpdateTokens(Tokens.Values);
-    }
-
-    public WriteBatch GetBatch()
-    {
-        return Batch;
     }
 }
