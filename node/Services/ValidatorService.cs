@@ -176,8 +176,11 @@ public class ValidatorService : BackgroundService
     {
         var height = (lastView?.Height ?? 0) + 1L;
         var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate());
+        
+        nextView.Sign(Node.PrivateKey);
+        nextView.TransactionId = nextView.CalculateHash();
 
-        if (blockchainManager.AddView(nextView, true, true))
+        if (blockchainManager.AddView(nextView, true))
         {
             var parents = nextView.Parents.Take(1).ToList();
             parents.Add(nextView.TransactionId);

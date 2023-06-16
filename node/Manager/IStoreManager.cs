@@ -10,10 +10,10 @@ namespace Kryolite.Node;
 public interface IStoreManager
 {
     bool AddGenesis(Genesis genesis);
-    bool AddView(View view, bool broadcast, bool selfCreated);
+    bool AddView(View view, bool broadcast);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
     bool AddTransaction(Transaction tx, bool broadcast);
-    bool AddTransaction(TransactionDto tx, bool broadcast);
+    //bool AddTransaction(TransactionDto tx, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
 
     Genesis? GetGenesis();

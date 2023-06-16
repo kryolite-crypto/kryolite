@@ -13,13 +13,20 @@ public class Transaction : IComparable<Transaction>
     [Key(0)]
     public ulong Id { get; set; }
     [Key(1)]
-    public SHA256Hash TransactionId { get; set; } = new SHA256Hash();
+    public SHA256Hash TransactionId { get; set; }
     [Key(2)]
     public long? Height { get; set; }
     [Key(3)]
     public TransactionType TransactionType { get; set; }
     [Key(4)]
-    public PublicKey? PublicKey { get; set; }
+    public PublicKey? PublicKey {
+        get => pk;
+        set {
+            pk = value;
+            From = pk?.ToAddress() ?? new Address();
+        }
+    }
+
     [Key(5)]
     public Address? To { get; set; }
     [Key(6)]
@@ -40,15 +47,16 @@ public class Transaction : IComparable<Transaction>
     public List<Effect> Effects { get; set; } = new();
 
     [IgnoreMember]
-    public Address From
-    {
-        get => PublicKey?.ToAddress() ?? new Address();
-        private set { }
-    }
+    public bool IsVerified { get; set; }
+
+    [IgnoreMember]
+    public Address? From { get; private set; }
+
+    private PublicKey? pk;
 
     public Transaction()
     {
-
+        TransactionId = SHA256Hash.NULL_HASH;
     }
 
     public Transaction(TransactionDto tx, List<SHA256Hash> parents)

@@ -45,12 +45,7 @@ public class SHA256Hash : IComparable<SHA256Hash>
 
     public static bool operator ==(SHA256Hash a, SHA256Hash b)
     {
-        if (System.Object.ReferenceEquals(a, b))
-        {
-            return true;
-        }
-
-        if (((object)a == null) || ((object)b == null))
+        if (a is null || (b is null))
         {
             return false;
         }
@@ -79,6 +74,8 @@ public class SHA256Hash : IComparable<SHA256Hash>
     }
 
     public static int HASH_SZ = 32;
+
+    public static SHA256Hash NULL_HASH = new SHA256Hash();
 }
 
 public static class SHA256HashExtensions

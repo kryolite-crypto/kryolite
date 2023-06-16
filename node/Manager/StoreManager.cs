@@ -129,7 +129,7 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddView(View view, bool broadcast, bool selfCreated)
+    public bool AddView(View view, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
@@ -139,8 +139,6 @@ public class StoreManager : IStoreManager
             var sw = Stopwatch.StartNew();
 
             var height = view.Height ?? 0;
-
-            view.TransactionId = view.CalculateHash();
 
             if (height != ChainState.Height + 1)
             {
@@ -207,11 +205,6 @@ public class StoreManager : IStoreManager
             ChainState.LastHash = view.TransactionId;
             ChainState.Weight += ChainState.CurrentDifficulty.ToWork() * toExecute.Count;
 
-            if (selfCreated)
-            {
-                view.Sign(Node.PrivateKey);
-            }
-
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
             Repository.SaveState(ChainState);
@@ -227,11 +220,11 @@ public class StoreManager : IStoreManager
                 TransactionBuffer.Add(new TransactionDto(view));
             }
 
-            EventBus.PublishAsync(ChainState);
+            EventBus.Publish(ChainState);
 
             foreach (var ledger in LedgerCache.Values)
             {
-                EventBus.PublishAsync(ledger);
+                EventBus.Publish(ledger);
             }
 
             LedgerCache = new(); // note: LedgerCache.Clear() has really bad performance here
@@ -415,24 +408,27 @@ public class StoreManager : IStoreManager
                 return false;
             }
 
-            tx.TransactionId = tx.CalculateHash();
-
-            var exists = Repository.Exists(tx.TransactionId);
-
-            if (exists)
+            if (!tx.IsVerified)
             {
-                // no need to do anything, we have this already
-                return true;
+                tx.TransactionId = tx.CalculateHash();
+
+                var exists = Repository.Exists(tx.TransactionId);
+
+                if (exists)
+                {
+                    // no need to do anything, we have this already
+                    return true;
+                }
             }
 
             //sw.Stop();
             //Logger.LogInformation($"AddTransaction.Exists {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
             //sw.Reset();
 
-            if (!LedgerCache.TryGetValue(tx.From, out var from))
+            if (!LedgerCache.TryGetValue(tx.From!, out var from))
             {
-                from = Repository.GetWallet(tx.From) ?? new Ledger(tx.From);
-                LedgerCache.Add(tx.From, from);
+                from = Repository.GetWallet(tx.From!) ?? new Ledger(tx.From!);
+                LedgerCache.Add(tx.From!, from);
             }
 
             if (from.Balance < tx.Value)
@@ -479,12 +475,12 @@ public class StoreManager : IStoreManager
             //Logger.LogInformation($"AddTransaction.Cache {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
             //sw.Restart();
 
-            EventBus.PublishAsync(from);
+            /*EventBus.PublishAsync(from);
             EventBus.PublishAsync(to);
 
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Publish {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            //sw.Restart();
+            sw.Stop();
+            Logger.LogInformation($"AddTransaction.Publish {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
+            sw.Restart();*/
 
             if (broadcast)
             {
@@ -506,50 +502,17 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddTransaction(TransactionDto tx, bool broadcast)
+    public bool ExecuteTransaction(Transaction tx, bool broadcast)
     {
-        if (tx.Parents.Distinct().Count() < 2)
-        {
-            Logger.LogInformation("AddTransaction rejected (reason = not enought unique transactions referenced)");
-            return false;
-        }
-
-        foreach (var txId in tx.Parents)
-        {
-            var parentTx = Repository.GetTimestamp(txId);
-
-            if (parentTx is null)
-            {
-                Logger.LogInformation("AddTransaction rejected (reason = unknown transaction reference)");
-                return false;
-            }
-
-            if (tx.Timestamp < parentTx)
-            {
-                Logger.LogInformation("AddTransaction rejected (reason = invalid timestamp)");
-                return false;
-            }
-        }
-
         switch (tx.TransactionType)
         {
             case TransactionType.BLOCK:
-                return AddBlock(new Block(tx, tx.Parents), broadcast);
+                return AddBlock((Block)tx, broadcast);
             case TransactionType.PAYMENT:
             case TransactionType.CONTRACT:
-                var payment = new Transaction(tx, tx.Parents);
-
-                return AddTransaction(payment, broadcast);
+                return AddTransaction(tx, broadcast);
             case TransactionType.VIEW:
-                var view = new View(tx, tx.Parents);
-
-                if (!tx.IsVerified && !view.Verify())
-                {
-                    Logger.LogInformation("AddTransaction rejected (reason = signature verification failed)");
-                    return false;
-                }
-
-                if (!AddView(view, broadcast, broadcast))
+                if (!AddView((View)tx, broadcast))
                 {
                     return false;
                 }
@@ -561,15 +524,7 @@ public class StoreManager : IStoreManager
 
                 return AddVote(vote, true);
             case TransactionType.VOTE:
-                var vote2 = new Vote(tx, tx.Parents);
-
-                if (!vote2.Verify())
-                {
-                    Logger.LogInformation("AddTransaction rejected (reason = signature verification failed)");
-                    return false;
-                }
-
-                return AddVote(vote2, broadcast);
+                return AddVote((Vote)tx, broadcast);
             default:
                 Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
                 return false;
@@ -671,23 +626,81 @@ public class StoreManager : IStoreManager
         return Repository.GetTransactionsToValidate();
     }
 
-    public void AddTransactionBatch(IEnumerable<TransactionDto> transactions)
+    public void AddTransactionBatch(IEnumerable<TransactionDto> transactionList)
     {
+        var sw = Stopwatch.StartNew();
+        var transactions = transactionList.AsParallel().Select(tx => {
+            switch (tx.TransactionType)
+            {
+                case TransactionType.BLOCK:
+                    return new Block(tx, tx.Parents);
+                case TransactionType.PAYMENT:
+                case TransactionType.CONTRACT:
+                    return new Transaction(tx, tx.Parents);
+                case TransactionType.VIEW:
+                    return new View(tx, tx.Parents);
+                case TransactionType.VOTE:
+                    return new Vote(tx, tx.Parents);
+                default:
+                    throw new Exception($"Unknown transaction type ({tx.TransactionType})");
+            }
+        }).ToList();
+        sw.Stop();
+        Logger.LogInformation($"Convert {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
+
+        sw.Restart();
         Parallel.ForEach(transactions, tx => {
+            var exists = Repository.Exists(tx.TransactionId);
+
+            if (exists)
+            {
+                // no need to do anything, we have this already
+                return;
+            }
+
             if (!tx.Verify())
             {
                 Logger.LogInformation("AddTransaction rejected (reason = invalid signature)");
                 return;
             }
 
+            if (tx.Parents.Distinct().Count() < 2)
+            {
+                Logger.LogInformation("AddTransaction rejected (reason = not enought unique transactions referenced)");
+                return;
+            }
+
+            foreach (var txId in tx.Parents)
+            {
+                var parentTx = Repository.GetTimestamp(txId);
+
+                if (parentTx is null)
+                {
+                    Logger.LogInformation("AddTransaction rejected (reason = unknown transaction reference)");
+                    return;
+                }
+
+                if (tx.Timestamp < parentTx)
+                {
+                    Logger.LogInformation("AddTransaction rejected (reason = invalid timestamp)");
+                    return;
+                }
+            }
+
             tx.IsVerified = true;
         });
+        sw.Stop();
+        Logger.LogInformation($"Verify {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
 
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
+        PendingCache.EnsureCapacity(PendingCache.Count + transactions.Count());
+        LedgerCache.EnsureCapacity(LedgerCache.Count + transactions.Count());
+
         try
         {
+            sw.Restart();
             foreach (var tx in transactions)
             {
                 if (!tx.IsVerified)
@@ -695,10 +708,15 @@ public class StoreManager : IStoreManager
                     continue;
                 }
 
-                AddTransaction(tx, true);
+                ExecuteTransaction(tx, true);
             }
+            sw.Stop();
+            Logger.LogInformation($"Stage {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
 
+            sw.Restart();
             dbtx.Commit();
+            sw.Stop();
+            Logger.LogInformation($"Commit {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
         }
         catch (Exception ex)
         {

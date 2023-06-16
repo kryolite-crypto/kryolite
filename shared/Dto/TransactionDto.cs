@@ -2,6 +2,8 @@
 using MessagePack;
 using NSec.Cryptography;
 using System.ComponentModel.DataAnnotations;
+using System.Security.Cryptography;
+using System.Text.Json.Serialization;
 using KeyAttribute = MessagePack.KeyAttribute;
 
 namespace Kryolite.Shared.Dto;
@@ -80,39 +82,5 @@ public class TransactionDto
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;
         Parents = tx.Parents;
-    }
-
-    public bool Verify()
-    {
-        var algorithm = new Ed25519();
-        using var stream = new MemoryStream();
-
-        stream.WriteByte((byte)TransactionType);
-        stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
-
-        if (To is not null)
-        {
-            stream.Write(To);
-        }
-
-        stream.Write(BitConverter.GetBytes(Value));
-        stream.Write(Data);
-        stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(Pow);
-
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
-
-        foreach (var hash in Parents.Order())
-        {
-            stream.Write(hash);
-        }
-
-        stream.Flush();
-
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
     }
 }

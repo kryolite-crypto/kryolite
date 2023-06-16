@@ -48,12 +48,7 @@ public class Address
 
     public static bool operator ==(Address? a, Address? b)
     {
-        if (System.Object.ReferenceEquals(a, b))
-        {
-            return true;
-        }
-
-        if (((object)a! == null) || ((object)b! == null))
+        if (a is null || b is null)
         {
             return false;
         }

@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Threading.Channels;
 
 namespace Kryolite.Node.Services;
@@ -20,6 +21,8 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var items = new List<TransactionDto>(20000);
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var result = await TxChannel.Reader.WaitToReadAsync(stoppingToken);
@@ -32,8 +35,7 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
 
             using var scope = Provider.CreateScope();
             var manager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-
-            var items = new List<TransactionDto>(20000);
+            items.Clear();
 
             while (TxChannel.Reader.TryRead(out var item))
             {
