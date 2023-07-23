@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Kryolite.Node;
@@ -56,7 +57,7 @@ public partial class AddressesTab : UserControl
 
         Model.CopyAddressClicked += async (object? sender, EventArgs args) => {
             var wallet = (WalletModel)walletGrid.SelectedItem;
-            await Application.Current!.Clipboard!.SetTextAsync(wallet.Address.ToString() ?? "");
+            TopLevel.GetTopLevel(this)?.Clipboard!.SetTextAsync(wallet.Address.ToString() ?? "");
         };
     }
 }

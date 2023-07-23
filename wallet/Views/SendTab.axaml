@@ -88,7 +88,7 @@
                     <Setter Property="Margin" Value="0, 0, 0, 0"/>
                 </Style>
             </StackPanel.Styles-->
-        <ComboBox Width="420" Items="{Binding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
+        <ComboBox Width="420" ItemsSource="{Binding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
           <ComboBox.ItemTemplate>
             <DataTemplate>
               <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">
@@ -99,7 +99,7 @@
             </DataTemplate>
           </ComboBox.ItemTemplate>
         </ComboBox>
-        <AutoCompleteBox Name="RecipientBox" Width="420" Text="{Binding Recipient}" Items="{Binding Addresses}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" TextChanged="RecipientChanged" HorizontalAlignment="Left" FilterMode="StartsWith" MinimumPrefixLength="0" GotFocus="RecipientGotFocus"/>
+        <AutoCompleteBox Name="RecipientBox" Width="420" Text="{Binding Recipient}" ItemsSource="{Binding Addresses}" Watermark="Recipient address" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" TextChanged="RecipientChanged" HorizontalAlignment="Left" FilterMode="StartsWith" MinimumPrefixLength="0" GotFocus="RecipientGotFocus"/>
         <StackPanel Orientation="Horizontal" Spacing="10">
           <TextBox Width="200" Text="{Binding Amount}" Watermark="Amount to send" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}"/>
           <StackPanel>
@@ -110,14 +110,14 @@
 
         <vm:GroupBox Name="MethodContainer" Header="{Binding Path=Manifest.Name, Converter={StaticResource CapitalToSentenceConverter}}" IsVisible="False">
           <StackPanel Orientation="Horizontal">
-            <ComboBox Width="200" Items="{Binding Path=Manifest.Methods}" SelectedItem="{Binding Method}" Margin="0,0,10,0">
+            <ComboBox Width="200" ItemsSource="{Binding Path=Manifest.Methods}" SelectedItem="{Binding Method}" Margin="0,0,10,0">
               <ComboBox.ItemTemplate>
                 <DataTemplate>
                   <TextBlock Text="{Binding Name, Converter={StaticResource SnakeCaseConverter}}"/>
                 </DataTemplate>
               </ComboBox.ItemTemplate>
             </ComboBox>
-            <ItemsRepeater Items="{Binding Path=Method.Params}">
+            <ItemsRepeater ItemsSource="{Binding Path=Method.Params}">
               <ItemsRepeater.Layout>
                 <StackLayout Spacing="10" Orientation="Horizontal" />
               </ItemsRepeater.Layout>
