@@ -136,8 +136,6 @@ public class PacketFormatter : IMessagePackFormatter<object>
             }
         }
 
-        Console.WriteLine("fallback");
-
         // fallback
         return DynamicObjectTypeFallbackFormatter.Instance.Deserialize(ref reader, options);
     }

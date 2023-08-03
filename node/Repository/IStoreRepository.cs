@@ -1,6 +1,7 @@
 ﻿using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using System.Numerics;
 
 namespace Kryolite.Node.Repository;
 
@@ -19,6 +20,8 @@ public interface IStoreRepository
     // void DeleteContractSnapshot(long height);
     long? GetTimestamp(SHA256Hash transactionId);
     ChainState? GetChainState();
+    BigInteger? GetWeightAt(long height);
+    Difficulty? GetDifficultyAt(long height);
     Ledger? GetWallet(Address address);
     List<Transaction> GetLastNTransctions(Address address, int count);
     void UpdateWallet(Ledger wallet);

@@ -9,6 +9,7 @@ namespace Kryolite.Node;
 
 public interface IStoreManager
 {
+    bool Exists(SHA256Hash hash);
     bool AddGenesis(Genesis genesis);
     bool AddView(View view, bool broadcast);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
@@ -27,6 +28,8 @@ public interface IStoreManager
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
+    BigInteger? GetWeightAt(long height);
+    Difficulty? GetDifficultyAt(long height);
     long GetBalance(Address address);
     
     void AddTransactionBatch(IEnumerable<TransactionDto> transactions);

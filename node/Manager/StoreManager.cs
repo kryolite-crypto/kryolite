@@ -92,6 +92,11 @@ public class StoreManager : IStoreManager
         }
     }
 
+    public bool Exists(SHA256Hash hash)
+    {
+        return Repository.Exists(hash);
+    }
+
     public bool AddGenesis(Genesis genesis)
     {
         using var _ = rwlock.EnterWriteLockEx();
@@ -1082,6 +1087,18 @@ public class StoreManager : IStoreManager
     {
         using var _ = rwlock.EnterReadLockEx();
         return Repository.GetChainState()!;
+    }
+
+    public BigInteger? GetWeightAt(long height)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetWeightAt(height);
+    }
+
+    public Difficulty? GetDifficultyAt(long height)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetDifficultyAt(height);
     }
 
     public Difficulty GetCurrentDifficulty()

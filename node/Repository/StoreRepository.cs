@@ -10,6 +10,7 @@ using System.Buffers;
 using System.Data.Entity;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using System.Runtime.InteropServices;
 
 namespace Kryolite.Node.Repository;
@@ -219,10 +220,43 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.Get<ChainState>("ChainState", chainKey);
     }
 
+    public BigInteger? GetWeightAt(long height)
+    {
+        var heightKey = BitConverter.GetBytes(height);
+        var bytes = Storage.Get("WeightHistory", heightKey);
+
+        if (bytes is null)
+        {
+            return null;
+        }
+
+        return new BigInteger(bytes);
+    }
+
+    public Difficulty? GetDifficultyAt(long height)
+    {
+        var heightKey = BitConverter.GetBytes(height);
+        var bytes = Storage.Get("DifficultyHistory", heightKey);
+
+        if (bytes is null)
+        {
+            return null;
+        }
+
+        return new Difficulty
+        {
+            Value = BitConverter.ToUInt32(bytes, 0),
+        };
+    }
+
     public void SaveState(ChainState chainState)
     {
         var chainKey = new byte[1];
-        Storage.Put<ChainState>("ChainState", chainKey, chainState, CurrentTransaction);
+        var heightKey = BitConverter.GetBytes(chainState.Height);
+
+        Storage.Put("ChainState", chainKey, chainState, CurrentTransaction);
+        Storage.Put("WeightHistory", heightKey, chainState.Weight.ToByteArray(), CurrentTransaction);
+        Storage.Put("DifficultyHistory", heightKey, BitConverter.GetBytes(chainState.CurrentDifficulty), CurrentTransaction);
     }
 
     /*public void Delete(Transaction tx)

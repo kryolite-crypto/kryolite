@@ -58,22 +58,27 @@ internal class RocksDBStorage : IStorage
             db.CreateColumnFamily(opts, "ChainState");
             db.CreateColumnFamily(opts, "Ledger");
             db.CreateColumnFamily(opts, "Transaction");
+            db.CreateColumnFamily(opts, "WeightHistory");
+            db.CreateColumnFamily(opts, "DifficultyHistory");
             db.CreateColumnFamily(opts, "ixTransactionId");
             db.CreateColumnFamily(opts, "ixTransactionAddress");
             db.CreateColumnFamily(opts, "ixTransactionHeight");
             db.CreateColumnFamily(opts, "ixChildless");
         }
 
-        var families = new ColumnFamilies();
-
-        families.Add("Key", opts);
-        families.Add("ChainState", opts);
-        families.Add("Ledger", opts);
-        families.Add("Transaction", opts);
-        families.Add("ixTransactionId", opts);
-        families.Add("ixTransactionAddress", opts);
-        families.Add("ixTransactionHeight", opts);
-        families.Add("ixChildless", opts);
+        var families = new ColumnFamilies
+        {
+            { "Key", opts },
+            { "ChainState", opts },
+            { "Ledger", opts },
+            { "Transaction", opts },
+            { "WeightHistory", opts },
+            { "DifficultyHistory", opts },
+            { "ixTransactionId", opts },
+            { "ixTransactionAddress", opts },
+            { "ixTransactionHeight", opts },
+            { "ixChildless", opts }
+        };
 
         Database = RocksDb.Open(options, storePath, families);
 
@@ -81,6 +86,8 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ChainState", Database.GetColumnFamily("ChainState"));
         ColumnFamilies.Add("Ledger", Database.GetColumnFamily("Ledger"));
         ColumnFamilies.Add("Transaction", Database.GetColumnFamily("Transaction"));
+        ColumnFamilies.Add("WeightHistory", Database.GetColumnFamily("WeightHistory"));
+        ColumnFamilies.Add("DifficultyHistory", Database.GetColumnFamily("DifficultyHistory"));
         ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
         ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));

@@ -362,7 +362,7 @@ public class SyncProgress : EventBase
 public class ChainObserver : IObserver<Chain>
 {
     private readonly IMeshNetwork nodeNetwork;
-    private readonly IStoreManager blockchainManager;
+    private readonly IStoreManager storeManager;
     private readonly ILogger<NetworkService> logger;
     private readonly IEventBus eventBus;
 
@@ -371,10 +371,10 @@ public class ChainObserver : IObserver<Chain>
 
     public ChainObserver(IServiceProvider serviceProvider)
     {
-        this.nodeNetwork = nodeNetwork ?? throw new ArgumentNullException(nameof(nodeNetwork));
-        this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
-        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.eventBus = eventBus ?? throw new ArgumentNullException(nameof(logger));
+        nodeNetwork = serviceProvider.GetRequiredService<IMeshNetwork>();
+        storeManager = serviceProvider.GetRequiredService<IStoreManager>();
+        logger = serviceProvider.GetRequiredService<ILogger<NetworkService>>();
+        eventBus = serviceProvider.GetRequiredService<IEventBus>();
     }
 
     public void ReportProgress(string status, double progress, double total)
@@ -404,37 +404,35 @@ public class ChainObserver : IObserver<Chain>
 
     public void OnNext(Chain chain)
     {
-        /*if (chain.Blocks.Count == 0)
+        if (chain.Transactions.Count == 0)
         {
             return;
         }
 
         InProgress = true;
 
-        logger.LogInformation($"Starting chain sync (blocks={chain.Blocks.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
+        logger.LogInformation($"Starting chain sync (transactions={chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
 
-        BeginSync?.Invoke(this, chain.Blocks.Count);
+        var transactions = chain.Transactions.ToDictionary(x => x.CalculateHash(), x => x);
 
-        var sortedBlocks = chain.Blocks.OrderBy(x => x.Height).ToList();
+        FilterKnownTransactions(transactions);
 
-        sortedBlocks = FilterCommonBlocks(sortedBlocks);
-
-        if (sortedBlocks.Count == 0)
+        if (transactions.Count == 0)
         {
-            EndSync?.Invoke(this, EventArgs.Empty);
+            ReportProgress("", 0, 0);
             InProgress = false;
             return;
         }
 
-        if (!VerifyChainIntegrity(sortedBlocks, out var remoteWorkToAdd))
+        if (!VerifyChainIntegrity(transactions, out var remoteWorkToAdd))
         {
             _ = chain.Peer.DisconnectAsync();
-            EndSync?.Invoke(this, EventArgs.Empty);
+            ReportProgress("", 0, 0);
             InProgress = false;
             return;
         }
 
-        if (!VerifyProofOfWork(sortedBlocks))
+        /*if (!VerifyProofOfWork(sortedBlocks))
         {
             _ = chain.Peer.DisconnectAsync();
             EndSync?.Invoke(this, EventArgs.Empty);
@@ -482,58 +480,41 @@ public class ChainObserver : IObserver<Chain>
         }
 
         return localWork;
-    }
+    }*/
 
-    private List<PosBlock> FilterCommonBlocks(List<PosBlock> sortedBlocks)
+    private void FilterKnownTransactions(Dictionary<SHA256Hash, TransactionDto> transactions)
     {
-        long progress = 0;
-        ReportProgress("Filter common blocks", progress, sortedBlocks.Count);
+        ReportProgress("Filter known transactions", 0, transactions.Count);
 
-        var current = blockchainManager.GetPosFrom(sortedBlocks.First().Height - 1)
-            .OrderBy(x => x.Height)
-            .ToList();
-        var startIndex = 0;
+        var progress = 0;
+        var hashes = transactions.Keys.ToArray();
 
-        for (int i = 0; i < Math.Min(sortedBlocks.Count, current.Count()); i++)
+        foreach (var hash in hashes)
         {
-            ReportProgress("Filter common blocks", progress, sortedBlocks.Count);
-
-            if(sortedBlocks[i].GetHash() != current[i].GetHash())
+            if (storeManager.Exists(hash))
             {
-                break;
+                transactions.Remove(hash);
             }
 
-            startIndex++;
+            ReportProgress("Filter known transactions", ++progress, transactions.Count);
         }
 
-        if (startIndex > 0)
+        var filtered = progress - transactions.Count;
+
+        if (filtered > 0)
         {
-            logger.LogInformation($"{startIndex} blocks already exists in localdb, discarding..");
-            sortedBlocks = sortedBlocks.Skip(startIndex).ToList();
+            logger.LogInformation($"{filtered} transactions already exists in localdb, discarding..");
         }
-
-        return sortedBlocks;
     }
 
-    private bool VerifyChainIntegrity(List<PosBlock> sortedBlocks, out BigInteger totalWork)
+    private bool VerifyChainIntegrity(Dictionary<SHA256Hash, TransactionDto> transactions, out BigInteger totalWeight)
     {
-        long progress = 0;
-        ReportProgress("Verifying chain integrity", progress, sortedBlocks.Count);
+        ReportProgress("Verifying chain integrity", 0, transactions.Count);
 
-        var blockchainContext = new BlockchainExContext()
-        {
-            LastBlocks = blockchainManager.GetLastBlocks(sortedBlocks.First().Height, 11)
-                .OrderBy(x => x.Height)
-                .ToList()
-        };
+        long progress = 0L;
+        totalWeight = new BigInteger(0);
 
-        totalWork = new BigInteger(0);
-
-        var blockExecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
-            .Link<VerifyId>(x => x.Height > 0)
-            .Link<VerifyParentHash>(x => x.Height > 0);
-
-        foreach (var block in sortedBlocks)
+        /*foreach (var tx in transactions)
         {
             if (block.Pow is not null)
             {
@@ -547,13 +528,13 @@ public class ChainObserver : IObserver<Chain>
                 blockchainContext.LastBlocks.Add(block.Pow);
             }
 
-            ReportProgress("Verifying chain integrity", ++progress, sortedBlocks.Count);
-        }
+            ReportProgress("Verifying chain integrity", ++progress, transactions.Count);
+        }*/
 
         return true;
     }
 
-    private bool VerifyProofOfWork(List<PosBlock> sortedBlocks)
+    /*private bool VerifyProofOfWork(List<PosBlock> sortedBlocks)
     {
         long progress = 0;
         ReportProgress("Verifying Proof-of-Work", progress, sortedBlocks.Count);

@@ -11,16 +11,15 @@ public class ChainState : EventBase
 {
     [Key(0)]
     public long Id {  get; set; }
-    //[Key(1)]
-    [IgnoreMember]
-    public BigInteger Weight { get; set; } = new BigInteger(0);
     [Key(1)]
-    public long Height { get; set; } = -1;
+    public BigInteger Weight { get; set; } = new BigInteger(0);
     [Key(2)]
-    public long Blocks { get; set; }
+    public long Height { get; set; } = -1;
     [Key(3)]
-    public SHA256Hash LastHash { get; set; } = new SHA256Hash();
+    public long Blocks { get; set; }
     [Key(4)]
+    public SHA256Hash LastHash { get; set; } = new SHA256Hash();
+    [Key(5)]
     public Difficulty CurrentDifficulty { get; set; }
 
     public static ChainState Read(DbDataReader reader)

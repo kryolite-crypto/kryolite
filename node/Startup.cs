@@ -8,7 +8,10 @@ using Kryolite.Node.Services;
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
+using Kryolite.Shared.Formatters;
 using LettuceEncrypt.Acme;
+using MessagePack;
+using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
@@ -256,6 +259,13 @@ public class Startup
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
+
+        var resolver = CompositeResolver.Create(
+                BigIntegerResolver.Instance,
+                StandardResolver.Instance
+            );
+
+        // MessagePackSerializer.DefaultOptions = MessagePackSerializer.DefaultOptions.WithResolver(resolver);
 
         services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(dataDir))

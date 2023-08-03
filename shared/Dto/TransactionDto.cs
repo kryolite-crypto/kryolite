@@ -3,7 +3,6 @@ using MessagePack;
 using NSec.Cryptography;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
-using System.Text.Json.Serialization;
 using KeyAttribute = MessagePack.KeyAttribute;
 
 namespace Kryolite.Shared.Dto;
@@ -64,6 +63,41 @@ public class TransactionDto
         stream.Flush();
 
         Signature = algorithm.Sign(key, stream.ToArray());
+    }
+
+    public virtual SHA256Hash CalculateHash()
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = new MemoryStream();
+
+        stream.WriteByte((byte)TransactionType);
+
+        if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
+        {
+            stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
+        }
+
+        if (To is not null)
+        {
+            stream.Write(To);
+        }
+
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(Data);
+        stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(Pow);
+
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
+        }
+
+        return sha256.ComputeHash(stream.ToArray());
     }
 
     public TransactionDto()
