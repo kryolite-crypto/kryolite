@@ -56,10 +56,14 @@ internal class RocksDBStorage : IStorage
         {
             db.CreateColumnFamily(opts, "Key");
             db.CreateColumnFamily(opts, "ChainState");
+            db.CreateColumnFamily(opts, "ChainStateHistory");
             db.CreateColumnFamily(opts, "Ledger");
             db.CreateColumnFamily(opts, "Transaction");
-            db.CreateColumnFamily(opts, "WeightHistory");
-            db.CreateColumnFamily(opts, "DifficultyHistory");
+            db.CreateColumnFamily(opts, "Contract");
+            db.CreateColumnFamily(opts, "ContractCode");
+            db.CreateColumnFamily(opts, "ContractSnapshot");
+            db.CreateColumnFamily(opts, "Token");
+            db.CreateColumnFamily(opts, "ixTokenAddress");
             db.CreateColumnFamily(opts, "ixTransactionId");
             db.CreateColumnFamily(opts, "ixTransactionAddress");
             db.CreateColumnFamily(opts, "ixTransactionHeight");
@@ -70,10 +74,14 @@ internal class RocksDBStorage : IStorage
         {
             { "Key", opts },
             { "ChainState", opts },
+            { "ChainStateHistory", opts },
             { "Ledger", opts },
             { "Transaction", opts },
-            { "WeightHistory", opts },
-            { "DifficultyHistory", opts },
+            { "Contract", opts },
+            { "ContractCode", opts },
+            { "ContractSnapshot", opts },
+            { "Token", opts },
+            { "ixTokenAddress", opts },
             { "ixTransactionId", opts },
             { "ixTransactionAddress", opts },
             { "ixTransactionHeight", opts },
@@ -84,10 +92,16 @@ internal class RocksDBStorage : IStorage
 
         ColumnFamilies.Add("Key", Database.GetColumnFamily("Key"));
         ColumnFamilies.Add("ChainState", Database.GetColumnFamily("ChainState"));
+        ColumnFamilies.Add("ChainStateHistory", Database.GetColumnFamily("ChainStateHistory"));
         ColumnFamilies.Add("Ledger", Database.GetColumnFamily("Ledger"));
         ColumnFamilies.Add("Transaction", Database.GetColumnFamily("Transaction"));
-        ColumnFamilies.Add("WeightHistory", Database.GetColumnFamily("WeightHistory"));
-        ColumnFamilies.Add("DifficultyHistory", Database.GetColumnFamily("DifficultyHistory"));
+        ColumnFamilies.Add("Contract", Database.GetColumnFamily("Contract"));
+        ColumnFamilies.Add("ContractCode", Database.GetColumnFamily("ContractCode"));
+        ColumnFamilies.Add("ContractSnapshot", Database.GetColumnFamily("ContractSnapshot"));
+        ColumnFamilies.Add("Token", Database.GetColumnFamily("Token"));
+        ColumnFamilies.Add("ixTokenAddress", Database.GetColumnFamily("ixTokenAddress"));
+        ColumnFamilies.Add("ixTokenContract", Database.GetColumnFamily("ixTokenOwner"));
+        ColumnFamilies.Add("ixTokenId", Database.GetColumnFamily("ixTokenId"));
         ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
         ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
@@ -342,6 +356,28 @@ internal class RocksDBStorage : IStorage
         }
 
         return results;
+    }
+
+    public T? FindLast<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+
+        var readOptions = new ReadOptions();
+        readOptions.SetPrefixSameAsStart(true);
+        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
+
+        using var iterator = Database.NewIterator(ix, readOptions);
+
+        iterator.SeekToLast();
+
+        if (!iterator.Valid())
+        {
+            return default(T);
+        }
+
+        return MessagePackSerializer.Deserialize<T>(iterator.Value());
     }
 
     public ulong GetCurrentKey()

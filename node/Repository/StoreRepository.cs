@@ -2,16 +2,7 @@ using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using MessagePack;
-using Microsoft.Data.Sqlite;
-using NSec.Cryptography;
-using RocksDbSharp;
-using System;
 using System.Buffers;
-using System.Data.Entity;
-using System.Diagnostics;
-using System.Linq;
-using System.Numerics;
-using System.Runtime.InteropServices;
 
 namespace Kryolite.Node.Repository;
 
@@ -190,6 +181,25 @@ public class StoreRepository : IStoreRepository, IDisposable
         return new View(tx);
     }
 
+    public List<Transaction> GetTransactionsAtHeight(long height)
+    {
+        var heightBytes = BitConverter.GetBytes(height);
+        Array.Reverse(heightBytes);
+
+        var prefix = new byte[8];
+
+        heightBytes.CopyTo(prefix, 0);
+
+        var ids = Storage.FindAll("ixTransactionHeight", prefix);
+
+        if (ids.Count == 0)
+        {
+            return new();
+        }
+
+        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+    }
+
     public List<Vote> GetVotesAtHeight(long height)
     {
         var heightBytes = BitConverter.GetBytes(height);
@@ -220,33 +230,10 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.Get<ChainState>("ChainState", chainKey);
     }
 
-    public BigInteger? GetWeightAt(long height)
+    public ChainState? GetChainStateAt(long height)
     {
         var heightKey = BitConverter.GetBytes(height);
-        var bytes = Storage.Get("WeightHistory", heightKey);
-
-        if (bytes is null)
-        {
-            return null;
-        }
-
-        return new BigInteger(bytes);
-    }
-
-    public Difficulty? GetDifficultyAt(long height)
-    {
-        var heightKey = BitConverter.GetBytes(height);
-        var bytes = Storage.Get("DifficultyHistory", heightKey);
-
-        if (bytes is null)
-        {
-            return null;
-        }
-
-        return new Difficulty
-        {
-            Value = BitConverter.ToUInt32(bytes, 0),
-        };
+        return Storage.Get<ChainState>("ChainStateHistory", heightKey);
     }
 
     public void SaveState(ChainState chainState)
@@ -259,19 +246,73 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Put("DifficultyHistory", heightKey, BitConverter.GetBytes(chainState.CurrentDifficulty), CurrentTransaction);
     }
 
-    /*public void Delete(Transaction tx)
+    public void Delete(Transaction tx)
     {
-        Context.Transactions.Remove(tx);
-        Context.SaveChanges();
-    }*/
+        var id = BitConverter.GetBytes(tx.Id);
+        Storage.Delete("Transaction", id, CurrentTransaction);
 
-    /*public void DeleteContractSnapshot(long height)
+        var keyBuf = ArrayPool<byte>.Shared.Rent(34);
+        var keyMem = keyBuf.AsSpan();
+
+        // Address index
+        var addrKey = keyMem.Slice(0, 34);
+        id.CopyTo(addrKey.Slice(26));
+
+        if (tx.From is not null)
+        {
+            tx.From.Buffer.CopyTo(addrKey);
+            Storage.Delete("ixTransactionAddress", addrKey, CurrentTransaction);
+        }
+
+        if (tx.To is not null)
+        {
+            tx.To.Buffer.CopyTo(addrKey);
+            Storage.Delete("ixTransactionAddress", addrKey, CurrentTransaction);
+        }
+
+        // Height, TransactionType index
+        var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? ulong.MaxValue);
+        Array.Reverse(height);
+
+        var heightKey = keyMem.Slice(0, 17);
+
+        height.CopyTo(heightKey);
+        heightKey[8] = (byte)tx.TransactionType;
+        id.CopyTo(heightKey.Slice(9));
+
+        Storage.Delete("ixTransactionHeight", heightKey, CurrentTransaction);
+
+        // Childless index
+        Storage.Delete("ixChildless", tx.TransactionId.Buffer, CurrentTransaction);
+
+        // Restore tx in to childless index if it's not referenced anymore
+        foreach (var parent in tx.Parents)
+        {
+            if (Storage.FindFirst("ixTransactionAddress", parent.Buffer) is null)
+            {
+                Storage.Put("ixChildless", parent.Buffer, CurrentTransaction);
+            }
+        }
+    }
+
+    public void DeleteContract(Address address)
     {
-        var snapshots = Context.ContractSnapshots.Where(x => x.Height > height);
+        Storage.Delete("Contract", address, CurrentTransaction);
+        Storage.Delete("ContractCode", address, CurrentTransaction);
+    }
 
-        Context.ContractSnapshots.RemoveRange(snapshots);
-        Context.SaveChanges();
-    }*/
+    public void DeleteContractSnapshot(Address address, long height)
+    {
+        var heightBytes = BitConverter.GetBytes(height).AsSpan();
+
+        var keyBuf = ArrayPool<byte>.Shared.Rent(34);
+        var keyMem = keyBuf.AsSpan();
+
+        address.Buffer.CopyTo(keyMem);
+        heightBytes.CopyTo(keyMem.Slice(26));
+
+        Storage.Delete("ContractSnapshot", address, CurrentTransaction);
+    }
 
     public List<Transaction> GetLastNTransctions(Address address, int count)
     {
@@ -344,32 +385,17 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Contract? GetContract(Address address)
     {
-        /*using var cmd = Connection!.CreateCommand();
+        return Storage.Get<Contract>("Contract", address);
+    }
 
-        cmd.CommandText = @"
-            SELECT
-                Address,
-                Owner,
-                Name,
-                Balance,
-                EntryPoint
-            FROM
-                Contract
-            WHERE
-                Address = @addr
-        ";
+    public byte[]? GetContractCode(Address address)
+    {
+        return Storage.Get<byte[]>("Contract", address);
+    }
 
-        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
-
-        using var reader = cmd.ExecuteReader();
-
-        if (!reader.Read())
-        {
-            return null;
-        }
-
-        return Contract.Read(reader);*/
-        return null;
+    public ContractSnapshot? GetLatestSnapshot(Address address)
+    {
+        return Storage.FindLast<ContractSnapshot>("ContractSnapshot", address);
     }
 
     public List<Ledger> GetRichList(int count)
@@ -404,62 +430,79 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void AddContract(Contract contract)
     {
-        /*using var cmd = Connection!.CreateCommand();
+        Storage.Put<Contract>("Contract", contract.Address.Buffer, contract, CurrentTransaction);
+    }
 
-        cmd.CommandText = @"
-            INSERT INTO Contract ( 
-                Address,
-                Owner,
-                Name,
-                Balance,
-                EntryPoint
-            ) VALUES (@addr, @owner, @name, @balance, @entry);
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@addr", contract.Address.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@owner", contract.Owner.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@name", contract.Name));
-        cmd.Parameters.Add(new SQLiteParameter("@balance", contract.Balance));
-        cmd.Parameters.Add(new SQLiteParameter("@entry", contract.EntryPoint));
-
-        cmd.ExecuteNonQuery();*/
+    public void UpdateContract(Contract contract)
+    {
+        AddContract(contract);
     }
 
     public void UpdateContracts(IEnumerable<Contract> contracts)
     {
-        /*foreach (var contract in contracts)
+        foreach (var contract in contracts)
         {
             AddContract(contract);
-        }*/
+        }
+    }
+
+    public void AddToken(Token token)
+    {
+        var keyBuf = ArrayPool<byte>.Shared.Rent(84);
+        var keyMem = keyBuf.AsSpan();
+
+        var id = keyMem.Slice(58);
+
+        // ContractAddress_TokenId
+        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id);
+        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
+
+        Storage.Put<Token>("Token", id, token, CurrentTransaction);
+
+        var addrIx = keyMem.Slice(84);
+
+        // OwnerAddress_ContractAddress_TokenId
+        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(id);
+        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
+        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(52));
+
+        Storage.Put("ixTokenAddress", addrIx, id.ToArray(), CurrentTransaction);
     }
 
     public void UpdateToken(Token token)
     {
-        /*using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            INSERT OR REPLACE INTO Token ( 
-                TokenId,
-                IsConsumed,
-                Ledger,
-                Contract
-            ) VALUES (@id, @isconsumed, @ledger, @contract);
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@tokenid", token.TokenId.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@isconsumed", token.IsConsumed));
-        cmd.Parameters.Add(new SQLiteParameter("@ledger", token.Ledger.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@contract", token.Contract.ToString()));
-
-        cmd.ExecuteNonQuery();*/
+        AddToken(token);
     }
 
     public void UpdateTokens(IEnumerable<Token> tokens)
     {
-        /*foreach (var token in tokens)
+        foreach (var token in tokens)
         {
-            UpdateToken(token);
-        }*/
+            AddToken(token);
+        }
+    }
+
+    public void DeleteToken(Token token)
+    {
+        var keyBuf = ArrayPool<byte>.Shared.Rent(84);
+        var keyMem = keyBuf.AsSpan();
+
+        var id = keyMem.Slice(58);
+
+        // ContractAddress_TokenId
+        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id);
+        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
+
+        Storage.Delete("Token", id, CurrentTransaction);
+
+        var addrIx = keyMem.Slice(84);
+
+        // OwnerAddress_ContractAddress_TokenId
+        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(id);
+        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
+        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(52));
+
+        Storage.Delete("ixTokenAddress", addrIx, CurrentTransaction);
     }
 
     public List<Transaction> GetTransactions(Address address)
@@ -541,128 +584,26 @@ public class StoreRepository : IStoreRepository, IDisposable
         return hashes;
     }
 
-    public Token? GetToken(SHA256Hash tokenId)
+    public Token? GetToken(Address contract, SHA256Hash tokenId)
     {
-        /*using var cmd = Connection!.CreateCommand();
+        var id = new byte[58];
 
-        cmd.CommandText = @"
-            SELECT
-                TokenId,
-                IsConsumed,
-                Ledger,
-                Contract
-            FROM
-                Token
-            WHERE
-                TokenId = @tokenid
-        ";
+        // ContractAddress_TokenId
+        contract.Buffer.CopyTo(id, 0);
+        tokenId.Buffer.CopyTo(id, 26);
 
-        cmd.Parameters.Add(new SQLiteParameter("@tokenid", tokenId));
-
-        using var reader = cmd.ExecuteReader();
-
-        var results = new List<Token>();
-
-        if (!reader.Read())
-        {
-            return null;
-        }
-
-        return Token.Read(reader);*/
-        return null;
-    }
-
-    public Token? GetToken(Address ledger, SHA256Hash tokenId)
-    {
-        /*using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            SELECT
-                TokenId,
-                IsConsumed,
-                Ledger,
-                Contract
-            FROM
-                Token
-            WHERE
-                TokenId = @tokenid && Ledger = @ledger
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@tokenid", tokenId.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@ledger", ledger.ToString()));
-
-        using var reader = cmd.ExecuteReader();
-
-        var results = new List<Token>();
-
-        if (!reader.Read())
-        {
-            return null;
-        }
-
-        return Token.Read(reader);*/
-        return null;
+        return Storage.Get<Token>("Token", id);
     }
 
     public List<Token> GetTokens(Address ledger)
     {
-        /*using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            SELECT
-                TokenId,
-                IsConsumed,
-                Ledger,
-                Contract
-            FROM
-                Token
-            WHERE
-                Ledger = @ledger
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@ledger", ledger.ToString()));
-
-        using var reader = cmd.ExecuteReader();
-
-        var results = new List<Token>();
-
-        while (reader.Read())
-        {
-            results.Add(Token.Read(reader));
-        }
-
-        return results;*/
-        return new();
+        var keys = Storage.FindAll("ixTokenAddress", ledger.Buffer);
+        return Storage.GetMany<Token>("Token", keys.ToArray());
     }
 
     public List<Token> GetContractTokens(Address contractAddress)
     {
-        /*using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            SELECT
-                TokenId,
-                IsConsumed,
-                Address
-            FROM
-                Token
-            WHERE
-                ContractAddress = @contract
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@contract", contractAddress));
-
-        using var reader = cmd.ExecuteReader();
-
-        var results = new List<Token>();
-
-        while (reader.Read())
-        {
-            results.Add(Token.Read(reader));
-        }
-
-        return results;*/
-        return new();
+        return Storage.FindAll<Token>("Token", contractAddress.Buffer);
     }
 
     public void Dispose()
@@ -673,7 +614,6 @@ public class StoreRepository : IStoreRepository, IDisposable
     public long? GetTimestamp(SHA256Hash transactionId)
     {
         return Get(transactionId)?.Timestamp;
-        // throw new NotImplementedException();
     }
 
     private ITransaction? CurrentTransaction;
