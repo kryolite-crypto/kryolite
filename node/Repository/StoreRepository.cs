@@ -242,8 +242,15 @@ public class StoreRepository : IStoreRepository, IDisposable
         var heightKey = BitConverter.GetBytes(chainState.Height);
 
         Storage.Put("ChainState", chainKey, chainState, CurrentTransaction);
-        Storage.Put("WeightHistory", heightKey, chainState.Weight.ToByteArray(), CurrentTransaction);
-        Storage.Put("DifficultyHistory", heightKey, BitConverter.GetBytes(chainState.CurrentDifficulty), CurrentTransaction);
+        Storage.Put("ChainStateHistory", heightKey, chainState, CurrentTransaction);
+    }
+
+    public void DeleteState(long height)
+    {
+        var chainKey = new byte[1];
+        var heightKey = BitConverter.GetBytes(height);
+
+        Storage.Delete("ChainStateHistory", heightKey, CurrentTransaction);
     }
 
     public void Delete(Transaction tx)
@@ -431,6 +438,11 @@ public class StoreRepository : IStoreRepository, IDisposable
     public void AddContract(Contract contract)
     {
         Storage.Put<Contract>("Contract", contract.Address.Buffer, contract, CurrentTransaction);
+    }
+
+    public void AddContractSnapshot(Address contract, ContractSnapshot snapshot)
+    {
+        Storage.Put<ContractSnapshot>("ContractSnapshot", contract.Buffer, snapshot, CurrentTransaction);
     }
 
     public void UpdateContract(Contract contract)

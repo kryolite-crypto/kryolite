@@ -17,4 +17,8 @@
     <PackageReference Include="SimpleBase" Version="4.0.0" />
     <PackageReference Include="Zeroconf" Version="3.6.11" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="NewFolder\" />
+  </ItemGroup>
 </Project>

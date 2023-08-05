@@ -18,8 +18,10 @@ public class Effect
     [Key(4)]
     public long Value { get; set; }
     [Key(5)]
-    public SHA256Hash? TokenId { get; set; }
+    public Address? Contract { get; set; }
     [Key(6)]
+    public SHA256Hash? TokenId { get; set; }
+    [Key(7)]
     public bool ConsumeToken { get; set; }
     
     public Effect()
@@ -27,10 +29,11 @@ public class Effect
 
     }
 
-    public Effect(Address from, Address to, long value, SHA256Hash? tokenId = null, bool consumeToken = false)
+    public Effect(Address contract, Address from, Address to, long value, SHA256Hash? tokenId = null, bool consumeToken = false)
     {
         From = from ?? throw new ArgumentNullException(nameof(from));
         To = to ?? throw new ArgumentNullException(nameof(to));
+        Contract = contract ?? throw new ArgumentNullException(nameof(contract));
         Value = value;
         TokenId = tokenId;
         ConsumeToken = consumeToken;

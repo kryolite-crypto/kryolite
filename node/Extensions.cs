@@ -1,13 +1,62 @@
 using System.Linq.Expressions;
 using System.Net;
 using System.Net.Sockets;
+using Kryolite.Node;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
+using QuikGraph;
 using Wasmtime;
 
 namespace Kryolite;
 
 public static class Extensions
 {
+    public static AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>> AsGraph(this List<TransactionDto> transactions)
+    {
+        var graph = new AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>>();
+
+        graph.AddVertexRange(transactions.Select(x => x.CalculateHash()));
+
+        foreach (var tx in transactions)
+        {
+            foreach (var parent in tx.Parents)
+            {
+                if (graph.ContainsVertex(parent))
+                {
+                    graph.AddEdge(new TaggedEdge<SHA256Hash, TransactionDto>(parent, tx.CalculateHash(), tx));
+                }
+            }
+        }
+
+        return graph;
+    }
+
+    public static AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, Transaction>> AsGraph(this List<Transaction> transactions)
+    {
+        var graph = new AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, Transaction>>();
+
+        graph.AddVertexRange(transactions.Select(x => x.CalculateHash()));
+
+        foreach (var tx in transactions)
+        {
+            foreach (var parent in tx.Parents)
+            {
+                if (graph.ContainsVertex(parent))
+                {
+                    graph.AddEdge(new TaggedEdge<SHA256Hash, Transaction>(parent, tx.CalculateHash(), tx));
+                }
+            }
+        }
+
+        return graph;
+    }
+
+    public static ReadOnlySpan<T> AsReadOnlySpan<T>(this T[] array)
+    {
+        return array;
+    }
+
     public static Task<bool> WaitOneAsync(this ManualResetEvent manualResetEvent)
     {
         return Task.Run(() => manualResetEvent.WaitOne());

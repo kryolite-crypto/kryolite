@@ -35,9 +35,7 @@ public class ContractExecutor : IExecutor
 
             if (contract.CurrentSnapshot is null)
             {
-                contract.CurrentSnapshot = contract.Snapshots
-                    .OrderByDescending(x => x.Height)
-                    .FirstOrDefault();
+                contract.CurrentSnapshot = Context.GetRepository().GetLatestSnapshot(contract.Address);
 
                 if (contract.CurrentSnapshot is null)
                 {
@@ -80,7 +78,9 @@ public class ContractExecutor : IExecutor
 
             var vmContext = new VMContext(contract, tx, Context.GetRand(), Logger);
 
-            using var vm = KryoVM.LoadFromSnapshot(contract.Code, contract.CurrentSnapshot.Snapshot)
+            var code = Context.GetRepository().GetContractCode(contract.Address);
+
+            using var vm = KryoVM.LoadFromSnapshot(code, contract.CurrentSnapshot.Snapshot)
                 .WithContext(vmContext);
 
             Logger.LogInformation($"Executing contract {contract.Name}:{call.Method}");
@@ -102,7 +102,7 @@ public class ContractExecutor : IExecutor
 
                 if (hasGetToken && effect.TokenId is not null)
                 {
-                    var token = Context.GetToken(effect.TokenId);
+                    var token = Context.GetToken(contract.Address, effect.TokenId);
 
                     if (token is null)
                     {

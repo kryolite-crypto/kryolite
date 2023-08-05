@@ -107,11 +107,12 @@ public class ExecutorContext : IExecutorContext
         return wallet;
     }
 
-    public Token? GetToken(SHA256Hash tokenId)
+    public Token? GetToken(Address contract, SHA256Hash tokenId)
     {
+        // TODO: can't use only tokenid here
         if (!Tokens.TryGetValue(tokenId, out var token))
         {
-            token = Repository.GetToken(tokenId);
+            token = Repository.GetToken(contract, tokenId);
 
             if (token is null)
             {
@@ -153,7 +154,7 @@ public class ExecutorContext : IExecutorContext
                 continue;
             }
 
-            contract.Value.Snapshots.Add(contract.Value.CurrentSnapshot);
+            Repository.AddContractSnapshot(contract.Value.Address, contract.Value.CurrentSnapshot);
         }
 
         Repository.UpdateWallets(Wallets.Values);

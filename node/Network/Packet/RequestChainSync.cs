@@ -24,7 +24,7 @@ public class RequestChainSync : IPacket
         var chain = new ChainData();
 
         if (LastHash is null) {
-            chain.Transactions = blockchainManager.GetTransactionsAfterHeight(0, 1_000)
+            chain.Transactions = blockchainManager.GetTransactionsAfterHeight(0)
                 .Select(x => new Shared.Dto.TransactionDto(x))
                 .ToList();
 
@@ -34,18 +34,18 @@ public class RequestChainSync : IPacket
         var view = blockchainManager.GetView(LastHash);
 
         if (view is null) {
-            chain.Transactions = blockchainManager.GetTransactionsAfterHeight(0, 1_000)
+            chain.Transactions = blockchainManager.GetTransactionsAfterHeight(0)
                 .Select(x => new Shared.Dto.TransactionDto(x))
                 .ToList();
 
             goto answer;
         }
 
-        chain.Transactions = blockchainManager.GetTransactionsAfterHeight(view.Height ?? 0, 1_000)
+        chain.Transactions = blockchainManager.GetTransactionsAfterHeight(view.Height ?? 0)
             .Select(x => new Shared.Dto.TransactionDto(x))
             .ToList();
 
-        answer:
+answer:
         _ = peer.SendAsync(chain);
     }
 }

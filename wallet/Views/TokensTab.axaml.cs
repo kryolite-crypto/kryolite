@@ -72,7 +72,7 @@ public partial class TokensTab : UserControl
                     if (exists is null)
                     {
                         // Query token from db and add to model
-                        var newToken = blockchainManager.GetToken(token.TokenId);
+                        var newToken = blockchainManager.GetToken(token.Contract, token.TokenId);
 
                         if (newToken is null)
                         {

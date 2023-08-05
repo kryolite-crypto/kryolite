@@ -1,21 +1,15 @@
-using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.IO;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using Kryolite.Node.Executor;
-using Kryolite.Node.Migrations;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
-using MessagePack;
 using Microsoft.Extensions.Logging;
-using NSec.Cryptography;
+using QuikGraph;
 using Redbus.Interfaces;
-using RocksDbSharp;
 
 namespace Kryolite.Node;
 
@@ -187,6 +181,8 @@ public class StoreManager : IStoreManager
 
             executor.Execute(toExecute);
 
+            ChainState.Weight += ChainState.CurrentDifficulty.ToWork() * voteCount;
+
             if (height > 0)
             {
                 if (blockCount == 0)
@@ -208,7 +204,6 @@ public class StoreManager : IStoreManager
 
             ChainState.Height++;
             ChainState.LastHash = view.TransactionId;
-            ChainState.Weight += ChainState.CurrentDifficulty.ToWork() * toExecute.Count;
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
@@ -631,10 +626,10 @@ public class StoreManager : IStoreManager
         return Repository.GetTransactionsToValidate();
     }
 
-    public void AddTransactionBatch(IEnumerable<TransactionDto> transactionList)
+    public bool AddTransactionBatch(IEnumerable<TransactionDto> transactionList)
     {
         var sw = Stopwatch.StartNew();
-        var transactions = transactionList.AsParallel().Select(tx => {
+        var transactions = transactionList.Select(tx => {
             switch (tx.TransactionType)
             {
                 case TransactionType.BLOCK:
@@ -727,338 +722,11 @@ public class StoreManager : IStoreManager
         {
             dbtx.Rollback();
             Logger.LogError(ex, "AddTransactionBatch error");
-        }
-    }
-
-    /*public bool AddBlock(PosBlock block, bool broadcastBlock = true, bool broadcastVote = true)
-    {
-        using var _ = rwlock.EnterWriteLockEx();
-        using var blockchainRepository = new BlockchainRepository();
-        using var txCtx = blockchainRepository.Context.Database.BeginTransaction();
-
-        try
-        {
-            var chainState = blockchainRepository.GetChainState();
-
-            var blockchainContext = new BlockchainExContext()
-            {
-                LastBlocks = blockchainRepository.Tail(11),
-                CurrentDifficulty = chainState.POW.CurrentDifficulty,
-                NetworkTime = discoveryManager.GetNetworkTime()
-            };
-
-            var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
-                .Link<VerifyDifficulty>()
-                .Link<VerifyNonce>()
-                .Link<VerifyId>(x => x.Height > 0)
-                .Link<VerifyParentHash>(x => x.Height > 0)
-                .Link<VerifyTimestampPast>(x => x.Height > 0)
-                .Link<VerifyTimestampFuture>(x => x.Height > 0);
-
-            if (block.Pow != null && !powExcecutor.Execute(block.Pow, out var result))
-            {
-                logger.LogWarning($"AddBlock failed with: {result}");
-                txCtx.Rollback();
-                return false;
-            }
-
-            var wallets = walletManager.GetWallets();
-            var seed = blockchainContext.LastBlocks.DefaultIfEmpty()
-                .TakeLast(11)
-                .Average(x => x?.Timestamp ?? 0);
-
-            var txContext = new TransactionContext(blockchainRepository, wallets)
-            {
-                Height = block.Pow?.Height ?? 0,
-                Fee = block.Pow?.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min() ?? 0,
-                FeeTotal = (ulong)(block.Pow?.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum() ?? 0L),
-                Timestamp = block.Timestamp,
-                Seed = (int)seed
-            };
-
-            if (block.Pow is not null)
-            {
-                var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext, logger)
-                    // Miner fee
-                    .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    // Payment, TODO: check for duplicate TX
-                    .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
-                    .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    // Payment to Contract
-                    .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    // Add contract
-                    .Link<AddContract>(x => x.TransactionType == TransactionType.CONTRACT);
-
-                if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res))
-                {
-                    logger.LogWarning($"AddBlock failed with: {res}");
-                    txCtx.Rollback();
-                    return false;
-                }
-
-                walletManager.UpdateWallets(txContext.Wallets.Where(x => x.Value != null).Select(x => x.Value).Where(x => x.Updated));
-                blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Where(x => x.Value != null).Select(x => x.Value));
-                blockchainRepository.UpdateContracts(txContext.ContractCache.Where(x => x.Value != null).Select(x => x.Value));
-
-                if (block.Pow.Height % Constant.EPOCH_LENGTH_BLOCKS == 0)
-                {
-                    var epochStart = blockchainRepository.GetPowBlock(block.Pow.Height - Constant.EPOCH_LENGTH_BLOCKS + 1);
-                    NextEpoch(epochStart, block.Pow, chainState);
-                }
-
-                chainState.POW.Height = block.Pow.Height;
-                chainState.POW.TotalWork += block.Pow.Difficulty.ToWork();
-                chainState.POW.LastHash = block.Pow.GetHash();
-            }
-
-            chainState.POS.Height = block.Height;
-            chainState.POS.LastHash = block.GetHash();
-
-            if (broadcastBlock)
-            {
-                BlockBroadcast.Post(block);
-            }
-
-            if (broadcastVote && block.Pow is not null)
-            {
-                var nodeWallet = walletManager.GetNodeWallet() ?? throw new Exception("Trying to sign vote without node keys");
-
-                var vote = new Vote
-                {
-                    Height = block.Height,
-                    Hash = block.GetHash(),
-                    PublicKey = nodeWallet.PublicKey
-                };
-
-                vote.Sign(nodeWallet.PrivateKey);
-
-                block.Votes.Add(vote);
-
-                VoteBroadcast.Post(vote);
-            }
-
-            blockchainRepository.Add(block, chainState);
-            txCtx.Commit();
-
-            if (block.Pow is not null)
-            {
-                mempoolManager.RemoveTransactions(block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT));
-            }
-
-            logger.LogInformation($"Added block {block.Height}");
-
-            ChainStateBroadcast.Post(chainState);
-
-            foreach (var ev in txContext.Events)
-            {
-                // for some events we want to notify wallet
-                switch (ev)
-                {
-                    case TransferTokenEventArgs transfer:
-                        if (txContext.Wallets.ContainsKey(transfer.From.ToString()) || txContext.Wallets.ContainsKey(transfer.To.ToString()))
-                        {
-                            TokenTransferredBroadcast.Post(transfer);
-                        }
-                        break;
-                    case ConsumeTokenEventArgs consume:
-                        if (consume.Owner is not null && txContext.Wallets.ContainsKey(consume.Owner.ToString()))
-                        {
-                            TokenConsumedBroadcast.Post(consume);
-                        }
-                        break;
-                }
-
-                // TODO: Post events to websocket subscribers
-            }
-
-            foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated))
-            {
-                WalletBroadcast.Post(wallet);
-            }
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Add block failed");
-            txCtx.Rollback();
             return false;
         }
 
         return true;
     }
-
-    // Only use for chain sync!
-    private bool AddBlocks(List<PosBlock> blocks)
-    {
-        int progress = 0;
-        ChainObserver.ReportProgress("Inserting new blocks", progress, blocks.Count);
-
-        using var blockchainRepository = new BlockchainRepository();
-
-        var chainState = blockchainRepository.GetChainState();
-        var epochStart = blockchainRepository.GetPowBlock(chainState.POW.Height - (chainState.POW.Height % Constant.EPOCH_LENGTH_BLOCKS) + 1);
-
-        foreach (var chunk in blocks.Chunk(1000))
-        {
-            using var tx = blockchainRepository.Context.Database.BeginTransaction();
-
-            try
-            {
-                var wallets = walletManager.GetWallets();
-
-                var blockchainContext = new BlockchainExContext()
-                {
-                    LastBlocks = blockchainRepository.Tail(chunk.Select(x => x.Height).Min(), 11),
-                    CurrentDifficulty = chainState.POW.CurrentDifficulty,
-                    NetworkTime = discoveryManager.GetNetworkTime()
-                };
-
-                var powExcecutor = Executor.Create<PowBlock, BlockchainExContext>(blockchainContext, logger)
-                    .Link<VerifyDifficulty>()
-                    .Link<VerifyId>(x => x.Height > 0)
-                    .Link<VerifyParentHash>(x => x.Height > 0)
-                    .Link<VerifyTimestampPast>(x => x.Height > 0)
-                    .Link<VerifyTimestampFuture>(x => x.Height > 0);
-
-                var txContext = new TransactionContext(blockchainRepository, wallets);
-
-                // TODO: This needs refactoring
-                var txExecutor = Executor.Create<Transaction, TransactionContext>(txContext, logger)
-                    // Miner fee
-                    .Link<VerifyBlockReward>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    .Link<AddBlockRewardToRecipient>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.MINER_FEE)
-                    // Payment, TODO: check for duplicate TX
-                    .Link<VerifySignature>(x => x.TransactionType == TransactionType.PAYMENT || x.TransactionType == TransactionType.CONTRACT)
-                    .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<FetchRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<AddBalanceToRecipient>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    .Link<UpdateRecipientWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsWallet())
-                    // Payment to Contract
-                    .Link<FetchSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<TakeBalanceFromSender>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<UpdateSenderWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<FetchContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<AddBalanceToContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<FetchOwnerWallet>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    .Link<ExecuteContract>(x => x.TransactionType == TransactionType.PAYMENT && x.To.IsContract())
-                    // Add contract
-                    .Link<AddContract>(x => x.TransactionType == TransactionType.CONTRACT && x.To.IsContract());
-
-                foreach (var block in chunk)
-                {
-                    var seed = blockchainContext.LastBlocks.TakeLast(11).Average(x => x.Timestamp);
-
-                    if (block.Pow != null)
-                    {
-                        if (!powExcecutor.Execute(block.Pow, out var result))
-                        {
-                            logger.LogWarning($"AddBlock ({block.Pow.Height}) failed with: {result}");
-                            return false;
-                        }
-
-                        txContext.Height = block.Pow.Height;
-                        txContext.Fee = block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => x.MaxFee).DefaultIfEmpty().Min();
-                        txContext.FeeTotal = (ulong)block.Pow.Transactions.Where(x => x.TransactionType == TransactionType.PAYMENT).Select(x => (long)x.MaxFee).DefaultIfEmpty().Sum();
-                        txContext.Timestamp = block.Pow.Timestamp;
-                        txContext.Seed = (int)seed;
-
-                        if (!txExecutor.ExecuteBatch(block.Pow.Transactions, out var res))
-                        {
-                            logger.LogWarning($"AddBlock transactions failed with: {res}");
-                            return false;
-                        }
-
-                        if (block.Height % Constant.EPOCH_LENGTH_BLOCKS == 0)
-                        {
-                            NextEpoch(epochStart, block.Pow, chainState);
-                            blockchainContext.CurrentDifficulty = chainState.POW.CurrentDifficulty;
-                        }
-
-                        if (block.Height % Constant.EPOCH_LENGTH_BLOCKS == 1)
-                        {
-                            epochStart = block.Pow;
-                        }
-
-                        chainState.POW.Height = block.Pow.Height;
-                        chainState.POW.TotalWork += block.Pow.Difficulty.ToWork();
-                        chainState.POW.LastHash = block.Pow.GetHash();
-
-                        blockchainContext.LastBlocks.Add(block.Pow);
-                    }
-
-                    chainState.POS.Height = block.Height;
-                    chainState.POS.LastHash = block.GetHash();
-
-                    logger.LogInformation($"Added block {block.Height}");
-
-                    ChainObserver.ReportProgress("Inserting new blocks", ++progress, blocks.Count);
-                }
-
-                walletManager.UpdateWallets(txContext.Wallets.Select(x => x.Value).Where(x => x.Updated));
-
-                blockchainRepository.UpdateWallets(txContext.LedgerWalletCache.Select(x => x.Value));
-                blockchainRepository.UpdateContracts(txContext.ContractCache.Select(x => x.Value));
-                blockchainRepository.UpdateTokens(txContext.TokenCache.Select(x => x.Value));
-                blockchainRepository.Add(chunk, chainState);
-
-                ChainStateBroadcast.Post(chainState);
-
-                foreach (var wallet in txContext.Wallets.Select(x => x.Value).Where(x => x.Updated))
-                {
-                    WalletBroadcast.Post(wallet);
-                }
-
-                foreach (var ev in txContext.Events)
-                {
-                    // for some events we want to notify wallet
-                    switch (ev)
-                    {
-                        case TransferTokenEventArgs transfer:
-                            if (txContext.Wallets.ContainsKey(transfer.From.ToString()) || txContext.Wallets.ContainsKey(transfer.To.ToString()))
-                            {
-                                TokenTransferredBroadcast.Post(transfer);
-                            }
-                            break;
-                        case ConsumeTokenEventArgs consume:
-                            if (txContext.Wallets.ContainsKey(consume.Owner.ToString()))
-                            {
-                                TokenConsumedBroadcast.Post(consume);
-                            }
-                            break;
-                    }
-
-                    // TODO: Post events to websocket subscribers
-                }
-
-                tx.Commit();
-            }
-            catch (Exception ex)
-            {
-                tx.Rollback();
-                throw new Exception("Chain rollback failed", ex);
-            }
-        }
-
-        return true;
-    }
-    */
 
     public Blocktemplate GetBlocktemplate(Address wallet)
     {
@@ -1089,16 +757,10 @@ public class StoreManager : IStoreManager
         return Repository.GetChainState()!;
     }
 
-    public BigInteger? GetWeightAt(long height)
+    public ChainState? GetChainStateAt(long height)
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetWeightAt(height);
-    }
-
-    public Difficulty? GetDifficultyAt(long height)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetDifficultyAt(height);
+        return Repository.GetChainStateAt(height);
     }
 
     public Difficulty GetCurrentDifficulty()
@@ -1135,176 +797,175 @@ public class StoreManager : IStoreManager
         return Repository.GetWallet(address)?.Balance ?? 0;
     }
 
-    /*
-    public bool SetChain(List<PosBlock> blocks)
+    public bool SetChain(AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>> chainGraph, long startHeight)
     {
         using var _ = rwlock.EnterWriteLockEx();
+        using var dbtx = Repository.BeginTransaction();
 
         try
         {
-            var sortedBlocks = blocks.Where(x => x.Height > 0)
-                .OrderBy(x => x.Height)
-                .ToList();
+            RollbackChainIfNeeded(startHeight, chainGraph.VertexCount);
 
-            RollbackChainIfNeeded(sortedBlocks);
+            var batch = new List<TransactionDto>(chainGraph.VertexCount);
 
-            if(!AddBlocks(sortedBlocks))
+            foreach (var vertex in chainGraph.Vertices)
             {
-                logger.LogError($"Set chain failed");
-                return false;
+                foreach (var edge in chainGraph.OutEdges(vertex).DistinctBy(x => x.Target))
+                {
+
+                }
             }
 
-            var wallets = walletManager.GetWallets();
-            foreach (var wallet in wallets.Select(x => x.Value))
+            if (!AddTransactionBatch(batch))
             {
-                WalletBroadcast.Post(wallet);
+                Logger.LogError($"Set chain failed");
+                return false;
             }
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Chain reorg failure");
+            Logger.LogError(ex, "Chain reorg failure");
             return false;
         }
 
-        logger.LogInformation("Chain synchronization completed");
+        Logger.LogInformation("Chain synchronization completed");
         return true;
     }
 
-    private void RollbackChainIfNeeded(List<PosBlock> sortedBlocks)
+    private void RollbackChainIfNeeded(long startHeight, long count)
     {
-        using var blockchainRepository = new BlockchainRepository();
-        using var txContext = blockchainRepository.Context.Database.BeginTransaction();
+        using var txContext = Repository.BeginTransaction();
 
         try
         {
             long progress = 0;
 
-            var chainState = blockchainRepository.GetChainState();
-            var ledgerWallets = new Dictionary<string, LedgerWallet>();
-            var wallets = walletManager.GetWallets();
+            var ledger = new Dictionary<Address, Ledger>();
+            var contracts = new Dictionary<Address, Contract>();
 
-            var min = sortedBlocks.First().Height;
-            var max = chainState.POS.Height;
+            var chainState = Repository.GetChainState();
+            var wallets = WalletManager.GetWallets();
+
+            var min = startHeight;
+            var max = chainState?.Height ?? 0;
 
             if (min > max)
             {
                 return;
             }
 
-            ChainObserver.ReportProgress("Rolling back current chain", progress, sortedBlocks.Count);
+            // ChainObserver.ReportProgress("Rolling back current chain", progress, count);
 
-            for (long i = max; i >= min; i--)
+            for (long height = max; height >= min; height--)
             {
-                var cBlock = blockchainRepository.GetPosBlock(i);
+                var graph = Repository.GetTransactionsAtHeight(height)
+                    .AsGraph();
 
-                if (cBlock == null)
+                if (graph.Vertices.Count() == 0)
                 {
                     continue;
                 }
 
-                if (cBlock.Pow is not null)
+                foreach (var vertex in graph.Vertices.Reverse())
                 {
-                    var powFee = cBlock.Pow.Transactions
-                        .Where(tx => tx.TransactionType == TransactionType.PAYMENT || tx.TransactionType == TransactionType.CONTRACT)
-                        .DefaultIfEmpty()
-                        .Select(x => x?.MaxFee ?? 0UL).Min();
-
-                    foreach (var tx in cBlock.Pow.Transactions)
+                    foreach (var edge in graph.OutEdges(vertex).DistinctBy(x => x.Target))
                     {
+                        var tx = edge.Tag;
+
                         if (tx.PublicKey != null)
                         {
-                            var senderAddr = tx.PublicKey.ToAddress();
-                            if (!ledgerWallets.ContainsKey(senderAddr.ToString()))
-                            {
-                                ledgerWallets.Add(senderAddr.ToString(), blockchainRepository.GetWallet(senderAddr));
-                            }
+                            var addr = tx.PublicKey.ToAddress();
 
-                            var sender = ledgerWallets[senderAddr.ToString()];
+                            if (!ledger.TryGetValue(addr, out var sender))
+                            {
+                                sender = Repository.GetWallet(addr);
+
+                                if (sender is null)
+                                {
+                                    continue;
+                                }
+
+                                ledger.Add(addr, sender);
+                            }
 
                             checked
                             {
                                 sender.Balance += tx.Value;
-                                sender.Balance += powFee;
-                            }
-
-                            if (wallets.TryGetValue(senderAddr.ToString(), out var sWallet))
-                            {
-                                sWallet.Balance = sender.Balance;
-                                sWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
-                                sWallet.Updated = true;
                             }
                         }
 
-                        if (tx.To.IsContract())
+                        if (tx.To is not null)
                         {
-                            var contract = blockchainRepository.GetContract(tx.To, true);
-
-                            if (contract is not null)
+                            if (tx.To.IsContract())
                             {
+                                if (!contracts.TryGetValue(tx.To, out var contract))
+                                {
+                                    contract = Repository.GetContract(tx.To);
+
+                                    if (contract is null)
+                                    {
+                                        continue;
+                                    }
+
+                                    contracts.Add(tx.To, contract);
+                                }
+
                                 foreach (var effect in tx.Effects)
                                 {
                                     if (effect.IsTokenEffect())
                                     {
-                                        RollbackTokenEffect(blockchainRepository, ledgerWallets, contract, effect);
+                                        RollbackTokenEffect(ledger, contract, effect);
                                     }
                                     else
                                     {
-                                        RollbackEffectBalance(blockchainRepository, ledgerWallets, contract, effect);
+                                        RollbackEffectBalance(ledger, contract, effect);
                                     }
                                 }
+
+                                Repository.DeleteContractSnapshot(contract.Address, height);
+
+                                if (tx.TransactionType == TransactionType.CONTRACT)
+                                {
+                                    Repository.DeleteContract(contract.Address);
+                                }
+                            }
+                            else
+                            {
+                                if (!ledger.TryGetValue(tx.To, out var recipient))
+                                {
+                                    recipient = Repository.GetWallet(tx.To);
+
+                                    if (recipient is null)
+                                    {
+                                        continue;
+                                    }
+
+                                    ledger.Add(tx.To, recipient);
+                                }
+
+                                recipient.Balance = checked(recipient.Balance - tx.Value);
                             }
                         }
-                        else
-                        {
-                            var recipientAddr = tx.To.ToString();
-                            if (!ledgerWallets.ContainsKey(recipientAddr))
-                            {
-                                ledgerWallets.Add(recipientAddr, blockchainRepository.GetWallet(tx.To));
-                            }
 
-                            var recipient = ledgerWallets[recipientAddr];
-
-                            recipient.Balance = checked(recipient.Balance - tx.Value);
-
-                            if (tx.TransactionType == TransactionType.MINER_FEE)
-                            {
-                                var totalFee = powFee * (ulong)(cBlock.Pow.Transactions.Count - 1);
-                                recipient.Balance = checked(recipient.Balance - totalFee);
-                            }
-
-                            if (wallets.TryGetValue(tx.To.ToString(), out var rWallet))
-                            {
-                                rWallet.Balance = recipient.Balance;
-                                rWallet.WalletTransactions.RemoveAll(x => x.Height == cBlock.Height);
-                                rWallet.Updated = true;
-                            }
-                        }
+                        Repository.Delete(tx);
                     }
 
-                    chainState.POW.TotalWork -= cBlock.Pow!.Difficulty.ToWork();
+                    Repository.DeleteState(height);
+
+                    // ChainObserver.ReportProgress("Rolling back current chain", ++progress, graph.VertexCount);
                 }
-
-                ChainObserver.ReportProgress("Rolling back current chain", ++progress, sortedBlocks.Count);
             }
 
-            var currentTip = blockchainRepository.GetPosBlock(min - 1);
+            var newState = Repository.GetChainStateAt(min - 1);
 
-            chainState.POW.Height = min - 1;
-            chainState.POW.CurrentDifficulty = currentTip.Pow.Difficulty;
-            chainState.POW.LastHash = currentTip.Pow?.GetHash() ?? new SHA256Hash();
-            chainState.POS.Height = min - 1;
-            chainState.POS.LastHash = currentTip.GetHash() ?? new SHA256Hash();
-
-
-            if (wallets.Values.Count > 0)
+            if (newState is not null)
             {
-                walletManager.RollbackWallets(wallets.Values.ToList(), min);
+                ChainState = newState;
+                Repository.SaveState(newState);
             }
 
-            blockchainRepository.UpdateWallets(ledgerWallets.Values);
-            blockchainRepository.Delete(chainState.POS.Height);
-            blockchainRepository.DeleteContractSnapshot(chainState.POS.Height);
-            blockchainRepository.SaveState(chainState);
+            Repository.UpdateWallets(ledger.Values);
+            Repository.UpdateContracts(contracts.Values);
 
             txContext.Commit();
         }
@@ -1314,7 +975,6 @@ public class StoreManager : IStoreManager
             throw new Exception("Chain rollback failed", ex);
         }
     }
-    */
 
     public void ResetChain()
     {
@@ -1364,9 +1024,7 @@ public class StoreManager : IStoreManager
 
         var contract = Repository.GetContract(address) ?? throw new Exception(ExecutionResult.INVALID_CONTRACT.ToString());
 
-        var snapshot = contract.Snapshots
-            .OrderByDescending(x => x.Height)
-            .FirstOrDefault();
+        var snapshot = Repository.GetLatestSnapshot(address);
 
         if (snapshot == null)
         {
@@ -1397,7 +1055,9 @@ public class StoreManager : IStoreManager
 
         var vmContext = new VMContext(contract, new Transaction { To = address }, Random.Shared, Logger);
 
-        using var vm = KryoVM.LoadFromSnapshot(contract.Code, snapshot.Snapshot)
+        var code = Repository.GetContractCode(contract.Address);
+
+        using var vm = KryoVM.LoadFromSnapshot(code, snapshot.Snapshot)
             .WithContext(vmContext);
 
         Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
@@ -1407,11 +1067,11 @@ public class StoreManager : IStoreManager
         return json;
     }
 
-    public Token? GetToken(SHA256Hash tokenId)
+    public Token? GetToken(Address contract, SHA256Hash tokenId)
     {
         using var _ = rwlock.EnterReadLockEx();
 
-        return Repository.GetToken(tokenId);
+        return Repository.GetToken(contract, tokenId);
     }
 
     public List<Token> GetTokens(Address address)
@@ -1428,14 +1088,19 @@ public class StoreManager : IStoreManager
         return Repository.GetContractTokens(contractAddress);
     }
 
-    private void RollbackEffectBalance(StoreRepository repository, Dictionary<string, Ledger> walletCache, Contract contract, Effect effect)
+    private void RollbackEffectBalance(Dictionary<Address, Ledger> ledger, Contract contract, Effect effect)
     {
-        if (!walletCache.ContainsKey(effect.To.ToString()))
+        if (!ledger.TryGetValue(effect.To, out var toWallet))
         {
-            walletCache.Add(effect.To.ToString(), repository.GetWallet(effect.To));
-        }
+            toWallet = Repository.GetWallet(effect.To);
 
-        var toWallet = walletCache[effect.To.ToString()];
+            if (toWallet is null)
+            {
+                return;
+            }
+
+            ledger.Add(effect.To, toWallet);
+        }
 
         checked
         {
@@ -1444,22 +1109,26 @@ public class StoreManager : IStoreManager
         }
     }
 
-
-    private void RollbackTokenEffect(StoreRepository repository, Dictionary<string, Ledger> walletCache, Contract contract, Effect effect)
+    private void RollbackTokenEffect(Dictionary<Address, Ledger> ledger, Contract contract, Effect effect)
     {
         if (effect.TokenId is null)
         {
             throw new ArgumentNullException("effect.TokenId is null, unable to rollback token");
         }
 
-        if (!walletCache.ContainsKey(effect.From.ToString()))
+        if (!ledger.TryGetValue(effect.From, out var fromWallet))
         {
-            walletCache.Add(effect.From.ToString(), repository.GetWallet(effect.From));
+            fromWallet = Repository.GetWallet(effect.From);
+
+            if (fromWallet is null)
+            {
+                return;
+            }
+
+            ledger.Add(effect.From, fromWallet);
         }
 
-        var fromWallet = walletCache[effect.From.ToString()];
-
-        var token = repository.GetToken(effect.TokenId);
+        var token = Repository.GetToken(contract.Address, effect.TokenId);
 
         if (token is null)
         {
@@ -1470,16 +1139,18 @@ public class StoreManager : IStoreManager
         if (effect.ConsumeToken)
         {
             token.IsConsumed = false;
+            Repository.UpdateToken(token);
             return;
         }
 
         if (effect.From == contract.Address)
         {
-            // repository.Context.Remove<Token>(token);
+            Repository.DeleteToken(token);
         }
         else
         {
             token.Ledger = fromWallet.Address;
+            Repository.UpdateToken(token);
         }
     }
 
@@ -1488,7 +1159,7 @@ public class StoreManager : IStoreManager
         throw new NotImplementedException();
     }
 
-    public List<Transaction> GetTransactionsAfterHeight(long height, int batchSize)
+    public List<Transaction> GetTransactionsAfterHeight(long height)
     {
         throw new NotImplementedException();
     }

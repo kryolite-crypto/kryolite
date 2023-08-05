@@ -20,7 +20,7 @@ public interface IExecutorContext
     Ledger? GetWallet(Address? address);
     Ledger GetOrNewWallet(Address? address);
 
-    Token? GetToken(SHA256Hash tokenId);
+    Token? GetToken(Address contract, SHA256Hash tokenId);
     void AddToken(Token token);
 
     List<EventBase> GetEvents();

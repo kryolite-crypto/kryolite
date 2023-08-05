@@ -194,9 +194,9 @@ public class ApiControllerBase : Controller
         return Ok(blockchainManager.GetTokens(address));
     }
 
-    [HttpGet("token/{tokenId}")]
-    public Token? GetToken(string tokenId) 
+    [HttpGet("token/{contractAddress}/{tokenId}")]
+    public Token? GetToken(string contractAddress, string tokenId) 
     {
-        return blockchainManager.GetToken(tokenId);
+        return blockchainManager.GetToken(contractAddress, tokenId);
     }
 }

@@ -3,6 +3,7 @@ using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using QuikGraph;
 using RocksDbSharp;
 
 namespace Kryolite.Node;
@@ -21,22 +22,18 @@ public interface IStoreManager
     View? GetView(SHA256Hash transactionId);
     View? GetLastView();
     List<Vote> GetVotesAtHeight(long height);
-    List<Transaction> GetTransactionsAfterHeight(long height, int batchSize);
+    // List<Transaction> GetTransactionsAfterHeight(long height, int batchSize);
     List<SHA256Hash> GetTransactionToValidate();
     List<Transaction> GetLastNTransctions(Address address, int count);
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
-    BigInteger? GetWeightAt(long height);
-    Difficulty? GetDifficultyAt(long height);
+    ChainState? GetChainStateAt(long height);
     long GetBalance(Address address);
-    
-    void AddTransactionBatch(IEnumerable<TransactionDto> transactions);
 
-    /*
-    bool SetChain(List<PosBlock> blocks);
-    */
+    bool AddTransactionBatch(IEnumerable<TransactionDto> transactions);
+    bool SetChain(AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>> chainGraph, long startHeight);
     void ResetChain();
 
     Contract? GetContract(Address address);
@@ -45,7 +42,7 @@ public interface IStoreManager
     Transaction? GetTransactionForHash(SHA256Hash hash);
     Ledger? GetLedger(Address address);
     string? CallContractMethod(Address address, CallMethod call);
-    Token? GetToken(SHA256Hash tokenId);
+    Token? GetToken(Address contract, SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
     List<Token> GetContractTokens(Address contractAddress);
 }

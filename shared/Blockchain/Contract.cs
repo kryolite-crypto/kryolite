@@ -14,11 +14,11 @@ public class Contract
     public Address Owner { get; set; }
     public string Name { get; set; }
     public long Balance { get; set; }
-    public byte[] Code { get; set; }
+    // public byte[] Code { get; set; }
     public IntPtr? EntryPoint { get; set; }
     public ContractManifest Manifest { get; set; }
-    public List<ContractSnapshot> Snapshots { get; set; } = new();
-    public List<Token> Tokens { get; set; } = new();
+    // public List<ContractSnapshot> Snapshots { get; set; } = new();
+    // public List<Token> Tokens { get; set; } = new();
 
     [NotMapped]
     public ContractSnapshot? CurrentSnapshot { get; set; }
@@ -32,16 +32,15 @@ public class Contract
     {
         Owner = owner;
         Name = manifest.Name;
-        Code = code;
         Manifest = manifest;
 
-        Address = ToAddress();
+        Address = ToAddress(code);
     }
 
-    public Address ToAddress()
+    public Address ToAddress(byte[] code)
     {
         var bytes = Owner.Buffer.ToList();
-        bytes.AddRange(Code);
+        bytes.AddRange(code);
 
         using var sha256 = SHA256.Create();
         var shaHash = sha256.ComputeHash(bytes.ToArray());
@@ -62,18 +61,6 @@ public class Contract
         addressBytes.InsertRange(addressBytes.Count, h2.Take(4)); // checksum
 
         return addressBytes.ToArray();
-    }
-
-    public static Contract Read(DbDataReader reader)
-    {
-        return new Contract
-        {
-            Address = reader.GetString(0),
-            Owner = reader.GetString(1),
-            Name = reader.GetString(2),
-            Balance = reader.GetInt64(3),
-            EntryPoint = (IntPtr)reader.GetInt64(4)
-        };
     }
 }
 

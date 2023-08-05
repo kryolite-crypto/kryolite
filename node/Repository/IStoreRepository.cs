@@ -17,6 +17,7 @@ public interface IStoreRepository
     List<Transaction> GetTransactionsAtHeight(long height);
     List<Vote> GetVotesAtHeight(long height);
     void SaveState(ChainState chainState);
+    void DeleteState(long height);
     void Finalize(List<Transaction> transactions);
     long? GetTimestamp(SHA256Hash transactionId);
     ChainState? GetChainState();
@@ -31,6 +32,7 @@ public interface IStoreRepository
     ContractSnapshot? GetLatestSnapshot(Address address);
     List<Ledger> GetRichList(int count);
     void AddContract(Contract contract);
+    void AddContractSnapshot(Address contract, ContractSnapshot snapshot);
     void UpdateContract(Contract contract);
     void DeleteContract(Address address);
     void DeleteContractSnapshot(Address address, long height);

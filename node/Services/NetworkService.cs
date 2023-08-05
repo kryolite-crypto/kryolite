@@ -24,6 +24,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using QuikGraph;
 using Redbus.Events;
 using Redbus.Interfaces;
 using static Kryolite.Node.NetworkManager;
@@ -413,153 +414,114 @@ public class ChainObserver : IObserver<Chain>
 
         logger.LogInformation($"Starting chain sync (transactions={chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
 
-        var transactions = chain.Transactions.ToDictionary(x => x.CalculateHash(), x => x);
-
-        FilterKnownTransactions(transactions);
-
-        if (transactions.Count == 0)
+        foreach (var tx in chain.Transactions)
         {
-            ReportProgress("", 0, 0);
-            InProgress = false;
-            return;
+            foreach (var parent in tx.Parents)
+            {
+                if (!storeManager.Exists(parent))
+                {
+                    logger.LogInformation($"Chain failed, {tx.CalculateHash()} references unknown transaction ({parent})");
+                    ReportProgress("", 0, 0);
+                    InProgress = false;
+                    return;
+                }
+            }
         }
 
-        if (!VerifyChainIntegrity(transactions, out var remoteWorkToAdd))
+        var localHeight = storeManager.GetCurrentHeight();
+
+        var minRemoteHeight = chain.Transactions.Where(x => x.TransactionType == TransactionType.VIEW)
+            .Select(x => BitConverter.ToInt64(x.Data))
+            .DefaultIfEmpty()
+            .Min();
+
+
+        TransactionDto? view = null;
+
+        var chainState = storeManager.GetChainStateAt(Math.Max(minRemoteHeight - 1, 0))!;
+        var voteCount = 0;
+        var blockCount = 0;
+
+        var graph = chain.Transactions.AsGraph();
+
+        foreach (var vertex in graph.Vertices)
         {
-            _ = chain.Peer.DisconnectAsync();
-            ReportProgress("", 0, 0);
-            InProgress = false;
-            return;
+            foreach (var edge in graph.OutEdges(vertex).DistinctBy(x => x.Target))
+            {
+                var tx = edge.Tag;
+
+                switch (tx.TransactionType)
+                {
+                    case TransactionType.VIEW:
+                        if (view is not null)
+                        {
+                            // TODO: Similar implementation exists in StoreManager
+                            if (blockCount == 0)
+                            {
+                                var work = chainState.CurrentDifficulty.ToWork();
+                                var nextTarget = work / 4 * 3;
+                                var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
+
+                                chainState.CurrentDifficulty = BigInteger.Max(minTarget, nextTarget).ToDifficulty();
+                            }
+                            else
+                            {
+                                var totalWork = chainState.CurrentDifficulty.ToWork() * blockCount;
+
+                                chainState.Weight += totalWork;
+                                chainState.CurrentDifficulty = totalWork.ToDifficulty();
+                            }
+
+                            chainState.Height++;
+                        }
+
+                        voteCount = 0;
+                        blockCount = 0;
+
+                        view = tx;
+
+                        break;
+                    case TransactionType.BLOCK:
+                        blockCount++;
+                        break;
+                    case TransactionType.VOTE:
+                        voteCount++;
+                        break;
+                }
+
+                // Stop here to compare weight at same heights
+                if (chainState.Height >= localHeight)
+                {
+                    break;
+                }
+            }
         }
 
-        /*if (!VerifyProofOfWork(sortedBlocks))
-        {
-            _ = chain.Peer.DisconnectAsync();
-            EndSync?.Invoke(this, EventArgs.Empty);
-            InProgress = false;
-            return;
-        }
+        var localWeight = storeManager.GetChainState()?.Weight ?? BigInteger.Zero;
 
-        var localWorkAtRemoteHeight = CalculateLocalWorkAtRemoteHeight(sortedBlocks);
+        logger.LogInformation($"Local chain weight = {localWeight}, remote chain weight = {chainState.Weight}");
 
-        var localWork = blockchainManager.GetTotalWork();
-        var remoteWork = (localWork - localWorkAtRemoteHeight) + remoteWorkToAdd;
-
-        logger.LogInformation($"Current chain totalWork = {localWork}, received chain with totalWork = {remoteWork}");
-
-        if (remoteWork > localWork)
+        if (chainState.Height > localWeight)
         {
             logger.LogInformation("Chain is ahead, rolling forward");
 
-            if (!blockchainManager.SetChain(sortedBlocks))
+            if (!storeManager.SetChain(graph, minRemoteHeight))
             {
-                logger.LogWarning("Failed to set chain, discarding...");
-                EndSync?.Invoke(this, EventArgs.Empty);
+                logger.LogInformation("Failed to set chain, discarding...");
+
                 _ = chain.Peer.DisconnectAsync();
+
+                ReportProgress("", 0, 0);
                 InProgress = false;
                 return;
             }
 
-            // Query for more blocks
+            // Query for next set
             _ = chain.Peer.SendAsync(new QueryNodeInfo());
         }
 
         logger.LogInformation($"Chain sync finished");
-        EndSync?.Invoke(this, EventArgs.Empty);
-        InProgress = false;*/
+        ReportProgress("", 0, 0);
+        InProgress = false;
     }
-
-    /*private BigInteger CalculateLocalWorkAtRemoteHeight(List<PosBlock> sortedBlocks)
-    {
-        var blocksOnSameHeight = blockchainManager.GetPowFrom(sortedBlocks.First().Height).Take(sortedBlocks.Count);
-        var localWork = new BigInteger();
-
-        foreach (var block in blocksOnSameHeight)
-        {
-            localWork += block.Difficulty.ToWork();
-        }
-
-        return localWork;
-    }*/
-
-    private void FilterKnownTransactions(Dictionary<SHA256Hash, TransactionDto> transactions)
-    {
-        ReportProgress("Filter known transactions", 0, transactions.Count);
-
-        var progress = 0;
-        var hashes = transactions.Keys.ToArray();
-
-        foreach (var hash in hashes)
-        {
-            if (storeManager.Exists(hash))
-            {
-                transactions.Remove(hash);
-            }
-
-            ReportProgress("Filter known transactions", ++progress, transactions.Count);
-        }
-
-        var filtered = progress - transactions.Count;
-
-        if (filtered > 0)
-        {
-            logger.LogInformation($"{filtered} transactions already exists in localdb, discarding..");
-        }
-    }
-
-    private bool VerifyChainIntegrity(Dictionary<SHA256Hash, TransactionDto> transactions, out BigInteger totalWeight)
-    {
-        ReportProgress("Verifying chain integrity", 0, transactions.Count);
-
-        long progress = 0L;
-        totalWeight = new BigInteger(0);
-
-        /*foreach (var tx in transactions)
-        {
-            if (block.Pow is not null)
-            {
-                if (!blockExecutor.Execute(block.Pow, out var result))
-                {
-                    logger.LogError($"Chain failed at {block.Height} ({result})");
-                    return false;
-                }
-
-                totalWork += block.Pow.Difficulty.ToWork();
-                blockchainContext.LastBlocks.Add(block.Pow);
-            }
-
-            ReportProgress("Verifying chain integrity", ++progress, transactions.Count);
-        }*/
-
-        return true;
-    }
-
-    /*private bool VerifyProofOfWork(List<PosBlock> sortedBlocks)
-    {
-        long progress = 0;
-        ReportProgress("Verifying Proof-of-Work", progress, sortedBlocks.Count);
-
-        var source = new CancellationTokenSource();
-        var token = source.Token;
-
-        Parallel.ForEach(sortedBlocks, block => {
-            if (block.Pow is not null)
-            {
-                if (token.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                if (!block.Pow.VerifyNonce())
-                {
-                    logger.LogError($"Invalid nonce at {block.Height}");
-                    source.Cancel();
-                }
-            }
-
-            ReportProgress("Verifying Proof-of-Work", Interlocked.Increment(ref progress), sortedBlocks.Count);
-        });
-
-        return !source.IsCancellationRequested;
-    }*/
 }

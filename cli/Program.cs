@@ -279,7 +279,7 @@ public class Program
                 bytes
             );
 
-            Console.WriteLine(contract.ToAddress());
+            Console.WriteLine(contract.ToAddress(bytes));
 
             var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
             var newContract = new NewContract(manifest, bytes);
@@ -293,7 +293,7 @@ public class Program
             {
                 TransactionType = TransactionType.CONTRACT,
                 PublicKey = wallet.PublicKey,
-                To = contract.ToAddress(),
+                To = contract.ToAddress(bytes),
                 Value = 0,
                 Data = MessagePackSerializer.Serialize(payload, lz4Options),
                 //MaxFee = 1,

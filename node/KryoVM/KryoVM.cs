@@ -256,7 +256,7 @@ public class KryoVM : IDisposable
             }
 
             Context!.Balance = balance;
-            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, addr, value));
+            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, addr, value));
         }));
 
         Linker.Define("env", "__approval", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {
@@ -291,13 +291,14 @@ public class KryoVM : IDisposable
 
             var eventData = new TransferTokenEventArgs
             {
+                Contract = Context!.Contract.Address,
                 From = memory.ReadAddress(fromPtr) ?? throw new Exception("__transfer_token: null 'from' address"),
                 To = memory.ReadAddress(toPtr) ?? throw new Exception("__transfer_token: null 'to' address"),
                 TokenId = tokenId
             };
 
             Context!.Events.Add(eventData);
-            Context!.Transaction.Effects.Add(new Effect(from, to, 0, tokenId));
+            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, from, to, 0, tokenId));
         }));
 
         Linker.Define("env", "__consume_token", Function.FromCallback<int, int>(Store, (Caller caller, int ownerPtr, int tokenIdPtr) => {
@@ -315,7 +316,7 @@ public class KryoVM : IDisposable
             };
 
             Context!.Events.Add(eventData);
-            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, eventData.Owner, 0, eventData.TokenId, true));
+            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, eventData.Owner, 0, eventData.TokenId, true));
         }));
 
         Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
