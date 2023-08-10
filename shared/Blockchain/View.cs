@@ -30,7 +30,6 @@ public class View : Transaction
         PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Height = BitConverter.ToInt64(tx.Data);
@@ -47,7 +46,6 @@ public class View : Transaction
         Height = tx.Height;
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Height = tx.Height;

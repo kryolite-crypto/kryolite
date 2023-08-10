@@ -46,7 +46,7 @@ public class BlockchainService : BackgroundService
                 InitializeGenesisBlock(blockchainManager);
             }
 
-            if (genesis != null && !Enumerable.SequenceEqual(genesis.Pow ?? new byte[0], GenesisSeed.Buffer))
+            if (genesis != null && !Enumerable.SequenceEqual(genesis.Data ?? new byte[0], GenesisSeed.Buffer))
             {
                 Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
                 blockchainManager.ResetChain();
@@ -67,8 +67,7 @@ public class BlockchainService : BackgroundService
 
         var genesis = new Genesis {
             TransactionType = TransactionType.GENESIS,
-            Data = Encoding.UTF8.GetBytes(Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"),
-            Pow = GenesisSeed,
+            Data = GenesisSeed,
             Timestamp = timestamp,
             Height = 0,
             PublicKey = new PublicKey(),

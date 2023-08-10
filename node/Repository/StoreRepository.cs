@@ -41,7 +41,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         if (tx.PublicKey is not null)
         {
-            tx.From.Buffer.CopyTo(addrKey);
+            tx.From!.Buffer.CopyTo(addrKey);
             Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
         }
 
@@ -50,18 +50,6 @@ public class StoreRepository : IStoreRepository, IDisposable
             tx.To.Buffer.CopyTo(addrKey);
             Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
         }
-
-        // Height, TransactionType index
-        var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? ulong.MaxValue);
-        Array.Reverse(height);
-
-        var heightKey = keyMem.Slice(0, 17);
-
-        height.CopyTo(heightKey);
-        heightKey[8] = (byte)tx.TransactionType;
-        id.CopyTo(heightKey.Slice(9));
-
-        Storage.Put("ixTransactionHeight", heightKey, id, CurrentTransaction);
 
         // Childless index
         Storage.Put("ixChildless", tx.TransactionId.Buffer, id, CurrentTransaction);
@@ -81,23 +69,23 @@ public class StoreRepository : IStoreRepository, IDisposable
             return;
         }
 
-        var nullHeight = BitConverter.GetBytes(ulong.MaxValue);
         var key = ArrayPool<byte>.Shared.Rent(17);
 
         for (var i = 0; i < transactions.Count; i++)
         {
-            key[8] = (byte)transactions[i].TransactionType;
+            var tx = transactions[i];
+            var id = BitConverter.GetBytes(tx.Id);
 
-            var id = BitConverter.GetBytes(transactions[i].Id);
+            Storage.Put("Transaction", id, MessagePackSerializer.Serialize(tx), CurrentTransaction);
+
+            var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? ulong.MaxValue);
+            Array.Reverse(height);
+            height.CopyTo(key, 0);
+
+            key[8] = (byte)tx.TransactionType;
+
             id.CopyTo(key, 9);
 
-            var height = BitConverter.GetBytes(((ulong?)transactions[i].Height) ?? ulong.MaxValue);
-            Array.Reverse(height);
-
-            nullHeight.CopyTo(key, 0);
-            Storage.Delete("ixTransactionHeight", key, CurrentTransaction);
-
-            height.CopyTo(key, 0);
             Storage.Put("ixTransactionHeight", key, id, CurrentTransaction);
         }
 
@@ -148,7 +136,34 @@ public class StoreRepository : IStoreRepository, IDisposable
             return null;
         }
 
-        return new Genesis(tx);
+        return (Genesis)tx;
+    }
+
+    public View? GetViewAt(long height)
+    {
+        var heightBytes = BitConverter.GetBytes(height);
+        Array.Reverse(heightBytes);
+
+        var prefix = new byte[9];
+
+        heightBytes.CopyTo(prefix, 0);
+        prefix[8] = (byte)TransactionType.VIEW;
+
+        var key = Storage.FindFirst("ixTransactionHeight", prefix);
+
+        if (key is null)
+        {
+            return null;
+        }
+
+        var tx = Storage.Get<Transaction>("Transaction", key);
+
+        if (tx is null)
+        {
+            return null;
+        }
+
+        return new View(tx);
     }
 
     public View? GetLastView()
@@ -186,11 +201,24 @@ public class StoreRepository : IStoreRepository, IDisposable
         var heightBytes = BitConverter.GetBytes(height);
         Array.Reverse(heightBytes);
 
-        var prefix = new byte[8];
+        var ids = Storage.FindAll("ixTransactionHeight", heightBytes);
 
-        heightBytes.CopyTo(prefix, 0);
+        if (ids.Count == 0)
+        {
+            return new();
+        }
 
-        var ids = Storage.FindAll("ixTransactionHeight", prefix);
+        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+    }
+
+    public List<Transaction> GetTransactionsAfterHeight(long height)
+    {
+        var heightBytes = BitConverter.GetBytes(height + 1);
+        Array.Reverse(heightBytes);
+
+        var upperBound = new byte[8] { 255, 255, 255, 255, 255, 255, 255, 255 };
+
+        var ids = Storage.FindAll("ixTransactionHeight", heightBytes, upperBound);
 
         if (ids.Count == 0)
         {

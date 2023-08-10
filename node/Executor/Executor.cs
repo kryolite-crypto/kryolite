@@ -1,6 +1,7 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
+using QuikGraph;
 using System.Security.Cryptography;
 
 namespace Kryolite.Node.Executor;
@@ -22,17 +23,19 @@ public class Executor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public void Execute(List<Transaction> transactions)
+    public void Execute(IEnumerable<Transaction> transactions, long height)
     {
-        if (transactions.Count == 0)
+        if (transactions.Count() == 0)
         {
             return;
         }
 
         Context.SetRand((long)transactions.Average(x => x.Timestamp));
 
-        foreach (var tx in transactions.OrderBy(x => x.TransactionId))
+        foreach (var tx in transactions)
         {
+            tx.Height = height;
+
             switch (tx.TransactionType)
             {
                 case TransactionType.BLOCK:

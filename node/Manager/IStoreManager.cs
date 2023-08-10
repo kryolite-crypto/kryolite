@@ -22,7 +22,7 @@ public interface IStoreManager
     View? GetView(SHA256Hash transactionId);
     View? GetLastView();
     List<Vote> GetVotesAtHeight(long height);
-    // List<Transaction> GetTransactionsAfterHeight(long height, int batchSize);
+    List<Transaction> GetTransactionsAfterHeight(long height);
     List<SHA256Hash> GetTransactionToValidate();
     List<Transaction> GetLastNTransctions(Address address, int count);
     Blocktemplate GetBlocktemplate(Address wallet);
@@ -32,8 +32,8 @@ public interface IStoreManager
     ChainState? GetChainStateAt(long height);
     long GetBalance(Address address);
 
-    bool AddTransactionBatch(IEnumerable<TransactionDto> transactions);
-    bool SetChain(AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>> chainGraph, long startHeight);
+    bool AddTransactionBatch(List<TransactionDto> transactions);
+    bool SetChain(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactions, long startHeight);
     void ResetChain();
 
     Contract? GetContract(Address address);

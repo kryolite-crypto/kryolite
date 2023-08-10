@@ -12,21 +12,24 @@ public class Block : Transaction
     public Difficulty Difficulty { get; set; }
     [IgnoreMember]
     public SHA256Hash ParentHash { get; set; } = new SHA256Hash();
+    [IgnoreMember]
+    public SHA256Hash Nonce { get; set; } = new SHA256Hash();
 
     public Block()
     {
 
     }
 
-    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty, List<SHA256Hash> parents)
+    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty, List<SHA256Hash> parents, SHA256Hash nonce)
     {
         TransactionType = TransactionType.BLOCK;
         To = wallet;
         Value = Constant.BLOCK_REWARD;
         Timestamp = timestamp;
+        Parents = parents;
         ParentHash = parentHash;
         Difficulty = difficulty;
-        Parents = parents;
+        Nonce = nonce;
         Data = MessagePackSerializer.Serialize(new BlockPayload(this));
         TransactionId = CalculateHash();
     }
@@ -38,39 +41,27 @@ public class Block : Transaction
         Value = Constant.BLOCK_REWARD;
         Timestamp = tx.Timestamp;
         Data = tx.Data;
-        Pow = tx.Pow;
         Parents = parents;
+
+        var blockPayload = MessagePackSerializer.Deserialize<BlockPayload>(tx.Data);
+        Difficulty = blockPayload.Difficulty;
+        ParentHash = blockPayload.ParentHash;
+        Nonce = blockPayload.Nonce;
+
         TransactionId = CalculateHash();
     }
 
-    public SHA256Hash GetHash()
+    public override void Sign(PrivateKey privateKey)
     {
-        using var sha256 = SHA256.Create();
-        using var stream = new MemoryStream();
-
-        stream.Write(To!);
-
-        foreach (var hash in Parents.Order())
-        {
-            stream.Write(hash);
-        }
-
-        stream.Write(BitConverter.GetBytes(Difficulty.Value));
-        stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(Data);
-
-        stream.Flush();
-        stream.Position = 0;
-
-        return sha256.ComputeHash(stream);
+        throw new NotSupportedException();
     }
 
-    public bool VerifyNonce()
+    public override bool Verify()
     {
         var basehash = GetHash();
         var concat = new Concat
         {
-            Buffer = basehash.Buffer.Concat(Pow ?? new byte[0]).ToArray()
+            Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? new byte[0]).ToArray()
         };
 
         var hash = Grasshopper.Hash(ParentHash, concat);
@@ -79,6 +70,33 @@ public class Block : Transaction
         var result = hash.ToBigInteger();
 
         return result.CompareTo(target) <= 0;
+    }
+
+    public SHA256Hash GetHash()
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = new MemoryStream();
+
+        stream.WriteByte((byte)TransactionType);
+        stream.Write(To ?? throw new Exception("missing required field 'block.to'"));
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(Data.AsSpan().Slice(0, 40));
+        stream.Write(BitConverter.GetBytes(Timestamp));
+
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
+        }
+
+        stream.Flush();
+        stream.Position = 0;
+
+        return sha256.ComputeHash(stream);
     }
 }
 
@@ -89,6 +107,8 @@ public class BlockPayload
     public Difficulty Difficulty { get; set; }
     [Key(1)]
     public SHA256Hash ParentHash { get; set; } = new SHA256Hash();
+    [Key(2)]
+    public SHA256Hash Nonce { get; set; } = new SHA256Hash();
 
     public BlockPayload()
     {
@@ -99,5 +119,6 @@ public class BlockPayload
     {
         Difficulty = block.Difficulty;
         ParentHash = block.ParentHash;
+        Nonce = block.Nonce;
     }
 }

@@ -32,18 +32,16 @@ public class Transaction : IComparable<Transaction>
     [Key(6)]
     public long Value { get; set; }
     [Key(7)]
-    public byte[]? Pow { get; set; }
-    [Key(8)]
     public byte[]? Data { get; set; }
-    [Key(9)]
+    [Key(8)]
     public long Timestamp { get; set; }
-    [Key(10)]
+    [Key(9)]
     public Signature? Signature { get; set; }
-    [Key(11)]
+    [Key(10)]
     public ExecutionResult ExecutionResult { get; set; }
-    [Key(12)]
+    [Key(11)]
     public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
-    [Key(13)]
+    [Key(12)]
     public List<Effect> Effects { get; set; } = new();
 
     [IgnoreMember]
@@ -65,7 +63,6 @@ public class Transaction : IComparable<Transaction>
         PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("payment requires signature");
@@ -96,7 +93,6 @@ public class Transaction : IComparable<Transaction>
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(Pow);
 
         foreach (var hash in Parents.Order())
         {
@@ -124,7 +120,6 @@ public class Transaction : IComparable<Transaction>
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(Pow);
 
         if (Parents.Count < 2)
         {
@@ -149,9 +144,9 @@ public class Transaction : IComparable<Transaction>
 
         stream.WriteByte((byte)TransactionType);
 
-        if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
+        if (TransactionType == TransactionType.VIEW || TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
         {
-            stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
+            stream.Write(PublicKey ?? throw new Exception($"public key required when hashing {TransactionType}"));
         }
 
         if (To is not null)
@@ -162,7 +157,6 @@ public class Transaction : IComparable<Transaction>
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(Pow);
 
         if (Parents.Count < 2)
         {
@@ -174,7 +168,10 @@ public class Transaction : IComparable<Transaction>
             stream.Write(hash);
         }
 
-        return sha256.ComputeHash(stream.ToArray());
+        stream.Flush();
+        stream.Position = 0;
+
+        return sha256.ComputeHash(stream);
     }
 
     public int CompareTo(Transaction? other)

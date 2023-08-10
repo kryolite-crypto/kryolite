@@ -35,7 +35,7 @@ internal class Program
         var dataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         Directory.CreateDirectory(dataDir);
 
-        using var fileStream = new FileStream(Path.Join(dataDir, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+        //using var fileStream = new FileStream(Path.Join(dataDir, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 
         var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 

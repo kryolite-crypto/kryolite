@@ -21,15 +21,13 @@ public class TransactionDto
     [Key(3)]
     public long Value { get; set; }
     [Key(4)]
-    public byte[]? Pow { get; set; }
-    [Key(5)]
     public byte[]? Data { get; set; }
-    [Key(6)]
+    [Key(5)]
     public long Timestamp { get; set; }
-    [Key(7)]
+    [Key(6)]
     [Required]
     public Signature? Signature { get; set; }
-    [Key(8)]
+    [Key(7)]
     public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
 
     [IgnoreMember]
@@ -53,7 +51,6 @@ public class TransactionDto
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(Pow);
 
         foreach (var txId in Parents.Order())
         {
@@ -65,7 +62,40 @@ public class TransactionDto
         Signature = algorithm.Sign(key, stream.ToArray());
     }
 
-    public virtual SHA256Hash CalculateHash()
+    public bool Verify()
+    {
+        var algorithm = new Ed25519();
+        using var stream = new MemoryStream();
+
+        stream.WriteByte((byte)TransactionType);
+        stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
+
+        if (To is not null)
+        {
+            stream.Write(To);
+        }
+
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(Data);
+        stream.Write(BitConverter.GetBytes(Timestamp));
+
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
+        }
+
+        stream.Flush();
+
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
+        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
+    }
+
+    public SHA256Hash CalculateHash()
     {
         using var sha256 = SHA256.Create();
         using var stream = new MemoryStream();
@@ -85,7 +115,6 @@ public class TransactionDto
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(Pow);
 
         if (Parents.Count < 2)
         {
@@ -111,7 +140,6 @@ public class TransactionDto
         PublicKey = tx.PublicKey;
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;

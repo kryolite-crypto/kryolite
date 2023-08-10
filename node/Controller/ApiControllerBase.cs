@@ -150,6 +150,12 @@ public class ApiControllerBase : Controller
         return Ok(blockchainManager.GetTransactionForHash(hash));
     }
 
+    [HttpGet("tx")]
+    public IActionResult GetTransactionAfterHeight(long height)
+    {
+        return Ok(blockchainManager.GetTransactionsAfterHeight(height));
+    }
+
     [HttpGet("ledger/{address}")]
     public IActionResult GetWalletForAddress(string address)
     {

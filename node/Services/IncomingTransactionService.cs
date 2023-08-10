@@ -21,7 +21,7 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var items = new List<TransactionDto>(20000);
+        var items = new List<TransactionDto>(1000);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -41,7 +41,7 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
             {
                 items.Add(item);
 
-                if (items.Count >= 20000)
+                if (items.Count >= 1000)
                 {
                     break;
                 }

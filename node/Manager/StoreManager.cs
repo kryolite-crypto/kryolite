@@ -1,5 +1,8 @@
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
@@ -9,6 +12,8 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Logging;
 using QuikGraph;
+using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Search;
 using Redbus.Interfaces;
 
 namespace Kryolite.Node;
@@ -133,6 +138,18 @@ public class StoreManager : IStoreManager
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
+        if (AddViewInternal(view, broadcast))
+        {
+            dbtx.Commit();
+            return true;
+        }
+
+        dbtx.Rollback();
+        return false;
+    }
+
+    public bool AddViewInternal(View view, bool broadcast)
+    {
         try
         {
             var sw = Stopwatch.StartNew();
@@ -145,8 +162,6 @@ public class StoreManager : IStoreManager
                 return false;
             }
 
-            var toExecute = new List<Transaction>(PendingCache.Count);
-
             if (height > 0)
             {
                 var earliest = CurrentView.Timestamp + Constant.HEARTBEAT_INTERVAL;
@@ -158,28 +173,58 @@ public class StoreManager : IStoreManager
                 }
             }
 
+            PendingCache.Add(view.TransactionId, view);
+
+            var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, PendingCache.Count, 2);
+
+            graph.AddVertexRange(PendingCache.Keys);
+
+            foreach (var entry in PendingCache)
+            {
+                foreach (var parent in entry.Value.Parents)
+                {
+                    if (graph.ContainsVertex(parent))
+                    {
+                        graph.AddEdge(new Edge<SHA256Hash>(entry.Key, parent));
+                    }
+                }
+            }
+
+            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(graph);
+            bfs.SetRootVertex(view.TransactionId);
+            bfs.Compute();
+
+            var toExecute = new List<Transaction>(bfs.VisitedGraph.VertexCount);
             var voteCount = 0;
             var blockCount = 0;
 
-            foreach (var parentId in view.Parents)
+            foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
             {
-                if (!PendingCache.Remove(parentId, out var parent))
+                // white == not visited
+                if (bfs.VerticesColors[vertex] == GraphColor.White)
                 {
                     continue;
                 }
 
-                if (parent.Height is not null)
+                if (PendingCache.Remove(vertex, out var tx))
                 {
-                    continue;
-                }
+                    toExecute.Add(tx);
 
-                TraverseTransaction(parent, height, toExecute, ref voteCount, ref blockCount);
+                    if (tx.TransactionType == TransactionType.BLOCK)
+                    {
+                        blockCount++;
+                    }
+                    else if (tx.TransactionType == TransactionType.VOTE)
+                    {
+                        voteCount++;
+                    }
+                }
             }
 
             var context = new ExecutorContext(Repository, LedgerCache, voteCount, blockCount);
             var executor = ExecutorFactory.Create(context);
 
-            executor.Execute(toExecute);
+            executor.Execute(toExecute, height);
 
             ChainState.Weight += ChainState.CurrentDifficulty.ToWork() * voteCount;
 
@@ -196,8 +241,6 @@ public class StoreManager : IStoreManager
                 else
                 {
                     var totalWork = ChainState.CurrentDifficulty.ToWork() * blockCount;
-
-                    ChainState.Weight += totalWork;
                     ChainState.CurrentDifficulty = totalWork.ToDifficulty();
                 }
             }
@@ -210,8 +253,6 @@ public class StoreManager : IStoreManager
             Repository.SaveState(ChainState);
             Repository.Add(view);
             Repository.Finalize(toExecute);
-
-            dbtx.Commit();
 
             CurrentView = view;
 
@@ -230,13 +271,12 @@ public class StoreManager : IStoreManager
             LedgerCache = new(); // note: LedgerCache.Clear() has really bad performance here
 
             sw.Stop();
-            Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count}] [Next difficulty = {ChainState.CurrentDifficulty}]");
+            Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {ChainState.CurrentDifficulty}]");
 
             return true;
         }
         catch (Exception ex)
         {
-            dbtx.Rollback();
             Logger.LogError(ex, "AddView error");
 
             PendingCache = new();
@@ -276,7 +316,7 @@ public class StoreManager : IStoreManager
             return false;
         }
 
-        if (!block.VerifyNonce())
+        if (!block.IsVerified && !block.Verify())
         {
             Logger.LogInformation("AddBlock rejected (reason = invalid nonce)");
             return false;
@@ -371,9 +411,7 @@ public class StoreManager : IStoreManager
                 }
             }
 
-            var block = new Block(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty, blocktemplate.Validates);
-
-            block.Pow = blocktemplate.Solution;
+            var block = new Block(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty, blocktemplate.Validates, blocktemplate.Solution);
 
             var newblock = AddBlock(block, broadcast);
 
@@ -391,11 +429,8 @@ public class StoreManager : IStoreManager
 
     public bool AddTransaction(Transaction tx, bool broadcast)
     {
-        //using var dbtx = Repository.BeginTransaction();
         try
         {
-            //var sw = Stopwatch.StartNew();
-
             if (tx.TransactionType == TransactionType.PAYMENT && tx.Value == 0)
             {
                 Logger.LogInformation("AddTransaction rejected (reason = zero payment)");
@@ -421,10 +456,6 @@ public class StoreManager : IStoreManager
                 }
             }
 
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Exists {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            //sw.Reset();
-
             if (!LedgerCache.TryGetValue(tx.From!, out var from))
             {
                 from = Repository.GetWallet(tx.From!) ?? new Ledger(tx.From!);
@@ -443,59 +474,26 @@ public class StoreManager : IStoreManager
                 LedgerCache.Add(tx.To, to);
             }
 
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Wallets {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            //sw.Restart();
-
             checked
             {
                 from.Balance -= tx.Value;
                 to.Balance += tx.Value;
             }
 
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Balance {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            //sw.Restart();
-
             Repository.Add(tx);
-
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Add {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            //sw.Restart();
-
             Repository.UpdateWallets(from, to);
 
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Update {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            //sw.Restart();
-
             PendingCache.Add(tx.TransactionId, tx);
-
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Cache {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            //sw.Restart();
-
-            /*EventBus.PublishAsync(from);
-            EventBus.PublishAsync(to);
-
-            sw.Stop();
-            Logger.LogInformation($"AddTransaction.Publish {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-            sw.Restart();*/
 
             if (broadcast)
             {
                 TransactionBuffer.Add(new TransactionDto(tx));
             }
 
-            //sw.Stop();
-            //Logger.LogInformation($"AddTransaction.Post {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-
-            //dbtx.Commit();
             return true;
         }
         catch (Exception ex) 
         {
-            //dbtx.Rollback();
             Logger.LogError(ex, "AddTransaction error");
         }
 
@@ -512,19 +510,9 @@ public class StoreManager : IStoreManager
             case TransactionType.CONTRACT:
                 return AddTransaction(tx, broadcast);
             case TransactionType.VIEW:
-                if (!AddView((View)tx, broadcast))
-                {
-                    return false;
-                }
-
-                var vote = new Vote(Node.PublicKey, CurrentView.Parents.Take(1).ToList());
-
-                vote.Parents.Add(CurrentView.TransactionId);
-                vote.Sign(Node.PrivateKey);
-
-                return AddVote(vote, true);
+                return AddViewInternal((View)tx, broadcast);
             case TransactionType.VOTE:
-                return AddVote((Vote)tx, broadcast);
+                return AddVoteInternal((Vote)tx, broadcast);
             default:
                 Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
                 return false;
@@ -536,6 +524,18 @@ public class StoreManager : IStoreManager
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
+        if (AddVoteInternal(vote, broadcast))
+        {
+            dbtx.Commit();
+            return true;
+        }
+
+        dbtx.Rollback();
+        return false;
+    }
+
+    private bool AddVoteInternal(Vote vote, bool broadcast)
+    {
         try
         {
             var exists = Repository.Exists(vote.TransactionId);
@@ -555,51 +555,14 @@ public class StoreManager : IStoreManager
                 TransactionBuffer.Add(new TransactionDto(vote));
             }
 
-            dbtx.Commit();
             return true;
         }
         catch (Exception ex)
         {
-            dbtx.Rollback();
             Logger.LogError(ex, "AddVote error.");
         }
 
         return false;
-    }
-
-    private void TraverseTransaction(Transaction transaction, long height, List<Transaction> toExecute, ref int voteCount, ref int blockCount)
-    {
-        transaction.Height = height;
-
-        toExecute.Add(transaction);
-
-        switch (transaction.TransactionType)
-        {
-            case TransactionType.VOTE:
-                if (!Constant.SEED_VALIDATORS.Contains(transaction.PublicKey!))
-                {
-                    voteCount++;
-                }
-                break;
-            case TransactionType.BLOCK:
-                blockCount++;
-                break;
-        }
-
-        foreach (var parentId in transaction.Parents)
-        {
-            if (!PendingCache.Remove(parentId, out var parent))
-            {
-                continue;
-            }
-
-            if (parent.Height is not null)
-            {
-                continue;
-            }
-
-            TraverseTransaction(parent, height, toExecute, ref voteCount, ref blockCount);
-        }
     }
 
     public Genesis? GetGenesis()
@@ -626,31 +589,40 @@ public class StoreManager : IStoreManager
         return Repository.GetTransactionsToValidate();
     }
 
-    public bool AddTransactionBatch(IEnumerable<TransactionDto> transactionList)
+    private bool AddTransactionBatchInternal(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactionList, bool broadcast)
     {
-        var sw = Stopwatch.StartNew();
-        var transactions = transactionList.Select(tx => {
+        var transactions = new ConcurrentDictionary<SHA256Hash, Transaction>(Environment.ProcessorCount, transactionList.Count());
+
+        Parallel.ForEach(transactionList, entry =>
+        {
+            var tx = entry.Value;
+
             switch (tx.TransactionType)
             {
                 case TransactionType.BLOCK:
-                    return new Block(tx, tx.Parents);
+                    transactions.TryAdd(entry.Key, new Block(tx, tx.Parents));
+                    break;
                 case TransactionType.PAYMENT:
                 case TransactionType.CONTRACT:
-                    return new Transaction(tx, tx.Parents);
+                    transactions.TryAdd(entry.Key, new Transaction(tx, tx.Parents));
+                    break;
                 case TransactionType.VIEW:
-                    return new View(tx, tx.Parents);
+                    transactions.TryAdd(entry.Key, new View(tx, tx.Parents));
+                    break;
                 case TransactionType.VOTE:
-                    return new Vote(tx, tx.Parents);
+                    transactions.TryAdd(entry.Key, new Vote(tx, tx.Parents));
+                    break;
                 default:
-                    throw new Exception($"Unknown transaction type ({tx.TransactionType})");
+                    Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
+                    return;
             }
-        }).ToList();
-        sw.Stop();
-        Logger.LogInformation($"Convert {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
+        });
 
-        sw.Restart();
-        Parallel.ForEach(transactions, tx => {
-            var exists = Repository.Exists(tx.TransactionId);
+        transactionList.Clear();
+
+        Parallel.ForEach(transactions, tx =>
+        {
+            var exists = Repository.Exists(tx.Key);
 
             if (exists)
             {
@@ -658,74 +630,90 @@ public class StoreManager : IStoreManager
                 return;
             }
 
-            if (!tx.Verify())
+            if (!tx.Value.Verify())
             {
                 Logger.LogInformation("AddTransaction rejected (reason = invalid signature)");
                 return;
             }
 
-            if (tx.Parents.Distinct().Count() < 2)
+            if (tx.Value.Parents.Distinct().Count() < 2)
             {
                 Logger.LogInformation("AddTransaction rejected (reason = not enought unique transactions referenced)");
                 return;
             }
 
-            foreach (var txId in tx.Parents)
+            /*foreach (var txId in tx.Parents)
             {
-                var parentTx = Repository.GetTimestamp(txId);
+                var parentExists = PendingCache.ContainsKey(txId) || Repository.Exists(txId);
 
-                if (parentTx is null)
+                if (!parentExists)
                 {
                     Logger.LogInformation("AddTransaction rejected (reason = unknown transaction reference)");
                     return;
                 }
+            }*/
 
-                if (tx.Timestamp < parentTx)
-                {
-                    Logger.LogInformation("AddTransaction rejected (reason = invalid timestamp)");
-                    return;
-                }
-            }
-
-            tx.IsVerified = true;
+            tx.Value.IsVerified = true;
         });
-        sw.Stop();
-        Logger.LogInformation($"Verify {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
 
-        using var _ = rwlock.EnterWriteLockEx();
-        using var dbtx = Repository.BeginTransaction();
-
-        PendingCache.EnsureCapacity(PendingCache.Count + transactions.Count());
-        LedgerCache.EnsureCapacity(LedgerCache.Count + transactions.Count());
+        PendingCache.EnsureCapacity(PendingCache.Count + transactionList.Count());
+        LedgerCache.EnsureCapacity(LedgerCache.Count + transactionList.Count());
 
         try
         {
-            sw.Restart();
-            foreach (var tx in transactions)
+            foreach (var vertex in chainGraph.TopologicalSort().Reverse())
             {
+                var tx = transactions[vertex];
+
                 if (!tx.IsVerified)
                 {
                     continue;
                 }
 
-                ExecuteTransaction(tx, true);
+                ExecuteTransaction(tx, broadcast);
             }
-            sw.Stop();
-            Logger.LogInformation($"Stage {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
-
-            sw.Restart();
-            dbtx.Commit();
-            sw.Stop();
-            Logger.LogInformation($"Commit {sw.Elapsed.TotalNanoseconds / 1_000_000}ms");
         }
         catch (Exception ex)
         {
-            dbtx.Rollback();
             Logger.LogError(ex, "AddTransactionBatch error");
             return false;
         }
 
         return true;
+    }
+
+    public bool AddTransactionBatch(List<TransactionDto> transactionList)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var dbtx = Repository.BeginTransaction();
+
+        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
+        var transactions = new Dictionary<SHA256Hash, TransactionDto>();
+
+        graph.AddVertexRange(transactionList.Select(x => x.CalculateHash()));
+
+        foreach (var tx in transactionList)
+        {
+            var hash = tx.CalculateHash();
+            transactions.Add(hash, tx);
+
+            foreach (var parent in tx.Parents)
+            {
+                if (graph.ContainsVertex(parent))
+                {
+                    graph.AddEdge(new Edge<SHA256Hash>(hash, parent));
+                }
+            }
+        }
+
+        if (AddTransactionBatchInternal(graph, transactions, true))
+        {
+            dbtx.Commit();
+            return true;
+        }
+
+        dbtx.Rollback();
+        return false;
     }
 
     public Blocktemplate GetBlocktemplate(Address wallet)
@@ -736,7 +724,7 @@ public class StoreManager : IStoreManager
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var chainState = Repository.GetChainState();
-        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, Repository.GetTransactionsToValidate());
+        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, Repository.GetTransactionsToValidate(), new SHA256Hash());
 
         return new Blocktemplate
         {
@@ -797,7 +785,7 @@ public class StoreManager : IStoreManager
         return Repository.GetWallet(address)?.Balance ?? 0;
     }
 
-    public bool SetChain(AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>> chainGraph, long startHeight)
+    public bool SetChain(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactions, long startHeight)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
@@ -806,174 +794,178 @@ public class StoreManager : IStoreManager
         {
             RollbackChainIfNeeded(startHeight, chainGraph.VertexCount);
 
-            var batch = new List<TransactionDto>(chainGraph.VertexCount);
+            /*var batch = new List<TransactionDto>(chainGraph.VertexCount);
 
-            foreach (var vertex in chainGraph.Vertices)
+            var lastView = transactions.Values
+                .Where(x => x.TransactionType == TransactionType.VIEW)
+                .MaxBy(x => BitConverter.ToInt64(x.Data));
+
+            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(chainGraph);
+            bfs.SetRootVertex(lastView!.CalculateHash());
+            bfs.Compute();
+
+            foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
             {
-                foreach (var edge in chainGraph.OutEdges(vertex).DistinctBy(x => x.Target))
+                if (transactions.Remove(vertex, out var tx))
                 {
-
+                    batch.Add(tx);
                 }
-            }
+            }*/
 
-            if (!AddTransactionBatch(batch))
+            if (!AddTransactionBatchInternal(chainGraph, transactions, false))
             {
+                dbtx.Rollback();
                 Logger.LogError($"Set chain failed");
                 return false;
             }
         }
         catch (Exception ex)
         {
+            dbtx.Rollback();
             Logger.LogError(ex, "Chain reorg failure");
             return false;
         }
 
+        dbtx.Commit();
         Logger.LogInformation("Chain synchronization completed");
         return true;
     }
 
     private void RollbackChainIfNeeded(long startHeight, long count)
     {
-        using var txContext = Repository.BeginTransaction();
+        long progress = 0;
 
-        try
+        var ledger = new Dictionary<Address, Ledger>();
+        var contracts = new Dictionary<Address, Contract>();
+
+        var chainState = Repository.GetChainState();
+        var wallets = WalletManager.GetWallets();
+
+        var min = startHeight;
+        var max = chainState?.Height ?? 0;
+
+        if (min > max)
         {
-            long progress = 0;
+            return;
+        }
 
-            var ledger = new Dictionary<Address, Ledger>();
-            var contracts = new Dictionary<Address, Contract>();
+        // ChainObserver.ReportProgress("Rolling back current chain", progress, count);
 
-            var chainState = Repository.GetChainState();
-            var wallets = WalletManager.GetWallets();
+        for (long height = max; height >= min; height--)
+        {
+            var transactions = Repository.GetTransactionsAtHeight(height)
+                .ToDictionary(x => x.TransactionId, y => y);
 
-            var min = startHeight;
-            var max = chainState?.Height ?? 0;
-
-            if (min > max)
+            if (transactions.Count() == 0)
             {
-                return;
+                continue;
             }
 
-            // ChainObserver.ReportProgress("Rolling back current chain", progress, count);
+            var graph = transactions.Values.ToList().AsGraph();
 
-            for (long height = max; height >= min; height--)
+            var view = transactions
+                .Where(x => x.Value.TransactionType == TransactionType.VIEW)
+                .Select(x => x.Value)
+                .Single();
+
+            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(graph);
+            bfs.SetRootVertex(view.TransactionId);
+            bfs.Compute();
+
+            foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
             {
-                var graph = Repository.GetTransactionsAtHeight(height)
-                    .AsGraph();
+                var tx = transactions[vertex];
 
-                if (graph.Vertices.Count() == 0)
+                if (tx.PublicKey != null)
                 {
-                    continue;
-                }
+                    var addr = tx.PublicKey.ToAddress();
 
-                foreach (var vertex in graph.Vertices.Reverse())
-                {
-                    foreach (var edge in graph.OutEdges(vertex).DistinctBy(x => x.Target))
+                    if (!ledger.TryGetValue(addr, out var sender))
                     {
-                        var tx = edge.Tag;
+                        sender = Repository.GetWallet(addr);
 
-                        if (tx.PublicKey != null)
+                        if (sender is null)
                         {
-                            var addr = tx.PublicKey.ToAddress();
-
-                            if (!ledger.TryGetValue(addr, out var sender))
-                            {
-                                sender = Repository.GetWallet(addr);
-
-                                if (sender is null)
-                                {
-                                    continue;
-                                }
-
-                                ledger.Add(addr, sender);
-                            }
-
-                            checked
-                            {
-                                sender.Balance += tx.Value;
-                            }
+                            continue;
                         }
 
-                        if (tx.To is not null)
+                        ledger.Add(addr, sender);
+                    }
+
+                    checked
+                    {
+                        sender.Balance += tx.Value;
+                    }
+                }
+
+                if (tx.To is not null)
+                {
+                    if (tx.To.IsContract())
+                    {
+                        if (!contracts.TryGetValue(tx.To, out var contract))
                         {
-                            if (tx.To.IsContract())
+                            contract = Repository.GetContract(tx.To);
+
+                            if (contract is null)
                             {
-                                if (!contracts.TryGetValue(tx.To, out var contract))
-                                {
-                                    contract = Repository.GetContract(tx.To);
+                                continue;
+                            }
 
-                                    if (contract is null)
-                                    {
-                                        continue;
-                                    }
+                            contracts.Add(tx.To, contract);
+                        }
 
-                                    contracts.Add(tx.To, contract);
-                                }
-
-                                foreach (var effect in tx.Effects)
-                                {
-                                    if (effect.IsTokenEffect())
-                                    {
-                                        RollbackTokenEffect(ledger, contract, effect);
-                                    }
-                                    else
-                                    {
-                                        RollbackEffectBalance(ledger, contract, effect);
-                                    }
-                                }
-
-                                Repository.DeleteContractSnapshot(contract.Address, height);
-
-                                if (tx.TransactionType == TransactionType.CONTRACT)
-                                {
-                                    Repository.DeleteContract(contract.Address);
-                                }
+                        foreach (var effect in tx.Effects)
+                        {
+                            if (effect.IsTokenEffect())
+                            {
+                                RollbackTokenEffect(ledger, contract, effect);
                             }
                             else
                             {
-                                if (!ledger.TryGetValue(tx.To, out var recipient))
-                                {
-                                    recipient = Repository.GetWallet(tx.To);
-
-                                    if (recipient is null)
-                                    {
-                                        continue;
-                                    }
-
-                                    ledger.Add(tx.To, recipient);
-                                }
-
-                                recipient.Balance = checked(recipient.Balance - tx.Value);
+                                RollbackEffectBalance(ledger, contract, effect);
                             }
                         }
 
-                        Repository.Delete(tx);
+                        Repository.DeleteContractSnapshot(contract.Address, height);
+
+                        if (tx.TransactionType == TransactionType.CONTRACT)
+                        {
+                            Repository.DeleteContract(contract.Address);
+                        }
                     }
+                    else
+                    {
+                        if (!ledger.TryGetValue(tx.To, out var recipient))
+                        {
+                            recipient = Repository.GetWallet(tx.To);
 
-                    Repository.DeleteState(height);
+                            if (recipient is null)
+                            {
+                                continue;
+                            }
 
-                    // ChainObserver.ReportProgress("Rolling back current chain", ++progress, graph.VertexCount);
+                            ledger.Add(tx.To, recipient);
+                        }
+
+                        recipient.Balance = checked(recipient.Balance - tx.Value);
+                    }
                 }
+
+                Repository.Delete(tx);
+                Repository.DeleteState(height);
+
+                // ChainObserver.ReportProgress("Rolling back current chain", ++progress, graph.VertexCount);
             }
-
-            var newState = Repository.GetChainStateAt(min - 1);
-
-            if (newState is not null)
-            {
-                ChainState = newState;
-                Repository.SaveState(newState);
-            }
-
-            Repository.UpdateWallets(ledger.Values);
-            Repository.UpdateContracts(contracts.Values);
-
-            txContext.Commit();
         }
-        catch (Exception ex)
-        {
-            txContext.Rollback();
-            throw new Exception("Chain rollback failed", ex);
-        }
+
+        var newState = Repository.GetChainStateAt(min - 1) ?? throw new Exception("view not found");
+        ChainState = newState;
+        Repository.SaveState(newState);
+
+        CurrentView = Repository.GetViewAt(min - 1) ?? throw new Exception("view not found");
+
+        Repository.UpdateWallets(ledger.Values);
+        Repository.UpdateContracts(contracts.Values);
     }
 
     public void ResetChain()
@@ -1156,11 +1148,20 @@ public class StoreManager : IStoreManager
 
     public View? GetView(SHA256Hash transactionId)
     {
-        throw new NotImplementedException();
+        using var _ = rwlock.EnterReadLockEx();
+
+        var tx = Repository.Get(transactionId);
+
+        if (tx is null)
+        {
+            return null;
+        }
+
+        return new View(tx);
     }
 
     public List<Transaction> GetTransactionsAfterHeight(long height)
     {
-        throw new NotImplementedException();
+        return Repository.GetTransactionsAfterHeight(height);
     }
 }

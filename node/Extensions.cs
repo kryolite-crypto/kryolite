@@ -12,9 +12,9 @@ namespace Kryolite;
 
 public static class Extensions
 {
-    public static AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>> AsGraph(this List<TransactionDto> transactions)
+    public static AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> AsGraph(this List<TransactionDto> transactions)
     {
-        var graph = new AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, TransactionDto>>();
+        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
 
         graph.AddVertexRange(transactions.Select(x => x.CalculateHash()));
 
@@ -24,7 +24,7 @@ public static class Extensions
             {
                 if (graph.ContainsVertex(parent))
                 {
-                    graph.AddEdge(new TaggedEdge<SHA256Hash, TransactionDto>(parent, tx.CalculateHash(), tx));
+                    graph.AddEdge(new Edge<SHA256Hash>(tx.CalculateHash(), parent));
                 }
             }
         }
@@ -32,9 +32,9 @@ public static class Extensions
         return graph;
     }
 
-    public static AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, Transaction>> AsGraph(this List<Transaction> transactions)
+    public static AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> AsGraph(this List<Transaction> transactions)
     {
-        var graph = new AdjacencyGraph<SHA256Hash, TaggedEdge<SHA256Hash, Transaction>>();
+        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
 
         graph.AddVertexRange(transactions.Select(x => x.CalculateHash()));
 
@@ -44,7 +44,7 @@ public static class Extensions
             {
                 if (graph.ContainsVertex(parent))
                 {
-                    graph.AddEdge(new TaggedEdge<SHA256Hash, Transaction>(parent, tx.CalculateHash(), tx));
+                    graph.AddEdge(new Edge<SHA256Hash>(tx.CalculateHash(), parent));
                 }
             }
         }

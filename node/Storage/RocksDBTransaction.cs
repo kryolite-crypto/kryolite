@@ -30,7 +30,7 @@ internal class RocksDBTransaction : ITransaction
         Batch.Put(key, BitConverter.GetBytes(Store.GetCurrentKey()), keyColumn);
 
         var wOpts = new WriteOptions();
-        wOpts.SetSync(false);
+        wOpts.SetSync(true);
 
         Connection.Write(Batch, wOpts);
         Connection.Flush(opts);

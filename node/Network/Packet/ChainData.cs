@@ -19,11 +19,10 @@ public class ChainData : IPacket
     {
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<ChainData>>();
         var syncService = scope.ServiceProvider.GetRequiredService<IBufferService<Chain, SyncService>>();
 
-        logger.LogInformation($"Received blockchain from {peer.Uri.ToHostname()}");
+        logger.LogInformation($"Received blockchain (transactions = {Transactions?.Count}) from {peer.Uri.ToHostname()}");
 
         if (Transactions is not null && !ChainObserver.InProgress)
         {

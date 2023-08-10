@@ -25,6 +25,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using QuikGraph;
+using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Search;
 using Redbus.Events;
 using Redbus.Interfaces;
 using static Kryolite.Node.NetworkManager;
@@ -405,80 +407,74 @@ public class ChainObserver : IObserver<Chain>
 
     public void OnNext(Chain chain)
     {
-        if (chain.Transactions.Count == 0)
+        try
         {
-            return;
-        }
-
-        InProgress = true;
-
-        logger.LogInformation($"Starting chain sync (transactions={chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
-
-        foreach (var tx in chain.Transactions)
-        {
-            foreach (var parent in tx.Parents)
+            if (chain.Transactions.Count == 0)
             {
-                if (!storeManager.Exists(parent))
-                {
-                    logger.LogInformation($"Chain failed, {tx.CalculateHash()} references unknown transaction ({parent})");
-                    ReportProgress("", 0, 0);
-                    InProgress = false;
-                    return;
-                }
+                return;
             }
-        }
 
-        var localHeight = storeManager.GetCurrentHeight();
+            InProgress = true;
 
-        var minRemoteHeight = chain.Transactions.Where(x => x.TransactionType == TransactionType.VIEW)
-            .Select(x => BitConverter.ToInt64(x.Data))
-            .DefaultIfEmpty()
-            .Min();
+            logger.LogInformation($"Starting chain sync (transactions={chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
 
-
-        TransactionDto? view = null;
-
-        var chainState = storeManager.GetChainStateAt(Math.Max(minRemoteHeight - 1, 0))!;
-        var voteCount = 0;
-        var blockCount = 0;
-
-        var graph = chain.Transactions.AsGraph();
-
-        foreach (var vertex in graph.Vertices)
-        {
-            foreach (var edge in graph.OutEdges(vertex).DistinctBy(x => x.Target))
+            /*foreach (var tx in chain.Transactions)
             {
-                var tx = edge.Tag;
+                foreach (var parent in tx.Parents)
+                {
+                    if (!storeManager.Exists(parent))
+                    {
+                        logger.LogInformation($"Chain failed, {tx.CalculateHash()} references unknown transaction ({parent})");
+                        ReportProgress("", 0, 0);
+                        InProgress = false;
+                        return;
+                    }
+                }
+            }*/
+
+            var minRemoteHeight = chain.Transactions
+                .Where(x => x.TransactionType == TransactionType.VIEW)
+                .Select(x => BitConverter.ToInt64(x.Data))
+                .DefaultIfEmpty()
+                .Min();
+
+            var transactions = chain.Transactions.ToDictionary(x => x.CalculateHash(), y => y);
+            var graph = chain.Transactions.AsGraph();
+
+            chain.Transactions.Clear();
+
+            var remoteState = storeManager.GetChainStateAt(Math.Max(minRemoteHeight - 1, 0))!;
+            var voteCount = 0;
+            var blockCount = 0;
+
+            foreach (var vertex in graph.TopologicalSort().Reverse())
+            {
+                var tx = transactions[vertex];
 
                 switch (tx.TransactionType)
                 {
                     case TransactionType.VIEW:
-                        if (view is not null)
+                        // TODO: Similar implementation exists in StoreManager
+                        remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * voteCount;
+
+                        if (blockCount == 0)
                         {
-                            // TODO: Similar implementation exists in StoreManager
-                            if (blockCount == 0)
-                            {
-                                var work = chainState.CurrentDifficulty.ToWork();
-                                var nextTarget = work / 4 * 3;
-                                var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
+                            var work = remoteState.CurrentDifficulty.ToWork();
+                            var nextTarget = work / 4 * 3;
+                            var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
 
-                                chainState.CurrentDifficulty = BigInteger.Max(minTarget, nextTarget).ToDifficulty();
-                            }
-                            else
-                            {
-                                var totalWork = chainState.CurrentDifficulty.ToWork() * blockCount;
-
-                                chainState.Weight += totalWork;
-                                chainState.CurrentDifficulty = totalWork.ToDifficulty();
-                            }
-
-                            chainState.Height++;
+                            remoteState.CurrentDifficulty = BigInteger.Max(minTarget, nextTarget).ToDifficulty();
                         }
+                        else
+                        {
+                            var totalWork = remoteState.CurrentDifficulty.ToWork() * blockCount;
+                            remoteState.CurrentDifficulty = totalWork.ToDifficulty();
+                        }
+
+                        remoteState.Height++;
 
                         voteCount = 0;
                         blockCount = 0;
-
-                        view = tx;
 
                         break;
                     case TransactionType.BLOCK:
@@ -488,40 +484,40 @@ public class ChainObserver : IObserver<Chain>
                         voteCount++;
                         break;
                 }
-
-                // Stop here to compare weight at same heights
-                if (chainState.Height >= localHeight)
-                {
-                    break;
-                }
             }
-        }
 
-        var localWeight = storeManager.GetChainState()?.Weight ?? BigInteger.Zero;
+            var localWeight = storeManager.GetChainState()?.Weight ?? BigInteger.Zero;
 
-        logger.LogInformation($"Local chain weight = {localWeight}, remote chain weight = {chainState.Weight}");
+            logger.LogInformation($"Local chain weight = {localWeight}, remote chain weight = {remoteState.Weight}");
 
-        if (chainState.Height > localWeight)
-        {
-            logger.LogInformation("Chain is ahead, rolling forward");
-
-            if (!storeManager.SetChain(graph, minRemoteHeight))
+            if (remoteState.Weight > localWeight)
             {
-                logger.LogInformation("Failed to set chain, discarding...");
+                logger.LogInformation("Chain is ahead, rolling forward");
 
-                _ = chain.Peer.DisconnectAsync();
+                if (!storeManager.SetChain(graph, transactions, minRemoteHeight))
+                {
+                    logger.LogInformation("Failed to set chain, discarding...");
 
-                ReportProgress("", 0, 0);
-                InProgress = false;
-                return;
+                    _ = chain.Peer.DisconnectAsync();
+
+                    ReportProgress("", 0, 0);
+                    InProgress = false;
+                    return;
+                }
+
+                // Query for next set
+                _ = chain.Peer.SendAsync(new QueryNodeInfo());
             }
 
-            // Query for next set
-            _ = chain.Peer.SendAsync(new QueryNodeInfo());
+            logger.LogInformation($"Chain sync finished");
+            ReportProgress("", 0, 0);
+            InProgress = false;
         }
-
-        logger.LogInformation($"Chain sync finished");
-        ReportProgress("", 0, 0);
-        InProgress = false;
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Chain Sync failed");
+            ReportProgress("", 0, 0);
+            InProgress = false;
+        }
     }
 }

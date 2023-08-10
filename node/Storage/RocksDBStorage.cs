@@ -100,8 +100,6 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ContractSnapshot", Database.GetColumnFamily("ContractSnapshot"));
         ColumnFamilies.Add("Token", Database.GetColumnFamily("Token"));
         ColumnFamilies.Add("ixTokenAddress", Database.GetColumnFamily("ixTokenAddress"));
-        ColumnFamilies.Add("ixTokenContract", Database.GetColumnFamily("ixTokenOwner"));
-        ColumnFamilies.Add("ixTokenId", Database.GetColumnFamily("ixTokenId"));
         ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
         ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
@@ -273,6 +271,29 @@ internal class RocksDBStorage : IStorage
         readOptions.SetPrefixSameAsStart(true);
         readOptions.SetIterateUpperBound(upperBound.ToByteArray());
         
+        using var iterator = Database.NewIterator(ix, readOptions);
+
+        iterator.Seek(keyPrefix);
+
+        var results = new List<byte[]>();
+
+        while (iterator.Valid())
+        {
+            results.Add(iterator.Value());
+            iterator.Next();
+        }
+
+        return results;
+    }
+
+    public List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix, ReadOnlySpan<byte> upperBound)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        var readOptions = new ReadOptions();
+        readOptions.SetPrefixSameAsStart(true);
+        readOptions.SetIterateUpperBound(upperBound.ToArray());
+
         using var iterator = Database.NewIterator(ix, readOptions);
 
         iterator.Seek(keyPrefix);

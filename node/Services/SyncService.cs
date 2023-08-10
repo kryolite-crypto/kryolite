@@ -13,10 +13,12 @@ namespace Kryolite.Node.Services;
 public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 {
     private Channel<Chain> SyncChannel { get; } = Channel.CreateBounded<Chain>(3);
+    private IServiceProvider ServiceProvider { get; }
     private ILogger<OutgoingTransactionService> Logger { get; }
 
-    public SyncService(ILogger<OutgoingTransactionService> logger)
+    public SyncService(IServiceProvider serviceProvider, ILogger<OutgoingTransactionService> logger)
     {
+        ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -40,7 +42,8 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 continue;
             }
 
-
+            var observer = new ChainObserver(ServiceProvider);
+            observer.OnNext(chain);
         }
     }
 

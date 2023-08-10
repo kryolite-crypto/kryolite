@@ -1,6 +1,7 @@
 using Kryolite.Shared.Dto;
 using MessagePack;
 using NSec.Cryptography;
+using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
@@ -29,7 +30,6 @@ public class Vote : Transaction
         PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("vote requires signature");
@@ -45,7 +45,6 @@ public class Vote : Transaction
         Height = tx.Height;
         To = tx.To;
         Value = tx.Value;
-        Pow = tx.Pow;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("vote requires signature");

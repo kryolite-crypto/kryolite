@@ -11,7 +11,7 @@ namespace Kryolite.Node;
 public class TransactionBatch : IPacket
 {
     [Key(0)]
-    public IList<TransactionDto> Transactions { get; set; } = new List<TransactionDto>();
+    public List<TransactionDto> Transactions { get; set; } = new List<TransactionDto>();
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
@@ -22,10 +22,8 @@ public class TransactionBatch : IPacket
 
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBatch>>();
-
-        // TODO: Check that validated transactions exists, query for more if not
 
         logger.LogInformation($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
 

@@ -14,7 +14,9 @@ public interface IStoreRepository
     void Delete(Transaction tx);
     Genesis? GetGenesis();
     View? GetLastView();
+    View? GetViewAt(long height);
     List<Transaction> GetTransactionsAtHeight(long height);
+    List<Transaction> GetTransactionsAfterHeight(long height);
     List<Vote> GetVotesAtHeight(long height);
     void SaveState(ChainState chainState);
     void DeleteState(long height);

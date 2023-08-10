@@ -1,5 +1,4 @@
 using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -16,7 +15,7 @@ public class RequestChainSync : IPacket
     {
         using var scope = serviceProvider.CreateScope();
 
-        var blockchainManager = scope.ServiceProvider.GetRequiredService<StoreManager>();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<RequestChainSync>>();
 
         logger.LogInformation($"Chain sync requested by {peer.Uri.ToHostname()}");

@@ -20,8 +20,8 @@ public class NodeDiscovery : IPacket
     {
         using var scope = serviceProvider.CreateScope();
 
-        var networkManager = scope.ServiceProvider.GetRequiredService<NetworkManager>();
-        var meshNetwork = scope.ServiceProvider.GetRequiredService<MeshNetwork>();
+        var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
+        var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeDiscovery>>();
 
         logger.LogInformation($"Received NodeDiscovery from {peer.Uri.ToHostname()}");
