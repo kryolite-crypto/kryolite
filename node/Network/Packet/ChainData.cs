@@ -24,7 +24,7 @@ public class ChainData : IPacket
 
         logger.LogInformation($"Received blockchain (transactions = {Transactions?.Count}) from {peer.Uri.ToHostname()}");
 
-        if (Transactions is not null && !ChainObserver.InProgress)
+        if (Transactions is not null)
         {
             var chain = new Chain(peer, Transactions);
             syncService.Add(chain);

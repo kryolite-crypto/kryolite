@@ -706,7 +706,7 @@ public class StoreManager : IStoreManager
             }
         }
 
-        if (AddTransactionBatchInternal(graph, transactions, true))
+        if (AddTransactionBatchInternal(graph, transactions, false))
         {
             dbtx.Commit();
             return true;
@@ -1162,6 +1162,10 @@ public class StoreManager : IStoreManager
 
     public List<Transaction> GetTransactionsAfterHeight(long height)
     {
-        return Repository.GetTransactionsAfterHeight(height);
+        using var _ = rwlock.EnterReadLockEx();
+
+        var transactions = Repository.GetTransactionsAfterHeight(height);
+        transactions.AddRange(PendingCache.Values);
+        return transactions;
     }
 }

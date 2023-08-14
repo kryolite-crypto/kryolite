@@ -43,6 +43,11 @@ public class TransactionDto
         stream.WriteByte((byte)TransactionType);
         stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
 
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
         if (To is not null)
         {
             stream.Write(To);
@@ -102,7 +107,7 @@ public class TransactionDto
 
         stream.WriteByte((byte)TransactionType);
 
-        if (TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
+        if (TransactionType == TransactionType.VIEW || TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
         {
             stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
         }
