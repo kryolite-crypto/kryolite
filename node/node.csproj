@@ -15,11 +15,9 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
-    <PackageReference Include="DBreeze" Version="1.107.0" />
     <PackageReference Include="DnsClient" Version="1.7.0" />
     <PackageReference Include="iBoxDB" Version="3.9.2" />
     <PackageReference Include="LettuceEncrypt" Version="1.2.0" />
-    <PackageReference Include="LiteDB" Version="5.0.16" />
     <PackageReference Include="MessagePack" Version="2.5.108" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="7.0.5" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
@@ -27,7 +25,7 @@
     <PackageReference Include="Open.NAT.NET5" Version="1.0.0" />
     <PackageReference Include="QuikGraph" Version="2.5.0" />
     <PackageReference Include="RedBus" Version="1.0.8" />
-    <PackageReference Include="RocksDB" Version="8.1.1.38647" />
+    <PackageReference Include="RocksDB" Version="8.3.2.39829" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.117" />
     <PackageReference Include="System.Reactive.Linq" Version="5.0.0" />
     <PackageReference Include="Vkosin.Dns.Multicast" Version="0.44.0" />
