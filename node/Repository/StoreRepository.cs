@@ -112,6 +112,8 @@ public class StoreRepository : IStoreRepository, IDisposable
     public List<Transaction> GetPending()
     {
         var height = BitConverter.GetBytes(uint.MaxValue);
+        Array.Reverse(height);
+
         var ids = Storage.FindAll("ixTransactionHeight", height);
 
         return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
@@ -238,7 +240,10 @@ public class StoreRepository : IStoreRepository, IDisposable
         heightBytes.CopyTo(prefix, 0);
         prefix[8] = (byte)TransactionType.VOTE;
 
-        var voteIds = Storage.FindAll("ixTransactionHeight", prefix);
+        var upperBound = prefix.ToArray();
+        upperBound[8] = (byte)(prefix[8] + 1);
+
+        var voteIds = Storage.FindAll("ixTransactionHeight", prefix, upperBound);
 
         if (voteIds.Count == 0)
         {

@@ -117,12 +117,12 @@ public class ValidatorService : BackgroundService
 
                 var lastView = blockchainManager.GetLastView() ?? throw new Exception("LastView returned null");
 
-                var votes = blockchainManager.GetVotesAtHeight(lastView?.Height ?? 0);
+                var votes = blockchainManager.GetVotesAtHeight(lastView?.Height - 1 ?? 0);
                 var nextLeader = votes
                     .Where(x => !Banned.Contains(x.PublicKey))
                     .MinBy(x => x.Signature)?.PublicKey;
 
-                logger.LogInformation("View #{} received {} votes", lastView?.Height, votes.Count);
+                logger.LogInformation("View #{} received {} votes", lastView?.Height - 1, votes.Count);
 
                 if (nextLeader is null)
                 {

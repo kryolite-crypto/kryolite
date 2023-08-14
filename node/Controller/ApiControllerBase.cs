@@ -156,6 +156,12 @@ public class ApiControllerBase : Controller
         return Ok(blockchainManager.GetTransactionsAfterHeight(height));
     }
 
+    [HttpGet("chain/tip")]
+    public IActionResult GetChainTip()
+    {
+        return Ok(blockchainManager.GetTransactionToValidate());
+    }
+
     [HttpGet("ledger/{address}")]
     public IActionResult GetWalletForAddress(string address)
     {

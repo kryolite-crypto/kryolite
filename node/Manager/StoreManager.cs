@@ -271,7 +271,7 @@ public class StoreManager : IStoreManager
             LedgerCache = new(); // note: LedgerCache.Clear() has really bad performance here
 
             sw.Stop();
-            Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {ChainState.CurrentDifficulty}]");
+            Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {ChainState.CurrentDifficulty}]");
 
             return true;
         }

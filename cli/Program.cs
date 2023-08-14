@@ -28,6 +28,10 @@ public class Program
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
 
+        // TODO: make this an option
+        BlockchainService.DATA_PATH = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        Directory.CreateDirectory(BlockchainService.DATA_PATH);
+
         var rootCmd = new RootCommand("Kryolite CLI");
 
         var nodeOption = new Option<string?>(name: "--node", description: "Node url");
@@ -184,6 +188,25 @@ public class Program
                 };
             }
 
+            using var http = new HttpClient();
+
+            var result = await http.GetAsync($"{node}/chain/tip");
+
+            if (!result.IsSuccessStatusCode)
+            {
+                Console.WriteLine($"Request failed: {result.StatusCode}");
+                Console.WriteLine(result.Content);
+                return;
+            }
+
+            var parents = await JsonSerializer.DeserializeAsync<List<SHA256Hash>>(await result.Content.ReadAsStreamAsync(), serializerOpts);
+
+            if (parents is null)
+            {
+                Console.WriteLine("Parent hash download failed");
+                return;
+            }
+
             var lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray)
                 .WithOmitAssemblyVersion(true);
@@ -195,8 +218,9 @@ public class Program
                 To = to,
                 Value = (long)(amount * 1000000),
                 //MaxFee = 1,
-                Timestamp = 69,
-                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null,
+                Parents = parents
             };
 
             tx.Sign(wallet.PrivateKey);
@@ -205,7 +229,6 @@ public class Program
             Console.WriteLine(json);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
-            using var http = new HttpClient();
             await http.PostAsync($"{node}/tx", stringContent);
 
             Console.WriteLine($"Transaction sent to {node}");
