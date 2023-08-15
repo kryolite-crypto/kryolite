@@ -133,12 +133,12 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddView(View view, bool broadcast)
+    public bool AddView(View view, bool broadcast, bool castVote)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
-        if (AddViewInternal(view, broadcast))
+        if (AddViewInternal(view, broadcast, castVote))
         {
             dbtx.Commit();
             return true;
@@ -148,7 +148,7 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddViewInternal(View view, bool broadcast)
+    private bool AddViewInternal(View view, bool broadcast, bool castVote)
     {
         try
         {
@@ -500,7 +500,7 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool ExecuteTransaction(Transaction tx, bool broadcast)
+    private bool ExecuteTransaction(Transaction tx, bool broadcast, bool castVote)
     {
         switch (tx.TransactionType)
         {
@@ -510,7 +510,7 @@ public class StoreManager : IStoreManager
             case TransactionType.CONTRACT:
                 return AddTransaction(tx, broadcast);
             case TransactionType.VIEW:
-                return AddViewInternal((View)tx, broadcast);
+                return AddViewInternal((View)tx, broadcast, castVote);
             case TransactionType.VOTE:
                 return AddVoteInternal((Vote)tx, broadcast);
             default:
@@ -589,7 +589,7 @@ public class StoreManager : IStoreManager
         return Repository.GetTransactionsToValidate();
     }
 
-    private bool AddTransactionBatchInternal(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactionList, bool broadcast)
+    private bool AddTransactionBatchInternal(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactionList, bool broadcast, bool castVote)
     {
         var transactions = new ConcurrentDictionary<SHA256Hash, Transaction>(Environment.ProcessorCount, transactionList.Count());
 
@@ -670,7 +670,7 @@ public class StoreManager : IStoreManager
                     continue;
                 }
 
-                ExecuteTransaction(tx, broadcast);
+                ExecuteTransaction(tx, broadcast, castVote);
             }
         }
         catch (Exception ex)
@@ -706,7 +706,7 @@ public class StoreManager : IStoreManager
             }
         }
 
-        if (AddTransactionBatchInternal(graph, transactions, false))
+        if (AddTransactionBatchInternal(graph, transactions, false, true))
         {
             dbtx.Commit();
             return true;
@@ -812,7 +812,7 @@ public class StoreManager : IStoreManager
                 }
             }*/
 
-            if (!AddTransactionBatchInternal(chainGraph, transactions, false))
+            if (!AddTransactionBatchInternal(chainGraph, transactions, false, false))
             {
                 dbtx.Rollback();
                 Logger.LogError($"Set chain failed");

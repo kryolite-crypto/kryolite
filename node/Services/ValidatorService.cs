@@ -180,17 +180,7 @@ public class ValidatorService : BackgroundService
         nextView.Sign(Node.PrivateKey);
         nextView.TransactionId = nextView.CalculateHash();
 
-        if (blockchainManager.AddView(nextView, true))
-        {
-            var parents = nextView.Parents.Take(1).ToList();
-            parents.Add(nextView.TransactionId);
-
-            var vote = new Vote(Node.PublicKey, parents);
-
-            vote.Sign(Node.PrivateKey);
-
-            blockchainManager.AddVote(vote, true);
-        }
+        blockchainManager.AddView(nextView, true, true);
     }
 
     private async Task SynchronizeViewGenerator(CancellationToken stoppingToken)

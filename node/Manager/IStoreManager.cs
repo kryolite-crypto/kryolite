@@ -12,7 +12,7 @@ public interface IStoreManager
 {
     bool Exists(SHA256Hash hash);
     bool AddGenesis(Genesis genesis);
-    bool AddView(View view, bool broadcast);
+    bool AddView(View view, bool broadcast, bool castVote);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
     bool AddTransaction(Transaction tx, bool broadcast);
     //bool AddTransaction(TransactionDto tx, bool broadcast);

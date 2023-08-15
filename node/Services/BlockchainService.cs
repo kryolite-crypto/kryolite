@@ -100,6 +100,6 @@ public class BlockchainService : BackgroundService
 
         view.TransactionId = view.CalculateHash();
 
-        blockchainManager.AddView(view, false);
+        blockchainManager.AddView(view, false, false);
     }
 }
