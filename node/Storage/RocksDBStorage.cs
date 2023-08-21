@@ -1,21 +1,7 @@
-﻿using Kryolite.Shared.Blockchain;
-using MessagePack;
+﻿using MessagePack;
 using Microsoft.Extensions.Configuration;
-using NSec.Cryptography;
-using Org.BouncyCastle.Crypto;
 using RocksDbSharp;
-using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Configuration;
-using System.Data.Common;
-using System.Data.Entity;
-using System.Linq;
 using System.Numerics;
-using System.Reflection.Metadata;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
 
 namespace Kryolite.Node.Storage;
 
@@ -32,11 +18,11 @@ internal class RocksDBStorage : IStorage
         var dataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var storePath = Path.Combine(dataDir, "store");
 
-        // TODO: Remove. Used only in testing
-        if (Directory.Exists(storePath))
+        // Used only in testing
+        /*if (Directory.Exists(storePath))
         {
             Directory.Delete(storePath, true);
-        }
+        }*/
 
         var options = new DbOptions()
             .SetCreateIfMissing(true)
@@ -52,22 +38,25 @@ internal class RocksDBStorage : IStorage
             .SetCreateMissingColumnFamilies(true)
             .IncreaseParallelism(4);
 
-        using (var db = RocksDb.Open(options, storePath, new ColumnFamilies()))
+        if (!Directory.Exists(storePath))
         {
-            db.CreateColumnFamily(opts, "Key");
-            db.CreateColumnFamily(opts, "ChainState");
-            db.CreateColumnFamily(opts, "ChainStateHistory");
-            db.CreateColumnFamily(opts, "Ledger");
-            db.CreateColumnFamily(opts, "Transaction");
-            db.CreateColumnFamily(opts, "Contract");
-            db.CreateColumnFamily(opts, "ContractCode");
-            db.CreateColumnFamily(opts, "ContractSnapshot");
-            db.CreateColumnFamily(opts, "Token");
-            db.CreateColumnFamily(opts, "ixTokenAddress");
-            db.CreateColumnFamily(opts, "ixTransactionId");
-            db.CreateColumnFamily(opts, "ixTransactionAddress");
-            db.CreateColumnFamily(opts, "ixTransactionHeight");
-            db.CreateColumnFamily(opts, "ixChildless");
+            using (var db = RocksDb.Open(options, storePath, new ColumnFamilies()))
+            {
+                db.CreateColumnFamily(opts, "Key");
+                db.CreateColumnFamily(opts, "ChainState");
+                db.CreateColumnFamily(opts, "ChainStateHistory");
+                db.CreateColumnFamily(opts, "Ledger");
+                db.CreateColumnFamily(opts, "Transaction");
+                db.CreateColumnFamily(opts, "Contract");
+                db.CreateColumnFamily(opts, "ContractCode");
+                db.CreateColumnFamily(opts, "ContractSnapshot");
+                db.CreateColumnFamily(opts, "Token");
+                db.CreateColumnFamily(opts, "ixTokenAddress");
+                db.CreateColumnFamily(opts, "ixTransactionId");
+                db.CreateColumnFamily(opts, "ixTransactionAddress");
+                db.CreateColumnFamily(opts, "ixTransactionHeight");
+                db.CreateColumnFamily(opts, "ixChildless");
+            }
         }
 
         var families = new ColumnFamilies

@@ -40,16 +40,18 @@ public class View : Transaction
 
     public View(Transaction tx)
     {
+        Id = tx.Id;
         TransactionId = tx.TransactionId;
-        TransactionType = TransactionType.VIEW;
-        PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
         Height = tx.Height;
+        TransactionType = tx.TransactionType;
+        PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
         To = tx.To;
         Value = tx.Value;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
-        Height = tx.Height;
-        Parents = tx.Parents;
         Signature = tx.Signature ?? throw new Exception("view requires signature");
+        ExecutionResult = tx.ExecutionResult;
+        Parents = tx.Parents;
+        Effects = tx.Effects;
     }
 }

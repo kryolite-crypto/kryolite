@@ -39,15 +39,18 @@ public class Vote : Transaction
 
     public Vote(Transaction tx)
     {
+        Id = tx.Id;
         TransactionId = tx.TransactionId;
-        TransactionType = TransactionType.VOTE;
-        PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");
         Height = tx.Height;
+        TransactionType = tx.TransactionType;
+        PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");
         To = tx.To;
         Value = tx.Value;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("vote requires signature");
+        ExecutionResult = tx.ExecutionResult;
         Parents = tx.Parents;
+        Effects = tx.Effects;
     }
 }
