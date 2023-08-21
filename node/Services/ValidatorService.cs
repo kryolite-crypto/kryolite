@@ -117,12 +117,12 @@ public class ValidatorService : BackgroundService
 
                 var lastView = blockchainManager.GetLastView() ?? throw new Exception("LastView returned null");
 
-                var votes = blockchainManager.GetVotesAtHeight(lastView?.Height - 1 ?? 0);
+                var votes = blockchainManager.GetVotesAtHeight(lastView.Height ?? 0);
                 var nextLeader = votes
                     .Where(x => !Banned.Contains(x.PublicKey))
                     .MinBy(x => x.Signature)?.PublicKey;
 
-                logger.LogInformation("View #{} received {} votes", lastView?.Height - 1, votes.Count);
+                logger.LogInformation("View #{} received {} votes", lastView.Height, votes.Count);
 
                 if (nextLeader is null)
                 {
@@ -156,7 +156,7 @@ public class ValidatorService : BackgroundService
                     await Task.Run(() => AllowExecution.Wait(stoppingToken));
                     logger.LogInformation("Validator     [ACTIVE]");
 
-                    nextView = blockchainManager.GetLastView();
+                    nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
                 }
 
                 await SynchronizeViewGenerator(nextView, stoppingToken);
@@ -178,7 +178,6 @@ public class ValidatorService : BackgroundService
         var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate());
         
         nextView.Sign(Node.PrivateKey);
-        nextView.TransactionId = nextView.CalculateHash();
 
         blockchainManager.AddView(nextView, true, true);
     }

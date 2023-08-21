@@ -77,8 +77,6 @@ public class BlockchainService : BackgroundService
         genesis.Parents.Add(new SHA256Hash());
         genesis.Parents.Add(new SHA256Hash());
 
-        genesis.TransactionId = genesis.CalculateHash();
-
         if (!blockchainManager.AddGenesis(genesis))
         {
             Logger.LogError("Failed to initialize Genesis");
@@ -97,8 +95,6 @@ public class BlockchainService : BackgroundService
 
         view.Parents.Add(genesis.TransactionId);
         view.Parents.Add(new SHA256Hash());
-
-        view.TransactionId = view.CalculateHash();
 
         blockchainManager.AddView(view, false, false);
     }

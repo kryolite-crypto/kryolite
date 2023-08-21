@@ -1,11 +1,10 @@
 using System.Data.Common;
 using System.Text.Json.Serialization;
 using NSec.Cryptography;
-using Redbus.Events;
 
 namespace Kryolite.Shared;
 
-public class Wallet : EventBase
+public class Wallet
 {
     public Address Address { get; set; } = new Address();
     public string? Description { get; set; }

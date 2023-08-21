@@ -1,7 +1,6 @@
 using System.Numerics;
 using System.Runtime.InteropServices;
 using MessagePack;
-using SimpleBase;
 
 namespace Kryolite.Shared;
 
@@ -31,11 +30,11 @@ public class SHA256Hash : IComparable<SHA256Hash>
         Buffer = buffer;
     }
 
-    public override string ToString() => Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (SHA256Hash hash) => hash.Buffer;
     public static implicit operator ReadOnlySpan<byte> (SHA256Hash hash) => hash.Buffer;
     public static implicit operator SHA256Hash(byte[] buffer) => new SHA256Hash { Buffer = buffer };
-    public static implicit operator SHA256Hash(string hash) => new SHA256Hash(Base58.Flickr.Decode(hash));
+    public static implicit operator SHA256Hash(string hash) => new SHA256Hash(Base32.Kryolite.Decode(hash));
     public static implicit operator SHA256Hash(Span<byte> buffer) => new SHA256Hash(buffer.ToArray());
 
     public override bool Equals(object? obj) 

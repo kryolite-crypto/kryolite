@@ -1,5 +1,4 @@
 using MessagePack;
-using SimpleBase;
 
 namespace Kryolite.Shared;
 
@@ -29,12 +28,12 @@ public class Signature : IComparable<Signature>
         Buffer = buffer;
     }
 
-    public override string ToString() => Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (Signature signature) => signature.Buffer;
     public static implicit operator Span<byte> (Signature signature) => signature.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Signature signature) => signature.Buffer;
     public static implicit operator Signature(byte[] buffer) => new Signature { Buffer = buffer };
-    public static implicit operator Signature(string signature) => new Signature { Buffer = Base58.Flickr.Decode(signature) };
+    public static implicit operator Signature(string signature) => new Signature { Buffer = Base32.Kryolite.Decode(signature) };
 
     public override bool Equals(object? obj) 
     {

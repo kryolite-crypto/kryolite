@@ -2,7 +2,6 @@ using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
 using MessagePack;
-using SimpleBase;
 
 namespace Kryolite.Shared;
 
@@ -30,11 +29,11 @@ public class PrivateKey
         Buffer = buffer;
     }
 
-    public override string ToString() => Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator PrivateKey(byte[] buffer) => new PrivateKey(buffer);
-    public static implicit operator PrivateKey(string privKey) => new PrivateKey(Base58.Flickr.Decode(privKey));
+    public static implicit operator PrivateKey(string privKey) => new PrivateKey(Base32.Kryolite.Decode(privKey));
 
     public override bool Equals(object? obj) 
     {
@@ -100,11 +99,11 @@ public class PublicKey
         Buffer = buffer;
     }
 
-    public override string ToString() => Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator PublicKey(byte[] buffer) => new PublicKey(buffer);
-    public static implicit operator PublicKey(string pubKey) => new PublicKey(Base58.Flickr.Decode(pubKey));
+    public static implicit operator PublicKey(string pubKey) => new PublicKey(Base32.Kryolite.Decode(pubKey));
 
     public override bool Equals(object? obj) 
     {

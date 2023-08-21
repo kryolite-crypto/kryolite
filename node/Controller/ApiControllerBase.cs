@@ -123,13 +123,13 @@ public class ApiControllerBase : Controller
     }
 
     [HttpPost("tx")]
-    public async Task PostTransaction([FromBody] TransactionDto tx)
+    public bool PostTransaction([FromBody] TransactionDto tx)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid transaction");
         }
 
-        await TxBuffer.AddAsync(tx);
+        return blockchainManager.AddTransaction(tx, true);
     }
 
     [HttpGet("richlist")]

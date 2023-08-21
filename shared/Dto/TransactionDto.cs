@@ -33,73 +33,6 @@ public class TransactionDto
     [IgnoreMember]
     public bool IsVerified { get; set; }
 
-    public void Sign(PrivateKey privateKey)
-    {
-        var algorithm = SignatureAlgorithm.Ed25519;
-
-        using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
-        using var stream = new MemoryStream();
-
-        stream.WriteByte((byte)TransactionType);
-        stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
-
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
-
-        if (To is not null)
-        {
-            stream.Write(To);
-        }
-
-        stream.Write(BitConverter.GetBytes(Value));
-        stream.Write(Data);
-        stream.Write(BitConverter.GetBytes(Timestamp));
-
-        foreach (var txId in Parents.Order())
-        {
-            stream.Write(txId);
-        }
-
-        stream.Flush();
-
-        Signature = algorithm.Sign(key, stream.ToArray());
-    }
-
-    public bool Verify()
-    {
-        var algorithm = new Ed25519();
-        using var stream = new MemoryStream();
-
-        stream.WriteByte((byte)TransactionType);
-        stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
-
-        if (To is not null)
-        {
-            stream.Write(To);
-        }
-
-        stream.Write(BitConverter.GetBytes(Value));
-        stream.Write(Data);
-        stream.Write(BitConverter.GetBytes(Timestamp));
-
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
-
-        foreach (var hash in Parents.Order())
-        {
-            stream.Write(hash);
-        }
-
-        stream.Flush();
-
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
-    }
-
     public SHA256Hash CalculateHash()
     {
         using var sha256 = SHA256.Create();
@@ -120,11 +53,6 @@ public class TransactionDto
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
 
         foreach (var hash in Parents.Order())
         {
@@ -149,5 +77,23 @@ public class TransactionDto
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;
         Parents = tx.Parents;
+    }
+
+    public Transaction AsTransaction()
+    {
+        switch (TransactionType)
+        {
+            case TransactionType.BLOCK:
+                return new Block(this, Parents);
+            case TransactionType.PAYMENT:
+            case TransactionType.CONTRACT:
+                return new Transaction(this, Parents);
+            case TransactionType.VIEW:
+                return new View(this, Parents);
+            case TransactionType.VOTE:
+                return new Vote(this, Parents);
+            default:
+                throw new Exception($"Transaction type {TransactionType}");
+        }
     }
 }

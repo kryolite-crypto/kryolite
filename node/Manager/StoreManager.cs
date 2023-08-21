@@ -93,7 +93,8 @@ public class StoreManager : IStoreManager
 
     public bool Exists(SHA256Hash hash)
     {
-        return Repository.Exists(hash);
+        using var _ = rwlock.EnterReadLockEx();
+        return PendingCache.ContainsKey(hash) || Repository.Exists(hash);
     }
 
     public bool AddGenesis(Genesis genesis)
@@ -155,6 +156,8 @@ public class StoreManager : IStoreManager
             var sw = Stopwatch.StartNew();
 
             var height = view.Height ?? 0;
+
+            view.TransactionId = view.CalculateHash();
 
             if (height != ChainState.Height + 1)
             {
@@ -259,6 +262,19 @@ public class StoreManager : IStoreManager
             if (broadcast)
             {
                 TransactionBuffer.Add(new TransactionDto(view));
+            }
+
+            if (castVote)
+            {
+                var parents = new List<SHA256Hash>();
+
+                parents.Add(view.TransactionId);
+
+                var vote = new Vote(Node.PublicKey, view.TransactionId, parents);
+
+                vote.Sign(Node.PrivateKey);
+
+                AddVoteInternal(vote, true);
             }
 
             EventBus.Publish(ChainState);
@@ -390,7 +406,7 @@ public class StoreManager : IStoreManager
         {
             if (blocktemplate.Validates.Count < 2)
             {
-                Logger.LogInformation("AddTransaction rejected (reason = not enought transactions referenced)");
+                Logger.LogInformation("AddBlock rejected (reason = not enought transactions referenced)");
                 return false;
             }
 
@@ -427,7 +443,31 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddTransaction(Transaction tx, bool broadcast)
+    public bool AddTransaction(TransactionDto txDto, bool broadcast)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var dbtx = Repository.BeginTransaction();
+
+        var tx = txDto.AsTransaction();
+
+        var exists = PendingCache.ContainsKey(tx.TransactionId) || Repository.Exists(tx.TransactionId);
+
+        if (exists)
+        {
+            Logger.LogDebug($"Skipping {tx.TransactionType} ({tx.TransactionId}), we already have this");
+            return true;
+        }
+
+        if (!tx.Verify())
+        {
+            Logger.LogInformation("AddTransaction rejected (reason = verify failed)");
+            return false;
+        }
+
+        return AddTransactionInternal(tx, broadcast);
+    }
+
+    private bool AddTransactionInternal(Transaction tx, bool broadcast)
     {
         try
         {
@@ -483,7 +523,7 @@ public class StoreManager : IStoreManager
             Repository.Add(tx);
             Repository.UpdateWallets(from, to);
 
-            PendingCache.Add(tx.TransactionId, tx);
+            PendingCache.TryAdd(tx.TransactionId, tx);
 
             if (broadcast)
             {
@@ -508,7 +548,7 @@ public class StoreManager : IStoreManager
                 return AddBlock((Block)tx, broadcast);
             case TransactionType.PAYMENT:
             case TransactionType.CONTRACT:
-                return AddTransaction(tx, broadcast);
+                return AddTransactionInternal(tx, broadcast);
             case TransactionType.VIEW:
                 return AddViewInternal((View)tx, broadcast, castVote);
             case TransactionType.VOTE:
@@ -538,6 +578,8 @@ public class StoreManager : IStoreManager
     {
         try
         {
+            vote.TransactionId = vote.CalculateHash();
+
             var exists = Repository.Exists(vote.TransactionId);
 
             if (exists)
@@ -632,15 +674,15 @@ public class StoreManager : IStoreManager
 
             if (!tx.Value.Verify())
             {
-                Logger.LogInformation("AddTransaction rejected (reason = invalid signature)");
+                Logger.LogInformation("AddTransaction rejected (reason = verify failed)");
                 return;
             }
 
-            if (tx.Value.Parents.Distinct().Count() < 2)
+            /*if (tx.Value.Parents.Distinct().Count() < 2)
             {
                 Logger.LogInformation("AddTransaction rejected (reason = not enought unique transactions referenced)");
                 return;
-            }
+            }*/
 
             /*foreach (var txId in tx.Parents)
             {
@@ -953,6 +995,8 @@ public class StoreManager : IStoreManager
 
                 Repository.Delete(tx);
                 Repository.DeleteState(height);
+
+                PendingCache.Remove(tx.TransactionId);
 
                 // ChainObserver.ReportProgress("Rolling back current chain", ++progress, graph.VertexCount);
             }

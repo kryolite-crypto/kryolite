@@ -1,3 +1,4 @@
+using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -23,9 +24,11 @@ public class TransactionBatch : IPacket
         using var scope = serviceProvider.CreateScope();
 
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+        var txQueue = scope.ServiceProvider.GetRequiredService<IBufferService<TransactionDto, IncomingTransactionService>>();
+
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBatch>>();
 
-        logger.LogInformation($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
+        logger.LogDebug($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
 
         var keys = Transactions.AsParallel()
             .Select(x => x.CalculateHash())
@@ -43,7 +46,7 @@ public class TransactionBatch : IPacket
             {
                 if (!keys.Contains(parent) && !storeManager.Exists(parent))
                 {
-                    logger.LogInformation($"Received transaction with unknown parent reference ({parent}), requesting sync");
+                    logger.LogDebug($"Received transaction with unknown parent reference ({parent}), requesting sync");
 
                     var lastHash = storeManager.GetChainState().LastHash ?? new SHA256Hash();
                     var request = new RequestChainSync
@@ -58,7 +61,7 @@ public class TransactionBatch : IPacket
             }
         }
 
-        storeManager.AddTransactionBatch(Transactions);
+        _ = txQueue.AddAsync(Transactions);
         args.Rebroadcast = true;
     }
 }

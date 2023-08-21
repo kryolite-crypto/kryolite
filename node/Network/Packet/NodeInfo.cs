@@ -32,14 +32,14 @@ public class NodeInfo : IPacket
 
         if (Weight > chainState.Weight)
         {
+            logger.LogInformation($"{peer.Uri.ToHostname()} has greater weight ({Weight}) compared to local ({chainState.Weight}). Initiating chain download...");
+
             var lastView = blockchainManager.GetLastView();
 
             var msg = new RequestChainSync
             {
-                LastHash = lastView.TransactionId
+                LastHash = lastView?.TransactionId ?? SHA256Hash.NULL_HASH
             };
-
-            logger.LogInformation($"{peer.Uri.ToHostname()} has greater weight ({Weight}) compared to local ({chainState.Weight}). Initiating chain download...");
 
             _ = peer.SendAsync(msg);
         }

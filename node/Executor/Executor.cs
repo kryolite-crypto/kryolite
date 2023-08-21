@@ -30,7 +30,7 @@ public class Executor
             return;
         }
 
-        Context.SetRand((long)transactions.Average(x => x.Timestamp));
+        Context.SetRand(height * transactions.Count());
 
         foreach (var tx in transactions)
         {

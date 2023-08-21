@@ -13,14 +13,14 @@ public class Vote : Transaction
 
     }
 
-    public Vote(PublicKey publicKey, List<SHA256Hash> parents)
+    public Vote(PublicKey publicKey, SHA256Hash viewId, List<SHA256Hash> parents)
     {
         TransactionType = TransactionType.VOTE;
         PublicKey = publicKey;
         Value = 0;
         Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         Parents = parents;
-
+        Data = viewId;
         TransactionId = CalculateHash();
     }
 
@@ -48,5 +48,6 @@ public class Vote : Transaction
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("vote requires signature");
+        Parents = tx.Parents;
     }
 }

@@ -416,7 +416,7 @@ public class ChainObserver : IObserver<Chain>
 
             InProgress = true;
 
-            logger.LogInformation($"Starting chain sync (transactions={chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
+            logger.LogInformation($"Starting chain sync (transactions = {chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
 
             /*foreach (var tx in chain.Transactions)
             {
@@ -432,10 +432,12 @@ public class ChainObserver : IObserver<Chain>
                 }
             }*/
 
+            var localState = storeManager.GetChainState();
+
             var minRemoteHeight = chain.Transactions
                 .Where(x => x.TransactionType == TransactionType.VIEW)
                 .Select(x => BitConverter.ToInt64(x.Data))
-                .DefaultIfEmpty()
+                .DefaultIfEmpty(localState.Height) // if transaction batch does not contain view it means we have transactions on tip of chain
                 .Min();
 
             var transactions = chain.Transactions.ToDictionary(x => x.CalculateHash(), y => y);
@@ -444,6 +446,7 @@ public class ChainObserver : IObserver<Chain>
             chain.Transactions.Clear();
 
             var remoteState = storeManager.GetChainStateAt(Math.Max(minRemoteHeight - 1, 0))!;
+
             var voteCount = 0;
             var blockCount = 0;
 
@@ -456,6 +459,7 @@ public class ChainObserver : IObserver<Chain>
                     case TransactionType.VIEW:
                         // TODO: Similar implementation exists in StoreManager
                         remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * voteCount;
+                        remoteState.LastHash = tx.CalculateHash();
 
                         if (blockCount == 0)
                         {
@@ -486,13 +490,13 @@ public class ChainObserver : IObserver<Chain>
                 }
             }
 
-            var localWeight = storeManager.GetChainState()?.Weight ?? BigInteger.Zero;
+            var localWeight = localState?.Weight ?? BigInteger.Zero;
 
             logger.LogInformation($"Local chain weight = {localWeight}, remote chain weight = {remoteState.Weight}");
 
             if (remoteState.Weight > localWeight)
             {
-                logger.LogInformation("Chain is ahead, rolling forward");
+                logger.LogInformation($"Mergin remote chain from height #{minRemoteHeight} to #{remoteState.Height}");
 
                 if (!storeManager.SetChain(graph, transactions, minRemoteHeight))
                 {
@@ -507,6 +511,21 @@ public class ChainObserver : IObserver<Chain>
 
                 // Query for next set
                 _ = chain.Peer.SendAsync(new QueryNodeInfo());
+            }
+            else if (remoteState.LastHash == localState?.LastHash!)
+            {
+                logger.LogInformation($"Local and remote chains are equal. Applying pending transactions");
+
+                if (!storeManager.AddTransactionBatch(transactions.Values.ToList()))
+                {
+                    logger.LogInformation("Failed to apply pending transactions...");
+
+                    _ = chain.Peer.DisconnectAsync();
+
+                    ReportProgress("", 0, 0);
+                    InProgress = false;
+                    return;
+                }
             }
 
             logger.LogInformation($"Chain sync finished");

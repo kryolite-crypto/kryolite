@@ -264,7 +264,7 @@ public class Startup
                 BigIntegerResolver.Instance,
                 StandardResolver.Instance
             );
-
+        
         // MessagePackSerializer.DefaultOptions = MessagePackSerializer.DefaultOptions.WithResolver(resolver);
 
         services.AddDataProtection()

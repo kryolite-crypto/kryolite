@@ -2,7 +2,6 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using MessagePack;
-using SimpleBase;
 
 namespace Kryolite.Shared;
 
@@ -34,12 +33,12 @@ public class Address
 
     public bool IsContract() => Buffer[1] == (byte)AddressType.CONTRACT;
     public bool IsWallet() => Buffer[1] == (byte)AddressType.WALLET;
-    public override string ToString() => Constant.ADDR_PREFIX + Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Constant.ADDR_PREFIX + Base32.Kryolite.Encode(Buffer);
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
     public static implicit operator byte[] (Address address) => address.Buffer;
     public static implicit operator Address(byte[] buffer) => new Address(buffer);
     public static implicit operator Address(Span<byte> buffer) => new Address(buffer.ToArray());
-    public static implicit operator Address(string address) => new Address(Base58.Flickr.Decode(address.Split(':').Last()));
+    public static implicit operator Address(string address) => new Address(Base32.Kryolite.Decode(address.Split(':').Last()));
 
     public override bool Equals(object? obj) 
     {
@@ -77,7 +76,7 @@ public class Address
             return false;
         }
 
-        var bytes = Base58.Flickr.Decode(address.Split(':').Last());
+        var bytes = Base32.Kryolite.Decode(address.Split(':').Last());
         
         if (bytes.Length != 26) {
             return false;
@@ -95,20 +94,4 @@ public class Address
     }
 
     public static int ADDRESS_SZ = 26;
-}
-
-public static class StringExtensions
-{
-    public static byte[] ToByteArray(this string str)
-    {
-        var bytes = new List<byte>();
-        for(int i = 0; i < str.Length; i +=2)
-        {
-            var a = Convert.ToInt64(str.Substring(i, 2), 16);
-            var b = Convert.ToChar(a);
-            bytes.Add(Convert.ToByte(b));
-        }
-
-        return bytes.ToArray();
-    }
 }

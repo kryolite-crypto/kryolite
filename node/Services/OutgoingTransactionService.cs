@@ -61,7 +61,7 @@ public class OutgoingTransactionService : BackgroundService, IBufferService<Tran
 
     public void Add(TransactionDto item)
     {
-        TxChannel.Writer.TryWrite(item);
+        _ = TxChannel.Writer.WriteAsync(item);
     }
 
     public void Add(List<TransactionDto> items)

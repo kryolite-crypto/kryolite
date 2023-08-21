@@ -80,11 +80,6 @@ public class Transaction : IComparable<Transaction>
         stream.WriteByte((byte)TransactionType);
         stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
 
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
-
         if (To is not null)
         {
             stream.Write(To);
@@ -121,11 +116,6 @@ public class Transaction : IComparable<Transaction>
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
 
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
-
         foreach (var hash in Parents.Order())
         {
             stream.Write(hash);
@@ -157,11 +147,6 @@ public class Transaction : IComparable<Transaction>
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-
-        if (Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
 
         foreach (var hash in Parents.Order())
         {
