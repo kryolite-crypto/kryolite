@@ -48,6 +48,7 @@ public class BlockchainService : BackgroundService
 
             if (genesis != null && !Enumerable.SequenceEqual(genesis.Data ?? new byte[0], GenesisSeed.Buffer))
             {
+                Logger.LogInformation($"{genesis.Id}: {genesis.TransactionType}");
                 Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
                 blockchainManager.ResetChain();
                 InitializeGenesisBlock(blockchainManager);
@@ -74,9 +75,6 @@ public class BlockchainService : BackgroundService
             Signature = new Signature()
         };
 
-        genesis.Parents.Add(new SHA256Hash());
-        genesis.Parents.Add(new SHA256Hash());
-
         if (!blockchainManager.AddGenesis(genesis))
         {
             Logger.LogError("Failed to initialize Genesis");
@@ -94,7 +92,6 @@ public class BlockchainService : BackgroundService
         };
 
         view.Parents.Add(genesis.TransactionId);
-        view.Parents.Add(new SHA256Hash());
 
         blockchainManager.AddView(view, false, false);
     }

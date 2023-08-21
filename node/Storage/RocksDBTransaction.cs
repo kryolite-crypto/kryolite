@@ -25,7 +25,7 @@ internal class RocksDBTransaction : ITransaction
     public void Commit()
     {
         var keyColumn = Connection.GetColumnFamily("Key");
-        var key = new byte[1];
+        var key = new byte[0];
 
         Batch.Put(key, BitConverter.GetBytes(Store.GetCurrentKey()), keyColumn);
 

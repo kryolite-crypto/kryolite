@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -68,7 +69,7 @@ public partial class SendTab : UserControl
 
             transaction.Sign(Model.SelectedWallet!.PrivateKey);
 
-            blockchainManager.AddTransaction(transaction, true);
+            blockchainManager.AddTransaction(new TransactionDto(transaction), true);
 
             if (!Model.Addresses.Contains(Model.Recipient))
             {

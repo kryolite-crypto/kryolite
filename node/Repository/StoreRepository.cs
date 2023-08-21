@@ -131,14 +131,14 @@ public class StoreRepository : IStoreRepository, IDisposable
             return null;
         }
 
-        var tx = Storage.Get<Genesis>("Transaction", key);
+        var tx = Storage.Get<Transaction>("Transaction", key);
 
         if (tx is null)
         {
             return null;
         }
 
-        return tx;
+        return new Genesis(tx);
     }
 
     public View? GetViewAt(long height)

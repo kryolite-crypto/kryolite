@@ -414,14 +414,14 @@ internal class RocksDBStorage : IStorage
     {
         var ix = ColumnFamilies["Key"];
 
-        var key = new byte[1];
+        var key = new byte[0];
 
-        if (Database.HasKey(key))
+        if (Database.HasKey(key, ix))
         {
             return BitConverter.ToUInt64(Database.Get(key, ix));
         }
 
-        Database.Put(key, BitConverter.GetBytes(0), ix);
+        Database.Put(key, BitConverter.GetBytes(0UL), ix);
 
         return 0;
     }
