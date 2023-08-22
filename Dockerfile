@@ -8,7 +8,8 @@ RUN DEBIAN_FRONTEND=noninteractive \
   tini \
   curl nano iputils-ping htop \
   xvfb x11vnc netcat fluxbox \
-  libicu-dev
+  libicu-dev \
+  libc6-dev libgflags-dev libsnappy-dev liblz4-dev libzstd-dev bzip2 lz4
 
 RUN mkdir /ghjk && cd /ghjk \
   && curl -Lsf https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh \
