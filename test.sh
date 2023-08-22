@@ -79,33 +79,13 @@ do
 done
 
 docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
-echo "sent 1 from miner to other"
-
-while true
-do
-  other=$(_balance $wallet_other)
-  if [[ $other -gt 0 ]]
-  then
-    echo "other got balance: $other"
-    if [[ "$other" != 1000000 ]]; then
-      echo "unexpected balance"
-      exit 1
-    fi
-
-    break
-  fi
-
-  echo "other balance: $other"
-  sleep 1
-done
-
 docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
 echo "sent 1 from miner to other"
 
 while true
 do
   other=$(_balance $wallet_other)
-  if [[ $other -gt 1000000 ]]
+  if [[ $other -gt 0 ]]
   then
     echo "other got balance: $other"
     if [[ "$other" != 2000000 ]]; then
@@ -129,7 +109,7 @@ do
   if [[ $other -lt 2000000 ]]
   then
     echo "other got balance: $other"
-    if [[ "$other" != 999999 ]]; then
+    if [[ "$other" != 1000000 ]]; then
       echo "unexpected balance"
       exit 1
     fi
