@@ -49,4 +49,8 @@ public interface IStoreRepository
     List<Token> GetTokens(Address from);
     List<Token> GetContractTokens(Address contractAddress);
     ITransaction BeginTransaction();
+    bool IsValidator(PublicKey publicKey);
+    long GetStake(PublicKey publicKey);
+    void AddValidator(PublicKey publicKey, long stake);
+    void DeleteValidator(PublicKey publicKey);
 }

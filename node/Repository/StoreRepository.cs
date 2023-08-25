@@ -651,14 +651,29 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.FindAll<Token>("Token", contractAddress.Buffer);
     }
 
-    public void Dispose()
-    {
-
-    }
-
     public long? GetTimestamp(SHA256Hash transactionId)
     {
         return Get(transactionId)?.Timestamp;
+    }
+
+    public bool IsValidator(PublicKey publicKey)
+    {
+        return Storage.Exists("Validator", publicKey.Buffer);
+    }
+
+    public long GetStake(PublicKey publicKey)
+    {
+        return BitConverter.ToInt64(Storage.Get("Validator", publicKey.Buffer) ?? new byte [] {0, 0, 0, 0, 0, 0, 0, 0});
+    }
+
+    public void AddValidator(PublicKey publicKey, long stake)
+    {
+        Storage.Put("Validator", publicKey.Buffer, BitConverter.GetBytes(stake), CurrentTransaction);
+    }
+
+    public void DeleteValidator(PublicKey publicKey)
+    {
+        Storage.Delete("Validator", publicKey.Buffer, CurrentTransaction);
     }
 
     private ITransaction? CurrentTransaction;
@@ -671,5 +686,10 @@ public class StoreRepository : IStoreRepository, IDisposable
         }
 
         return CurrentTransaction;
+    }
+
+    public void Dispose()
+    {
+
     }
 }

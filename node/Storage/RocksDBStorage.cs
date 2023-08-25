@@ -51,6 +51,7 @@ internal class RocksDBStorage : IStorage
                 db.CreateColumnFamily(opts, "ContractCode");
                 db.CreateColumnFamily(opts, "ContractSnapshot");
                 db.CreateColumnFamily(opts, "Token");
+                db.CreateColumnFamily(opts, "Validator");
                 db.CreateColumnFamily(opts, "ixTokenAddress");
                 db.CreateColumnFamily(opts, "ixTransactionId");
                 db.CreateColumnFamily(opts, "ixTransactionAddress");
@@ -70,6 +71,7 @@ internal class RocksDBStorage : IStorage
             { "ContractCode", opts },
             { "ContractSnapshot", opts },
             { "Token", opts },
+            { "Validator", opts},
             { "ixTokenAddress", opts },
             { "ixTransactionId", opts },
             { "ixTransactionAddress", opts },
@@ -88,6 +90,7 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ContractCode", Database.GetColumnFamily("ContractCode"));
         ColumnFamilies.Add("ContractSnapshot", Database.GetColumnFamily("ContractSnapshot"));
         ColumnFamilies.Add("Token", Database.GetColumnFamily("Token"));
+        ColumnFamilies.Add("Validator", Database.GetColumnFamily("Validator"));
         ColumnFamilies.Add("ixTokenAddress", Database.GetColumnFamily("ixTokenAddress"));
         ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
