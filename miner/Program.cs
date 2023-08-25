@@ -257,7 +257,7 @@ public class Program
             var json = await request.Content.ReadAsStringAsync();
             var blocktemplate = JsonSerializer.Deserialize<Blocktemplate>(json, SerializerOpts);
 
-            if (!restart && (blocktemplate == null || blocktemplate.Nonce == current.Nonce))
+            if (!restart && (blocktemplate == null || blocktemplate.ParentHash == current.ParentHash))
             {
                 Thread.Sleep(TimeSpan.FromSeconds(1));
                 continue;
