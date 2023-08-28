@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.WebSockets;
 using System.Xml.Linq;
 using DnsClient;
+using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
@@ -284,9 +285,8 @@ public class Startup
             services.AddLettuceEncrypt(c => c.AllowedChallengeTypes = ChallengeType.Http01);
         }
 
-        var dataSource = Path.Join(dataDir, "blocks.dat");
-
         services.AddSingleton<IStorage, RocksDBStorage>()
+                .AddSingleton<IStateCache, StateCache>()
                 .AddTransient<IStoreRepository, StoreRepository>()
                 .AddTransient<IStoreManager, StoreManager>()
                 .AddTransient<IWalletRepository, WalletRepository>()

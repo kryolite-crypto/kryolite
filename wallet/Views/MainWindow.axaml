@@ -9,7 +9,7 @@
         MinHeight="450"
         Width="900" 
         Height="600"
-		    x:DataType="vm:MainWindowViewModel"
+        x:DataType="vm:MainWindowViewModel"
         x:Class="Kryolite.Wallet.MainWindow"
         Title="Kryolite Wallet"
         TransparencyLevelHint="AcrylicBlur"

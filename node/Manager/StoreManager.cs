@@ -1,9 +1,7 @@
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
@@ -26,19 +24,12 @@ public class StoreManager : IStoreManager
     private INetworkManager NetworkManager { get; }
     private IWalletManager WalletManager { get; }
     private IEventBus EventBus { get; }
+    public IStateCache StateCache { get; }
     private ILogger<StoreManager> Logger { get; }
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-#pragma warning disable CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-    private static Dictionary<SHA256Hash, Transaction> PendingCache;
-    private static Dictionary<Address, Ledger> LedgerCache;
-    private static View CurrentView;
-    private static ChainState ChainState;
-    private static Wallet Node;
-#pragma warning restore CS8618 // Non-nullable field must contain a non-null value when exiting constructor. Consider declaring as nullable.
-
-    public StoreManager(IStoreRepository repository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, ILogger<StoreManager> logger)
+    public StoreManager(IStoreRepository repository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, ILogger<StoreManager> logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         TransactionBuffer = transactionBuffer ?? throw new ArgumentNullException(nameof(transactionBuffer));
@@ -46,55 +37,14 @@ public class StoreManager : IStoreManager
         NetworkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         WalletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
+        StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-        if (PendingCache is null)
-        {
-            using var _ = rwlock.EnterWriteLockEx();
-            PendingCache = new();
-
-            var pending = Repository.GetPending();
-
-            foreach (var parent in pending)
-            {
-                ref var tx = ref CollectionsMarshal.GetValueRefOrAddDefault(PendingCache, parent.TransactionId, out var existed);
-
-                if (!existed)
-                {
-                    tx = parent;
-                }
-            }
-        }
-
-        if (LedgerCache is null)
-        {
-            using var _ = rwlock.EnterWriteLockEx();
-            LedgerCache = new();
-        }
-
-        if (CurrentView is null)
-        {
-            using var _ = rwlock.EnterWriteLockEx();
-            CurrentView = Repository.GetLastView()!;
-        }
-
-        if (ChainState is null)
-        {
-            using var _ = rwlock.EnterWriteLockEx();
-            ChainState = Repository.GetChainState()!;
-        }
-
-        if (Node is null)
-        {
-            using var _ = rwlock.EnterWriteLockEx();
-            Node = walletManager.GetNodeWallet() ?? throw new ArgumentNullException(nameof(Node));
-        }
     }
 
     public bool Exists(SHA256Hash hash)
     {
         using var _ = rwlock.EnterReadLockEx();
-        return PendingCache.ContainsKey(hash) || Repository.Exists(hash);
+        return StateCache.Contains(hash) || Repository.Exists(hash);
     }
 
     public bool AddGenesis(Genesis genesis)
@@ -118,9 +68,8 @@ public class StoreManager : IStoreManager
 
             Repository.SaveState(chainState);
 
-            ChainState = chainState;
-
-            PendingCache.Add(genesis.TransactionId, genesis);
+            StateCache.SetChainState(chainState);
+            StateCache.Add(genesis);
 
             dbtx.Commit();
             return true;
@@ -157,32 +106,13 @@ public class StoreManager : IStoreManager
 
             var height = view.Height ?? 0;
 
-            view.TransactionId = view.CalculateHash();
+            StateCache.Add(view);
 
-            if (height != ChainState.Height + 1)
-            {
-                Logger.LogInformation("Discarding view #{height} (reason = invalid height)", view.Height);
-                return false;
-            }
+            var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, StateCache.TransactionCount(), 2);
 
-            if (height > 0)
-            {
-                var earliest = CurrentView.Timestamp + Constant.HEARTBEAT_INTERVAL;
+            graph.AddVertexRange(StateCache.GetTransactionIds());
 
-                if (view.Timestamp < earliest)
-                {
-                    Logger.LogInformation("Discarding view #{height} (reason = timestamp too early)", view.Height);
-                    return false;
-                }
-            }
-
-            PendingCache.Add(view.TransactionId, view);
-
-            var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, PendingCache.Count, 2);
-
-            graph.AddVertexRange(PendingCache.Keys);
-
-            foreach (var entry in PendingCache)
+            foreach (var entry in StateCache.GetTransactions())
             {
                 foreach (var parent in entry.Value.Parents)
                 {
@@ -209,7 +139,7 @@ public class StoreManager : IStoreManager
                     continue;
                 }
 
-                if (PendingCache.Remove(vertex, out var tx))
+                if (StateCache.Remove(vertex, out var tx))
                 {
                     toExecute.Add(tx);
 
@@ -224,70 +154,72 @@ public class StoreManager : IStoreManager
                 }
             }
 
-            var context = new ExecutorContext(Repository, LedgerCache, voteCount, blockCount);
+            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), voteCount, blockCount);
             var executor = ExecutorFactory.Create(context);
 
             executor.Execute(toExecute, height);
 
-            ChainState.Weight += ChainState.CurrentDifficulty.ToWork() * voteCount;
+            var chainState = StateCache.GetCurrentState();
+            chainState.Weight += chainState.CurrentDifficulty.ToWork() * voteCount;
 
             if (height > 0)
             {
                 if (blockCount == 0)
                 {
-                    var work = ChainState.CurrentDifficulty.ToWork();
+                    var work = chainState.CurrentDifficulty.ToWork();
                     var nextTarget = work / 4 * 3;
                     var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
 
-                    ChainState.CurrentDifficulty = BigInteger.Max(minTarget, nextTarget).ToDifficulty();
+                    chainState.CurrentDifficulty = BigInteger.Max(minTarget, nextTarget).ToDifficulty();
                 }
                 else
                 {
-                    var totalWork = ChainState.CurrentDifficulty.ToWork() * blockCount;
-                    ChainState.CurrentDifficulty = totalWork.ToDifficulty();
+                    var totalWork = chainState.CurrentDifficulty.ToWork() * blockCount;
+                    chainState.CurrentDifficulty = totalWork.ToDifficulty();
                 }
             }
 
-            ChainState.Height++;
-            ChainState.LastHash = view.TransactionId;
+            chainState.Height++;
+            chainState.LastHash = view.TransactionId;
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
-            Repository.SaveState(ChainState);
+            Repository.SaveState(chainState);
             Repository.Add(view);
             Repository.Finalize(toExecute);
 
-            CurrentView = view;
+            StateCache.SetView(view);
 
             if (broadcast)
             {
                 TransactionBuffer.Add(new TransactionDto(view));
             }
 
-            if (castVote)
+            if (castVote) // TODO: Check that this is validator node
             {
                 var parents = new List<SHA256Hash>();
 
                 parents.Add(view.TransactionId);
 
-                var vote = new Vote(Node.PublicKey, view.TransactionId, parents);
+                var node = WalletManager.GetNodeWallet();
+                var vote = new Vote(node!.PublicKey, view.TransactionId, parents);
 
-                vote.Sign(Node.PrivateKey);
+                vote.Sign(node.PrivateKey);
 
                 AddVoteInternal(vote, true);
             }
 
-            EventBus.Publish(ChainState);
+            EventBus.Publish(chainState);
 
-            foreach (var ledger in LedgerCache.Values)
+            foreach (var ledger in StateCache.GetLedgers().Values)
             {
                 EventBus.Publish(ledger);
             }
 
-            LedgerCache = new(); // note: LedgerCache.Clear() has really bad performance here
-
+            StateCache.ClearLedgers();
+            
             sw.Stop();
-            Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {ChainState.CurrentDifficulty}]");
+            Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
 
             return true;
         }
@@ -295,22 +227,11 @@ public class StoreManager : IStoreManager
         {
             Logger.LogError(ex, "AddView error");
 
-            PendingCache = new();
+            StateCache.ClearTransactions();
+            StateCache.ClearLedgers();
 
-            var pending = Repository.GetPending();
-
-            foreach (var parent in pending)
-            {
-                ref var tx = ref CollectionsMarshal.GetValueRefOrAddDefault(PendingCache, parent.TransactionId, out var existed);
-
-                if (!existed)
-                {
-                    tx = parent;
-                }
-            }
-
-            CurrentView = Repository.GetLastView()!;
-            ChainState = Repository.GetChainState()!;
+            StateCache.SetView(Repository.GetLastView()!);
+            StateCache.SetChainState(Repository.GetChainState()!);
         }
 
         return false;
@@ -320,38 +241,6 @@ public class StoreManager : IStoreManager
     {
         var sw = Stopwatch.StartNew();
 
-        if (block.To is null)
-        {
-            Logger.LogInformation("AddBlock rejected (reason = null to address)");
-            return false;
-        }
-
-        if (block.Value != Constant.BLOCK_REWARD)
-        {
-            Logger.LogInformation("AddBlock rejected (reason = invalid reward)");
-            return false;
-        }
-
-        if (!block.IsVerified && !block.Verify())
-        {
-            Logger.LogInformation("AddBlock rejected (reason = invalid nonce)");
-            return false;
-        }
-
-        block.TransactionId = block.CalculateHash();
-
-        if (block.Difficulty != ChainState.CurrentDifficulty)
-        {
-            Logger.LogInformation("AddBlock rejected (reason = invalid difficulty)");
-            return false;
-        }
-
-        /*if (block.ParentHash != ChainState.LastHash)
-        {
-            Logger.LogInformation("AddBlock rejected (reason = invalid parent hash)");
-            return false;
-        }*/
-
         var exists = Repository.Exists(block.TransactionId);
 
         if (exists)
@@ -360,16 +249,16 @@ public class StoreManager : IStoreManager
             return false;
         }
 
-        if (!LedgerCache.TryGetValue(block.To, out var to))
+        if (!StateCache.TryGet(block.To!, out var to))
         {
-            to = Repository.GetWallet(block.To);
+            to = Repository.GetWallet(block.To!);
 
             if (to is null)
             {
-                to = new Ledger(block.To);
+                to = new Ledger(block.To!);
             }
 
-            LedgerCache.Add(block.To, to);
+            StateCache.Add(to);
         }
 
         checked
@@ -377,22 +266,24 @@ public class StoreManager : IStoreManager
             to.Pending += block.Value;
         }
 
-        ChainState.Blocks++;
+        var chainState = StateCache.GetCurrentState();
+
+        chainState.Blocks++;
 
         Repository.UpdateWallet(to);
         Repository.Add(block);
-        Repository.SaveState(ChainState);
+        Repository.SaveState(chainState);
 
         sw.Stop();
 
-        Logger.LogInformation($"Added block #{ChainState.Blocks} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
+        Logger.LogInformation($"Added block #{chainState.Blocks} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
 
         if (broadcast)
         {
             TransactionBuffer.Add(new TransactionDto(block));
         }
 
-        PendingCache.Add(block.TransactionId, block);
+        StateCache.Add(block);
 
         return true;
     }
@@ -448,58 +339,24 @@ public class StoreManager : IStoreManager
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
-        var tx = txDto.AsTransaction();
-
-        var exists = PendingCache.ContainsKey(tx.TransactionId) || Repository.Exists(tx.TransactionId);
-
-        if (exists)
+        if (AddTransactionInternal(txDto.AsTransaction(), broadcast))
         {
-            Logger.LogDebug($"Skipping {tx.TransactionType} ({tx.TransactionId}), we already have this");
+            dbtx.Commit();
             return true;
         }
 
-        if (!tx.Verify())
-        {
-            Logger.LogInformation("AddTransaction rejected (reason = verify failed)");
-            return false;
-        }
-
-        return AddTransactionInternal(tx, broadcast);
+        dbtx.Rollback();
+        return false;
     }
 
     private bool AddTransactionInternal(Transaction tx, bool broadcast)
     {
         try
         {
-            if (tx.TransactionType == TransactionType.PAYMENT && tx.Value == 0)
-            {
-                Logger.LogInformation("AddTransaction rejected (reason = zero payment)");
-                return false;
-            }
-
-            if (tx.To is null)
-            {
-                Logger.LogInformation("AddTransaction rejected (reason = null 'to' address)");
-                return false;
-            }
-
-            if (!tx.IsVerified)
-            {
-                tx.TransactionId = tx.CalculateHash();
-
-                var exists = Repository.Exists(tx.TransactionId);
-
-                if (exists)
-                {
-                    // no need to do anything, we have this already
-                    return true;
-                }
-            }
-
-            if (!LedgerCache.TryGetValue(tx.From!, out var from))
+            if (!StateCache.TryGet(tx.From!, out var from))
             {
                 from = Repository.GetWallet(tx.From!) ?? new Ledger(tx.From!);
-                LedgerCache.Add(tx.From!, from);
+                StateCache.Add(from);
             }
 
             if (from.Balance < tx.Value)
@@ -508,10 +365,10 @@ public class StoreManager : IStoreManager
                 return false;
             }
 
-            if (!LedgerCache.TryGetValue(tx.To, out var to))
+            if (!StateCache.TryGet(tx.To!, out var to))
             {
-                to = Repository.GetWallet(tx.To) ?? new Ledger(tx.To);
-                LedgerCache.Add(tx.To, to);
+                to = Repository.GetWallet(tx.To!) ?? new Ledger(tx.To!);
+                StateCache.Add(to);
             }
 
             checked
@@ -523,7 +380,7 @@ public class StoreManager : IStoreManager
             Repository.Add(tx);
             Repository.UpdateWallets(from, to);
 
-            PendingCache.TryAdd(tx.TransactionId, tx);
+            StateCache.Add(tx);
 
             if (broadcast)
             {
@@ -589,8 +446,7 @@ public class StoreManager : IStoreManager
             }
 
             Repository.Add(vote);
-
-            PendingCache.Add(vote.TransactionId, vote);
+            StateCache.Add(vote);
 
             if (broadcast)
             {
@@ -662,44 +518,10 @@ public class StoreManager : IStoreManager
 
         transactionList.Clear();
 
-        Parallel.ForEach(transactions, tx =>
-        {
-            var exists = Repository.Exists(tx.Key);
+        // TODO: Call verifier
 
-            if (exists)
-            {
-                // no need to do anything, we have this already
-                return;
-            }
-
-            if (!tx.Value.Verify())
-            {
-                Logger.LogInformation("AddTransaction rejected (reason = verify failed)");
-                return;
-            }
-
-            /*if (tx.Value.Parents.Distinct().Count() < 2)
-            {
-                Logger.LogInformation("AddTransaction rejected (reason = not enought unique transactions referenced)");
-                return;
-            }*/
-
-            /*foreach (var txId in tx.Parents)
-            {
-                var parentExists = PendingCache.ContainsKey(txId) || Repository.Exists(txId);
-
-                if (!parentExists)
-                {
-                    Logger.LogInformation("AddTransaction rejected (reason = unknown transaction reference)");
-                    return;
-                }
-            }*/
-
-            tx.Value.IsVerified = true;
-        });
-
-        PendingCache.EnsureCapacity(PendingCache.Count + transactionList.Count());
-        LedgerCache.EnsureCapacity(LedgerCache.Count + transactionList.Count());
+        StateCache.EnsureTransactionCapacity(StateCache.TransactionCount() + transactionList.Count());
+        StateCache.EnsureLedgerCapacity(StateCache.LedgerCount() + transactionList.Count());
 
         try
         {
@@ -707,7 +529,7 @@ public class StoreManager : IStoreManager
             {
                 var tx = transactions[vertex];
 
-                if (!tx.IsVerified)
+                if (tx.ExecutionResult != ExecutionResult.VERIFIED)
                 {
                     continue;
                 }
@@ -996,17 +818,17 @@ public class StoreManager : IStoreManager
                 Repository.Delete(tx);
                 Repository.DeleteState(height);
 
-                PendingCache.Remove(tx.TransactionId);
+                StateCache.Remove(tx.TransactionId, out var _);
 
                 // ChainObserver.ReportProgress("Rolling back current chain", ++progress, graph.VertexCount);
             }
         }
 
         var newState = Repository.GetChainStateAt(min - 1) ?? throw new Exception("view not found");
-        ChainState = newState;
+        StateCache.SetChainState(newState);
         Repository.SaveState(newState);
 
-        CurrentView = Repository.GetViewAt(min - 1) ?? throw new Exception("view not found");
+        StateCache.SetView(Repository.GetViewAt(min - 1) ?? throw new Exception("view not found"));
 
         Repository.UpdateWallets(ledger.Values);
         Repository.UpdateContracts(contracts.Values);
@@ -1016,6 +838,7 @@ public class StoreManager : IStoreManager
     {
         using var _ = rwlock.EnterWriteLockEx();
 
+        throw new NotImplementedException();
         // Repository.GetContext().Database.EnsureDeleted();
         // Repository.GetContext().Database.Migrate();
     }
@@ -1209,7 +1032,7 @@ public class StoreManager : IStoreManager
         using var _ = rwlock.EnterReadLockEx();
 
         var transactions = Repository.GetTransactionsAfterHeight(height);
-        transactions.AddRange(PendingCache.Values);
+        transactions.AddRange(StateCache.GetTransactions().Values);
         return transactions;
     }
 }
