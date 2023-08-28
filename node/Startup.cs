@@ -184,7 +184,7 @@ public class Startup
                         {
                             var builder = new UriBuilder()
                             {
-                                Host = address.ToString(),
+                                Host = address!.ToString(),
                                 Port = port
                             };
 
@@ -291,6 +291,7 @@ public class Startup
                 .AddTransient<IStoreManager, StoreManager>()
                 .AddTransient<IWalletRepository, WalletRepository>()
                 .AddTransient<IWalletManager, WalletManager>()
+                .AddTransient<IVerifier, Verifier>()
                 .AddSingleton<INetworkManager, NetworkManager>()
                 .AddSingleton<IMeshNetwork, MeshNetwork>()
                 .AddSingleton<IExecutorFactory, ExecutorFactory>()

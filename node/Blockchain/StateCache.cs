@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 
@@ -12,7 +13,7 @@ public class StateCache : IStateCache
     private ChainState ChainState;
     private Wallet Node;
 
-    public StateCache(IStoreManager store, IWalletManager walletManager)
+    public StateCache(IStoreRepository store, IWalletManager walletManager)
     {
         CurrentView = store.GetLastView() ?? new View();
         ChainState = store.GetChainState() ?? new ChainState();

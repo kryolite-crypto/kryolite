@@ -25,11 +25,12 @@ public class StoreManager : IStoreManager
     private IWalletManager WalletManager { get; }
     private IEventBus EventBus { get; }
     public IStateCache StateCache { get; }
+    public IVerifier Verifier { get; }
     private ILogger<StoreManager> Logger { get; }
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, ILogger<StoreManager> logger)
+    public StoreManager(IStoreRepository repository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, ILogger<StoreManager> logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         TransactionBuffer = transactionBuffer ?? throw new ArgumentNullException(nameof(transactionBuffer));
@@ -38,6 +39,7 @@ public class StoreManager : IStoreManager
         WalletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
+        Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -87,6 +89,11 @@ public class StoreManager : IStoreManager
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
+
+        if (!Verifier.Verify(view))
+        {
+            return false;
+        }
 
         if (AddViewInternal(view, broadcast, castVote))
         {
@@ -237,18 +244,42 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddBlock(Block block, bool broadcast)
+    public bool AddBlock(Blocktemplate blocktemplate, bool broadcast)
     {
-        var sw = Stopwatch.StartNew();
+        using var _ = rwlock.EnterWriteLockEx();
+        using var dbtx = Repository.BeginTransaction();
 
-        var exists = Repository.Exists(block.TransactionId);
-
-        if (exists)
+        try
         {
-            Logger.LogInformation("AddBlock rejected (reason = already exists)");
+            var block = new Block(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty, blocktemplate.Validates, blocktemplate.Solution);
+
+            if (!Verifier.Verify(block))
+            {
+                return false;
+            }
+
+            if (AddBlockInternal(block, broadcast))
+            {
+                dbtx.Commit();
+                return true;
+            }
+
+            dbtx.Rollback();
             return false;
         }
+        catch (Exception ex)
+        {
+            dbtx.Rollback();
+            Logger.LogError(ex, "AddBlock error");
+        }
 
+        return false;
+    }
+
+    private bool AddBlockInternal(Block block, bool broadcast)
+    {
+        var sw = Stopwatch.StartNew();
+        
         if (!StateCache.TryGet(block.To!, out var to))
         {
             to = Repository.GetWallet(block.To!);
@@ -288,58 +319,19 @@ public class StoreManager : IStoreManager
         return true;
     }
 
-    public bool AddBlock(Blocktemplate blocktemplate, bool broadcast)
-    {
-        using var _ = rwlock.EnterWriteLockEx();
-        using var dbtx = Repository.BeginTransaction();
-
-        try
-        {
-            if (blocktemplate.Validates.Count < 2)
-            {
-                Logger.LogInformation("AddBlock rejected (reason = not enought transactions referenced)");
-                return false;
-            }
-
-            foreach (var txhash in blocktemplate.Validates)
-            {
-                var tx = Repository.Get(txhash);
-
-                if (tx is null)
-                {
-                    Logger.LogInformation("AddBlock rejected (reason = unknown transaction reference)");
-                    return false;
-                }
-
-                if (blocktemplate.Timestamp < tx.Timestamp)
-                {
-                    Logger.LogInformation("AddBlock rejected (reason = invalid timestamp)");
-                    return false;
-                }
-            }
-
-            var block = new Block(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty, blocktemplate.Validates, blocktemplate.Solution);
-
-            var newblock = AddBlock(block, broadcast);
-
-            dbtx.Commit();
-            return newblock;
-        }
-        catch (Exception ex)
-        {
-            dbtx.Rollback();
-            Logger.LogError(ex, "AddBlock error");
-        }
-
-        return false;
-    }
-
     public bool AddTransaction(TransactionDto txDto, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
-        if (AddTransactionInternal(txDto.AsTransaction(), broadcast))
+        var tx = txDto.AsTransaction();
+
+        if (!Verifier.Verify(tx))
+        {
+            return false;
+        }
+
+        if (AddTransactionInternal(tx, broadcast))
         {
             dbtx.Commit();
             return true;
@@ -397,29 +389,15 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    private bool ExecuteTransaction(Transaction tx, bool broadcast, bool castVote)
-    {
-        switch (tx.TransactionType)
-        {
-            case TransactionType.BLOCK:
-                return AddBlock((Block)tx, broadcast);
-            case TransactionType.PAYMENT:
-            case TransactionType.CONTRACT:
-                return AddTransactionInternal(tx, broadcast);
-            case TransactionType.VIEW:
-                return AddViewInternal((View)tx, broadcast, castVote);
-            case TransactionType.VOTE:
-                return AddVoteInternal((Vote)tx, broadcast);
-            default:
-                Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
-                return false;
-        }
-    }
-
     public bool AddVote(Vote vote, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
+
+        if (!Verifier.Verify(vote))
+        {
+            return false;
+        }
 
         if (AddVoteInternal(vote, broadcast))
         {
@@ -518,8 +496,6 @@ public class StoreManager : IStoreManager
 
         transactionList.Clear();
 
-        // TODO: Call verifier
-
         StateCache.EnsureTransactionCapacity(StateCache.TransactionCount() + transactionList.Count());
         StateCache.EnsureLedgerCapacity(StateCache.LedgerCount() + transactionList.Count());
 
@@ -529,12 +505,26 @@ public class StoreManager : IStoreManager
             {
                 var tx = transactions[vertex];
 
-                if (tx.ExecutionResult != ExecutionResult.VERIFIED)
+                if (!Verifier.Verify(tx))
                 {
                     continue;
                 }
 
-                ExecuteTransaction(tx, broadcast, castVote);
+                switch (tx.TransactionType)
+                {
+                    case TransactionType.BLOCK:
+                        return AddBlockInternal((Block)tx, broadcast);
+                    case TransactionType.PAYMENT:
+                    case TransactionType.CONTRACT:
+                        return AddTransactionInternal(tx, broadcast);
+                    case TransactionType.VIEW:
+                        return AddViewInternal((View)tx, broadcast, castVote);
+                    case TransactionType.VOTE:
+                        return AddVoteInternal((Vote)tx, broadcast);
+                    default:
+                        Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
+                        break;
+                }
             }
         }
         catch (Exception ex)
@@ -583,11 +573,10 @@ public class StoreManager : IStoreManager
     public Blocktemplate GetBlocktemplate(Address wallet)
     {
         using var _ = rwlock.EnterReadLockEx();
-        //using var dbtx = Repository.BeginTransaction();
 
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        var chainState = Repository.GetChainState();
+        var chainState = Repository.GetChainState() ?? throw new Exception("failed to load chainstate");
         var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, Repository.GetTransactionsToValidate(), new SHA256Hash());
 
         return new Blocktemplate

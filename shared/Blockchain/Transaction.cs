@@ -45,9 +45,6 @@ public class Transaction : IComparable<Transaction>
     public List<Effect> Effects { get; set; } = new();
 
     [IgnoreMember]
-    public bool IsVerified { get; set; }
-
-    [IgnoreMember]
     public Address? From { get; private set; }
 
     private PublicKey? pk;

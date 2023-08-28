@@ -8,6 +8,8 @@ namespace Kryolite.Shared.Blockchain;
 [MessagePackObject]
 public class Vote : Transaction
 {
+    public SHA256Hash LastHash { get => Data ?? SHA256Hash.NULL_HASH; set => Data = value; }
+
     public Vote()
     {
 

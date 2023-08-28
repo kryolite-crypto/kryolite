@@ -7,6 +7,6 @@ public enum TransactionType : byte
     BLOCK,
     VIEW,
     CONTRACT,
-    VALIDATOR,
+    REG_VALIDATOR,
     VOTE
 }
