@@ -90,7 +90,7 @@ public class StoreManager : IStoreManager
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
-        if (!Verifier.Verify(view))
+        if (view.Height > 0 && !Verifier.Verify(view))
         {
             return false;
         }
