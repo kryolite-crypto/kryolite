@@ -159,7 +159,7 @@ public class ApiControllerBase : Controller
     [HttpGet("chain/tip")]
     public IActionResult GetChainTip()
     {
-        return Ok(blockchainManager.GetTransactionToValidate());
+        return Ok(blockchainManager.GetTransactionToValidate(2));
     }
 
     [HttpGet("ledger/{address}")]

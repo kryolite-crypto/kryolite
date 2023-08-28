@@ -10,7 +10,7 @@ public interface IStoreRepository
     bool Exists(SHA256Hash transactionId);
     Transaction? Get(SHA256Hash transactionId);
     List<Transaction> GetPending();
-    void Add(Transaction tx);
+    void AddRange(List<Transaction> transactions);
     void Delete(Transaction tx);
     Genesis? GetGenesis();
     View? GetLastView();
@@ -20,11 +20,11 @@ public interface IStoreRepository
     List<Vote> GetVotesAtHeight(long height);
     void SaveState(ChainState chainState);
     void DeleteState(long height);
-    void Finalize(List<Transaction> transactions);
     long? GetTimestamp(SHA256Hash transactionId);
     ChainState? GetChainState();
     ChainState? GetChainStateAt(long height);
     Ledger? GetWallet(Address address);
+    List<Transaction> GetLastNTransctions(int count);
     List<Transaction> GetLastNTransctions(Address address, int count);
     void UpdateWallet(Ledger wallet);
     void UpdateWallets(IEnumerable<Ledger> wallets);
@@ -44,7 +44,6 @@ public interface IStoreRepository
     void UpdateTokens(IEnumerable<Token> tokens);
     void DeleteToken(Token token);
     List<Transaction> GetTransactions(Address address);
-    List<SHA256Hash> GetTransactionsToValidate();
     Token? GetToken(Address contract, SHA256Hash tokenId);
     List<Token> GetTokens(Address from);
     List<Token> GetContractTokens(Address contractAddress);

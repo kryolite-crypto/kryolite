@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using QuikGraph;
 
 namespace Kryolite.Node.Blockchain;
 
@@ -28,4 +29,6 @@ public interface IStateCache
 
     ChainState GetCurrentState();
     View GetCurrentView();
+
+    AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> GetPendingGraph();
 }

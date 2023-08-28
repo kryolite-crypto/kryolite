@@ -2,12 +2,15 @@ using System.Diagnostics.CodeAnalysis;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using QuikGraph;
 
 namespace Kryolite.Node.Blockchain;
 
 public class StateCache : IStateCache
 {
     private Dictionary<SHA256Hash, Transaction> PendingCache = new();
+    private AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> PendingGraph = new();
+
     private Dictionary<Address, Ledger> LedgerCache = new();
     private View CurrentView;
     private ChainState ChainState;
@@ -23,6 +26,16 @@ public class StateCache : IStateCache
     public void Add(Transaction tx)
     {
         PendingCache.Add(tx.TransactionId, tx);
+
+        PendingGraph.AddVertex(tx.TransactionId);
+
+        foreach (var parent in tx.Parents)
+        {
+            if (PendingGraph.ContainsVertex(parent))
+            {
+                PendingGraph.AddEdge(new Edge<SHA256Hash>(tx.TransactionId, parent));
+            }
+        }
     }
 
     public void Add(Ledger ledger)
@@ -38,6 +51,7 @@ public class StateCache : IStateCache
     public void ClearTransactions()
     {
         PendingCache = new();
+        PendingGraph = new();
     }
 
     public bool Contains(SHA256Hash hash)
@@ -75,6 +89,11 @@ public class StateCache : IStateCache
         return LedgerCache;
     }
 
+    public AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> GetPendingGraph()
+    {
+        return PendingGraph;
+    }
+
     public IEnumerable<SHA256Hash> GetTransactionIds()
     {
         return PendingCache.Keys;
@@ -92,7 +111,19 @@ public class StateCache : IStateCache
 
     public bool Remove(SHA256Hash id, [MaybeNullWhen(false)]  out Transaction tx)
     {
-        return PendingCache.Remove(id, out tx);
+        if (PendingCache.Remove(id, out tx))
+        {
+            if (!PendingGraph.RemoveVertex(id))
+            {
+                // Failed to fully remove pending transaction, re-add to cache
+                PendingCache.Add(id, tx);
+                return false;
+            }
+
+            return true;
+        }
+
+        return false;
     }
 
     public void SetChainState(ChainState chainState)

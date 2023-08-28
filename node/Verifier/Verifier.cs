@@ -51,7 +51,7 @@ public class Verifier : IVerifier
 
         foreach (var parent in tx.Parents)
         {
-            if (!StateCache.Contains(tx.TransactionId) && !Store.Exists(parent))
+            if (!StateCache.Contains(parent) && !Store.Exists(parent))
             {
                 Logger.LogInformation($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
                 return false;

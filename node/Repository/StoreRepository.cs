@@ -15,6 +15,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage = storage ?? throw new ArgumentNullException(nameof(storage));
     }
 
+    public void AddRange(List<Transaction> transactions)
+    {
+        foreach (var tx in transactions)
+        {
+            Add(tx);
+        }
+    }
+
     public void Add(Transaction tx)
     {
         var newEntity = tx.Id == 0;
@@ -51,45 +59,20 @@ public class StoreRepository : IStoreRepository, IDisposable
             Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
         }
 
-        // Childless index
-        Storage.Put("ixChildless", tx.TransactionId.Buffer, id, CurrentTransaction);
+        // height index
+        var heightKey = keyMem.Slice(0, 17);
 
-        foreach (var parent in tx.Parents)
-        {
-            Storage.Delete("ixChildless", parent.Buffer, CurrentTransaction);
-        }
+        var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? ulong.MaxValue);
+        Array.Reverse(height);
+        height.CopyTo(heightKey);
+
+        heightKey[8] = (byte)tx.TransactionType;
+
+        id.CopyTo(heightKey.Slice(9));
+
+        Storage.Put("ixTransactionHeight", heightKey, id, CurrentTransaction);
 
         ArrayPool<byte>.Shared.Return(keyBuf);
-    }
-
-    public void Finalize(List<Transaction> transactions)
-    {
-        if (transactions.Count == 0)
-        {
-            return;
-        }
-
-        var key = ArrayPool<byte>.Shared.Rent(17);
-
-        for (var i = 0; i < transactions.Count; i++)
-        {
-            var tx = transactions[i];
-            var id = BitConverter.GetBytes(tx.Id);
-
-            Storage.Put("Transaction", id, MessagePackSerializer.Serialize(tx), CurrentTransaction);
-
-            var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? ulong.MaxValue);
-            Array.Reverse(height);
-            height.CopyTo(key, 0);
-
-            key[8] = (byte)tx.TransactionType;
-
-            id.CopyTo(key, 9);
-
-            Storage.Put("ixTransactionHeight", key, id, CurrentTransaction);
-        }
-
-        ArrayPool<byte>.Shared.Return(key);
     }
 
     public bool Exists(SHA256Hash transactionId)
@@ -354,6 +337,12 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Delete("ContractSnapshot", address, CurrentTransaction);
     }
 
+    public List<Transaction> GetLastNTransctions(int count)
+    {
+        var ids = Storage.FindLast("ixTransactionHeight", count);
+        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+    }
+
     public List<Transaction> GetLastNTransctions(Address address, int count)
     {
         /*using var cmd = Connection!.CreateCommand();
@@ -589,44 +578,6 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         return results;*/
         return new();
-    }
-
-    public List<SHA256Hash> GetTransactionsToValidate()
-    {
-        var keys = Storage.FindAll("ixChildless");
-
-        var hashes = Storage.GetMany<Transaction>("Transaction", keys.ToArray())
-            .Select(x => x.TransactionId)
-            .ToList();
-
-        if (hashes.Count < 2)
-        {
-            var ids = Storage.FindLast("ixTransactionHeight", 2 + hashes.Count);
-
-            foreach (var id in ids)
-            {
-                var tx = Storage.Get<Transaction>("Transaction", id);
-
-                if (tx is null)
-                {
-                    continue;
-                }
-
-                if (hashes.Contains(tx.TransactionId))
-                {
-                    continue;
-                }
-
-                hashes.Add(tx.TransactionId);
-
-                if (hashes.Count >= 2)
-                {
-                    break;
-                }
-            }
-        }
-
-        return hashes;
     }
 
     public Token? GetToken(Address contract, SHA256Hash tokenId)

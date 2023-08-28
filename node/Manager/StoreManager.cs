@@ -58,8 +58,6 @@ public class StoreManager : IStoreManager
         {
             genesis.TransactionId = genesis.CalculateHash();
 
-            Repository.Add(genesis);
-
             var chainState = new ChainState
             {
                 Id = 0,
@@ -115,22 +113,7 @@ public class StoreManager : IStoreManager
 
             StateCache.Add(view);
 
-            var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, StateCache.TransactionCount(), 2);
-
-            graph.AddVertexRange(StateCache.GetTransactionIds());
-
-            foreach (var entry in StateCache.GetTransactions())
-            {
-                foreach (var parent in entry.Value.Parents)
-                {
-                    if (graph.ContainsVertex(parent))
-                    {
-                        graph.AddEdge(new Edge<SHA256Hash>(entry.Key, parent));
-                    }
-                }
-            }
-
-            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(graph);
+            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(StateCache.GetPendingGraph());
             bfs.SetRootVertex(view.TransactionId);
             bfs.Compute();
 
@@ -191,9 +174,8 @@ public class StoreManager : IStoreManager
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
+            Repository.AddRange(toExecute);
             Repository.SaveState(chainState);
-            Repository.Add(view);
-            Repository.Finalize(toExecute);
 
             StateCache.SetView(view);
 
@@ -302,7 +284,6 @@ public class StoreManager : IStoreManager
         chainState.Blocks++;
 
         Repository.UpdateWallet(to);
-        Repository.Add(block);
         Repository.SaveState(chainState);
 
         sw.Stop();
@@ -369,7 +350,6 @@ public class StoreManager : IStoreManager
                 to.Balance += tx.Value;
             }
 
-            Repository.Add(tx);
             Repository.UpdateWallets(from, to);
 
             StateCache.Add(tx);
@@ -423,7 +403,6 @@ public class StoreManager : IStoreManager
                 return true;
             }
 
-            Repository.Add(vote);
             StateCache.Add(vote);
 
             if (broadcast)
@@ -462,7 +441,46 @@ public class StoreManager : IStoreManager
     public List<SHA256Hash> GetTransactionToValidate()
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetTransactionsToValidate();
+        var transactions = StateCache.GetPendingGraph().Roots()
+            .ToList();
+
+        if (transactions.Count == 0)
+        {
+            return Repository.GetLastNTransctions(1)
+                .Select(x => x.TransactionId)
+                .ToList();
+        }
+
+        return transactions;
+    }
+
+    public List<SHA256Hash> GetTransactionToValidate(int count)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        
+        var hashes = StateCache.GetPendingGraph().Roots()
+            .Take(count)
+            .ToList();
+
+        if (hashes.Count < count)
+        {
+            var transactions = Repository.GetLastNTransctions(count);
+
+            foreach (var tx in transactions)
+            {
+                if (!hashes.Contains(tx.TransactionId))
+                {
+                    hashes.Add(tx.TransactionId);
+                }
+
+                if (hashes.Count == count)
+                {
+                    break;
+                }
+            }
+        }
+
+        return hashes;
     }
 
     private bool AddTransactionBatchInternal(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactionList, bool broadcast, bool castVote)
@@ -577,7 +595,7 @@ public class StoreManager : IStoreManager
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var chainState = Repository.GetChainState() ?? throw new Exception("failed to load chainstate");
-        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, Repository.GetTransactionsToValidate(), new SHA256Hash());
+        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, GetTransactionToValidate(2), new SHA256Hash());
 
         return new Blocktemplate
         {

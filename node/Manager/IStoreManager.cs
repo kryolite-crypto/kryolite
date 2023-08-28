@@ -23,6 +23,7 @@ public interface IStoreManager
     List<Vote> GetVotesAtHeight(long height);
     List<Transaction> GetTransactionsAfterHeight(long height);
     List<SHA256Hash> GetTransactionToValidate();
+    List<SHA256Hash> GetTransactionToValidate(int count);
     List<Transaction> GetLastNTransctions(Address address, int count);
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
