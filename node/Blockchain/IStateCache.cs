@@ -31,4 +31,5 @@ public interface IStateCache
     View GetCurrentView();
 
     AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> GetPendingGraph();
+    void RecreateGraph();
 }

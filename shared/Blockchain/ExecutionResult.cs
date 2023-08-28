@@ -9,6 +9,7 @@ namespace Kryolite.Shared.Blockchain;
 public enum ExecutionResult
 {
     PENDING,
+    VERIFYING,
     VERIFIED,
     SUCCESS,
     TOO_LOW_BALANCE,
@@ -19,5 +20,6 @@ public enum ExecutionResult
     INVALID_PAYLOAD,
     INVALID_METHOD,
     INVALID_TRANSACTION_TYPE,
-    NO_VOTES
+    NO_VOTES,
+    VERIFY_FAILED
 }

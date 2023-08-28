@@ -21,12 +21,49 @@ public class Verifier : IVerifier
 
     public void Verify(ICollection<Transaction> transactions)
     {
+        Parallel.ForEach(transactions, tx =>
+        {
+            if (tx.TransactionId == SHA256Hash.NULL_HASH)
+            {
+                tx.TransactionId = tx.CalculateHash();
+            }
+
+            if (StateCache.Contains(tx.TransactionId) || Store.Exists(tx.TransactionId))
+            {
+                Logger.LogDebug($"{tx.TransactionId} already exists");
+                tx.ExecutionResult = ExecutionResult.SUCCESS;
+                return;
+            }
+
+            if (!tx.Verify())
+            {
+                Logger.LogInformation($"{tx.TransactionId} verification failed");
+                tx.ExecutionResult = ExecutionResult.VERIFY_FAILED;
+                return;
+            }
+
+            tx.ExecutionResult = ExecutionResult.VERIFYING;
+        });
+
         foreach (var tx in transactions)
         {
-            if (Verify(tx))
+            if (tx.ExecutionResult != ExecutionResult.VERIFYING)
             {
-                tx.ExecutionResult = ExecutionResult.VERIFIED;
+                continue;
             }
+
+            foreach (var parent in tx.Parents)
+            {
+                if (!StateCache.Contains(parent) && !Store.Exists(parent))
+                {
+                    Logger.LogInformation($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
+                    tx.ExecutionResult = ExecutionResult.VERIFY_FAILED;
+                    continue;
+                }
+            }
+
+            var success = VerifyByTransactionType(tx);
+            tx.ExecutionResult = success ? ExecutionResult.VERIFIED : ExecutionResult.VERIFY_FAILED;
         }
     }
 

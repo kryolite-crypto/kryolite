@@ -26,7 +26,6 @@ public class StateCache : IStateCache
     public void Add(Transaction tx)
     {
         PendingCache.Add(tx.TransactionId, tx);
-
         PendingGraph.AddVertex(tx.TransactionId);
 
         foreach (var parent in tx.Parents)
@@ -111,19 +110,7 @@ public class StateCache : IStateCache
 
     public bool Remove(SHA256Hash id, [MaybeNullWhen(false)]  out Transaction tx)
     {
-        if (PendingCache.Remove(id, out tx))
-        {
-            if (!PendingGraph.RemoveVertex(id))
-            {
-                // Failed to fully remove pending transaction, re-add to cache
-                PendingCache.Add(id, tx);
-                return false;
-            }
-
-            return true;
-        }
-
-        return false;
+        return PendingCache.Remove(id, out tx);
     }
 
     public void SetChainState(ChainState chainState)
@@ -144,5 +131,25 @@ public class StateCache : IStateCache
     public bool TryGet(Address address, [MaybeNullWhen(false)] out Ledger ledger)
     {
         return LedgerCache.TryGetValue(address, out ledger);
+    }
+
+    public void RecreateGraph()
+    {
+        PendingGraph = new();
+
+        foreach (var entry in PendingCache)
+        {
+            var tx = entry.Value;
+
+            PendingGraph.AddVertex(tx.TransactionId);
+
+            foreach (var parent in tx.Parents)
+            {
+                if (PendingGraph.ContainsVertex(parent))
+                {
+                    PendingGraph.AddEdge(new Edge<SHA256Hash>(tx.TransactionId, parent));
+                }
+            }
+        }
     }
 }

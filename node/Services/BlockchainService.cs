@@ -75,6 +75,8 @@ public class BlockchainService : BackgroundService
             Signature = new Signature()
         };
 
+        genesis.TransactionId = genesis.CalculateHash();
+
         if (!blockchainManager.AddGenesis(genesis))
         {
             Logger.LogError("Failed to initialize Genesis");
@@ -92,6 +94,7 @@ public class BlockchainService : BackgroundService
         };
 
         view.Parents.Add(genesis.TransactionId);
+        view.TransactionId = view.CalculateHash();
 
         blockchainManager.AddView(view, false, false);
     }

@@ -178,19 +178,21 @@ public class StoreManager : IStoreManager
             Repository.SaveState(chainState);
 
             StateCache.SetView(view);
+            StateCache.RecreateGraph();
 
             if (broadcast)
             {
                 TransactionBuffer.Add(new TransactionDto(view));
             }
 
-            if (castVote) // TODO: Check that this is validator node
+            var node = WalletManager.GetNodeWallet();
+
+            if (castVote && Repository.IsValidator(node!.PublicKey))
             {
                 var parents = new List<SHA256Hash>();
 
                 parents.Add(view.TransactionId);
 
-                var node = WalletManager.GetNodeWallet();
                 var vote = new Vote(node!.PublicKey, view.TransactionId, parents);
 
                 vote.Sign(node.PrivateKey);
@@ -206,7 +208,7 @@ public class StoreManager : IStoreManager
             }
 
             StateCache.ClearLedgers();
-            
+
             sw.Stop();
             Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
 
@@ -444,6 +446,8 @@ public class StoreManager : IStoreManager
         var transactions = StateCache.GetPendingGraph().Roots()
             .ToList();
 
+        Logger.LogDebug($"Tip has {transactions.Count} / {StateCache.GetPendingGraph().VertexCount} transactions");
+
         if (transactions.Count == 0)
         {
             return Repository.GetLastNTransctions(1)
@@ -512,18 +516,20 @@ public class StoreManager : IStoreManager
             }
         });
 
-        transactionList.Clear();
-
         StateCache.EnsureTransactionCapacity(StateCache.TransactionCount() + transactionList.Count());
         StateCache.EnsureLedgerCapacity(StateCache.LedgerCount() + transactionList.Count());
 
+        Verifier.Verify(transactions.Values);
+
         try
         {
+            Logger.LogDebug($"Executing {transactions.Count} transactions");
+
             foreach (var vertex in chainGraph.TopologicalSort().Reverse())
             {
                 var tx = transactions[vertex];
 
-                if (!Verifier.Verify(tx))
+                if (tx.ExecutionResult != ExecutionResult.VERIFIED)
                 {
                     continue;
                 }
@@ -531,14 +537,18 @@ public class StoreManager : IStoreManager
                 switch (tx.TransactionType)
                 {
                     case TransactionType.BLOCK:
-                        return AddBlockInternal((Block)tx, broadcast);
+                        AddBlockInternal((Block)tx, broadcast);
+                        break;
                     case TransactionType.PAYMENT:
                     case TransactionType.CONTRACT:
-                        return AddTransactionInternal(tx, broadcast);
+                        AddTransactionInternal(tx, broadcast);
+                        break;
                     case TransactionType.VIEW:
-                        return AddViewInternal((View)tx, broadcast, castVote);
+                        AddViewInternal((View)tx, broadcast, castVote);
+                        break;
                     case TransactionType.VOTE:
-                        return AddVoteInternal((Vote)tx, broadcast);
+                        AddVoteInternal((Vote)tx, broadcast);
+                        break;
                     default:
                         Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
                         break;
@@ -577,6 +587,8 @@ public class StoreManager : IStoreManager
                 }
             }
         }
+
+        Logger.LogDebug($"Incoming batch has {transactionList.Count} transactions. Graph has {graph.VertexCount} vertices.");
 
         if (AddTransactionBatchInternal(graph, transactions, false, true))
         {
