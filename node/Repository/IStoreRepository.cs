@@ -48,8 +48,8 @@ public interface IStoreRepository
     List<Token> GetTokens(Address from);
     List<Token> GetContractTokens(Address contractAddress);
     ITransaction BeginTransaction();
-    bool IsValidator(PublicKey publicKey);
-    long GetStake(PublicKey publicKey);
-    void AddValidator(PublicKey publicKey, long stake);
-    void DeleteValidator(PublicKey publicKey);
+    bool IsValidator(Address address);
+    long GetStake(Address address);
+    void SetStake(Address address, long stake);
+    void DeleteValidator(Address address);
 }

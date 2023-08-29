@@ -111,7 +111,7 @@ public class Verifier : IVerifier
             case TransactionType.CONTRACT:
                 return true;
             case TransactionType.REG_VALIDATOR:
-                return true;
+                return VerifyValidatorRegisteration(tx);
             case TransactionType.VOTE:
                 return VerifyVote((Vote)tx);
             default:
@@ -121,6 +121,12 @@ public class Verifier : IVerifier
 
     private bool VerifyPayment(Transaction tx)
     {
+        if (tx.PublicKey is null)
+        {
+            Logger.LogInformation("Payment verification failed (reason = null public key)");
+            return false;
+        }
+
         if (tx.To is null)
         {
             Logger.LogInformation("Payment verification failed (reason = null 'to' address)");
@@ -133,7 +139,7 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (tx.To.IsContract())
+        if (!tx.To.IsContract())
         {
             if (tx.Value == 0)
             {
@@ -245,9 +251,9 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (!Store.IsValidator(vote.PublicKey))
+        if (!Store.IsValidator(vote.From!))
         {
-            Logger.LogInformation($"Vote verification failed (reason = not validator ({vote.PublicKey}))");
+            Logger.LogInformation($"Vote verification failed (reason = not validator ({vote.From}))");
             return false;
         }
 
@@ -256,6 +262,41 @@ public class Verifier : IVerifier
         if (view.TransactionId != vote.LastHash)
         {
             Logger.LogInformation("Vote verification failed (reason = invalid view reference)");
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool VerifyValidatorRegisteration(Transaction tx)
+    {
+        if (tx.PublicKey is null)
+        {
+            Logger.LogInformation("Validator registeration verification failed (reason = null public key)");
+            return false;
+        }
+
+        if (tx.To is not null)
+        {
+            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address set)");
+            return false;
+        }
+
+        if (tx.Parents.Count != 2)
+        {
+            Logger.LogInformation($"Validator registeration verification failed (reason = invalid parent reference count {tx.Parents.Count})");
+            return false;
+        }
+
+        if (tx.Value < Constant.MIN_STAKE)
+        {
+            Logger.LogInformation($"Validator registeration verification failed (reason = stake too low {tx.Value})");
+            return false;
+        }
+
+        // do not allow seed validator registeration
+        if (Constant.SEED_VALIDATORS.Contains(tx.PublicKey!))
+        {
             return false;
         }
 

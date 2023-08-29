@@ -53,12 +53,12 @@ public class ValidatorService : BackgroundService
                         return;
                     }
 
-                    if (!AllowExecution.IsSet && ledger.Balance >= Constant.COLLATERAL)
+                    if (!AllowExecution.IsSet && ledger.Balance >= Constant.MIN_STAKE)
                     {
                         AllowExecution.Set();
                     }
 
-                    if (AllowExecution.IsSet && ledger.Balance < Constant.COLLATERAL)
+                    if (AllowExecution.IsSet && ledger.Balance < Constant.MIN_STAKE)
                     {
                         AllowExecution.Reset();
                     }
@@ -68,7 +68,7 @@ public class ValidatorService : BackgroundService
 
                 var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
-                if (storeManager.GetLedger(Node.Address)?.Balance >= Constant.COLLATERAL)
+                if (storeManager.GetLedger(Node.Address)?.Balance >= Constant.MIN_STAKE)
                 {
                     AllowExecution.Set();
                 }

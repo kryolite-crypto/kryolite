@@ -23,7 +23,7 @@ public static class Constant
     );
 
     // Placeholder
-    public const long COLLATERAL = 100_000 * DECIMAL_MULTIPLIER;
+    public const long MIN_STAKE = 100_000 * DECIMAL_MULTIPLIER;
     public const long VALIDATOR_REWARD = 250 * DECIMAL_MULTIPLIER;
     public const long BLOCK_REWARD = 1000 * DECIMAL_MULTIPLIER;
     public const long DEV_REWARD = 50 * DECIMAL_MULTIPLIER;

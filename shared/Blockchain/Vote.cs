@@ -15,11 +15,11 @@ public class Vote : Transaction
 
     }
 
-    public Vote(PublicKey publicKey, SHA256Hash viewId, List<SHA256Hash> parents)
+    public Vote(PublicKey publicKey, SHA256Hash viewId, long stake, List<SHA256Hash> parents)
     {
         TransactionType = TransactionType.VOTE;
         PublicKey = publicKey;
-        Value = 0;
+        Value = stake;
         Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
         Parents = parents;
         Data = viewId;

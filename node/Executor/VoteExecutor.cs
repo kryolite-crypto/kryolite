@@ -17,31 +17,25 @@ public class VoteExecutor : IExecutor
 
     public ExecutionResult Execute(Transaction tx)
     {
-        if (tx is not View view)
+        // no reward for seed nodes, but we still allow these transactions to count in weight calculation
+        if (Constant.SEED_VALIDATORS.Contains(tx.PublicKey!))
         {
-            return ExecutionResult.INVALID_TRANSACTION_TYPE;
+            return ExecutionResult.SUCCESS;
         }
 
-        /*var votes = view.Votes
-            .Where(x => !Constant.SEED_VALIDATORS.Contains(x.PublicKey))
-            .ToList();
+        var reward = Constant.VALIDATOR_REWARD * (tx.Value / Context.GetTotalStake());
 
-        if (votes.Count == 0)
+        var wallet = Context.GetOrNewWallet(tx.To);
+
+        checked
         {
-            return ExecutionResult.NO_VOTES;
+            wallet.Balance += reward;
         }
 
-        var reward = Constant.VALIDATOR_REWARD / votes.Count;
-
-        foreach (var vote in votes)
+        if (Context.GetRepository().IsValidator(tx.To!))
         {
-            var wallet = Context.GetOrNewWallet(vote.PublicKey.ToAddress());
-
-            checked
-            {
-                wallet.Balance += (ulong)reward;
-            }
-        }*/
+            Context.GetRepository().SetStake(tx.To!, wallet.Balance);
+        }
 
         return ExecutionResult.SUCCESS;
     }

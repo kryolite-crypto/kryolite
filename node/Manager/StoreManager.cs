@@ -120,6 +120,7 @@ public class StoreManager : IStoreManager
             var toExecute = new List<Transaction>(bfs.VisitedGraph.VertexCount);
             var voteCount = 0;
             var blockCount = 0;
+            var totalStake = 0L;
 
             foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
             {
@@ -140,17 +141,18 @@ public class StoreManager : IStoreManager
                     else if (tx.TransactionType == TransactionType.VOTE)
                     {
                         voteCount++;
+                        totalStake += tx.Value;
                     }
                 }
             }
 
-            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), voteCount, blockCount);
+            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), totalStake);
             var executor = ExecutorFactory.Create(context);
 
             executor.Execute(toExecute, height);
 
             var chainState = StateCache.GetCurrentState();
-            chainState.Weight += chainState.CurrentDifficulty.ToWork() * voteCount;
+            chainState.Weight += chainState.CurrentDifficulty.ToWork() * totalStake;
 
             if (height > 0)
             {
@@ -186,14 +188,16 @@ public class StoreManager : IStoreManager
             }
 
             var node = WalletManager.GetNodeWallet();
+            var address = node!.PublicKey.ToAddress();
 
-            if (castVote && Repository.IsValidator(node!.PublicKey))
+            if (castVote && Repository.IsValidator(address))
             {
+                var stake = Repository.GetStake(address);
                 var parents = new List<SHA256Hash>();
 
                 parents.Add(view.TransactionId);
 
-                var vote = new Vote(node!.PublicKey, view.TransactionId, parents);
+                var vote = new Vote(node!.PublicKey, view.TransactionId, stake, parents);
 
                 vote.Sign(node.PrivateKey);
 

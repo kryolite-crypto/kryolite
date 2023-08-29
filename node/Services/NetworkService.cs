@@ -434,6 +434,7 @@ public class ChainObserver : IObserver<Chain>
 
             var voteCount = 0;
             var blockCount = 0;
+            var totalStake = 0L;
 
             foreach (var vertex in graph.TopologicalSort().Reverse())
             {
@@ -443,7 +444,7 @@ public class ChainObserver : IObserver<Chain>
                 {
                     case TransactionType.VIEW:
                         // TODO: Similar implementation exists in StoreManager
-                        remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * voteCount;
+                        remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * totalStake;
                         remoteState.LastHash = tx.CalculateHash();
 
                         if (blockCount == 0)
@@ -464,6 +465,7 @@ public class ChainObserver : IObserver<Chain>
 
                         voteCount = 0;
                         blockCount = 0;
+                        totalStake = 0;
 
                         break;
                     case TransactionType.BLOCK:
@@ -471,6 +473,7 @@ public class ChainObserver : IObserver<Chain>
                         break;
                     case TransactionType.VOTE:
                         voteCount++;
+                        totalStake += tx.Value;
                         break;
                 }
             }

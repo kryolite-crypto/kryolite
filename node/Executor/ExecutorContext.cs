@@ -11,24 +11,27 @@ public class ExecutorContext : IExecutorContext
 {
     public IStoreRepository Repository { get; }
     private Dictionary<Address, Ledger> Wallets { get; }
-    public int VoteCount { get; }
-    public int BlockCount { get; }
+    public long TotalStake { get; }
     private Dictionary<Address, Contract> Contracts { get; } = new();
     private Dictionary<SHA256Hash, Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
 
-    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, int voteCount, int blockCount)
+    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, long totalStake)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
-        VoteCount = voteCount;
-        BlockCount = blockCount;
+        TotalStake = totalStake;
     }
 
     public Random GetRand()
     {
         return Rand;
+    }
+
+    public long GetTotalStake()
+    {
+        return TotalStake;
     }
 
     public void SetRand(long seed)

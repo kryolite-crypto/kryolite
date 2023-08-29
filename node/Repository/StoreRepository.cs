@@ -595,24 +595,24 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Get(transactionId)?.Timestamp;
     }
 
-    public bool IsValidator(PublicKey publicKey)
+    public bool IsValidator(Address address)
     {
-        return Storage.Exists("Validator", publicKey.Buffer);
+        return Storage.Exists("Validator", address.Buffer);
     }
 
-    public long GetStake(PublicKey publicKey)
+    public long GetStake(Address address)
     {
-        return BitConverter.ToInt64(Storage.Get("Validator", publicKey.Buffer) ?? new byte [] {0, 0, 0, 0, 0, 0, 0, 0});
+        return BitConverter.ToInt64(Storage.Get("Validator", address.Buffer) ?? new byte [] {0, 0, 0, 0, 0, 0, 0, 0});
     }
 
-    public void AddValidator(PublicKey publicKey, long stake)
+    public void SetStake(Address address, long stake)
     {
-        Storage.Put("Validator", publicKey.Buffer, BitConverter.GetBytes(stake), CurrentTransaction);
+        Storage.Put("Validator", address.Buffer, BitConverter.GetBytes(stake), CurrentTransaction);
     }
 
-    public void DeleteValidator(PublicKey publicKey)
+    public void DeleteValidator(Address address)
     {
-        Storage.Delete("Validator", publicKey.Buffer, CurrentTransaction);
+        Storage.Delete("Validator", address.Buffer, CurrentTransaction);
     }
 
     private ITransaction? CurrentTransaction;
