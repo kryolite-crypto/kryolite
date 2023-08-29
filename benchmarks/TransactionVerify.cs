@@ -8,7 +8,7 @@ namespace Kryolite.Benchmarks;
 [MemoryDiagnoser]
 public class TransactionVerify
 {
-    private static Wallet wallet = Wallet.Create(WalletType.WALLET);
+    private static Wallet wallet = Wallet.Create();
 
     private Transaction tx;
     private Ed25519 algorithm;

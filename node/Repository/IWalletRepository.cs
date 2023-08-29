@@ -11,7 +11,6 @@ public interface IWalletRepository
 {
     void Add(Wallet wallet);
     Wallet? Get(Address address);
-    Wallet? GetNodeWallet();
     void UpdateDescription(Address address, string description);
     Dictionary<Address, Wallet> GetWallets();
 }

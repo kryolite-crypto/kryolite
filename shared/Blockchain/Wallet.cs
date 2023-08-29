@@ -1,24 +1,29 @@
 using System.Data.Common;
 using System.Text.Json.Serialization;
+using MessagePack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared;
 
+[MessagePackObject]
 public class Wallet
 {
+    [Key(0)]
     public Address Address { get; set; } = new Address();
+    [Key(1)]
     public string? Description { get; set; }
+    [Key(2)]
     public PublicKey PublicKey { get; set; } = new PublicKey();
+    [Key(3)]
     public PrivateKey PrivateKey { get; set; } = new PrivateKey();
-    public WalletType WalletType { get; set; }
 
 
-    private Wallet()
+    public Wallet()
     {
 
     }
 
-    public static Wallet Create(WalletType walletType)
+    public static Wallet Create()
     {
         var algorithm = SignatureAlgorithm.Ed25519;
 
@@ -33,7 +38,6 @@ public class Wallet
         };
 
         wallet.Address = wallet.PublicKey.ToAddress();
-        wallet.WalletType = walletType;
 
         return wallet;
     }
@@ -54,14 +58,6 @@ public class Wallet
         reader.GetStream(3).CopyTo(ms);
         wallet.PrivateKey = ms.ToArray();
 
-        wallet.WalletType = (WalletType)reader.GetByte(4);
-
         return wallet;
     }
-}
-
-public enum WalletType
-{
-    WALLET,
-    VALIDATOR
 }

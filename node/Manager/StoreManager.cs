@@ -19,6 +19,7 @@ namespace Kryolite.Node;
 public class StoreManager : IStoreManager
 {
     private IStoreRepository Repository { get; }
+    public IKeyRepository KeyRepository { get; }
     private IBufferService<TransactionDto, OutgoingTransactionService> TransactionBuffer { get; }
     private IExecutorFactory ExecutorFactory { get; }
     private INetworkManager NetworkManager { get; }
@@ -30,9 +31,10 @@ public class StoreManager : IStoreManager
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, ILogger<StoreManager> logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, ILogger<StoreManager> logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
+        KeyRepository = keyRepository ?? throw new ArgumentNullException(nameof(keyRepository));
         TransactionBuffer = transactionBuffer ?? throw new ArgumentNullException(nameof(transactionBuffer));
         ExecutorFactory = executorFactory ?? throw new ArgumentNullException(nameof(executorFactory));
         NetworkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
@@ -187,7 +189,7 @@ public class StoreManager : IStoreManager
                 TransactionBuffer.Add(new TransactionDto(view));
             }
 
-            var node = WalletManager.GetNodeWallet();
+            var node = KeyRepository.GetKey();
             var address = node!.PublicKey.ToAddress();
 
             if (castVote && Repository.IsValidator(address))

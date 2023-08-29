@@ -62,7 +62,7 @@ public class Program
         {
             var walletRepository = new WalletRepository();
 
-            var wallet = Wallet.Create(WalletType.WALLET);
+            var wallet = Wallet.Create();
 
             walletRepository.Add(wallet);
 

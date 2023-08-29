@@ -38,18 +38,10 @@ public class MDNSService : BackgroundService
         {
             var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
 
-            var nameBytes = walletManager.GetNodeWallet()?.PublicKey.ToAddress().ToString()
-                .Skip(7)
-                .Take(12);
-
-            if (nameBytes == null)
-            {
-                // If node public key not available, generate random name
-                nameBytes = Guid.NewGuid().ToString()
+            var nameBytes = Guid.NewGuid().ToString()
                     .Split('-')
                     .First()
                     .ToList();
-            }
 
             var name = String.Join(String.Empty, nameBytes);
 

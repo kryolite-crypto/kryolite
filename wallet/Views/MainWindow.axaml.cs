@@ -96,11 +96,6 @@ public partial class MainWindow : Window
 
             var wallet = Wallets[ledger.Address];
 
-            if (wallet.WalletType != WalletType.WALLET)
-            {
-                return;
-            }
-
             var transactions = StoreManager.GetLastNTransctions(wallet.Address, 5);
 
             await Dispatcher.UIThread.InvokeAsync(() => {
@@ -116,11 +111,6 @@ public partial class MainWindow : Window
 
             foreach (var wallet in Wallets.Values)
             {
-                if (wallet.WalletType == WalletType.VALIDATOR)
-                {
-                    continue;
-                }
-
                 var ledger = StoreManager.GetLedger(wallet.Address);
                 var txs = StoreManager.GetLastNTransctions(wallet.Address, 5);
 

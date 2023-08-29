@@ -16,11 +16,11 @@ public class StateCache : IStateCache
     private ChainState ChainState;
     private Wallet Node;
 
-    public StateCache(IStoreRepository store, IWalletManager walletManager)
+    public StateCache(IStoreRepository store, IKeyRepository keyRepository, IWalletManager walletManager)
     {
         CurrentView = store.GetLastView() ?? new View();
         ChainState = store.GetChainState() ?? new ChainState();
-        Node = walletManager.GetNodeWallet() ?? Wallet.Create(WalletType.VALIDATOR);
+        Node = keyRepository.GetKey();
     }
 
     public void Add(Transaction tx)

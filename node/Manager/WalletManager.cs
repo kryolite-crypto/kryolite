@@ -26,21 +26,11 @@ public class WalletManager : IWalletManager
         return Repository.GetWallets();
     }
 
-    public Wallet CreateWallet(WalletType walletType = WalletType.WALLET)
+    public Wallet CreateWallet()
     {
         using var _ = rwlock.EnterWriteLockEx();
 
-        if (walletType == WalletType.VALIDATOR)
-        {
-            var nodeWallet = Repository.GetNodeWallet();
-
-            if (nodeWallet != null)
-            {
-                return nodeWallet;
-            }
-        }
-
-        var wallet = Wallet.Create(walletType);
+        var wallet = Wallet.Create();
 
         Repository.Add(wallet);
         return wallet;
@@ -50,11 +40,5 @@ public class WalletManager : IWalletManager
     {
         using var _ = rwlock.EnterWriteLockEx();
         Repository.UpdateDescription(address, description);
-    }
-
-    public Wallet? GetNodeWallet()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetNodeWallet();
     }
 }

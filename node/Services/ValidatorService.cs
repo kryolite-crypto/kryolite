@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Reactive;
 using System.Threading.Tasks.Dataflow;
+using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +14,6 @@ namespace Kryolite.Node;
 public class ValidatorService : BackgroundService
 {
     private readonly IServiceProvider serviceProvider;
-    private readonly IWalletManager walletManager;
     private readonly ILogger<ValidatorService> logger;
     private readonly StartupSequence startup;
 
@@ -21,15 +21,14 @@ public class ValidatorService : BackgroundService
     private ManualResetEventSlim AllowExecution { get; set; } = new(true);
     private IEventBus EventBus { get; }
 
-    public ValidatorService(IServiceProvider serviceProvider, IWalletManager walletManager, IEventBus eventBus, ILogger<ValidatorService> logger, StartupSequence startup)
+    public ValidatorService(IServiceProvider serviceProvider, IKeyRepository keyRepository, IEventBus eventBus, ILogger<ValidatorService> logger, StartupSequence startup)
     {
         this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        this.walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
         this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
-        Node = walletManager.GetNodeWallet() ?? walletManager.CreateWallet(WalletType.VALIDATOR);
+        Node = keyRepository.GetKey();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -46,7 +45,6 @@ public class ValidatorService : BackgroundService
             }
             else
             {
-
                 EventBus.Subscribe<Ledger>(ledger => {
                     if (ledger.Address != Node.Address)
                     {
@@ -68,6 +66,7 @@ public class ValidatorService : BackgroundService
 
                 var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
+                // TODO: Repository.IsVerifier
                 if (storeManager.GetLedger(Node.Address)?.Balance >= Constant.MIN_STAKE)
                 {
                     AllowExecution.Set();

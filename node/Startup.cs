@@ -287,6 +287,7 @@ public class Startup
 
         services.AddSingleton<IStorage, RocksDBStorage>()
                 .AddSingleton<IStateCache, StateCache>()
+                .AddSingleton<IKeyRepository, KeyRepository>()
                 .AddTransient<IStoreRepository, StoreRepository>()
                 .AddTransient<IStoreManager, StoreManager>()
                 .AddTransient<IWalletRepository, WalletRepository>()

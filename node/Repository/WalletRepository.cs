@@ -51,16 +51,14 @@ public class WalletRepository : IWalletRepository
                 Address,
                 Description,
                 PublicKey,
-                PrivateKey,
-                WalletType
-            ) VALUES (@addr, @desc, @pubk, @priv, @wtype);
+                PrivateKey
+            ) VALUES (@addr, @desc, @pubk, @priv);
         ";
 
         cmd.Parameters.Add(new SQLiteParameter("@addr", wallet.Address.ToString()));
         cmd.Parameters.Add(new SQLiteParameter("@desc", wallet.Description));
         cmd.Parameters.Add(new SQLiteParameter("@pubk", wallet.PublicKey.ToString()));
         cmd.Parameters.Add(new SQLiteParameter("@priv", wallet.PrivateKey.Buffer));
-        cmd.Parameters.Add(new SQLiteParameter("@wtype", (byte)wallet.WalletType));
 
         cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
     }
@@ -74,8 +72,7 @@ public class WalletRepository : IWalletRepository
                 Address,
                 Description,
                 PublicKey,
-                PrivateKey,
-                WalletType
+                PrivateKey
             FROM
                 Wallet
             WHERE
@@ -83,35 +80,6 @@ public class WalletRepository : IWalletRepository
         ";
 
         cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
-
-        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
-
-        if (!reader.Read())
-        {
-            return null;
-        }
-
-        return Wallet.Read(reader);
-    }
-
-    public Wallet? GetNodeWallet()
-    {
-        using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            SELECT
-                Address,
-                Description,
-                PublicKey,
-                PrivateKey,
-                WalletType
-            FROM
-                Wallet
-            WHERE
-                WalletType = @wtype
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@wtype", (byte)WalletType.VALIDATOR));
 
         using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
 
@@ -150,8 +118,7 @@ public class WalletRepository : IWalletRepository
                 Address,
                 Description,
                 PublicKey,
-                PrivateKey,
-                WalletType
+                PrivateKey
             FROM
                 Wallet
         ";

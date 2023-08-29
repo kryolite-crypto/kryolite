@@ -5,8 +5,10 @@ using MessagePack;
 
 namespace Kryolite.Shared;
 
+[MessagePackObject]
 public class PrivateKey
 {
+    [Key(0)]
     public byte[] Buffer { get; private init; }
 
     public PrivateKey()
