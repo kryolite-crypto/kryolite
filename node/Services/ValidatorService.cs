@@ -74,18 +74,6 @@ public class ValidatorService : BackgroundService
                 }
             }
 
-            /*use this to generate seed signatures
-             * var v = new Vote
-            {
-                TransactionId = "5kxwZ17DyJWDwZypH1p9vRny93CyGjGF57Te78ebLuCN",
-                PublicKey = "r9Lk4qxPGNZGBaLEjcWtAZmu8LRj5FQe7NCyRzNsnaX",
-                Signature = "3GAvVpJcujfYEL4mMhZk6C4gpzWmDtuVxsww1Kw3iR8GqVpnnhbwfaGoZTspwsNwVpxro3CZfR9RuqGJvLmecbiZ"
-            };
-
-            v.Sign(Node.PrivateKey);
-
-            logger.LogInformation(v.Signature.ToString());*/
-
             await task;
         }
         catch (TaskCanceledException)

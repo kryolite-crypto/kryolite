@@ -47,7 +47,7 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
                 }
             }
 
-            manager.AddTransactionBatch(items);
+            manager.AddTransactionBatch(items, false);
         }
     }
 

@@ -56,7 +56,6 @@ internal class RocksDBStorage : IStorage
                 db.CreateColumnFamily(opts, "ixTransactionId");
                 db.CreateColumnFamily(opts, "ixTransactionAddress");
                 db.CreateColumnFamily(opts, "ixTransactionHeight");
-                db.CreateColumnFamily(opts, "ixChildless");
             }
         }
 
@@ -75,8 +74,7 @@ internal class RocksDBStorage : IStorage
             { "ixTokenAddress", opts },
             { "ixTransactionId", opts },
             { "ixTransactionAddress", opts },
-            { "ixTransactionHeight", opts },
-            { "ixChildless", opts }
+            { "ixTransactionHeight", opts }
         };
 
         Database = RocksDb.Open(options, storePath, families);
@@ -95,7 +93,6 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
         ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
-        ColumnFamilies.Add("ixChildless", Database.GetColumnFamily("ixChildless"));
 
         CurrentKey = InitializeKey();
     }

@@ -1,32 +1,17 @@
-using System;
-using System.Collections.Concurrent;
-using System.Diagnostics;
-using System.Net;
 using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Numerics;
 using System.Reactive.Linq;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 using System.Timers;
 using DnsClient;
 using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Makaretu.Dns;
 using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using QuikGraph;
 using QuikGraph.Algorithms;
-using QuikGraph.Algorithms.Search;
 using Redbus.Events;
 using Redbus.Interfaces;
 using static Kryolite.Node.NetworkManager;
@@ -516,7 +501,7 @@ public class ChainObserver : IObserver<Chain>
             {
                 logger.LogInformation($"Local and remote chains are equal. Applying pending transactions");
 
-                if (!storeManager.AddTransactionBatch(transactions.Values.ToList()))
+                if (!storeManager.AddTransactionBatch(transactions.Values.ToList(), false))
                 {
                     logger.LogInformation("Failed to apply pending transactions...");
 

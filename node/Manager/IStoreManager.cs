@@ -32,7 +32,7 @@ public interface IStoreManager
     ChainState? GetChainStateAt(long height);
     long GetBalance(Address address);
 
-    bool AddTransactionBatch(List<TransactionDto> transactions);
+    bool AddTransactionBatch(List<TransactionDto> transactions, bool breadcast);
     bool SetChain(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactions, long startHeight);
     void ResetChain();
 

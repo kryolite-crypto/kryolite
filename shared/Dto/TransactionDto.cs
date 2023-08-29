@@ -30,9 +30,6 @@ public class TransactionDto
     [Key(7)]
     public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
 
-    [IgnoreMember]
-    public bool IsVerified { get; set; }
-
     public SHA256Hash CalculateHash()
     {
         using var sha256 = SHA256.Create();

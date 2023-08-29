@@ -564,7 +564,7 @@ public class StoreManager : IStoreManager
         return true;
     }
 
-    public bool AddTransactionBatch(List<TransactionDto> transactionList)
+    public bool AddTransactionBatch(List<TransactionDto> transactionList, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
@@ -590,7 +590,7 @@ public class StoreManager : IStoreManager
 
         Logger.LogDebug($"Incoming batch has {transactionList.Count} transactions. Graph has {graph.VertexCount} vertices.");
 
-        if (AddTransactionBatchInternal(graph, transactions, false, true))
+        if (AddTransactionBatchInternal(graph, transactions, broadcast, true))
         {
             dbtx.Commit();
             return true;

@@ -129,9 +129,17 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid transaction");
         }
 
-        //return blockchainManager.AddTransaction(tx, true);
-        TxBuffer.Add(tx);
-        return true;
+        return blockchainManager.AddTransaction(tx, true);
+    }
+
+    [HttpPost("tx/batch")]
+    public bool PostTransactions([FromBody] List<TransactionDto> transactions)
+    {
+        if (!ModelState.IsValid) {
+            throw new Exception("invalid transaction");
+        }
+
+        return blockchainManager.AddTransactionBatch(transactions, true);
     }
 
     [HttpGet("richlist")]

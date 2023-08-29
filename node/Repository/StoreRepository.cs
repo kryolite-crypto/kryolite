@@ -304,18 +304,6 @@ public class StoreRepository : IStoreRepository, IDisposable
         id.CopyTo(heightKey.Slice(9));
 
         Storage.Delete("ixTransactionHeight", heightKey, CurrentTransaction);
-
-        // Childless index
-        Storage.Delete("ixChildless", tx.TransactionId.Buffer, CurrentTransaction);
-
-        // Restore tx in to childless index if it's not referenced anymore
-        foreach (var parent in tx.Parents)
-        {
-            if (Storage.FindFirst("ixTransactionAddress", parent.Buffer) is null)
-            {
-                Storage.Put("ixChildless", parent.Buffer, CurrentTransaction);
-            }
-        }
     }
 
     public void DeleteContract(Address address)
