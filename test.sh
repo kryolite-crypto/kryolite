@@ -78,8 +78,8 @@ do
   sleep 1
 done
 
-docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
-docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node-url http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node-url http://daemon:5000 --from "$wallet_miner" --to "$wallet_other" --amount 1
 echo "sent 1 from miner to other"
 
 while true
@@ -100,7 +100,7 @@ do
   sleep 1
 done
 
-docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node http://daemon:5000 --from "$wallet_other" --to "$wallet_miner" --amount 1
+docker-compose -f docker-compose.builder.yml exec -T kryolite kryolite send --node-url http://daemon:5000 --from "$wallet_other" --to "$wallet_miner" --amount 1
 echo "sent 1 from other to miner"
 
 while true
