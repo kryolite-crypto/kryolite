@@ -32,7 +32,7 @@ public class MDNSService : BackgroundService
         serviceDiscovery = new ServiceDiscovery(mdns);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
@@ -87,6 +87,8 @@ public class MDNSService : BackgroundService
         {
             logger.LogError(ex, "Error starting mDNS services");
         }
+
+        return Task.CompletedTask;
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)

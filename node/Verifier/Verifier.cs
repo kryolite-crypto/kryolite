@@ -95,7 +95,9 @@ public class Verifier : IVerifier
             }
         }
 
-        return VerifyByTransactionType(tx);
+        var success = VerifyByTransactionType(tx);
+        tx.ExecutionResult = success ? ExecutionResult.VERIFIED : ExecutionResult.VERIFY_FAILED;
+        return success;
     }
 
     private bool VerifyByTransactionType(Transaction tx)
@@ -257,6 +259,14 @@ public class Verifier : IVerifier
             return false;
         }
 
+        var stake = Store.GetStake(vote.From!);
+
+        if (stake?.Amount != vote.Value)
+        {
+            Logger.LogInformation($"Vote verification failed (reason = invalid stake set ({vote.Value} / {stake}))");
+            return false;
+        }
+
         var view = StateCache.GetCurrentView();
 
         if (view.TransactionId != vote.LastHash)
@@ -276,9 +286,9 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (tx.To is not null)
+        if (tx.To is null)
         {
-            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address set)");
+            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address not set)");
             return false;
         }
 
@@ -288,14 +298,22 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (tx.Value < Constant.MIN_STAKE)
+        var isValidator = Store.IsValidator(tx.From!);
+
+        if (!isValidator && tx.Value < Constant.MIN_STAKE)
+        {
+            Logger.LogInformation($"Validator registeration verification failed (reason = stake too low {tx.Value})");
+            return false;
+        }
+
+        if (isValidator && (tx.Value > 0 && tx.Value < Constant.MIN_STAKE))
         {
             Logger.LogInformation($"Validator registeration verification failed (reason = stake too low {tx.Value})");
             return false;
         }
 
         // do not allow seed validator registeration
-        if (Constant.SEED_VALIDATORS.Contains(tx.PublicKey!))
+        if (Constant.SEED_VALIDATORS.Contains(tx.From!))
         {
             return false;
         }

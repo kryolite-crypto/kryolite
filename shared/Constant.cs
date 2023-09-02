@@ -18,12 +18,14 @@ public static class Constant
     public const int MAX_PEERS = 6;
     public const long DECIMAL_MULTIPLIER = 1_000_000;
 
-    public static readonly ImmutableArray<PublicKey> SEED_VALIDATORS = ImmutableArray.Create<PublicKey>(
-
+    public static readonly ImmutableArray<Address> SEED_VALIDATORS = ImmutableArray.Create<Address>(
+        "kryo:wean6dt2ckvgubhh54ipu7nufdkfpmfx7zq9w2dx7e",
+        "kryo:weamhh4gyqhr5vjuqk5jyx25giceyuuqq4cgrwit6i",
+        "kryo:weacmn6cra2hif5an2858aqedjbz7vsp2r6h2pp3va"
     );
 
     // Placeholder
-    public const long MIN_STAKE = 100_000 * DECIMAL_MULTIPLIER;
+    public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;
     public const long VALIDATOR_REWARD = 250 * DECIMAL_MULTIPLIER;
     public const long BLOCK_REWARD = 1000 * DECIMAL_MULTIPLIER;
     public const long DEV_REWARD = 50 * DECIMAL_MULTIPLIER;

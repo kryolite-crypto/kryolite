@@ -123,7 +123,7 @@ public class ApiControllerBase : Controller
     }
 
     [HttpPost("tx")]
-    public bool PostTransaction([FromBody] TransactionDto tx)
+    public ExecutionResult PostTransaction([FromBody] TransactionDto tx)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid transaction");
@@ -220,5 +220,11 @@ public class ApiControllerBase : Controller
     public Token? GetToken(string contractAddress, string tokenId) 
     {
         return blockchainManager.GetToken(contractAddress, tokenId);
+    }
+
+    [HttpGet("validator/{address}")]
+    public Stake? GetValidator(string address)
+    {
+        return blockchainManager.GetStake(address);
     }
 }

@@ -59,6 +59,7 @@ public class StoreManager : IStoreManager
         try
         {
             genesis.TransactionId = genesis.CalculateHash();
+            genesis.ExecutionResult = ExecutionResult.VERIFIED;
 
             var chainState = new ChainState
             {
@@ -69,6 +70,15 @@ public class StoreManager : IStoreManager
             };
 
             Repository.SaveState(chainState);
+
+            foreach (var validator in Constant.SEED_VALIDATORS)
+            {
+                Repository.SetStake(validator, new Stake
+                {
+                    RewardAddress = new Address(),
+                    Amount = 0
+                });
+            }
 
             StateCache.SetChainState(chainState);
             StateCache.Add(genesis);
@@ -85,12 +95,17 @@ public class StoreManager : IStoreManager
         return false;
     }
 
-    public bool AddView(View view, bool broadcast, bool castVote)
+    public bool AddView(View view, bool broadcast, bool castVote, bool isGenesis = false)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
-        if (view.Height > 0 && !Verifier.Verify(view))
+        if (isGenesis)
+        {
+            // skip verifications for genesis height
+            view.ExecutionResult = ExecutionResult.VERIFIED;
+        }
+        else if (!Verifier.Verify(view))
         {
             return false;
         }
@@ -199,9 +214,10 @@ public class StoreManager : IStoreManager
 
                 parents.Add(view.TransactionId);
 
-                var vote = new Vote(node!.PublicKey, view.TransactionId, stake, parents);
+                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Amount ?? 0, parents);
 
                 vote.Sign(node.PrivateKey);
+                vote.ExecutionResult = ExecutionResult.VERIFIED;
 
                 AddVoteInternal(vote, true);
             }
@@ -210,10 +226,13 @@ public class StoreManager : IStoreManager
 
             foreach (var ledger in StateCache.GetLedgers().Values)
             {
+                if (ledger.Pending == 0)
+                {
+                    StateCache.GetLedgers().Remove(ledger.Address);
+                }
+
                 EventBus.Publish(ledger);
             }
-
-            StateCache.ClearLedgers();
 
             sw.Stop();
             Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
@@ -291,7 +310,6 @@ public class StoreManager : IStoreManager
 
         chainState.Blocks++;
 
-        Repository.UpdateWallet(to);
         Repository.SaveState(chainState);
 
         sw.Stop();
@@ -308,7 +326,7 @@ public class StoreManager : IStoreManager
         return true;
     }
 
-    public bool AddTransaction(TransactionDto txDto, bool broadcast)
+    public ExecutionResult AddTransaction(TransactionDto txDto, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
@@ -317,17 +335,17 @@ public class StoreManager : IStoreManager
 
         if (!Verifier.Verify(tx))
         {
-            return false;
+            return ExecutionResult.VERIFY_FAILED;
         }
 
         if (AddTransactionInternal(tx, broadcast))
         {
             dbtx.Commit();
-            return true;
+            return tx.ExecutionResult;
         }
 
         dbtx.Rollback();
-        return false;
+        return ExecutionResult.VERIFY_FAILED;
     }
 
     private bool AddTransactionInternal(Transaction tx, bool broadcast)
@@ -355,10 +373,8 @@ public class StoreManager : IStoreManager
             checked
             {
                 from.Balance -= tx.Value;
-                to.Balance += tx.Value;
+                to.Pending += tx.Value;
             }
-
-            Repository.UpdateWallets(from, to);
 
             StateCache.Add(tx);
 
@@ -372,6 +388,74 @@ public class StoreManager : IStoreManager
         catch (Exception ex) 
         {
             Logger.LogError(ex, "AddTransaction error");
+        }
+
+        return false;
+    }
+
+    public bool AddValidatorReg(TransactionDto txDto, bool broadcast)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        using var dbtx = Repository.BeginTransaction();
+
+        var tx = txDto.AsTransaction();
+
+        if (!Verifier.Verify(tx))
+        {
+            return false;
+        }
+
+        if (AddValidatorRegInternal(tx, broadcast))
+        {
+            dbtx.Commit();
+            return true;
+        }
+
+        dbtx.Rollback();
+        return false;
+    }
+
+    private bool AddValidatorRegInternal(Transaction tx, bool broadcast)
+    {
+        try
+        {
+            if (!StateCache.TryGet(tx.From!, out var from))
+            {
+                from = Repository.GetWallet(tx.From!) ?? new Ledger(tx.From!);
+                StateCache.Add(from);
+            }
+
+            var stake = Repository.GetStake(tx.From!);
+            var balance = from.Balance;
+
+            checked
+            {
+                balance = from.Balance + (stake?.Amount ?? 0);
+            }
+
+            if (balance < tx.Value)
+            {
+                Logger.LogInformation("AddValidatorReg rejected (reason = too low balance)");
+                return false;
+            }
+
+            checked
+            {
+                from.Balance = balance - tx.Value;
+            }
+
+            StateCache.Add(tx);
+
+            if (broadcast)
+            {
+                TransactionBuffer.Add(new TransactionDto(tx));
+            }
+
+            return true;
+        }
+        catch (Exception ex) 
+        {
+            Logger.LogError(ex, "AddValidatorReg error");
         }
 
         return false;
@@ -508,6 +592,7 @@ public class StoreManager : IStoreManager
                     break;
                 case TransactionType.PAYMENT:
                 case TransactionType.CONTRACT:
+                case TransactionType.REG_VALIDATOR:
                     transactions.TryAdd(entry.Key, new Transaction(tx, tx.Parents));
                     break;
                 case TransactionType.VIEW:
@@ -554,6 +639,9 @@ public class StoreManager : IStoreManager
                         break;
                     case TransactionType.VOTE:
                         AddVoteInternal((Vote)tx, broadcast);
+                        break;
+                    case TransactionType.REG_VALIDATOR:
+                        AddValidatorRegInternal(tx, broadcast);
                         break;
                     default:
                         Logger.LogInformation($"Unknown transaction type ({tx.TransactionType})");
@@ -653,7 +741,7 @@ public class StoreManager : IStoreManager
         using var _ = rwlock.EnterReadLockEx();
 
         var chainState = Repository.GetChainState();
-        return chainState.Height;
+        return chainState?.Height ?? 0;
     }
 
     public List<Transaction> GetLastNTransctions(Address address, int count)
@@ -683,24 +771,6 @@ public class StoreManager : IStoreManager
         {
             RollbackChainIfNeeded(startHeight, chainGraph.VertexCount);
 
-            /*var batch = new List<TransactionDto>(chainGraph.VertexCount);
-
-            var lastView = transactions.Values
-                .Where(x => x.TransactionType == TransactionType.VIEW)
-                .MaxBy(x => BitConverter.ToInt64(x.Data));
-
-            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(chainGraph);
-            bfs.SetRootVertex(lastView!.CalculateHash());
-            bfs.Compute();
-
-            foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
-            {
-                if (transactions.Remove(vertex, out var tx))
-                {
-                    batch.Add(tx);
-                }
-            }*/
-
             if (!AddTransactionBatchInternal(chainGraph, transactions, false, false))
             {
                 dbtx.Rollback();
@@ -720,9 +790,15 @@ public class StoreManager : IStoreManager
         return true;
     }
 
+    public Stake? GetStake(Address address)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetStake(address);
+    }
+
     private void RollbackChainIfNeeded(long startHeight, long count)
     {
-        long progress = 0;
+        // long progress = 0;
 
         var ledger = new Dictionary<Address, Ledger>();
         var contracts = new Dictionary<Address, Contract>();
@@ -898,6 +974,11 @@ public class StoreManager : IStoreManager
     public Ledger? GetLedger(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
+
+        if (StateCache.TryGet(address, out var ledger))
+        {
+            return ledger;
+        }
 
         return Repository.GetWallet(address);
     }

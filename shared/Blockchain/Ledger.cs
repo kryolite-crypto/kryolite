@@ -14,10 +14,9 @@ public class Ledger : EventBase
     [Key(2)]
     public long Balance { get; set; }
     [Key(3)]
-    public long Pending { get; set; }
-    [Key(4)]
     public List<Token> Tokens { get; set; } = new();
-    // public bool IsNew { get; set; }
+    [IgnoreMember]
+    public long Pending { get; set; }
 
     public Ledger()
     {
@@ -27,16 +26,5 @@ public class Ledger : EventBase
     public Ledger(Address address)
     {
         Address = address;
-        // IsNew = true;
-    }
-
-    public static Ledger Read(DbDataReader reader)
-    {
-        return new Ledger
-        {
-            Address = reader.GetString(0),
-            Balance = reader.GetInt64(1),
-            Pending = reader.GetInt64(2)
-        };
     }
 }

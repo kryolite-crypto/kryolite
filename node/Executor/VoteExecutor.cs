@@ -18,23 +18,19 @@ public class VoteExecutor : IExecutor
     public ExecutionResult Execute(Transaction tx)
     {
         // no reward for seed nodes, but we still allow these transactions to count in weight calculation
-        if (Constant.SEED_VALIDATORS.Contains(tx.PublicKey!))
+        if (Constant.SEED_VALIDATORS.Contains(tx.From!))
         {
             return ExecutionResult.SUCCESS;
         }
 
-        var reward = Constant.VALIDATOR_REWARD * (tx.Value / Context.GetTotalStake());
-
-        var wallet = Context.GetOrNewWallet(tx.To);
+        var stake = Context.GetRepository().GetStake(tx.From!) ?? throw new Exception($"stake not found: {tx.From}");
+        
+        var reward = Constant.VALIDATOR_REWARD * (stake.Amount / Context.GetTotalStake());
+        var wallet = Context.GetOrNewWallet(stake.RewardAddress);
 
         checked
         {
             wallet.Balance += reward;
-        }
-
-        if (Context.GetRepository().IsValidator(tx.To!))
-        {
-            Context.GetRepository().SetStake(tx.To!, wallet.Balance);
         }
 
         return ExecutionResult.SUCCESS;

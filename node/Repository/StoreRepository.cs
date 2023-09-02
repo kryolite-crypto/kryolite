@@ -600,14 +600,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.Exists("Validator", address.Buffer);
     }
 
-    public long GetStake(Address address)
+    public Stake? GetStake(Address address)
     {
-        return BitConverter.ToInt64(Storage.Get("Validator", address.Buffer) ?? new byte [] {0, 0, 0, 0, 0, 0, 0, 0});
+        return Storage.Get<Stake>("Validator", address.Buffer);
     }
 
-    public void SetStake(Address address, long stake)
+    public void SetStake(Address address, Stake stake)
     {
-        Storage.Put("Validator", address.Buffer, BitConverter.GetBytes(stake), CurrentTransaction);
+        Storage.Put("Validator", address.Buffer, stake, CurrentTransaction);
     }
 
     public void DeleteValidator(Address address)

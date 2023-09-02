@@ -84,6 +84,7 @@ public class TransactionDto
                 return new Block(this, Parents);
             case TransactionType.PAYMENT:
             case TransactionType.CONTRACT:
+            case TransactionType.REG_VALIDATOR:
                 return new Transaction(this, Parents);
             case TransactionType.VIEW:
                 return new View(this, Parents);

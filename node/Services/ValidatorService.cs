@@ -39,7 +39,7 @@ public class ValidatorService : BackgroundService
 
             var task = StartValidator(stoppingToken);
 
-            if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey))
+            if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey.ToAddress()))
             {
                 AllowExecution.Set();
             }
@@ -51,14 +51,16 @@ public class ValidatorService : BackgroundService
                         return;
                     }
 
-                    if (!AllowExecution.IsSet && ledger.Balance >= Constant.MIN_STAKE)
-                    {
-                        AllowExecution.Set();
-                    }
+                    var isEnabled = AllowExecution.IsSet;
 
-                    if (AllowExecution.IsSet && ledger.Balance < Constant.MIN_STAKE)
+                    if (isEnabled && ledger.Balance < Constant.MIN_STAKE)
                     {
                         AllowExecution.Reset();
+                    }
+
+                    if (!isEnabled && ledger.Balance >= Constant.MIN_STAKE)
+                    {
+                        AllowExecution.Set();
                     }
                 });
 

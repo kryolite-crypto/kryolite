@@ -32,7 +32,7 @@ public class BlockchainService : BackgroundService
         GenesisSeed = new SHA256Hash(bytes);
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
@@ -55,11 +55,14 @@ public class BlockchainService : BackgroundService
             }
 
             Logger.LogInformation($"Blockchain    [UP][{Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
+
         }
         catch (Exception ex)
         {
             Logger.LogError(ex, "BlockchainService error");
         }
+
+        return Task.CompletedTask;
     }
 
     private void InitializeGenesisBlock(IStoreManager blockchainManager)
@@ -96,6 +99,6 @@ public class BlockchainService : BackgroundService
         view.Parents.Add(genesis.TransactionId);
         view.TransactionId = view.CalculateHash();
 
-        blockchainManager.AddView(view, false, false);
+        blockchainManager.AddView(view, false, false, true);
     }
 }

@@ -12,10 +12,11 @@ public interface IStoreManager
 {
     bool Exists(SHA256Hash hash);
     bool AddGenesis(Genesis genesis);
-    bool AddView(View view, bool broadcast, bool castVote);
+    bool AddView(View view, bool broadcast, bool castVote, bool isGenesis = false);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
-    bool AddTransaction(TransactionDto tx, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
+    bool AddValidatorReg(TransactionDto txDto, bool broadcast);
+    ExecutionResult AddTransaction(TransactionDto tx, bool broadcast);
 
     Genesis? GetGenesis();
     View? GetView(SHA256Hash transactionId);
@@ -45,4 +46,5 @@ public interface IStoreManager
     Token? GetToken(Address contract, SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
     List<Token> GetContractTokens(Address contractAddress);
+    Stake? GetStake(Address address);
 }

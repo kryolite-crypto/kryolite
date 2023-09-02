@@ -17,13 +17,23 @@ public class ValidatorRegExecutor : IExecutor
 
     public ExecutionResult Execute(Transaction tx)
     {
+        var wallet = Context.GetOrNewWallet(tx.To);
+        var stake = Context.GetRepository().GetStake(tx.From!) ?? new Stake();
+
         if (tx.Value >= Constant.MIN_STAKE)
         {
-            Context.GetRepository().SetStake(tx.From!, tx.Value);
+            stake.Amount = tx.Value;
+            stake.RewardAddress = tx.To!;
+
+            Context.GetRepository().SetStake(tx.From!, stake);
+        }
+        else if (tx.Value == 0)
+        {
+            Context.GetRepository().DeleteValidator(tx.From!);
         }
         else
         {
-            Context.GetRepository().DeleteValidator(tx.From!);
+            return ExecutionResult.UNKNOWN;
         }
         
         return ExecutionResult.SUCCESS;

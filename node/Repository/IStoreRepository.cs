@@ -49,7 +49,7 @@ public interface IStoreRepository
     List<Token> GetContractTokens(Address contractAddress);
     ITransaction BeginTransaction();
     bool IsValidator(Address address);
-    long GetStake(Address address);
-    void SetStake(Address address, long stake);
+    Stake? GetStake(Address address);
+    void SetStake(Address address, Stake stake);
     void DeleteValidator(Address address);
 }

@@ -21,5 +21,6 @@ public enum ExecutionResult
     INVALID_METHOD,
     INVALID_TRANSACTION_TYPE,
     NO_VOTES,
-    VERIFY_FAILED
+    VERIFY_FAILED,
+    UNKNOWN
 }
