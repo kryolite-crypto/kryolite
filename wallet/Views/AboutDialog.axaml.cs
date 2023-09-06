@@ -23,7 +23,7 @@ public partial class AboutDialog : Window
 
         var configuration = Program.ServiceCollection.GetService<IConfiguration>() ?? throw new ArgumentNullException(nameof(IConfiguration));
 
-        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly(), typeof(AssemblyInformationalVersionAttribute))
+        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly()!, typeof(AssemblyInformationalVersionAttribute))
             as AssemblyInformationalVersionAttribute;
 
         Model.NetworkName = configuration.GetValue<string>("NetworkName") ?? string.Empty;

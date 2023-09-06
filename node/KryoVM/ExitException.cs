@@ -1,4 +1,4 @@
-namespace Kryolite.Shared;
+namespace Kryolite.Node;
 
 public class ExitException : Exception
 {

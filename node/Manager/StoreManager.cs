@@ -163,10 +163,10 @@ public class StoreManager : IStoreManager
                 }
             }
 
-            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), totalStake);
+            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), totalStake, height);
             var executor = ExecutorFactory.Create(context);
 
-            executor.Execute(toExecute, height);
+            executor.Execute(toExecute);
 
             var chainState = StateCache.GetCurrentState();
             chainState.Weight += chainState.CurrentDifficulty.ToWork() * totalStake;
@@ -234,6 +234,11 @@ public class StoreManager : IStoreManager
                 EventBus.Publish(ledger);
             }
 
+            foreach (var ev in context.GetEvents())
+            {
+                EventBus.Publish(ev);
+            }
+
             sw.Stop();
             Logger.LogInformation($"Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
 
@@ -256,7 +261,6 @@ public class StoreManager : IStoreManager
     public bool AddBlock(Blocktemplate blocktemplate, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var dbtx = Repository.BeginTransaction();
 
         try
         {
@@ -267,18 +271,10 @@ public class StoreManager : IStoreManager
                 return false;
             }
 
-            if (AddBlockInternal(block, broadcast))
-            {
-                dbtx.Commit();
-                return true;
-            }
-
-            dbtx.Rollback();
-            return false;
+            return AddBlockInternal(block, broadcast);
         }
         catch (Exception ex)
         {
-            dbtx.Rollback();
             Logger.LogError(ex, "AddBlock error");
         }
 
@@ -310,8 +306,6 @@ public class StoreManager : IStoreManager
 
         chainState.Blocks++;
 
-        Repository.SaveState(chainState);
-
         sw.Stop();
 
         Logger.LogInformation($"Added block #{chainState.Blocks} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
@@ -323,13 +317,14 @@ public class StoreManager : IStoreManager
 
         StateCache.Add(block);
 
+        EventBus.Publish(to);
+
         return true;
     }
 
     public ExecutionResult AddTransaction(TransactionDto txDto, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var dbtx = Repository.BeginTransaction();
 
         var tx = txDto.AsTransaction();
 
@@ -338,14 +333,9 @@ public class StoreManager : IStoreManager
             return ExecutionResult.VERIFY_FAILED;
         }
 
-        if (AddTransactionInternal(tx, broadcast))
-        {
-            dbtx.Commit();
-            return tx.ExecutionResult;
-        }
+        AddTransactionInternal(tx, broadcast);
 
-        dbtx.Rollback();
-        return ExecutionResult.VERIFY_FAILED;
+        return tx.ExecutionResult;
     }
 
     private bool AddTransactionInternal(Transaction tx, bool broadcast)
@@ -378,6 +368,9 @@ public class StoreManager : IStoreManager
 
             StateCache.Add(tx);
 
+            EventBus.Publish(from);
+            EventBus.Publish(to);
+
             if (broadcast)
             {
                 TransactionBuffer.Add(new TransactionDto(tx));
@@ -396,7 +389,6 @@ public class StoreManager : IStoreManager
     public bool AddValidatorReg(TransactionDto txDto, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var dbtx = Repository.BeginTransaction();
 
         var tx = txDto.AsTransaction();
 
@@ -405,14 +397,7 @@ public class StoreManager : IStoreManager
             return false;
         }
 
-        if (AddValidatorRegInternal(tx, broadcast))
-        {
-            dbtx.Commit();
-            return true;
-        }
-
-        dbtx.Rollback();
-        return false;
+        return AddValidatorRegInternal(tx, broadcast);
     }
 
     private bool AddValidatorRegInternal(Transaction tx, bool broadcast)
@@ -464,21 +449,13 @@ public class StoreManager : IStoreManager
     public bool AddVote(Vote vote, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var dbtx = Repository.BeginTransaction();
 
         if (!Verifier.Verify(vote))
         {
             return false;
         }
 
-        if (AddVoteInternal(vote, broadcast))
-        {
-            dbtx.Commit();
-            return true;
-        }
-
-        dbtx.Rollback();
-        return false;
+        return AddVoteInternal(vote, broadcast);
     }
 
     private bool AddVoteInternal(Vote vote, bool broadcast)
@@ -661,7 +638,6 @@ public class StoreManager : IStoreManager
     public bool AddTransactionBatch(List<TransactionDto> transactionList, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var dbtx = Repository.BeginTransaction();
 
         var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
         var transactions = new Dictionary<SHA256Hash, TransactionDto>();
@@ -684,14 +660,7 @@ public class StoreManager : IStoreManager
 
         Logger.LogDebug($"Incoming batch has {transactionList.Count} transactions. Graph has {graph.VertexCount} vertices.");
 
-        if (AddTransactionBatchInternal(graph, transactions, broadcast, true))
-        {
-            dbtx.Commit();
-            return true;
-        }
-
-        dbtx.Rollback();
-        return false;
+        return AddTransactionBatchInternal(graph, transactions, broadcast, true);
     }
 
     public Blocktemplate GetBlocktemplate(Address wallet)
@@ -1022,7 +991,7 @@ public class StoreManager : IStoreManager
 
         var code = Repository.GetContractCode(contract.Address);
 
-        using var vm = KryoVM.LoadFromSnapshot(code, snapshot.Snapshot)
+        using var vm = KryoVM.LoadFromSnapshot(code, snapshot)
             .WithContext(vmContext);
 
         Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");

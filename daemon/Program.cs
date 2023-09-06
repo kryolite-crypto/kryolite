@@ -17,7 +17,7 @@ internal class Program
 {
     static async Task Main(string[] args)
     {
-        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly(), typeof(AssemblyInformationalVersionAttribute)) 
+        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly()!, typeof(AssemblyInformationalVersionAttribute)) 
             as AssemblyInformationalVersionAttribute;
 
         Console.ForegroundColor = ConsoleColor.Cyan;

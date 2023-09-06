@@ -11,17 +11,19 @@ public class ExecutorContext : IExecutorContext
 {
     public IStoreRepository Repository { get; }
     private Dictionary<Address, Ledger> Wallets { get; }
-    public long TotalStake { get; }
+    private long TotalStake { get; }
+    private long Height { get; }
     private Dictionary<Address, Contract> Contracts { get; } = new();
-    private Dictionary<SHA256Hash, Token> Tokens { get; } = new();
+    private Dictionary<(Address contract, SHA256Hash tokenId), Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
 
-    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, long totalStake)
+    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, long totalStake, long height)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
         TotalStake = totalStake;
+        Height = height;
     }
 
     public Random GetRand()
@@ -112,8 +114,7 @@ public class ExecutorContext : IExecutorContext
 
     public Token? GetToken(Address contract, SHA256Hash tokenId)
     {
-        // TODO: can't use only tokenid here
-        if (!Tokens.TryGetValue(tokenId, out var token))
+        if (!Tokens.TryGetValue((contract, tokenId), out var token))
         {
             token = Repository.GetToken(contract, tokenId);
 
@@ -122,7 +123,7 @@ public class ExecutorContext : IExecutorContext
                 return null;
             }
 
-            Tokens.Add(tokenId, token);
+            Tokens.Add((contract, tokenId), token);
         }
 
         return token;
@@ -130,7 +131,7 @@ public class ExecutorContext : IExecutorContext
 
     public void AddToken(Token token)
     {
-        Tokens.Add(token.TokenId, token);
+        Tokens.Add((token.Contract, token.TokenId), token);
     }
 
     public List<EventBase> GetEvents()
@@ -157,11 +158,16 @@ public class ExecutorContext : IExecutorContext
                 continue;
             }
 
-            Repository.AddContractSnapshot(contract.Value.Address, contract.Value.CurrentSnapshot);
+            Repository.AddContractSnapshot(contract.Value.Address, Height, contract.Value.CurrentSnapshot);
         }
 
         Repository.UpdateWallets(Wallets.Values);
         Repository.UpdateContracts(Contracts.Values);
         Repository.UpdateTokens(Tokens.Values);
+    }
+
+    public long GetHeight()
+    {
+        return Height;
     }
 }

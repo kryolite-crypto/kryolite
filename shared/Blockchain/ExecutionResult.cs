@@ -22,5 +22,6 @@ public enum ExecutionResult
     INVALID_TRANSACTION_TYPE,
     NO_VOTES,
     VERIFY_FAILED,
-    UNKNOWN
+    UNKNOWN,
+    DUPLICATE_CONTRACT
 }

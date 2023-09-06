@@ -203,7 +203,7 @@ public class Program
                 }).UnsafeStart();
             }
 
-            await HandleConnectionAsync(jobQueue, httpClient, url, address);
+            await HandleConnectionAsync(jobQueue, httpClient, url!, address);
         }, nodeOption, walletOption, throttleOption, threadsOption);
 
         return await rootCmd.InvokeAsync(args);
@@ -266,15 +266,15 @@ public class Program
             restart = false;
             current = blocktemplate;
 
-            Grasshopper.GetBlockFeatures(current.ParentHash, out var expSz, out var sboxSz, out var rounds);
+            Grasshopper.GetBlockFeatures(current!.ParentHash, out var expSz, out var sboxSz, out var rounds);
 
-            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate.Height}, diff = {blocktemplate.Difficulty} [maxrounds = {rounds}, memarea = {sboxSz}, expsize = {expSz}]");
+            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate?.Height}, diff = {blocktemplate?.Difficulty} [maxrounds = {rounds}, memarea = {sboxSz}, expsize = {expSz}]");
 
             TokenSource.Cancel();
             TokenSource = new CancellationTokenSource();
 
             Parallel.ForEach(queue, worker => {
-                worker.Add(blocktemplate);
+                worker.Add(blocktemplate!);
             });
 
             Thread.Sleep(TimeSpan.FromSeconds(1));

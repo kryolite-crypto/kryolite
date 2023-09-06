@@ -407,12 +407,12 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public byte[]? GetContractCode(Address address)
     {
-        return Storage.Get<byte[]>("Contract", address);
+        return Storage.Get("ContractCode", address);
     }
 
-    public ContractSnapshot? GetLatestSnapshot(Address address)
+    public byte[]? GetLatestSnapshot(Address address)
     {
-        return Storage.FindLast<ContractSnapshot>("ContractSnapshot", address);
+        return Storage.FindLast("ContractSnapshot", address);
     }
 
     public List<Ledger> GetRichList(int count)
@@ -450,9 +450,23 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Put<Contract>("Contract", contract.Address.Buffer, contract, CurrentTransaction);
     }
 
-    public void AddContractSnapshot(Address contract, ContractSnapshot snapshot)
+    public void AddContractCode(Address contract, byte[] code)
     {
-        Storage.Put<ContractSnapshot>("ContractSnapshot", contract.Buffer, snapshot, CurrentTransaction);
+        Storage.Put("ContractCode", contract.Buffer, code, CurrentTransaction);
+    }
+
+    public void AddContractSnapshot(Address contract, long height, byte[] snapshot)
+    {
+        var keyBuf = ArrayPool<byte>.Shared.Rent(34);
+        contract.Buffer.CopyTo(keyBuf, 0);
+        
+        var heightBytes = BitConverter.GetBytes(height);
+        Array.Reverse(heightBytes);
+        heightBytes.CopyTo(keyBuf, 26);
+
+        Storage.Put("ContractSnapshot", keyBuf, snapshot, CurrentTransaction);
+        
+        ArrayPool<byte>.Shared.Return(keyBuf);
     }
 
     public void UpdateContract(Contract contract)
@@ -473,26 +487,50 @@ public class StoreRepository : IStoreRepository, IDisposable
         var keyBuf = ArrayPool<byte>.Shared.Rent(84);
         var keyMem = keyBuf.AsSpan();
 
-        var id = keyMem.Slice(58);
+        if (token.Id == 0)
+        {
+            token.Id = Storage.NextKey();
+        }
+
+        var id = BitConverter.GetBytes(token.Id);
+        Storage.Put("Token", id, token, CurrentTransaction);
 
         // ContractAddress_TokenId
-        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id);
-        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
+        var tokenIx = keyMem.Slice(58);
+        token.Contract.Buffer.AsReadOnlySpan().CopyTo(tokenIx);
+        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(tokenIx.Slice(26));
 
-        Storage.Put<Token>("Token", id, token, CurrentTransaction);
+        Storage.Put("ixTokenId", tokenIx, id, CurrentTransaction);
 
-        var addrIx = keyMem.Slice(84);
+        // LedgerAddress_Key
+        var ledgerIx = keyMem.Slice(34);
+        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(ledgerIx);
+        id.CopyTo(ledgerIx.Slice(26));
 
-        // OwnerAddress_ContractAddress_TokenId
-        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(id);
-        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
-        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(52));
+        Storage.Put("ixTokenLedger", ledgerIx, id, CurrentTransaction);
 
-        Storage.Put("ixTokenAddress", addrIx, id.ToArray(), CurrentTransaction);
+        ArrayPool<byte>.Shared.Return(keyBuf);
     }
 
     public void UpdateToken(Token token)
     {
+        var keyBuf = ArrayPool<byte>.Shared.Rent(34);
+        var keyMem = keyBuf.AsSpan();
+
+        var id = BitConverter.GetBytes(token.Id);
+        var oldToken = Storage.Get<Token>("Token", id);
+
+        if (oldToken is not null)
+        {
+            // LedgerAddress_Key
+            token.Ledger.Buffer.AsReadOnlySpan().CopyTo(keyMem);
+            id.CopyTo(keyMem.Slice(26));
+
+            Storage.Delete("ixTokenLedger", keyMem, CurrentTransaction);
+        }
+
+        ArrayPool<byte>.Shared.Return(keyBuf);
+
         AddToken(token);
     }
 
@@ -500,7 +538,7 @@ public class StoreRepository : IStoreRepository, IDisposable
     {
         foreach (var token in tokens)
         {
-            AddToken(token);
+            UpdateToken(token);
         }
     }
 
@@ -509,22 +547,29 @@ public class StoreRepository : IStoreRepository, IDisposable
         var keyBuf = ArrayPool<byte>.Shared.Rent(84);
         var keyMem = keyBuf.AsSpan();
 
-        var id = keyMem.Slice(58);
+        if (token.Id == 0)
+        {
+            token.Id = Storage.NextKey();
+        }
 
-        // ContractAddress_TokenId
-        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id);
-        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
-
+        var id = BitConverter.GetBytes(token.Id);
         Storage.Delete("Token", id, CurrentTransaction);
 
-        var addrIx = keyMem.Slice(84);
+        // ContractAddress_TokenId
+        var tokenIx = keyMem.Slice(58);
+        token.Contract.Buffer.AsReadOnlySpan().CopyTo(tokenIx);
+        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(tokenIx.Slice(26));
 
-        // OwnerAddress_ContractAddress_TokenId
-        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(id);
-        token.Contract.Buffer.AsReadOnlySpan().CopyTo(id.Slice(26));
-        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(id.Slice(52));
+        Storage.Delete("ixTokenId", tokenIx, CurrentTransaction);
 
-        Storage.Delete("ixTokenAddress", addrIx, CurrentTransaction);
+        // LedgerAddress_Key
+        var ledgerIx = keyMem.Slice(34);
+        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(ledgerIx);
+        id.CopyTo(ledgerIx.Slice(26));
+
+        Storage.Delete("ixTokenLedger", ledgerIx, CurrentTransaction);
+
+        ArrayPool<byte>.Shared.Return(keyBuf);
     }
 
     public List<Transaction> GetTransactions(Address address)
@@ -576,12 +621,19 @@ public class StoreRepository : IStoreRepository, IDisposable
         contract.Buffer.CopyTo(id, 0);
         tokenId.Buffer.CopyTo(id, 26);
 
-        return Storage.Get<Token>("Token", id);
+        var key = Storage.FindFirst("ixTokenId", id);
+
+        if (key is null)
+        {
+            return null;
+        }
+
+        return Storage.Get<Token>("Token", key);
     }
 
     public List<Token> GetTokens(Address ledger)
     {
-        var keys = Storage.FindAll("ixTokenAddress", ledger.Buffer);
+        var keys = Storage.FindAll("ixTokenLedger", ledger.Buffer);
         return Storage.GetMany<Token>("Token", keys.ToArray());
     }
 

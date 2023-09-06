@@ -52,7 +52,8 @@ internal class RocksDBStorage : IStorage
                 db.CreateColumnFamily(opts, "ContractSnapshot");
                 db.CreateColumnFamily(opts, "Token");
                 db.CreateColumnFamily(opts, "Validator");
-                db.CreateColumnFamily(opts, "ixTokenAddress");
+                db.CreateColumnFamily(opts, "ixTokenId");
+                db.CreateColumnFamily(opts, "ixTokenLedger");
                 db.CreateColumnFamily(opts, "ixTransactionId");
                 db.CreateColumnFamily(opts, "ixTransactionAddress");
                 db.CreateColumnFamily(opts, "ixTransactionHeight");
@@ -71,7 +72,8 @@ internal class RocksDBStorage : IStorage
             { "ContractSnapshot", opts },
             { "Token", opts },
             { "Validator", opts},
-            { "ixTokenAddress", opts },
+            { "ixTokenId", opts },
+            { "ixTokenLedger", opts },
             { "ixTransactionId", opts },
             { "ixTransactionAddress", opts },
             { "ixTransactionHeight", opts }
@@ -89,7 +91,8 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ContractSnapshot", Database.GetColumnFamily("ContractSnapshot"));
         ColumnFamilies.Add("Token", Database.GetColumnFamily("Token"));
         ColumnFamilies.Add("Validator", Database.GetColumnFamily("Validator"));
-        ColumnFamilies.Add("ixTokenAddress", Database.GetColumnFamily("ixTokenAddress"));
+        ColumnFamilies.Add("ixTokenId", Database.GetColumnFamily("ixTokenId"));
+        ColumnFamilies.Add("ixTokenLedger", Database.GetColumnFamily("ixTokenLedger"));
         ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
         ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
@@ -210,11 +213,15 @@ internal class RocksDBStorage : IStorage
     {
         var ix = ColumnFamilies[ixName];
 
-        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + BigInteger.One;
+
+        var bytes = upperBound.ToByteArray();
+        Array.Resize(ref bytes, keyPrefix.Length);
+        Array.Reverse(bytes);
 
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
+        readOptions.SetIterateUpperBound(bytes);
 
         using var iterator = Database.NewIterator(ix, readOptions);
 
@@ -232,11 +239,15 @@ internal class RocksDBStorage : IStorage
     {
         var ix = ColumnFamilies[ixName];
 
-        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + BigInteger.One;
+
+        var bytes = upperBound.ToByteArray();
+        Array.Resize(ref bytes, keyPrefix.Length);
+        Array.Reverse(bytes);
 
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
+        readOptions.SetIterateUpperBound(bytes);
 
         using var iterator = Database.NewIterator(ix, readOptions);
 
@@ -254,11 +265,15 @@ internal class RocksDBStorage : IStorage
     {
         var ix = ColumnFamilies[ixName];
 
-        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + BigInteger.One;
+
+        var bytes = upperBound.ToByteArray();
+        Array.Resize(ref bytes, keyPrefix.Length);
+        Array.Reverse(bytes);
 
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
+        readOptions.SetIterateUpperBound(bytes);
         
         using var iterator = Database.NewIterator(ix, readOptions);
 
@@ -302,11 +317,15 @@ internal class RocksDBStorage : IStorage
     {
         var ix = ColumnFamilies[ixName];
 
-        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + BigInteger.One;
+
+        var bytes = upperBound.ToByteArray();
+        Array.Resize(ref bytes, keyPrefix.Length);
+        Array.Reverse(bytes);
 
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
+        readOptions.SetIterateUpperBound(bytes);
 
         using var iterator = Database.NewIterator(ix, readOptions);
 
@@ -374,9 +393,13 @@ internal class RocksDBStorage : IStorage
 
         var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
 
+        var bytes = upperBound.ToByteArray();
+        Array.Resize(ref bytes, keyPrefix.Length);
+        Array.Reverse(bytes);
+
         var readOptions = new ReadOptions();
         readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound.ToByteArray());
+        readOptions.SetIterateUpperBound(bytes);
 
         using var iterator = Database.NewIterator(ix, readOptions);
 
@@ -388,6 +411,33 @@ internal class RocksDBStorage : IStorage
         }
 
         return MessagePackSerializer.Deserialize<T>(iterator.Value());
+    }
+
+    public byte[]? FindLast(string ixName, ReadOnlySpan<byte> keyPrefix)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        var upperBound = new BigInteger(keyPrefix, true, true) + BigInteger.One;
+
+        var bytes = upperBound.ToByteArray();
+        Array.Resize(ref bytes, keyPrefix.Length);
+        Array.Reverse(bytes);
+
+        var readOptions = new ReadOptions();
+
+        readOptions.SetIterateLowerBound(keyPrefix.ToArray());
+        readOptions.SetIterateUpperBound(bytes);
+
+        using var iterator = Database.NewIterator(ix, readOptions);
+
+        iterator.SeekToLast();
+
+        if (!iterator.Valid())
+        {
+            return null;
+        }
+
+        return iterator.Value();
     }
 
     public ulong GetCurrentKey()

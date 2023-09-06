@@ -15,6 +15,7 @@ public interface IExecutorContext
     void SetRand(long seed);
 
     public long GetTotalStake();
+    public long GetHeight();
 
     Contract? GetContract(Address? address);
     void AddContract(Contract contract);

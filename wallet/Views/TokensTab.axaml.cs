@@ -1,11 +1,8 @@
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Kryolite.Node;
-using Kryolite.Shared;
-using Material.Icons;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json.Linq;
+using Microsoft.Extensions.Logging;
 using Redbus.Interfaces;
 using System;
 using System.Collections.Generic;
@@ -65,6 +62,8 @@ public partial class TokensTab : UserControl
 
                 foreach (var token in tokens)
                 {
+                    Console.WriteLine(token.TokenId);
+
                     var exists = Model.Tokens
                         .Where(t => t.TokenId == token.TokenId)
                         .FirstOrDefault();
@@ -79,23 +78,17 @@ public partial class TokensTab : UserControl
                             continue;
                         }
 
-                        var contract = blockchainManager.GetContract(newToken.Contract);
-
-                        if (contract is null)
-                        {
-                            continue;
-                        }
-
                         await Dispatcher.UIThread.InvokeAsync(() => {
                             Model.Tokens.Add(new TokenModel
                             {
                                 TokenId = newToken.TokenId,
-                                Owner = contract.Owner,
+                                Owner = newToken.Ledger,
                                 Name = newToken.Name,
                                 Description = newToken.Description,
                                 IsConsumed = newToken.IsConsumed
                             });
                         });
+
                         continue;
                     }
 
@@ -108,6 +101,7 @@ public partial class TokensTab : UserControl
                         await Dispatcher.UIThread.InvokeAsync(() => {
                             Model.Tokens.Remove(exists);
                         });
+
                         continue;
                     }
 
@@ -153,7 +147,7 @@ public partial class TokensTab : UserControl
     private void InitializeData()
     {
         _ = Task.Run(() => {
-            /*var wallets = WalletManager.GetWallets();
+            var wallets = WalletManager.GetWallets();
             var collection = new List<TokenModel>();
 
             using var scope = Program.ServiceCollection.CreateScope();
@@ -165,7 +159,7 @@ public partial class TokensTab : UserControl
                     .Select(token => new TokenModel
                     {
                         TokenId = token.TokenId,
-                        Owner = blockchainManager.GetContract(token.Contract)?.Owner ?? new Address(),
+                        Owner = token.Ledger,
                         Name = token.Name,
                         Description = token.Description,
                         IsConsumed = token.IsConsumed
@@ -174,7 +168,7 @@ public partial class TokensTab : UserControl
                 collection.AddRange(tokens.ToList());
             }
 
-            Model.Tokens = new ObservableCollection<TokenModel>(collection);*/
+            Model.Tokens = new ObservableCollection<TokenModel>(collection);
         }); 
     }
 }

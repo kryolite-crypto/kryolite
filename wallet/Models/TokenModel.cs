@@ -10,7 +10,7 @@ namespace Kryolite.Wallet;
 
 public class TokenModel : NotifyPropertyChanged
 {
-    private SHA256Hash _tokenId;
+    private SHA256Hash _tokenId = SHA256Hash.NULL_HASH;
     public SHA256Hash TokenId 
     {
         get => _tokenId;
@@ -24,7 +24,7 @@ public class TokenModel : NotifyPropertyChanged
         }
     }
 
-    private Address _owner;
+    private Address _owner = Address.NULL_ADDRESS;
     public Address Owner 
     {
         get => _owner;
@@ -38,7 +38,7 @@ public class TokenModel : NotifyPropertyChanged
         }
     }
 
-    private string _name;
+    private string _name = string.Empty;
     public string Name 
     {
         get => _name;
@@ -52,7 +52,7 @@ public class TokenModel : NotifyPropertyChanged
         }
     }
 
-    private string _description;
+    private string _description = string.Empty;
     public string Description 
     {
         get => _description;

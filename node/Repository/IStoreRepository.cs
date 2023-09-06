@@ -31,10 +31,11 @@ public interface IStoreRepository
     void UpdateWallets(params Ledger[] wallets);
     Contract? GetContract(Address address);
     byte[]? GetContractCode(Address address);
-    ContractSnapshot? GetLatestSnapshot(Address address);
+    byte[]? GetLatestSnapshot(Address address);
     List<Ledger> GetRichList(int count);
     void AddContract(Contract contract);
-    void AddContractSnapshot(Address contract, ContractSnapshot snapshot);
+    void AddContractCode(Address contract, byte[] code);
+    void AddContractSnapshot(Address contract, long height, byte[] snapshot);
     void UpdateContract(Contract contract);
     void DeleteContract(Address address);
     void DeleteContractSnapshot(Address address, long height);

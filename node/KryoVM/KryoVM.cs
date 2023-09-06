@@ -114,14 +114,14 @@ public class KryoVM : IDisposable
         var tx = Instance.GetGlobal("_TRANSACTION") ?? throw new Exception("Transaction global not found");
         var txPtr = (int?)tx.GetValue() ?? throw new Exception("Transaction global ptr not found");
         memory.WriteBuffer(txPtr, Context.Transaction.From ?? new Address());
-        memory.WriteBuffer(txPtr + 26, Context.Transaction.To);
+        memory.WriteBuffer(txPtr + 26, Context.Transaction.To!);
         memory.WriteInt64(txPtr + 52, (long)Context.Transaction.Value);
 
         var exitCode = 0;
 
         try
         {
-            var values = new List<ValueBox>() { (IntPtr)methodParams[0] };
+            var values = new List<ValueBox>() { new IntPtr((int)methodParams[0]) };
             var toFree = new List<(int ptr, int length)>();
 
             var manifest = Context.Contract.Manifest.Methods.Where(x => x.Name == method).First();
@@ -215,7 +215,7 @@ public class KryoVM : IDisposable
         return exitCode;
     }
 
-    public ReadOnlySpan<byte> TakeSnapshot()
+    public byte[] TakeSnapshot()
     {
         var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
         return memory.GetSpan(0, (int)memory.GetLength()).Compress();
@@ -292,8 +292,8 @@ public class KryoVM : IDisposable
             var eventData = new TransferTokenEventArgs
             {
                 Contract = Context!.Contract.Address,
-                From = memory.ReadAddress(fromPtr) ?? throw new Exception("__transfer_token: null 'from' address"),
-                To = memory.ReadAddress(toPtr) ?? throw new Exception("__transfer_token: null 'to' address"),
+                From = from,
+                To = to,
                 TokenId = tokenId
             };
 

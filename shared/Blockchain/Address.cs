@@ -94,4 +94,5 @@ public class Address
     }
 
     public static int ADDRESS_SZ = 26;
+    public static Address NULL_ADDRESS = new Address();
 }

@@ -8,32 +8,23 @@ namespace Kryolite.Shared;
 public class Token : TokenBase
 {
     [Key(0)]
-    public SHA256Hash TokenId { get; set; } = new();
+    public ulong Id { get; set; }
     [Key(1)]
-    public bool IsConsumed { get; set; }
+    public SHA256Hash TokenId { get; set; } = new();
     [Key(2)]
-    public Address Ledger { get; set; } = new();
+    public bool IsConsumed { get; set; }
     [Key(3)]
+    public Address Ledger { get; set; } = new();
+    [Key(4)]
     public Address Contract { get; set; } = new();
-
-    public static Token Read(DbDataReader reader)
-    {
-        return new Token
-        {
-            TokenId = reader.GetString(0),
-            IsConsumed = reader.GetBoolean(1),
-            Ledger = reader.GetString(2),
-            Contract = reader.GetString(3)
-        };
-    }
 }
 
 public class TokenBase
 {
-    [Key(4)]
+    [Key(5)]
     [JsonPropertyName("name")]
     public string Name { get; set; } = string.Empty;
-    [Key(5)]
+    [Key(6)]
     [JsonPropertyName("description")]
     public string Description { get; set; } = string.Empty;
 }

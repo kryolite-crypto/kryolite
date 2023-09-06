@@ -7,6 +7,7 @@ using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Node.Storage;
+using Kryolite.Redbus;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using Kryolite.Shared.Formatters;
@@ -23,7 +24,6 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Redbus;
 using Redbus.Interfaces;
 
 namespace Kryolite.Node;

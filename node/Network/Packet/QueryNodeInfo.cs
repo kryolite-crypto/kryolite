@@ -23,7 +23,7 @@ public class QueryNodeInfo : IPacket
         {
             Height = chainState.Height,
             Weight = chainState.Weight,
-            LastHash = blockchainManager.GetLastView().TransactionId ?? new SHA256Hash(),
+            LastHash = blockchainManager.GetLastView()?.TransactionId ?? SHA256Hash.NULL_HASH,
             CurrentTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
 

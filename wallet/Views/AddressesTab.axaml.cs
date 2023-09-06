@@ -58,6 +58,7 @@ public partial class AddressesTab : UserControl
         Model.CopyAddressClicked += async (object? sender, EventArgs args) => {
             var wallet = (WalletModel)walletGrid.SelectedItem;
             TopLevel.GetTopLevel(this)?.Clipboard!.SetTextAsync(wallet.Address.ToString() ?? "");
+            await Task.CompletedTask;
         };
     }
 }

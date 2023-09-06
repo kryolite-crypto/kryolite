@@ -9,7 +9,7 @@ public class InMemoryLogger : ILogger
     public static ConcurrentQueue<string> Messages = new();
     public static EventHandler<string>? OnNewMessage;
 
-    public IDisposable BeginScope<TState>(TState state)
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull
     {
         return new NoopDisposable();
     }

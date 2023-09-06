@@ -8,19 +8,15 @@ namespace Kryolite.Shared;
 public class Ledger : EventBase
 {
     [Key(0)]
-    public long Id { get; set; }
-    [Key(1)]
     public Address Address { get; set; }
-    [Key(2)]
+    [Key(1)]
     public long Balance { get; set; }
-    [Key(3)]
-    public List<Token> Tokens { get; set; } = new();
     [IgnoreMember]
     public long Pending { get; set; }
 
     public Ledger()
     {
-        Address = new Address();
+        Address = Address.NULL_ADDRESS;
     }
 
     public Ledger(Address address)

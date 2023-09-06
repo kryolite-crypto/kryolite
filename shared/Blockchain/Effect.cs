@@ -1,32 +1,27 @@
 using MessagePack;
-using System.Text.Json.Serialization;
 
 namespace Kryolite.Shared;
 
 [MessagePackObject]
 public class Effect
 {
-    [JsonIgnore]
     [Key(0)]
-    public Guid Id { get; set; }
-    [Key(1)]
-    public SHA256Hash TransactionId { get; set; }
-    [Key(2)]
     public Address From { get; set; }
-    [Key(33)]
+    [Key(1)]
     public Address To { get; set; }
-    [Key(4)]
+    [Key(2)]
     public long Value { get; set; }
-    [Key(5)]
+    [Key(3)]
     public Address? Contract { get; set; }
-    [Key(6)]
+    [Key(4)]
     public SHA256Hash? TokenId { get; set; }
-    [Key(7)]
+    [Key(5)]
     public bool ConsumeToken { get; set; }
     
     public Effect()
     {
-
+        From = Address.NULL_ADDRESS;
+        To = Address.NULL_ADDRESS;
     }
 
     public Effect(Address contract, Address from, Address to, long value, SHA256Hash? tokenId = null, bool consumeToken = false)

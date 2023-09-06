@@ -2,12 +2,7 @@
 using Kryolite.Shared.Blockchain;
 using MessagePack;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 namespace Kryolite.Node.Executor;
 
@@ -32,6 +27,8 @@ public class ContractExecutor : IExecutor
             {
                 return ExecutionResult.INVALID_CONTRACT;
             }
+
+            contract.Balance = Context.GetWallet(tx.To)?.Balance ?? 0;
 
             if (contract.CurrentSnapshot is null)
             {
@@ -80,7 +77,7 @@ public class ContractExecutor : IExecutor
 
             var code = Context.GetRepository().GetContractCode(contract.Address);
 
-            using var vm = KryoVM.LoadFromSnapshot(code, contract.CurrentSnapshot.Snapshot)
+            using var vm = KryoVM.LoadFromSnapshot(code, contract.CurrentSnapshot)
                 .WithContext(vmContext);
 
             Logger.LogInformation($"Executing contract {contract.Name}:{call.Method}");
@@ -131,6 +128,7 @@ public class ContractExecutor : IExecutor
                         token = new Token()
                         {
                             TokenId = effect.TokenId,
+                            Ledger = wallet.Address,
                             Name = tokenBase.Name,
                             Description = tokenBase.Description,
                             Contract = contract.Address
@@ -160,7 +158,7 @@ public class ContractExecutor : IExecutor
 
             Context.AddEvents(vmContext.Events);
 
-            contract.CurrentSnapshot = new ContractSnapshot(tx.Height ?? 0, vm.TakeSnapshot());
+            contract.CurrentSnapshot = vm.TakeSnapshot();
 
             return ExecutionResult.SUCCESS;
         }

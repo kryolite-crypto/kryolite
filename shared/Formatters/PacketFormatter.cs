@@ -54,7 +54,7 @@ public class PacketFormatter : IMessagePackFormatter<object>
 
         MethodCallExpression body = Expression.Call(
             Expression.Convert(param0, formatterType),
-            serializeMethodInfo,
+            serializeMethodInfo ?? throw new NullReferenceException(nameof(serializeMethodInfo)),
             param1,
             ti.IsValueType ? Expression.Unbox(param2, type) : Expression.Convert(param2, type),
             param3);
@@ -65,7 +65,7 @@ public class PacketFormatter : IMessagePackFormatter<object>
 
         var deserialize = Expression.Call(
             Expression.Convert(param0, formatterType),
-            deserializeMethodInfo,
+            deserializeMethodInfo ?? throw new NullReferenceException(nameof(deserializeMethodInfo)),
             param4,
             param3);
 
@@ -99,7 +99,7 @@ public class PacketFormatter : IMessagePackFormatter<object>
             throw new Exception("serializer not registered, type = " + type.ToString());
         }
 
-        var formatter = options.Resolver.GetFormatterDynamic(type);
+        var formatter = options.Resolver.GetFormatterDynamic(type) ;
 
         if (!Serializers.TryGetValue(type, out var serializeMethod))
         {
@@ -110,7 +110,7 @@ public class PacketFormatter : IMessagePackFormatter<object>
 
         var scratchWriter = new MessagePackWriter(buffer);
         scratchWriter.Write(packetId);
-        serializeMethod(formatter, ref scratchWriter, value, options);
+        serializeMethod(formatter ?? throw new NullReferenceException(nameof(formatter)), ref scratchWriter, value, options);
         scratchWriter.Flush();
 
         // mark as extension with code 100
@@ -121,7 +121,7 @@ public class PacketFormatter : IMessagePackFormatter<object>
     {
         if (reader.TryReadNil())
         {
-            return null;
+            return null!;
         }
 
         if (reader.NextMessagePackType == MessagePackType.Extension)
@@ -137,7 +137,7 @@ public class PacketFormatter : IMessagePackFormatter<object>
         }
 
         // fallback
-        return DynamicObjectTypeFallbackFormatter.Instance.Deserialize(ref reader, options);
+        return DynamicObjectTypeFallbackFormatter.Instance.Deserialize(ref reader, options)!;
     }
 
     private object DeserializeByTypeName(byte packetId, ref MessagePackReader byteSequence, MessagePackSerializerOptions options)
@@ -156,6 +156,6 @@ public class PacketFormatter : IMessagePackFormatter<object>
             throw new Exception("deserializer not registered, packetId = " + packetId);
         }
 
-        return deserializeMethod(formatter, ref byteSequence, options);
+        return deserializeMethod(formatter ?? throw new NullReferenceException(nameof(formatter)), ref byteSequence, options);
     }
 }
