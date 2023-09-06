@@ -13,6 +13,7 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
 using Redbus.Interfaces;
+using Wasmtime;
 
 namespace Kryolite.Node;
 
@@ -158,7 +159,16 @@ public class StoreManager : IStoreManager
                     else if (tx.TransactionType == TransactionType.VOTE)
                     {
                         voteCount++;
-                        totalStake += tx.Value;
+
+                        // Note: votes value must equal to signers stake, this is verified in Verifier
+                        var stake = tx.Value;
+
+                        if (Constant.SEED_VALIDATORS.Contains(tx.From!))
+                        {
+                            stake = Constant.MIN_STAKE;
+                        }
+
+                        totalStake += stake;
                     }
                 }
             }
