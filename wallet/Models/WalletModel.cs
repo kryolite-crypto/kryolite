@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Kryolite.Shared;
@@ -51,5 +52,5 @@ public class WalletModel : NotifyPropertyChanged
         }
     }
 
-    public List<Transaction> WalletTransactions { get; set; } = new List<Transaction>();
+    public List<TransactionModel> Transactions { get; set; } = new();
 }

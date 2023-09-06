@@ -81,8 +81,8 @@ public class MainWindowViewModel : NotifyPropertyChanged
         }
     }
 
-    private List<Transaction> _Transactions = new List<Transaction>();
-    public List<Transaction> Transactions
+    private List<TransactionModel> _Transactions = new List<TransactionModel>();
+    public List<TransactionModel> Transactions
     {
         get 
         {
@@ -129,7 +129,7 @@ public class MainWindowViewModel : NotifyPropertyChanged
         });
     }
 
-    public void UpdateWallet(Ledger ledger, List<Transaction> transactions)
+    public void UpdateWallet(Ledger ledger, List<TransactionModel> transactions)
     {
         var existing = Wallets
                 .Where(x => x.Address == ledger.Address)
@@ -142,12 +142,12 @@ public class MainWindowViewModel : NotifyPropertyChanged
 
         existing.Balance = ledger.Balance;
         existing.Pending = ledger.Pending;
-        existing.WalletTransactions = transactions;
+        existing.Transactions = transactions;
 
         Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
         Pending = Wallets.Sum(x => (long)(x.Pending ?? 0));
 
-        Transactions = Wallets.SelectMany(wallet => wallet.WalletTransactions)
+        Transactions = Wallets.SelectMany(wallet => wallet.Transactions)
             .OrderByDescending(tx => tx.Timestamp)
             .Take(5)
             .ToList();

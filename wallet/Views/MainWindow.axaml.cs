@@ -15,6 +15,7 @@ using Redbus.Interfaces;
 using System.Diagnostics;
 using Kryolite.Shared;
 using System.Collections.Concurrent;
+using Avalonia.Logging;
 
 namespace Kryolite.Wallet;
 
@@ -97,9 +98,22 @@ public partial class MainWindow : Window
             var wallet = Wallets[ledger.Address];
 
             var transactions = StoreManager.GetLastNTransctions(wallet.Address, 5);
+            var txs = transactions.Select(x =>
+            {
+                var isRecipient = Wallets.ContainsKey(x.To!);
+
+                var tm = new TransactionModel
+                {
+                    Recipient = x.To!,
+                    Amount = isRecipient ? x.Value : x.Value * -1,
+                    Timestamp = x.Timestamp
+                };
+
+                return tm;
+            }).ToList();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.UpdateWallet(ledger, transactions);
+                Model.UpdateWallet(ledger, txs);
             });
         });
     }
@@ -107,39 +121,59 @@ public partial class MainWindow : Window
     private void OnInitialized(object? sender, EventArgs args)
     {
         Task.Run(async () => {
-            var toAdd = new List<WalletModel>();
-
-            foreach (var wallet in Wallets.Values)
+            try
             {
-                var ledger = StoreManager.GetLedger(wallet.Address);
-                var txs = StoreManager.GetLastNTransctions(wallet.Address, 5);
+                var toAdd = new List<WalletModel>();
 
-                var wm = new WalletModel
+                foreach (var wallet in Wallets.Values)
                 {
-                    Description = wallet.Description,
-                    Address = wallet.Address.ToString(),
-                    PublicKey = wallet.PublicKey,
-                    PrivateKey = wallet.PrivateKey,
-                    Balance = ledger?.Balance ?? 0,
-                    Pending = ledger?.Pending ?? 0,
-                    WalletTransactions = txs
-                };
+                    var ledger = StoreManager.GetLedger(wallet.Address);
+                    var txs = StoreManager.GetLastNTransctions(wallet.Address, 5);
 
-                toAdd.Add(wm);
+                    var wm = new WalletModel
+                    {
+                        Description = wallet.Description,
+                        Address = wallet.Address.ToString(),
+                        PublicKey = wallet.PublicKey,
+                        PrivateKey = wallet.PrivateKey,
+                        Balance = ledger?.Balance ?? 0,
+                        Pending = ledger?.Pending ?? 0,
+                        Transactions = txs.Select(x =>
+                        {
+                            var isSender = x.From == wallet.Address;
+
+                            var tm = new TransactionModel
+                            {
+                                Recipient = isSender ? x.From! : x.To!,
+                                Amount = isSender ? x.Value * -1 : x.Value,
+                                Timestamp = x.Timestamp
+                            };
+
+                            return tm;
+                        }).ToList()
+                    };
+
+                    toAdd.Add(wm);
+                }
+
+                var balance = toAdd.Sum(x => x.Balance ?? 0);
+
+                var transactions = toAdd
+                    .SelectMany(wallet => wallet.Transactions)
+                    .OrderByDescending(tx => tx.Timestamp)
+                    .Take(5)
+                    .ToList();
+
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    Model.Wallets = new ObservableCollection<WalletModel>(toAdd);
+                    Model.Balance = balance;
+                    Model.Transactions = transactions;
+                });
             }
-
-            var balance = toAdd.Sum(x => (long)(x.Balance ?? 0));
-
-            var transactions = toAdd.SelectMany(wallet => wallet.WalletTransactions)
-                .OrderByDescending(tx => tx.Timestamp)
-                .Take(5)
-                .ToList();
-
-            await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Wallets = new ObservableCollection<WalletModel>(toAdd);
-                Model.Balance = balance;
-                Model.Transactions = transactions;
-            });                   
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
         });
 
         Task.Run(async () => {

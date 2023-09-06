@@ -387,6 +387,40 @@ internal class RocksDBStorage : IStorage
         return results;
     }
 
+    public List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix, int count)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        var upperBound = new BigInteger(keyPrefix.ToArray(), true, true) + 1;
+
+        var bytes = upperBound.ToByteArray();
+        Array.Resize(ref bytes, keyPrefix.Length);
+        Array.Reverse(bytes);
+
+        var readOptions = new ReadOptions();
+        readOptions.SetIterateLowerBound(keyPrefix.ToArray());
+        readOptions.SetIterateUpperBound(bytes);
+
+        using var iterator = Database.NewIterator(ix, readOptions);
+
+        iterator.SeekToLast();
+
+        var results = new List<byte[]>(count);
+
+        while (iterator.Valid())
+        {
+            results.Add(iterator.Value());
+            iterator.Prev();
+
+            if (results.Count == count)
+            {
+                break;
+            }
+        }
+
+        return results;
+    }
+
     public T? FindLast<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
         var ix = ColumnFamilies[ixName];

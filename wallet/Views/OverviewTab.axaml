@@ -22,23 +22,6 @@
                     <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Pending, Converter={StaticResource CurrencyConverter}}" />
                 </StackPanel>
             </Border>
-            <!--Border BorderBrush="#66ffffff"
-                    BorderThickness="0.51"
-                    CornerRadius="0"
-                    Padding="4">
-                <StackPanel Margin="10" Width="250">
-                    <TextBlock FontWeight="Bold">SAMPO</TextBlock>
-                    <TextBlock Margin="0, 20, 0, 0">Collateral</TextBlock>
-                    <TextBlock FontWeight="Bold" Text="1000000 / 1000000 KRYO" />
-                    <DockPanel Margin="0, 20, 0, 0" DockPanel.Dock="Left">
-                        <Button HorizontalAlignment="Right" DockPanel.Dock="Right">Disable</Button>
-                        <StackPanel>
-                            <TextBlock>Status</TextBlock>
-                            <TextBlock Foreground="Green" FontWeight="Bold">ACTIVE</TextBlock>
-                        </StackPanel>
-                    </DockPanel>
-                </StackPanel>
-            </Border-->
         </StackPanel>
         <StackPanel DockPanel.Dock="Right">
             <Border BorderBrush="#66ffffff"
@@ -53,7 +36,7 @@
                             <DataTemplate>
                                 <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
                                     <TextBlock Text="{Binding Timestamp, Converter={StaticResource TimestampConverter}}" Grid.Row="0" Grid.Column="0"/>
-                                    <TextBlock Text="{Binding Value, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
+                                    <TextBlock Text="{Binding Amount, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
                                     <TextBlock Text="{Binding Recipient, Converter={StaticResource AddressConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
                                 </Grid>
                             </DataTemplate>

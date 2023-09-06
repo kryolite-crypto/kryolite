@@ -333,45 +333,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetLastNTransctions(Address address, int count)
     {
-        /*using var cmd = Connection!.CreateCommand();
+        var ids = Storage.FindLast("ixTransactionAddress", address, 5);
 
-        cmd.CommandText = @"
-            SELECT
-                TransactionId,
-                TransactionType,
-                Height,
-                PublicKey,
-                Sender,
-                Recipient,
-                Value,
-                Pow,
-                Data,
-                Timestamp,
-                Signature,
-                ExecutionResult
-            FROM
-                Transactions
-            WHERE
-                Sender = @addr OR Recipient = @addr
-            ORDER BY DESC Height, Timestamp
-            LIMIT @count
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@count", count));
-
-        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
-
-        var results = new List<Transaction>();
-
-        while (reader.Read())
+        if (ids is null)
         {
-            results.Add(Transaction.Read(reader));
+            return new();
         }
 
-        return results;*/
-
-        return new();
+        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
     public Ledger? GetWallet(Address address)
