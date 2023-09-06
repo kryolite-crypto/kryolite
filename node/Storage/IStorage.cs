@@ -36,5 +36,7 @@ public interface IStorage
     List<byte[]> FindLast(string ixName, int count);
     List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix , int count);
 
+    List<T> GetAll<T>(string ixName);
+
     ITransaction BeginTransaction();
 }

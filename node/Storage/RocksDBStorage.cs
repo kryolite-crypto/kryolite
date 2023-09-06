@@ -474,6 +474,25 @@ internal class RocksDBStorage : IStorage
         return iterator.Value();
     }
 
+    public List<T> GetAll<T>(string ixName)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        using var iterator = Database.NewIterator(ix);
+
+        iterator.SeekToFirst();
+
+        var results = new List<T>();
+
+        while (iterator.Valid())
+        {
+            results.Add(MessagePackSerializer.Deserialize<T>(iterator.Value()));
+            iterator.Next();
+        }
+
+        return results;
+    }
+
     public ulong GetCurrentKey()
     {
         return CurrentKey;

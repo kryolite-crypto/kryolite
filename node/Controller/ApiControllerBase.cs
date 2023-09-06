@@ -143,7 +143,7 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("richlist")]
-    public IActionResult GetSmartContractState([FromQuery] int count = 25)
+    public IActionResult GetRichList([FromQuery] int count = 25)
     {
         var wallets = blockchainManager.GetRichList(count).Select(wallet => new {
             Address = wallet.Address,

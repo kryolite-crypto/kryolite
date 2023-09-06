@@ -386,32 +386,11 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Ledger> GetRichList(int count)
     {
-        /*using var cmd = Connection!.CreateCommand();
+        var ledger = Storage.GetAll<Ledger>("Ledger");
 
-        cmd.CommandText = @"
-            SELECT
-                Address,
-                Balance,
-                Pending
-            FROM
-                Ledger
-            ORDER BY Balance DESC
-            LIMIT @count
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@count", count));
-
-        using var reader = cmd.ExecuteReader();
-
-        var results = new List<Ledger>();
-
-        while (reader.Read())
-        {
-            results.Add(Ledger.Read(reader));
-        }
-
-        return results;*/
-        return new();
+        return ledger.OrderByDescending(x => x.Balance)
+            .Take(count)
+            .ToList();
     }
 
     public void AddContract(Contract contract)
