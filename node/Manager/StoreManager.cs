@@ -929,13 +929,17 @@ public class StoreManager : IStoreManager
     public List<Transaction> GetTransactionsForAddress(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-
         return Repository.GetTransactions(address);
     }
 
     public Transaction? GetTransactionForHash(SHA256Hash hash)
     {
         using var _ = rwlock.EnterReadLockEx();
+
+        if (StateCache.GetTransactions().TryGetValue(hash, out var tx))
+        {
+            return tx;
+        }
 
         return Repository.Get(hash);
     }

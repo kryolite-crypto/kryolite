@@ -522,43 +522,8 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetTransactions(Address address)
     {
-        /*using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            SELECT
-                TransactionId,
-                TransactionType,
-                Height,
-                PublicKey,
-                Sender,
-                Recipient,
-                Value,
-                Pow,
-                Data,
-                Timestamp,
-                Signature,
-                ExecutionResult
-            FROM
-                Transactions
-            WHERE
-                Sender = @addr
-                OR
-                Recipient = @addr
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
-
-        using var reader = cmd.ExecuteReader();
-
-        var results = new List<Transaction>();
-
-        while (reader.Read())
-        {
-            results.Add(Transaction.Read(reader));
-        }
-
-        return results;*/
-        return new();
+        var ids = Storage.FindLast("ixTransactionAddress", address, -1);
+        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
     public Token? GetToken(Address contract, SHA256Hash tokenId)

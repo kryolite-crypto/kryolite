@@ -371,7 +371,7 @@ internal class RocksDBStorage : IStorage
 
         iterator.SeekToLast();
 
-        var results = new List<byte[]>(count);
+        var results = new List<byte[]>(Math.Max(count, 0));
 
         while (iterator.Valid())
         {
@@ -405,7 +405,7 @@ internal class RocksDBStorage : IStorage
 
         iterator.SeekToLast();
 
-        var results = new List<byte[]>(count);
+        var results = new List<byte[]>(Math.Max(count, 0));
 
         while (iterator.Valid())
         {
