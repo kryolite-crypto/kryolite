@@ -8,7 +8,7 @@ namespace Kryolite.Daemon;
 
 public class CleanConsoleFormatter : ConsoleFormatter, IDisposable
 {
-    private readonly IDisposable _optionsReloadToken;
+    private readonly IDisposable? _optionsReloadToken;
     private SimpleConsoleFormatterOptions FormatterOptions;
     private const string LoglevelPadding = ":";
     private static readonly string _messagePadding = new string(' ', GetLogLevelString(LogLevel.Information).Length + LoglevelPadding.Length);
@@ -20,7 +20,7 @@ public class CleanConsoleFormatter : ConsoleFormatter, IDisposable
     private void ReloadLoggerOptions(SimpleConsoleFormatterOptions options) =>
         FormatterOptions = options;
 
-    public override void Write<TState>(in LogEntry<TState> logEntry, IExternalScopeProvider scopeProvider, TextWriter textWriter)
+    public override void Write<TState>(in LogEntry<TState> logEntry, IExternalScopeProvider? scopeProvider, TextWriter textWriter)
     {
         if (logEntry.Formatter is null) {
             throw new ArgumentNullException(nameof(logEntry.Formatter));

@@ -1,11 +1,9 @@
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Threading;
 using Kryolite.Node;
-using Kryolite.Shared;
-using Material.Icons;
 using Microsoft.Extensions.DependencyInjection;
-using Newtonsoft.Json.Linq;
+using Microsoft.Extensions.Logging;
+using Redbus.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -18,15 +16,15 @@ namespace Kryolite.Wallet;
 
 public partial class TokensTab : UserControl
 {
-    private IBlockchainManager BlockchainManager;
     private IWalletManager WalletManager;
+    private IEventBus EventBus;
 
     private TokensTabViewModel Model = new();
 
     public TokensTab()
     {
-        BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
         WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
+        EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IWalletManager));
 
         InitializeComponent();
         DataContext = Model;
@@ -57,10 +55,15 @@ public partial class TokensTab : UserControl
                     return;
                 }
 
+                using var scope = Program.ServiceCollection.CreateScope();
+                var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+
                 var wallets = WalletManager.GetWallets();
 
                 foreach (var token in tokens)
                 {
+                    Console.WriteLine(token.TokenId);
+
                     var exists = Model.Tokens
                         .Where(t => t.TokenId == token.TokenId)
                         .FirstOrDefault();
@@ -68,7 +71,7 @@ public partial class TokensTab : UserControl
                     if (exists is null)
                     {
                         // Query token from db and add to model
-                        var newToken = BlockchainManager.GetToken(token.TokenId);
+                        var newToken = blockchainManager.GetToken(token.Contract, token.TokenId);
 
                         if (newToken is null)
                         {
@@ -79,12 +82,13 @@ public partial class TokensTab : UserControl
                             Model.Tokens.Add(new TokenModel
                             {
                                 TokenId = newToken.TokenId,
-                                Owner = newToken.Contract.Owner,
+                                Owner = newToken.Ledger,
                                 Name = newToken.Name,
                                 Description = newToken.Description,
                                 IsConsumed = newToken.IsConsumed
                             });
                         });
+
                         continue;
                     }
 
@@ -97,6 +101,7 @@ public partial class TokensTab : UserControl
                         await Dispatcher.UIThread.InvokeAsync(() => {
                             Model.Tokens.Remove(exists);
                         });
+
                         continue;
                     }
 
@@ -107,7 +112,7 @@ public partial class TokensTab : UserControl
                 }
             });
 
-        BlockchainManager.OnTokenTransferred(tokenTransferredBuffer);
+        EventBus.Subscribe<TransferTokenEventArgs>(e => tokenTransferredBuffer.Post(e));
 
         var tokenConsumedBuffer = new BufferBlock<ConsumeTokenEventArgs>();
 
@@ -136,7 +141,7 @@ public partial class TokensTab : UserControl
                 }
             });
 
-        BlockchainManager.OnTokenConsumed(tokenConsumedBuffer);
+        EventBus.Subscribe<ConsumeTokenEventArgs>(e => tokenConsumedBuffer.Post(e));
     }
 
     private void InitializeData()
@@ -145,13 +150,16 @@ public partial class TokensTab : UserControl
             var wallets = WalletManager.GetWallets();
             var collection = new List<TokenModel>();
 
+            using var scope = Program.ServiceCollection.CreateScope();
+            var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+
             foreach (var wallet in wallets)
             {
-                var tokens = BlockchainManager.GetTokens(wallet.Key)
+                var tokens = blockchainManager.GetTokens(wallet.Key)
                     .Select(token => new TokenModel
                     {
                         TokenId = token.TokenId,
-                        Owner = token.Contract.Owner,
+                        Owner = token.Ledger,
                         Name = token.Name,
                         Description = token.Description,
                         IsConsumed = token.IsConsumed

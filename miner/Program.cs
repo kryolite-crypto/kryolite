@@ -14,6 +14,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Concurrent;
 using NSec.Cryptography;
 using System.Runtime.InteropServices;
+using Kryolite.Shared.Blockchain;
 
 public class Program
 {
@@ -24,13 +25,13 @@ public class Program
     public static async Task<int> Main(string[] args)
     {
         SerializerOpts.PropertyNameCaseInsensitive = true;
-        SerializerOpts.Converters.Add(new NonceConverter());
         SerializerOpts.Converters.Add(new PrivateKeyConverter());
         SerializerOpts.Converters.Add(new PublicKeyConverter());
         SerializerOpts.Converters.Add(new SHA256HashConverter());
         SerializerOpts.Converters.Add(new SignatureConverter());
         SerializerOpts.Converters.Add(new DifficultyConverter());
         SerializerOpts.Converters.Add(new AddressConverter());
+
 
         var rootCmd = new RootCommand("Kryolite Miner");
 
@@ -150,12 +151,14 @@ public class Program
                                 var solution = new Blocktemplate
                                 {
                                     Height = blocktemplate.Height,
+                                    To = blocktemplate.To,
                                     Difficulty = blocktemplate.Difficulty,
                                     Nonce = blocktemplate.Nonce,
                                     Solution = bytes,
                                     Timestamp = blocktemplate.Timestamp,
                                     ParentHash = blocktemplate.ParentHash,
-                                    Transactions = blocktemplate.Transactions
+                                    Data = blocktemplate.Data,
+                                    Validates = blocktemplate.Validates
                                 };
 
                                 _ = Task.Run(async () => {
@@ -172,7 +175,6 @@ public class Program
 
                                             if (res.IsSuccessStatusCode)
                                             {
-                                                TokenSource.Cancel();
                                                 break;
                                             }
 
@@ -201,7 +203,7 @@ public class Program
                 }).UnsafeStart();
             }
 
-            await HandleConnectionAsync(jobQueue, httpClient, url, address);
+            await HandleConnectionAsync(jobQueue, httpClient, url!, address);
         }, nodeOption, walletOption, throttleOption, threadsOption);
 
         return await rootCmd.InvokeAsync(args);
@@ -264,15 +266,15 @@ public class Program
             restart = false;
             current = blocktemplate;
 
-            Grasshopper.GetBlockFeatures(current.ParentHash, out var expSz, out var sboxSz, out var rounds);
+            Grasshopper.GetBlockFeatures(current!.ParentHash, out var expSz, out var sboxSz, out var rounds);
 
-            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate.Height}, diff = {blocktemplate.Difficulty} [maxrounds = {rounds}, memarea = {sboxSz}, expsize = {expSz}]");
+            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate?.Height}, diff = {blocktemplate?.Difficulty} [maxrounds = {rounds}, memarea = {sboxSz}, expsize = {expSz}]");
 
             TokenSource.Cancel();
             TokenSource = new CancellationTokenSource();
 
             Parallel.ForEach(queue, worker => {
-                worker.Add(blocktemplate);
+                worker.Add(blocktemplate!);
             });
 
             Thread.Sleep(TimeSpan.FromSeconds(1));

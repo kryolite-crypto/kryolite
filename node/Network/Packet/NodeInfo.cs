@@ -2,6 +2,7 @@ using System.Net.Sockets;
 using System.Numerics;
 using Kryolite.Shared;
 using MessagePack;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using static Kryolite.Node.NetworkManager;
 
@@ -11,30 +12,34 @@ namespace Kryolite.Node;
 public class NodeInfo : IPacket
 {
     [Key(0)]
-    public DateTime CurrentTime { get; init; } // TODO unixtime
+    public long CurrentTime { get; init; }
     [Key(1)]
     public long Height { get; init; }
     [Key(2)]
-    public BigInteger TotalWork { get; init; }
+    public BigInteger Weight { get; init; }
     [Key(3)]
-    public SHA256Hash LastHash { get; init; }
+    public SHA256Hash? LastHash { get; init; }
 
-    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        context.Logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
-        var chainState2 = context.BlockchainManager.GetChainState();
+        using var scope = serviceProvider.CreateScope();
 
-        var totalWork = context.BlockchainManager.GetTotalWork();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfo>>();
 
-        if (TotalWork > totalWork)
+        logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
+        var chainState = blockchainManager.GetChainState();
+
+        if (Weight > chainState.Weight)
         {
+            logger.LogInformation($"{peer.Uri.ToHostname()} has greater weight ({Weight}) compared to local ({chainState.Weight}). Initiating chain download...");
+
+            var lastView = blockchainManager.GetLastView();
+
             var msg = new RequestChainSync
             {
-                StartBlock = chainState2.POS.Height,
-                StartHash = chainState2.POS.LastHash
+                LastHash = lastView?.TransactionId ?? SHA256Hash.NULL_HASH
             };
-
-            context.Logger.LogInformation($"{peer.Uri.ToHostname()} has greater TotalWork ({TotalWork}) compared to local ({totalWork}). Requesting chain sync");
 
             _ = peer.SendAsync(msg);
         }

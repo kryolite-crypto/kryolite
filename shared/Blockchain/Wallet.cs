@@ -1,23 +1,29 @@
+using System.Data.Common;
 using System.Text.Json.Serialization;
+using MessagePack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared;
 
+[MessagePackObject]
 public class Wallet
 {
-    [JsonIgnore]
-    public Guid Id { get; set; }
+    [Key(0)]
+    public Address Address { get; set; } = new Address();
+    [Key(1)]
     public string? Description { get; set; }
-    public string Address { get; set; }
-    public PublicKey PublicKey { get; set; }
-    public PrivateKey PrivateKey { get; set; }
-    public ulong Balance { get; set; }
-    public WalletType Type { get; set; }
-    public bool Updated { get; set; }
+    [Key(2)]
+    public PublicKey PublicKey { get; set; } = new PublicKey();
+    [Key(3)]
+    public PrivateKey PrivateKey { get; set; } = new PrivateKey();
 
-    public List<WalletTransaction> WalletTransactions { get; set; } = new();
 
     public Wallet()
+    {
+
+    }
+
+    public static Wallet Create()
     {
         var algorithm = SignatureAlgorithm.Ed25519;
 
@@ -25,15 +31,33 @@ public class Wallet
         var pubKey = key.Export(KeyBlobFormat.RawPublicKey);
         var privKey = key.Export(KeyBlobFormat.RawPrivateKey);
 
-        PublicKey = pubKey;
-        PrivateKey = privKey;
-        Address = PublicKey.ToAddress().ToString();
-        Balance = 0;
-    }
-}
+        var wallet = new Wallet
+        {
+            PublicKey = pubKey,
+            PrivateKey = privKey,
+        };
 
-public enum WalletType
-{
-    WALLET,
-    NODE
+        wallet.Address = wallet.PublicKey.ToAddress();
+
+        return wallet;
+    }
+
+    public static Wallet Read(DbDataReader reader)
+    {
+        var wallet = new Wallet();
+
+        wallet.Address = reader.GetString(0);
+        if (!reader.IsDBNull(1))
+        {
+            wallet.Description = reader.GetString(1);
+        }
+        wallet.PublicKey = reader.GetString(2);
+
+        var t = reader.GetFieldType(3);
+        using var ms = new MemoryStream();
+        reader.GetStream(3).CopyTo(ms);
+        wallet.PrivateKey = ms.ToArray();
+
+        return wallet;
+    }
 }

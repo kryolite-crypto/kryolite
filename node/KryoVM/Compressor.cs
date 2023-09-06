@@ -9,7 +9,7 @@ namespace Kryolite.Node;
 
 public static class Compressor
 {
-    public static ReadOnlySpan<byte> Compress(this Span<byte> data)
+    public static byte[] Compress(this Span<byte> data)
     {
         using var output = new MemoryStream();
         using (var dstream = new DeflateStream(output, CompressionLevel.Optimal))

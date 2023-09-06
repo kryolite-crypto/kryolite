@@ -1,30 +1,24 @@
+using System.Data.Common;
 using System.Numerics;
 using Kryolite.Shared;
+using MessagePack;
+using Redbus.Events;
 
 namespace Kryolite.Node;
 
-public class ChainState
+[MessagePackObject]
+public class ChainState : EventBase
 {
-    public int Id { get; set; } = 1;
-    public PohjolaChain POW { get; set; } = new();
-    public TuonelaChain POS { get; set; } = new();
-}
-
-public class PohjolaChain
-{
-    public int Id { get; set; } = 1;
-    public long Height { get; set; }
-    public BigInteger TotalWork { get; set; } = new BigInteger(0);
-    public Difficulty CurrentDifficulty {get; set; } = new Difficulty { Value = 0 };
-    public int CurrentReward { get; set; } = 1000 * 1000000;
-    public SHA256Hash LastHash { get; set; }
-}
-
-public class TuonelaChain
-{
-    public int Id { get; set; } = 1;
-    public bool Active { get => SampoCount > 0; }
-    public long Height { get; set; }
-    public int SampoCount { get; set; }
-    public SHA256Hash LastHash { get; set; }
+    [Key(0)]
+    public long Id {  get; set; }
+    [Key(1)]
+    public BigInteger Weight { get; set; } = new BigInteger(0);
+    [Key(2)]
+    public long Height { get; set; } = -1;
+    [Key(3)]
+    public long Blocks { get; set; }
+    [Key(4)]
+    public SHA256Hash LastHash { get; set; } = new SHA256Hash();
+    [Key(5)]
+    public Difficulty CurrentDifficulty { get; set; }
 }

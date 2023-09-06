@@ -2,12 +2,13 @@ using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
 using MessagePack;
-using SimpleBase;
 
 namespace Kryolite.Shared;
 
+[MessagePackObject]
 public class PrivateKey
 {
+    [Key(0)]
     public byte[] Buffer { get; private init; }
 
     public PrivateKey()
@@ -30,11 +31,11 @@ public class PrivateKey
         Buffer = buffer;
     }
 
-    public override string ToString() => Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator PrivateKey(byte[] buffer) => new PrivateKey(buffer);
-    public static implicit operator PrivateKey(string privKey) => new PrivateKey(Base58.Flickr.Decode(privKey));
+    public static implicit operator PrivateKey(string privKey) => new PrivateKey(Base32.Kryolite.Decode(privKey));
 
     public override bool Equals(object? obj) 
     {
@@ -100,25 +101,25 @@ public class PublicKey
         Buffer = buffer;
     }
 
-    public override string ToString() => Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator PublicKey(byte[] buffer) => new PublicKey(buffer);
-    public static implicit operator PublicKey(string pubKey) => new PublicKey(Base58.Flickr.Decode(pubKey));
+    public static implicit operator PublicKey(string pubKey) => new PublicKey(Base32.Kryolite.Decode(pubKey));
 
     public override bool Equals(object? obj) 
     {
         return obj is PublicKey c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
     }
 
-    public static bool operator ==(PublicKey a, PublicKey b)
+    public static bool operator ==(PublicKey? a, PublicKey? b)
     {
-        if (System.Object.ReferenceEquals(a, b))
+        if (ReferenceEquals(a, b))
         {
             return true;
         }
 
-        if (((object)a == null) || ((object)b == null))
+        if ((a is null) || (b is null))
         {
             return false;
         }
@@ -126,7 +127,7 @@ public class PublicKey
         return a.Equals(b);
     }
 
-    public static bool operator !=(PublicKey a, PublicKey b)
+    public static bool operator !=(PublicKey? a, PublicKey? b)
     {
         return !(a == b);
     }

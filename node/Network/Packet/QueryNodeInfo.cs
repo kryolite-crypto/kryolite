@@ -2,23 +2,29 @@ using MessagePack;
 using Microsoft.Extensions.Logging;
 using Kryolite.Shared;
 using static Kryolite.Node.NetworkManager;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Node;
 
 [MessagePackObject]
 public class QueryNodeInfo : IPacket
 {
-    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        context.Logger.LogInformation($"Node query received from {peer.Uri.ToHostname()}");
+        using var scope = serviceProvider.CreateScope();
 
-        var chainState3 = context.BlockchainManager.GetChainState();
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<QueryNodeInfo>>();
+
+        logger.LogInformation($"Node query received from {peer.Uri.ToHostname()}");
+
+        var chainState = blockchainManager.GetChainState();
         var response = new NodeInfo
         {
-            Height = chainState3.POS.Height,
-            TotalWork = chainState3.POW.TotalWork,
-            LastHash = context.BlockchainManager.GetLastBlockhash() ?? new SHA256Hash(),
-            CurrentTime = DateTime.UtcNow
+            Height = chainState.Height,
+            Weight = chainState.Weight,
+            LastHash = blockchainManager.GetLastView()?.TransactionId ?? SHA256Hash.NULL_HASH,
+            CurrentTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
 
         _ = peer.SendAsync(response);

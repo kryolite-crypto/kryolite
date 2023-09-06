@@ -1,8 +1,9 @@
 ﻿using Kryolite.Shared;
+using Redbus.Events;
 
 namespace Kryolite.Node;
 
-public class ApprovalEventArgs : EventArgs
+public class ApprovalEventArgs : EventBase
 {
     public Address From { get; set; } = new();
     public Address To { get; set; } = new();

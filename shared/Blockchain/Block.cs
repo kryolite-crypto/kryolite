@@ -1,64 +1,67 @@
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text.Json.Serialization;
+﻿using Kryolite.Shared.Dto;
 using MessagePack;
+using System.Reactive;
+using System.Security.Cryptography;
 
-namespace Kryolite.Shared;
-
-public class Concat
-{
-    public byte[] Buffer = new byte[64];
-
-    public override bool Equals(Object? obj) => obj is Concat c && this == c;
-    public override int GetHashCode() => Buffer.GetHashCode();
-    public static bool operator ==(Concat x, Concat y) => x.Buffer.SequenceEqual(y.Buffer);
-    public static bool operator !=(Concat x, Concat y) => !(x.Buffer.SequenceEqual(y.Buffer));
-}
+namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class PowBlock
+public class Block : Transaction
 {
     [IgnoreMember]
-    [JsonIgnore]
-    public Guid Id { get; set; }
-    [IgnoreMember]
-    public Guid PosBlockId { get; set; }
-
-    [Key(0)]
-    public long Height { get; set; }
-    [Key(1)]
-    public SHA256Hash ParentHash { get; set; }
-    [Key(2)]
-    public long Timestamp { get; set; }
-    [Key(3)]
-    public Nonce Nonce { get; set; }
-    [Key(4)]
     public Difficulty Difficulty { get; set; }
-    [Key(5)]
-    public List<Transaction> Transactions { get; set; } = new();
+    [IgnoreMember]
+    public SHA256Hash ParentHash { get; set; } = new SHA256Hash();
+    [IgnoreMember]
+    public SHA256Hash Nonce { get; set; } = new SHA256Hash();
 
-    public SHA256Hash GetHash()
+    public Block()
     {
-        using var sha256 = SHA256.Create();
-        using var stream = new MemoryStream();
 
-        stream.Write(ParentHash);
-        stream.Write(new MerkleTree(Transactions).RootHash);
-        stream.Write(BitConverter.GetBytes(Difficulty.Value));
-        stream.Write(BitConverter.GetBytes(Timestamp));
-
-        stream.Flush();
-        stream.Position = 0;
-
-        return sha256.ComputeHash(stream);
     }
 
-    public bool VerifyNonce()
+    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty, List<SHA256Hash> parents, SHA256Hash nonce)
+    {
+        TransactionType = TransactionType.BLOCK;
+        To = wallet;
+        Value = Constant.BLOCK_REWARD;
+        Timestamp = timestamp;
+        Parents = parents;
+        ParentHash = parentHash;
+        Difficulty = difficulty;
+        Nonce = nonce;
+        Data = MessagePackSerializer.Serialize(new BlockPayload(this));
+        TransactionId = CalculateHash();
+    }
+
+    public Block(TransactionDto tx, List<SHA256Hash> parents)
+    {
+        TransactionType = TransactionType.BLOCK;
+        To = tx.To;
+        Value = Constant.BLOCK_REWARD;
+        Timestamp = tx.Timestamp;
+        Data = tx.Data;
+        Parents = parents;
+
+        var blockPayload = MessagePackSerializer.Deserialize<BlockPayload>(tx.Data);
+        Difficulty = blockPayload.Difficulty;
+        ParentHash = blockPayload.ParentHash;
+        Nonce = blockPayload.Nonce;
+
+        TransactionId = CalculateHash();
+    }
+
+    public override void Sign(PrivateKey privateKey)
+    {
+        throw new NotSupportedException();
+    }
+
+    public override bool Verify()
     {
         var basehash = GetHash();
         var concat = new Concat
         {
-            Buffer = basehash.Buffer.Concat(Nonce.Buffer).ToArray()
+            Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? new byte[0]).ToArray()
         };
 
         var hash = Grasshopper.Hash(ParentHash, concat);
@@ -68,40 +71,26 @@ public class PowBlock
 
         return result.CompareTo(target) <= 0;
     }
-}
-
-[MessagePackObject]
-public class PosBlock
-{
-    [IgnoreMember]
-    [JsonIgnore]
-    public Guid Id { get; set; }
-
-    [Key(0)]
-    public long Height { get; set; }
-    [Key(1)]
-    public SHA256Hash ParentHash { get; set; }
-    [Key(2)]
-    public long Timestamp { get; set; }
-    [Key(3)]
-    public PowBlock? Pow { get; set; }
-    [Key(4)]
-    public PublicKey SignedBy { get; set; }
-    [Key(5)]
-    public Signature Signature { get; set; }
-    [Key(6)]
-    public List<Vote> Votes { get; set; } = new();
 
     public SHA256Hash GetHash()
     {
         using var sha256 = SHA256.Create();
         using var stream = new MemoryStream();
 
-        stream.Write(ParentHash);
+        stream.WriteByte((byte)TransactionType);
+        stream.Write(To ?? throw new Exception("missing required field 'block.to'"));
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(Data.AsSpan().Slice(0, 40));
         stream.Write(BitConverter.GetBytes(Timestamp));
-        
-        if (Pow is not null) {
-            stream.Write(Pow.GetHash());
+
+        if (Parents.Count < 2)
+        {
+            throw new Exception("parent hashes not loaded for transaction");
+        }
+
+        foreach (var hash in Parents.Order())
+        {
+            stream.Write(hash);
         }
 
         stream.Flush();
@@ -112,12 +101,24 @@ public class PosBlock
 }
 
 [MessagePackObject]
-public class KeyAndSignature
+public class BlockPayload
 {
     [Key(0)]
-    public SHA256Hash RootHash { get; set; }
+    public Difficulty Difficulty { get; set; }
     [Key(1)]
-    public PublicKey PublicKey { get; set; }
+    public SHA256Hash ParentHash { get; set; } = new SHA256Hash();
     [Key(2)]
-    public Signature Signature { get; set; }
+    public SHA256Hash Nonce { get; set; } = new SHA256Hash();
+
+    public BlockPayload()
+    {
+
+    }
+
+    public BlockPayload(Block block)
+    {
+        Difficulty = block.Difficulty;
+        ParentHash = block.ParentHash;
+        Nonce = block.Nonce;
+    }
 }

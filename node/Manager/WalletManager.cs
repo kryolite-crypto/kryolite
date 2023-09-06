@@ -1,100 +1,44 @@
+using Kryolite.Node.Repository;
 using Kryolite.Shared;
-using Newtonsoft.Json.Linq;
 
 namespace Kryolite.Node;
 
 public class WalletManager : IWalletManager
 {
-    private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
+    private static readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
 
-    public WalletManager()
+    public IWalletRepository Repository { get; }
+
+    public WalletManager(IWalletRepository repository)
     {
-
+        Repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
-    public Dictionary<string, Wallet> GetWallets()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var walletRepository = new WalletRepository();
-
-        return walletRepository.GetWallets();
-    }
-
-    public List<WalletTransaction> GetTransactions(int count)
+    public Wallet? GetWallet(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        using var walletRepository = new WalletRepository();
-
-        return walletRepository.GetLastTransactions(count);
+        return Repository.Get(address);
     }
 
-    public Wallet CreateWallet(WalletType walletType = WalletType.WALLET)
+    public Dictionary<Address, Wallet> GetWallets()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetWallets();
+    }
+
+    public Wallet CreateWallet()
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository();
 
-        if (walletType == WalletType.NODE) {
-            var nodeWallet = walletRepository.GetNodeWallet();
+        var wallet = Wallet.Create();
 
-            if (nodeWallet != null) {
-                return nodeWallet;
-            }
-        }
-
-        var wallet = new Wallet
-        {
-            Type = walletType
-        };
-
-        walletRepository.Add(wallet);
+        Repository.Add(wallet);
         return wallet;
     }
 
-    /**
-        Only allowed to update Wallet description
-    **/
-    public void UpdateWallet(Wallet wal)
+    public void UpdateDescription(Address address, string description)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository();
-
-        var wallet = walletRepository.Get(wal.Address);
-
-        if (wallet is null)
-        {
-            return;
-        }
-
-        wallet.Description = wal.Description;
-        walletRepository.Update(wallet);
-    }
-
-    public void RollbackWallets(List<Wallet> wallets, long blockId)
-    {
-        using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository();
-
-        walletRepository.RollbackWallets(wallets, blockId);
-    }
-
-    public void UpdateWallets(IEnumerable<Wallet> wallets)
-    {
-        if (wallets.Count() == 0)
-        {
-            return;
-        }
-
-        using var _ = rwlock.EnterWriteLockEx();
-        using var walletRepository = new WalletRepository();
-
-        walletRepository.UpdateWallets(wallets);
-    }
-
-    public Wallet? GetNodeWallet()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        using var walletRepository = new WalletRepository();
-
-        return walletRepository.GetNodeWallet();
+        Repository.UpdateDescription(address, description);
     }
 }

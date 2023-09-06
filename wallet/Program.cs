@@ -16,9 +16,9 @@ namespace Kryolite.Wallet
 {
     class Program
     {
-        public static IServiceProvider ServiceCollection { get; private set; }
+        public static IServiceProvider ServiceCollection { get; private set; } = default!;
 
-        private static IWebHost Host;
+        private static IWebHost Host = default!;
 
         [STAThread]
         public static int Main(string[] args) {

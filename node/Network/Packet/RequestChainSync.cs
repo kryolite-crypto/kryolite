@@ -1,4 +1,6 @@
+using Kryolite.Shared;
 using MessagePack;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
@@ -7,33 +9,40 @@ namespace Kryolite.Node;
 public class RequestChainSync : IPacket
 {
     [Key(0)]
-    public long StartBlock { get; init; }
-    [Key(1)]
-    public byte[]? StartHash { get; init; }
+    public SHA256Hash? LastHash { get; init; }
 
-    public void Handle(Peer peer, MessageReceivedEventArgs args, PacketContext context)
+    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        context.Logger.LogInformation($"Chain sync requested from {peer.Uri.ToHostname()}");
+        using var scope = serviceProvider.CreateScope();
 
-        var block = context.BlockchainManager.GetPosBlock(StartBlock);
+        var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<RequestChainSync>>();
 
-        var chain = new Blockchain();
+        logger.LogInformation($"Chain sync requested by {peer.Uri.ToHostname()}");
 
-        if (block == null) {
-            chain.Blocks = context.BlockchainManager.GetPosFrom(0);
+        var chain = new ChainData();
+
+        if (LastHash is null) {
+            chain.Transactions = blockchainManager.GetTransactionsAfterHeight(0)
+                .Select(x => new Shared.Dto.TransactionDto(x))
+                .ToList();
+
             goto answer;
         }
 
-        if (!Enumerable.SequenceEqual(block.GetHash().Buffer, StartHash!)) {
-            chain.Blocks = context.BlockchainManager.GetPosFrom(0);
+        var view = blockchainManager.GetView(LastHash);
+
+        if (view is null) {
+            chain.Transactions = blockchainManager.GetTransactionsAfterHeight(0)
+                .Select(x => new Shared.Dto.TransactionDto(x))
+                .ToList();
+
             goto answer;
         }
 
-        if (StartBlock == context.BlockchainManager.GetCurrentHeight()) {
-            return;
-        }
-
-        chain.Blocks = context.BlockchainManager.GetPosFrom(StartBlock);
+        chain.Transactions = blockchainManager.GetTransactionsAfterHeight(view.Height ?? 0)
+            .Select(x => new Shared.Dto.TransactionDto(x))
+            .ToList();
 
 answer:
         _ = peer.SendAsync(chain);

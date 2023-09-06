@@ -1,3 +1,4 @@
+using Kryolite.Shared.Blockchain;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared
@@ -11,17 +12,16 @@ namespace Kryolite.Shared
         public MerkleTree(List<Transaction> transactions)
         {
             if (transactions.Count == 0) {
-                // genesis block root
                 root = new HashTree();
                 return;
             }
 
-            root = setItems(transactions);
+            root = SetItems(transactions);
         }
 
-        HashTree setItems(List<Transaction> transactions)
+        HashTree SetItems(List<Transaction> transactions)
         {
-            transactions.Sort();
+            transactions.OrderBy(x => x.TransactionId);
 
             var queue = new Queue<HashTree>();
 

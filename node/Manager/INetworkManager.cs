@@ -9,8 +9,5 @@ public interface INetworkManager
     //void AddHosts(List<NetworkManager.NodeHost> hosts);
     int GetHostCount();
     List<NetworkManager.NodeHost> GetHosts();
-    DateTimeOffset GetNetworkTime();
-    bool ProposeBlock(PowBlock block);
-    IDisposable OnBlockProposed(ITargetBlock<PowBlock> action);
     void RemoveHost (NetworkManager.NodeHost host);
 }

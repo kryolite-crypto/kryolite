@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Open.Nat;
+using Kryolite.Shared;
 
 namespace Kryolite.Node;
 
@@ -31,11 +32,10 @@ public class UPnPService : BackgroundService
 
             if (!enabled)
             {
+                logger.LogInformation("UPnP          [DISABLED]");
                 return;
             }
 
-            await startup.Application.WaitOneAsync();
-            
             var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
             var ports = addresses
                 .Where(x => x is not null)
@@ -72,6 +72,10 @@ public class UPnPService : BackgroundService
                 }
             }
             logger.LogInformation("UPnP          [UP]");
+        }
+        catch (TaskCanceledException)
+        {
+
         }
         catch (MappingException mEx)
         {

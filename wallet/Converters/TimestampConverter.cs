@@ -14,7 +14,7 @@ public class TimestampConverter : IValueConverter
         if (value is long)
         {
             return new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                .AddSeconds((long)value).ToLocalTime().ToString();
+                .AddMilliseconds((long)value).ToLocalTime().ToString();
         }
         // converter used for the wrong type
         return new BindingNotification(new InvalidCastException(), BindingErrorType.Error);

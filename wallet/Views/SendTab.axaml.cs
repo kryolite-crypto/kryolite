@@ -10,6 +10,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Kryolite.Node;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -17,33 +19,38 @@ namespace Kryolite.Wallet;
 
 public partial class SendTab : UserControl
 {
-    private IBlockchainManager BlockchainManager;
     private SendTabViewModel Model = new();
 
     public SendTab()
     {
-        BlockchainManager = Program.ServiceCollection.GetService<IBlockchainManager>() ?? throw new ArgumentNullException(nameof(IBlockchainManager));
-
         AvaloniaXamlLoader.Load(this);
         DataContext = Model;
 
         Model.SendTransactionClicked += (object? sender, EventArgs args) => {
-            if (Model.Recipient == null || !Address.IsValid(Model.Recipient))
+            using var scope = Program.ServiceCollection.CreateScope();
+            var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+
+            if (Model.Recipient is null || Model.SelectedWallet is null || Model.Amount is null || !Address.IsValid(Model.Recipient))
             {
                 return;
             }
 
             var transaction = new Transaction {
                 TransactionType = TransactionType.PAYMENT,
-                PublicKey = Model.SelectedWallet!.PublicKey,
-                To = Model.Recipient!,
-                Value = (ulong)(decimal.Parse(Model.Amount!) * 1000000),
-                MaxFee = 1,
-                Nonce = (new Random()).Next()
+                PublicKey = Model.SelectedWallet.PublicKey,
+                To = Model.Recipient,
+                Value = (long)(decimal.Parse(Model.Amount) * 1000000),
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Parents = blockchainManager.GetTransactionToValidate(2)
             };
 
             if (transaction.To.IsContract())
             {
+                if (Model.Method is null)
+                {
+                    return;
+                }
+
                 var transactionPayload = new TransactionPayload
                 {
                     Payload = new CallMethod
@@ -62,11 +69,11 @@ public partial class SendTab : UserControl
 
             transaction.Sign(Model.SelectedWallet!.PrivateKey);
 
-            BlockchainManager.AddTransactionsToQueue(transaction);
+            blockchainManager.AddTransaction(new TransactionDto(transaction), true);
 
-            if (!Model.Addresses.Contains(Model.Recipient!))
+            if (!Model.Addresses.Contains(Model.Recipient))
             {
-                Model.Addresses.Add(Model.Recipient!);
+                Model.Addresses.Add(Model.Recipient);
             }
 
             Model.Recipient = "";
@@ -106,7 +113,10 @@ public partial class SendTab : UserControl
             return;
         }
 
-        var contract = BlockchainManager.GetContract(addr);
+        using var scope = Program.ServiceCollection.CreateScope();
+        var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+
+        var contract = blockchainManager.GetContract(addr);
 
         Model.Manifest = new ManifestView()
         {

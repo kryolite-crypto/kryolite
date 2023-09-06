@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
@@ -6,39 +8,46 @@ using MessagePack;
 
 namespace Kryolite.Shared;
 
+[MessagePackObject]
 public class Contract
 {
-    [JsonIgnore]
-    public Guid Id { get; set; }
+    [Key(0)]
     public Address Address { get; set; }
+    [Key(1)]
     public Address Owner { get; set; }
+    [Key(2)]
     public string Name { get; set; }
-    public ulong Balance { get; set; }
-    public byte[] Code { get; set; }
-    public IntPtr? EntryPoint { get; set; }
+    [Key(3)]
+    public long Balance { get; set; }
+    [Key(4)]
+    public int? EntryPoint { get; set; }
+    [Key(5)]
     public ContractManifest Manifest { get; set; }
-    public List<ContractSnapshot> Snapshots { get; set; } = new();
-    public List<Token> Tokens { get; set; } = new();
+
+    [IgnoreMember]
+    public byte[]? CurrentSnapshot { get; set; }
 
     public Contract()
     {
-
+        Address = Address.NULL_ADDRESS;
+        Owner = Address.NULL_ADDRESS;
+        Name = String.Empty;
+        Manifest = new();
     }
 
     public Contract(Address owner, ContractManifest manifest, byte[] code)
     {
         Owner = owner;
         Name = manifest.Name;
-        Code = code;
         Manifest = manifest;
 
-        Address = ToAddress();
+        Address = ToAddress(code);
     }
 
-    public Address ToAddress()
+    public Address ToAddress(byte[] code)
     {
         var bytes = Owner.Buffer.ToList();
-        bytes.AddRange(Code);
+        bytes.AddRange(code);
 
         using var sha256 = SHA256.Create();
         var shaHash = sha256.ComputeHash(bytes.ToArray());
@@ -59,25 +68,6 @@ public class Contract
         addressBytes.InsertRange(addressBytes.Count, h2.Take(4)); // checksum
 
         return addressBytes.ToArray();
-    }
-}
-
-public class ContractSnapshot
-{
-    public Guid Id { get; set; }
-    public long Height { get; set; }
-    public byte[] Snapshot { get; init; }
-
-    public ContractSnapshot(long height, byte[] snapshot)
-    {
-        Height = height;
-        Snapshot = snapshot;
-    }
-
-    public ContractSnapshot(long height, ReadOnlySpan<byte> snapshot)
-    {
-        Height = height;
-        Snapshot = snapshot.ToArray();
     }
 }
 

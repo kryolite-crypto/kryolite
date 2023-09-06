@@ -1,22 +1,30 @@
 using System.Net;
 using System.Net.WebSockets;
-using System.Text.Json.Serialization;
 using System.Xml.Linq;
 using DnsClient;
+using Kryolite.Node.Blockchain;
+using Kryolite.Node.Executor;
+using Kryolite.Node.Repository;
+using Kryolite.Node.Services;
+using Kryolite.Node.Storage;
+using Kryolite.Redbus;
 using Kryolite.Shared;
+using Kryolite.Shared.Dto;
+using Kryolite.Shared.Formatters;
 using LettuceEncrypt.Acme;
+using MessagePack;
+using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
 using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
 using Microsoft.AspNetCore.DataProtection.XmlEncryption;
-using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
+using Redbus.Interfaces;
 
 namespace Kryolite.Node;
 
@@ -176,7 +184,7 @@ public class Startup
                         {
                             var builder = new UriBuilder()
                             {
-                                Host = address.ToString(),
+                                Host = address!.ToString(),
                                 Port = port
                             };
 
@@ -245,15 +253,20 @@ public class Startup
         BlockchainService.DATA_PATH = dataDir;
 
         PacketFormatter.Register<NodeInfo>(Packet.NodeInfo);
-        PacketFormatter.Register<Blockchain>(Packet.Blockchain);
-        PacketFormatter.Register<NewBlock>(Packet.NewBlock);
+        PacketFormatter.Register<ChainData>(Packet.Blockchain);
         PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
         PacketFormatter.Register<RequestChainSync>(Packet.RequestChainSync);
-        PacketFormatter.Register<TransactionData>(Packet.TransactionData);
-        PacketFormatter.Register<VoteBatch>(Packet.VoteBatch);
+        PacketFormatter.Register<TransactionBatch>(Packet.TransactionData);
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
+
+        var resolver = CompositeResolver.Create(
+                BigIntegerResolver.Instance,
+                StandardResolver.Instance
+            );
+        
+        // MessagePackSerializer.DefaultOptions = MessagePackSerializer.DefaultOptions.WithResolver(resolver);
 
         services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(dataDir))
@@ -272,20 +285,31 @@ public class Startup
             services.AddLettuceEncrypt(c => c.AllowedChallengeTypes = ChallengeType.Http01);
         }
 
-        services.AddSingleton<IBlockchainManager, BlockchainManager>()
-                .AddSingleton<Lazy<IBlockchainManager>>(c => new Lazy<IBlockchainManager>(c.GetService<IBlockchainManager>()!))
+        services.AddSingleton<IStorage, RocksDBStorage>()
+                .AddSingleton<IStateCache, StateCache>()
+                .AddSingleton<IKeyRepository, KeyRepository>()
+                .AddTransient<IStoreRepository, StoreRepository>()
+                .AddTransient<IStoreManager, StoreManager>()
+                .AddTransient<IWalletRepository, WalletRepository>()
+                .AddTransient<IWalletManager, WalletManager>()
+                .AddTransient<IVerifier, Verifier>()
                 .AddSingleton<INetworkManager, NetworkManager>()
-                .AddSingleton<IMempoolManager, MempoolManager>()
-                .AddSingleton<IWalletManager, WalletManager>()
                 .AddSingleton<IMeshNetwork, MeshNetwork>()
-                .AddHostedService<NetworkService>()
+                .AddSingleton<IExecutorFactory, ExecutorFactory>()
                 .AddHostedService<BlockchainService>()
-                .AddHostedService<MempoolService>()
-                .AddHostedService<POSService>()
                 .AddHostedService<UPnPService>()
+                .AddHostedService<NetworkService>()
+                .AddHostedService<ValidatorService>()
                 .AddHostedService<MDNSService>()
+                .AddSingleton<IBufferService<TransactionDto, OutgoingTransactionService>, OutgoingTransactionService>()
+                .AddHostedService(p => (OutgoingTransactionService)p.GetRequiredService<IBufferService<TransactionDto, OutgoingTransactionService>>())
+                .AddSingleton<IBufferService<TransactionDto, IncomingTransactionService>, IncomingTransactionService>()
+                .AddHostedService(p => (IncomingTransactionService)p.GetRequiredService<IBufferService<TransactionDto, IncomingTransactionService>>())
+                .AddSingleton<IBufferService<Chain, SyncService>, SyncService>()
+                .AddHostedService(p => (SyncService)p.GetRequiredService<IBufferService<Chain, SyncService>>())
                 .AddSingleton<StartupSequence>()
                 .AddSingleton<ILookupClient>(new LookupClient())
+                .AddSingleton<IEventBus, EventBus>()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
                     .AllowAnyOrigin()
@@ -296,7 +320,6 @@ public class Startup
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
                     options.JsonSerializerOptions.Converters.Add(new AddressConverter());
-                    options.JsonSerializerOptions.Converters.Add(new NonceConverter());
                     options.JsonSerializerOptions.Converters.Add(new PrivateKeyConverter());
                     options.JsonSerializerOptions.Converters.Add(new PublicKeyConverter());
                     options.JsonSerializerOptions.Converters.Add(new SHA256HashConverter());

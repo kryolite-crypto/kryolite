@@ -1,13 +1,14 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:vm="using:Kryolite.Wallet"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              x:Class="Kryolite.Wallet.App"
              RequestedThemeVariant="Dark">
     <Application.Styles>
         <FluentTheme />
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
-        <StyleInclude Source="avares://Material.Icons.Avalonia/App.xaml"/>
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
+        <materialIcons:MaterialIconStyles />
     </Application.Styles>
     <Application.Resources>
         <vm:CurrencyConverter x:Key="CurrencyConverter"/>
@@ -18,5 +19,6 @@
         <vm:SnakeCaseConverter x:Key="SnakeCaseConverter"/>
         <vm:WidthToMarginConverter x:Key="WidthToMarginConverter"/>
         <vm:CapitalToSentenceConverter x:Key="CapitalToSentenceConverter" />
+        <vm:AddressConverter x:Key="AddressConverter" />
     </Application.Resources>
 </Application>

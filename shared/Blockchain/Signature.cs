@@ -1,10 +1,9 @@
 using MessagePack;
-using SimpleBase;
 
 namespace Kryolite.Shared;
 
 [MessagePackObject]
-public class Signature
+public class Signature : IComparable<Signature>
 {
     [Key(0)]
     public byte[] Buffer { get; private init; }
@@ -29,12 +28,12 @@ public class Signature
         Buffer = buffer;
     }
 
-    public override string ToString() => Base58.Flickr.Encode(Buffer);
+    public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (Signature signature) => signature.Buffer;
     public static implicit operator Span<byte> (Signature signature) => signature.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Signature signature) => signature.Buffer;
     public static implicit operator Signature(byte[] buffer) => new Signature { Buffer = buffer };
-    public static implicit operator Signature(string signature) => new Signature { Buffer = Base58.Flickr.Decode(signature) };
+    public static implicit operator Signature(string signature) => new Signature { Buffer = Base32.Kryolite.Decode(signature) };
 
     public override bool Equals(object? obj) 
     {
@@ -69,6 +68,11 @@ public class Signature
             hash = hash * 31 + b.GetHashCode();
         }
         return hash;
+    }
+
+    public int CompareTo(Signature? other)
+    {
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? new byte[0]));
     }
 
     public static int SIGNATURE_SZ = 64;

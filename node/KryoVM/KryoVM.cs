@@ -114,14 +114,14 @@ public class KryoVM : IDisposable
         var tx = Instance.GetGlobal("_TRANSACTION") ?? throw new Exception("Transaction global not found");
         var txPtr = (int?)tx.GetValue() ?? throw new Exception("Transaction global ptr not found");
         memory.WriteBuffer(txPtr, Context.Transaction.From ?? new Address());
-        memory.WriteBuffer(txPtr + 26, Context.Transaction.To);
+        memory.WriteBuffer(txPtr + 26, Context.Transaction.To!);
         memory.WriteInt64(txPtr + 52, (long)Context.Transaction.Value);
 
         var exitCode = 0;
 
         try
         {
-            var values = new List<ValueBox>() { (IntPtr)methodParams[0] };
+            var values = new List<ValueBox>() { new IntPtr((int)methodParams[0]) };
             var toFree = new List<(int ptr, int length)>();
 
             var manifest = Context.Contract.Manifest.Methods.Where(x => x.Name == method).First();
@@ -215,7 +215,7 @@ public class KryoVM : IDisposable
         return exitCode;
     }
 
-    public ReadOnlySpan<byte> TakeSnapshot()
+    public byte[] TakeSnapshot()
     {
         var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
         return memory.GetSpan(0, (int)memory.GetLength()).Compress();
@@ -256,7 +256,7 @@ public class KryoVM : IDisposable
             }
 
             Context!.Balance = balance;
-            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, addr, (ulong)value));
+            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, addr, value));
         }));
 
         Linker.Define("env", "__approval", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {
@@ -291,13 +291,14 @@ public class KryoVM : IDisposable
 
             var eventData = new TransferTokenEventArgs
             {
-                From = memory.ReadAddress(fromPtr) ?? throw new Exception("__transfer_token: null 'from' address"),
-                To = memory.ReadAddress(toPtr) ?? throw new Exception("__transfer_token: null 'to' address"),
+                Contract = Context!.Contract.Address,
+                From = from,
+                To = to,
                 TokenId = tokenId
             };
 
             Context!.Events.Add(eventData);
-            Context!.Transaction.Effects.Add(new Effect(from, to, 0, tokenId));
+            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, from, to, 0, tokenId));
         }));
 
         Linker.Define("env", "__consume_token", Function.FromCallback<int, int>(Store, (Caller caller, int ownerPtr, int tokenIdPtr) => {
@@ -315,7 +316,7 @@ public class KryoVM : IDisposable
             };
 
             Context!.Events.Add(eventData);
-            Context!.Transaction.Effects.Add(new Effect(Context.Contract.Address, eventData.Owner, 0, eventData.TokenId, true));
+            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, eventData.Owner, 0, eventData.TokenId, true));
         }));
 
         Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {

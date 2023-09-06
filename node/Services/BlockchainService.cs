@@ -1,7 +1,9 @@
 using System.Text;
 using System.Text.Unicode;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -10,15 +12,18 @@ namespace Kryolite.Node;
 public class BlockchainService : BackgroundService
 {
     public static string DATA_PATH = string.Empty;
+    private SHA256Hash GenesisSeed;
 
-    private readonly StartupSequence startup;
-    private readonly IConfiguration configuration;
+    public IServiceProvider ServiceProvider { get; }
+    public StartupSequence Startup { get; }
+    private ILogger<BlockchainService> Logger { get; }
+    public IConfiguration Configuration { get; }
 
-    public BlockchainService(IBlockchainManager blockchainManager, StartupSequence startup, ILogger<BlockchainService> logger, IConfiguration configuration) {
-        BlockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
-        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
+    public BlockchainService(IServiceProvider serviceProvider, StartupSequence startup, ILogger<BlockchainService> logger, IConfiguration configuration) {
+        ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        Startup = startup ?? throw new ArgumentNullException(nameof(startup));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
         // TODO: build argument?? or configuration property?
         var bytes = Encoding.UTF8.GetBytes(configuration.GetValue<string?>("NetworkName") ?? "MAINNET");
@@ -27,53 +32,73 @@ public class BlockchainService : BackgroundService
         GenesisSeed = new SHA256Hash(bytes);
     }
 
-    private IBlockchainManager BlockchainManager { get; }
-    private ILogger<BlockchainService> Logger { get; }
-
-    private SHA256Hash GenesisSeed;
-
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var genesis = BlockchainManager.GetPosBlock(0);
-
-        if (genesis == null) 
+        try
         {
-            InitializeGenesisBlock();
+            using var scope = ServiceProvider.CreateScope();
+            var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
+            var genesis = blockchainManager.GetGenesis();
+
+            if (genesis is null)
+            {
+                InitializeGenesisBlock(blockchainManager);
+            }
+
+            if (genesis != null && !Enumerable.SequenceEqual(genesis.Data ?? new byte[0], GenesisSeed.Buffer))
+            {
+                Logger.LogInformation($"{genesis.Id}: {genesis.TransactionType}");
+                Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
+                blockchainManager.ResetChain();
+                InitializeGenesisBlock(blockchainManager);
+            }
+
+            Logger.LogInformation($"Blockchain    [UP][{Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
+
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "BlockchainService error");
         }
 
-        if (genesis != null && genesis.ParentHash != GenesisSeed)
-        {
-            Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
-            BlockchainManager.ResetChain();
-            InitializeGenesisBlock();
-        }
-
-        Logger.LogInformation($"Blockchain    [UP][{configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
-        startup.Blockchain.Set();
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 
-    private void InitializeGenesisBlock()
+    private void InitializeGenesisBlock(IStoreManager blockchainManager)
     {
-        var pow = new PowBlock {
+        var timestamp = new DateTimeOffset(2023, 1, 1, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
+
+        var genesis = new Genesis {
+            TransactionType = TransactionType.GENESIS,
+            Data = GenesisSeed,
+            Timestamp = timestamp,
             Height = 0,
-            ParentHash = GenesisSeed,
-            Timestamp = new DateTimeOffset(1917, 12, 6, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds(),
-            Nonce = new Nonce(new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }),
-            Difficulty = new Difficulty { Value = 0 }
+            PublicKey = new PublicKey(),
+            Signature = new Signature()
         };
 
-        var pos = new PosBlock {
-            Height = 0,
-            ParentHash = GenesisSeed,
-            Timestamp = new DateTimeOffset(1917, 12, 6, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeSeconds(),
-            Pow = pow,
-            SignedBy = new PublicKey(new byte[32] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 }),
-            Signature = new Signature(new byte[64] { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0  })
-        };
+        genesis.TransactionId = genesis.CalculateHash();
 
-        if(!BlockchainManager.AddBlock(pos, false, false)) {
+        if (!blockchainManager.AddGenesis(genesis))
+        {
             Logger.LogError("Failed to initialize Genesis");
         }
+
+        var view = new View
+        {
+            TransactionType = TransactionType.VIEW,
+            Value = 0,
+            Data = BitConverter.GetBytes(0L),
+            Timestamp = timestamp,
+            Height = 0,
+            PublicKey = new PublicKey(),
+            Signature = new Signature()
+        };
+
+        view.Parents.Add(genesis.TransactionId);
+        view.TransactionId = view.CalculateHash();
+
+        blockchainManager.AddView(view, false, false, true);
     }
 }

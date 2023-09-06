@@ -4,3 +4,4 @@ data/
 .vscode/
 /dist
 /.vs
+/benchmarks/BenchmarkDotNet.Artifacts

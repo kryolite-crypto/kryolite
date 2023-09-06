@@ -28,6 +28,11 @@ public partial class LogViewerDialog : Window
 
         var logBox = this.FindControl<TextEditor>("LogBox");
 
+        if (logBox is null)
+        {
+            throw new Exception("log viewer failed to initialize");
+        }
+
         logBox.Text = String.Join(Environment.NewLine, InMemoryLogger.Messages.ToArray()) + Environment.NewLine;
         logBox.Options.EnableVirtualSpace = false;
         logBox.Options.AllowScrollBelowDocument = false;

@@ -12,7 +12,6 @@ public class NetworkManager : INetworkManager
 
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
     private readonly ILogger<INetworkManager> logger;
-    private BroadcastBlock<PowBlock> BlockProposedBroadcast = new BroadcastBlock<PowBlock>(i => i);
 
     public NetworkManager(ILogger<INetworkManager> logger)
     {
@@ -47,24 +46,6 @@ public class NetworkManager : INetworkManager
         }
     }
 
-    public DateTimeOffset GetNetworkTime()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        var maxAge = DateTime.Now.AddHours(-1);
-
-        var timestamps = Hosts.Where(x => x.LastSeen > maxAge)
-            .Where(x => x.NodeInfo is not null)
-            .Take(100)
-            .OrderBy(arg => Guid.NewGuid())
-            .Take(10)
-            .Select(x => new DateTimeOffset(x.NodeInfo!.CurrentTime + (DateTime.UtcNow - x.LastSeen)).ToUnixTimeSeconds())
-            .ToList();
-
-        timestamps.Add(DateTimeOffset.Now.ToUnixTimeSeconds());
-
-        return DateTimeOffset.FromUnixTimeSeconds((long)timestamps.Average());
-    }
-
     public int GetHostCount()
     {
         using var _ = rwlock.EnterReadLockEx();
@@ -75,17 +56,6 @@ public class NetworkManager : INetworkManager
     {
         using var _ = rwlock.EnterReadLockEx();
         return Hosts;
-    }
-
-    public bool ProposeBlock(PowBlock block)
-    {
-        BlockProposedBroadcast.Post(block);
-        return true;
-    }
-
-    public IDisposable OnBlockProposed(ITargetBlock<PowBlock> action)
-    {
-        return BlockProposedBroadcast.LinkTo(action);
     }
 
     public void RemoveHost(NodeHost host)
