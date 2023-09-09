@@ -7,6 +7,9 @@ using Kryolite.Shared.Dto;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using QuikGraph;
+using QuikGraph.Graphviz;
+using QuikGraph.Graphviz.Dot;
 
 namespace Kryolite.Node;
 
@@ -161,9 +164,107 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("tx")]
-    public IActionResult GetTransactionAfterHeight(long height)
+    public IActionResult GetTransactions([FromQuery(Name = "pageNum")] int pageNum = 0, [FromQuery(Name = "pageSize")] int pageSize = 100)
     {
-        return Ok(blockchainManager.GetTransactionsAfterHeight(height));
+        return Ok(blockchainManager.GetTransactions(pageNum, pageSize));
+    }
+
+    [HttpGet("tx/graph")]
+    public IActionResult GetTransactionGraph([FromQuery] int pageNum = 0, [FromQuery] int pageSize = 100)
+    {
+        var transactions = blockchainManager.GetTransactions(pageNum, pageSize);
+
+        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, transactions.Count + 1);
+        var map = new Dictionary<SHA256Hash, Transaction>(transactions.Count + 1);
+        var terminatinEdges = new HashSet<SHA256Hash>();
+
+        graph.AddVertexRange(transactions.Select(x => x.TransactionId));
+
+        foreach (var tx in transactions)
+        {
+            map.Add(tx.TransactionId, tx);
+
+            foreach (var parent in tx.Parents)
+            {
+                if (graph.ContainsVertex(parent))
+                {
+                    graph.AddEdge(new (parent, tx.TransactionId ));
+                }
+                else
+                {
+                    graph.AddVertex(parent);
+                    terminatinEdges.Add(parent);
+                    graph.AddEdge(new (parent, tx.TransactionId));
+                }
+            }
+        }
+
+        var darkslategray4 = new GraphvizColor(byte.MaxValue, 52, 139, 139);
+        var deepskyblue3 = new GraphvizColor(byte.MaxValue, 0, 154, 205);
+        var darkslateblue = new GraphvizColor(byte.MaxValue, 48, 61, 139);
+        var goldenrod2 = new GraphvizColor(byte.MaxValue, 238, 180, 22);
+
+        var dotString = graph.ToGraphviz(algorithm =>
+            {
+                algorithm.CommonVertexFormat.Shape = GraphvizVertexShape.Record;
+                algorithm.CommonVertexFormat.FontColor = GraphvizColor.White;
+                algorithm.CommonVertexFormat.Style = GraphvizVertexStyle.Filled;
+
+                algorithm.GraphFormat.BackgroundColor = new GraphvizColor(byte.MaxValue, 25, 25, 25);
+                algorithm.GraphFormat.RankDirection = GraphvizRankDirection.LR;
+
+                algorithm.FormatVertex += (sender, args) =>
+                {
+                    if (terminatinEdges.Contains(args.Vertex))
+                    {
+                        args.VertexFormat.Shape = GraphvizVertexShape.Point;
+                        return;
+                    }
+
+                    var tx = map[args.Vertex];
+
+                    switch (tx.TransactionType)
+                    {
+                        case TransactionType.PAYMENT:
+                            args.VertexFormat.Label = $"Transaction";
+                            args.VertexFormat.FillColor = darkslateblue;
+                            args.VertexFormat.StrokeColor = darkslateblue;
+                        break;
+                        case TransactionType.GENESIS:
+                            args.VertexFormat.Label = $"Genesis";
+                            args.VertexFormat.FillColor = GraphvizColor.White;
+                            args.VertexFormat.FontColor = GraphvizColor.Black;
+                        break;
+                        case TransactionType.BLOCK:
+                            args.VertexFormat.Label = $"Block";
+                            args.VertexFormat.FillColor = goldenrod2;
+                            args.VertexFormat.StrokeColor = goldenrod2;
+                        break;
+                        case TransactionType.VIEW:
+                            args.VertexFormat.Label = $"View #{BitConverter.ToInt64(tx.Data)}";
+                            args.VertexFormat.FillColor = deepskyblue3;
+                            args.VertexFormat.StrokeColor = deepskyblue3;
+                        break;
+                        case TransactionType.VOTE:
+                            args.VertexFormat.Label = $"Vote";
+                            args.VertexFormat.FillColor = darkslategray4;
+                            args.VertexFormat.StrokeColor = darkslategray4;
+                        break;
+                        case TransactionType.CONTRACT:
+                            args.VertexFormat.Label = $"Contract";
+                            args.VertexFormat.FillColor = GraphvizColor.White;
+                            args.VertexFormat.FontColor = GraphvizColor.Black;
+                        break;
+                        case TransactionType.REG_VALIDATOR:
+                            args.VertexFormat.Label = $"New Validator";
+                            args.VertexFormat.FillColor = GraphvizColor.White;
+                            args.VertexFormat.FontColor = GraphvizColor.Black;
+                        break;
+                    }
+                };
+            });
+
+        return Ok(dotString);
     }
 
     [HttpGet("chain/tip")]

@@ -5,15 +5,16 @@ namespace Kryolite.Wallet;
 
 public class TokensTabViewModel : NotifyPropertyChanged
 {
-    private ObservableCollection<TokenModel> _Tokens = new ObservableCollection<TokenModel>();
+    private ObservableCollection<TokenModel> tokens = new ObservableCollection<TokenModel>();
+
     public ObservableCollection<TokenModel> Tokens
     {
-        get { return _Tokens; }
+        get { return tokens; }
         set
         {
-            if (!Enumerable.SequenceEqual(_Tokens, value))
+            if (!Enumerable.SequenceEqual(tokens, value))
             {
-                _Tokens = value;
+                tokens = value;
                 RaisePropertyChanged();
             }
         }

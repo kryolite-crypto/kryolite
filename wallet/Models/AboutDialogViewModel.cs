@@ -8,54 +8,27 @@ namespace Kryolite.Wallet;
 
 public class AboutDialogViewModel : NotifyPropertyChanged
 {
-    private string _NetworkName = string.Empty;
+    private string networkName = string.Empty;
+    private string version = string.Empty;
+    private bool updateAvailable;
+
     public string NetworkName
     {
-        get
-        {
-            return _NetworkName;
-        }
-        set
-        {
-            if (_NetworkName != value)
-            {
-                _NetworkName = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => networkName;
+        set => RaisePropertyChanged(ref networkName, value);
     }
 
-    private string _Version = string.Empty;
+
     public string Version
     {
-        get
-        {
-            return _Version;
-        }
-        set
-        {
-            if (_Version != value)
-            {
-                _Version = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => version;
+        set => RaisePropertyChanged(ref version, value);
     }
 
-    private bool _UpdateAvailable;
+
     public bool UpdateAvailable
     {
-        get
-        {
-            return _UpdateAvailable;
-        }
-        set
-        {
-            if (_UpdateAvailable != value)
-            {
-                _UpdateAvailable = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => updateAvailable;
+        set => RaisePropertyChanged(ref updateAvailable, value);
     }
 }

@@ -10,114 +10,53 @@ public class SendTabViewModel : NotifyPropertyChanged
 {
     public event EventHandler? SendTransactionClicked;
 
-    private WalletModel? _SelectedWallet;
+    private WalletModel? selectedWallet;
+    private string? recipient;
+    private string? amount;
+    private ManifestView? manifest;
+    private MethodView? method;
+    private ObservableCollection<string> addresses = new();
+
+
     public WalletModel? SelectedWallet
     {
-        get 
-        {
-            return _SelectedWallet; 
-        }
-        set
-        {
-            if (_SelectedWallet != value)
-            {
-                _SelectedWallet = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => selectedWallet; 
+        set => RaisePropertyChanged(ref selectedWallet, value);
     }
 
-    private string? _Recipient;
+
     public string? Recipient
     {
-        get 
-        {
-            return _Recipient;
-        }
-        set
-        {
-            if (_Recipient != value)
-            {
-                if (!string.IsNullOrEmpty(value) && !Address.IsValid(value)) {
-                    throw new DataValidationException("Invalid address");
-                }
-
-                _Recipient = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => recipient; 
+        set => RaisePropertyChanged(ref recipient, value);
     }
 
-    private string? _Amount;
+
     public string? Amount
     {
-        get 
-        {
-            return _Amount;
-        }
-        set
-        {
-            if (_Amount != value)
-            {
-                if (!string.IsNullOrEmpty(value) && !decimal.TryParse(value, out _)) {
-                    throw new DataValidationException("Invalid decimal value");
-                }
-
-                _Amount = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => amount; 
+        set => RaisePropertyChanged(ref amount, value);
     }
 
-    private ManifestView? _Manifest;
+
     public ManifestView? Manifest
     {
-        get
-        {
-            return _Manifest;
-        }
-        set
-        {
-            if (_Manifest != value)
-            {
-                _Manifest = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => manifest; 
+        set => RaisePropertyChanged(ref manifest, value);
     }
 
-    private MethodView? _Method;
+
     public MethodView? Method
     {
-        get
-        {
-            return _Method;
-        }
-        set
-        {
-            if (_Method != value)
-            {
-                _Method = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => method; 
+        set => RaisePropertyChanged(ref method, value);
     }
 
-    private ObservableCollection<string> _Addresses = new();
+
     public ObservableCollection<string> Addresses
     {
-        get
-        {
-            return _Addresses;
-        }
-        set
-        {
-            if (_Addresses != value)
-            {
-                _Addresses = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => addresses; 
+        set => RaisePropertyChanged(ref addresses, value);
     }
 
     public void OnSendTransactionCommand()

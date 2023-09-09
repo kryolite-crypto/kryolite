@@ -131,9 +131,9 @@ public class Transaction : IComparable<Transaction>
 
         stream.WriteByte((byte)TransactionType);
 
-        if (TransactionType == TransactionType.VIEW || TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
+        if (PublicKey is not null)
         {
-            stream.Write(PublicKey ?? throw new Exception($"public key required when hashing {TransactionType}"));
+            stream.Write(PublicKey);
         }
 
         if (To is not null)

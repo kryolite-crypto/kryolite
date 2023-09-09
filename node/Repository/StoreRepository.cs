@@ -62,7 +62,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         // height index
         var heightKey = keyMem.Slice(0, 17);
 
-        var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? ulong.MaxValue);
+        var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? 0UL);
         Array.Reverse(height);
         height.CopyTo(heightKey);
 
@@ -294,7 +294,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         }
 
         // Height, TransactionType index
-        var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? ulong.MaxValue);
+        var height = BitConverter.GetBytes(((ulong?)tx.Height) ?? 0UL);
         Array.Reverse(height);
 
         var heightKey = keyMem.Slice(0, 17);
@@ -578,6 +578,12 @@ public class StoreRepository : IStoreRepository, IDisposable
     public void DeleteValidator(Address address)
     {
         Storage.Delete("Validator", address.Buffer, CurrentTransaction);
+    }
+
+    public List<Transaction> GetTransactions(int pageNum, int pageSize)
+    {
+        var ids = Storage.GetRange("ixTransactionHeight", pageNum, pageSize);
+        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
     private ITransaction? CurrentTransaction;

@@ -376,12 +376,13 @@ internal class RocksDBStorage : IStorage
         while (iterator.Valid())
         {
             results.Add(iterator.Value());
-            iterator.Prev();
 
             if (results.Count == count)
             {
                 break;
             }
+
+            iterator.Prev();
         }
 
         return results;
@@ -527,5 +528,72 @@ internal class RocksDBStorage : IStorage
         Database.Put(key, BitConverter.GetBytes(0UL), ix);
 
         return 0;
+    }
+
+    public List<T> GetRange<T>(string ixName, int count, int toSkip)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        using var iterator = Database.NewIterator(ix);
+
+        iterator.SeekToLast();
+
+        var results = new List<T>(count);
+
+        while (iterator.Valid())
+        {
+            toSkip--;
+
+            if (toSkip > 0)
+            {
+                iterator.Prev();
+                continue;
+            }
+
+            results.Add(MessagePackSerializer.Deserialize<T>(iterator.Value()));
+            iterator.Prev();
+
+            if (results.Count >= count)
+            {
+                break;
+            }
+        }
+
+        return results;
+    }
+
+    public List<byte[]> GetRange(string ixName, int count, int toSkip)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        using var iterator = Database.NewIterator(ix);
+
+        iterator.SeekToLast();
+
+        var results = new List<byte[]>(count);
+
+        Console.WriteLine(toSkip);
+
+        while (iterator.Valid())
+        {
+            toSkip--;
+
+            if (toSkip > 0)
+            {
+                iterator.Prev();
+                continue;
+            }
+
+            results.Add(iterator.Value());
+
+            if (results.Count >= count)
+            {
+                break;
+            }
+
+            iterator.Prev();
+        }
+
+        return results;
     }
 }

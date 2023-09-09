@@ -43,7 +43,10 @@ public class Executor
                 throw new Exception($"expected verified transaction but got {tx.ExecutionResult} ({tx.TransactionType})");
             }
 
-            tx.Height = Context.GetHeight();
+            if (tx.TransactionType != TransactionType.VIEW)
+            {
+                tx.Height = Context.GetHeight();
+            }
 
             switch (tx.TransactionType)
             {
