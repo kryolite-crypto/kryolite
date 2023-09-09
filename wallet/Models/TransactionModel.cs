@@ -4,40 +4,23 @@ namespace Kryolite.Wallet;
 
 public class TransactionModel : NotifyPropertyChanged
 {
-    private Address _Recipient = Address.NULL_ADDRESS;
+    private Address recipient = Address.NULL_ADDRESS;
+    private long amount;
+    private long timestamp;
+
+
     public Address Recipient { 
-        get => _Recipient;
-        set {
-            if (_Recipient != value)
-            {
-                _Recipient = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => recipient;
+        set => RaisePropertyChanged(ref recipient, value);
     }
 
-    private long _Amount { get; set; }
     public long Amount { 
-        get => _Amount;
-        set {
-            if (_Amount != value)
-            {
-                _Amount = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => amount;
+        set => RaisePropertyChanged(ref amount, value);
     }
 
-    private long _Timestamp { get; set; }
     public long Timestamp { 
-        get => _Timestamp;
-        set {
-            if (_Timestamp != value)
-            {
-                _Timestamp = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => timestamp;
+        set => RaisePropertyChanged(ref timestamp, value);
     }
-
 }

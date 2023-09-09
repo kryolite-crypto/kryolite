@@ -10,89 +10,54 @@ namespace Kryolite.Wallet;
 
 public class TokenModel : NotifyPropertyChanged
 {
-    private SHA256Hash _tokenId = SHA256Hash.NULL_HASH;
+    private SHA256Hash tokenId = SHA256Hash.NULL_HASH;
+    private Address owner = Address.NULL_ADDRESS;
+    private string name = string.Empty;
+    private string description = string.Empty;
+    private bool isConsumed;
+    private IBrush foregroundColor = Brushes.White;
+
     public SHA256Hash TokenId 
     {
-        get => _tokenId;
-        set
-        {
-            if (_tokenId != value)
-            {
-                _tokenId = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => tokenId;
+        set => RaisePropertyChanged(ref tokenId, value);
     }
 
-    private Address _owner = Address.NULL_ADDRESS;
     public Address Owner 
     {
-        get => _owner;
-        set
-        {
-            if (_owner != value)
-            {
-                _owner = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => owner;
+        set => RaisePropertyChanged(ref owner, value);
     }
 
-    private string _name = string.Empty;
+
     public string Name 
     {
-        get => _name;
-        set
-        {
-            if (value != _name) 
-            {
-                _name = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => name;
+        set => RaisePropertyChanged(ref name, value);
     }
 
-    private string _description = string.Empty;
+
     public string Description 
     {
-        get => _description;
-        set
-        {
-            if (value != _description)
-            {
-                _description = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => description;
+        set => RaisePropertyChanged(ref description, value);
     }
 
-    private bool _isConsumed;
+
     public bool IsConsumed 
     {
-        get => _isConsumed;
+        get => isConsumed;
         set
         {
-            if (_isConsumed != value)
-            {
-                _isConsumed = value;
-                RaisePropertyChanged();
-            }
-
+            RaisePropertyChanged(ref isConsumed, value);
             ForegroundColor = IsConsumed ? Brush.Parse("#66FFFFFF") : Brushes.White;
         }
     }
 
-    private IBrush _foregroundColor = Brushes.White;
+
     public IBrush ForegroundColor
     {
-        get => _foregroundColor;
-        set
-        {
-            if (_foregroundColor != value)
-            {
-                _foregroundColor = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => foregroundColor;
+        set => RaisePropertyChanged(ref foregroundColor, value);
     }
 }

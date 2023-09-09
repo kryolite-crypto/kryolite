@@ -473,7 +473,17 @@ public class ChainObserver : IObserver<Chain>
                         break;
                     case TransactionType.VOTE:
                         voteCount++;
-                        totalStake += tx.Value;
+
+                        // Note: votes value must equal to signers stake, this is verified in Verifier
+                        var stake = tx.Value;
+
+                        if (Constant.SEED_VALIDATORS.Contains(tx.PublicKey!.ToAddress()))
+                        {
+                            stake = Constant.MIN_STAKE;
+                        }
+
+                        totalStake += stake;
+
                         break;
                 }
             }
@@ -484,7 +494,7 @@ public class ChainObserver : IObserver<Chain>
 
             if (remoteState.Weight > localWeight)
             {
-                logger.LogInformation($"Mergin remote chain from height #{minRemoteHeight} to #{remoteState.Height}");
+                logger.LogInformation($"Merging remote chain from height #{minRemoteHeight} to #{remoteState.Height}");
 
                 if (!storeManager.SetChain(graph, transactions, minRemoteHeight))
                 {

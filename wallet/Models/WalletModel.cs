@@ -9,48 +9,30 @@ namespace Kryolite.Wallet;
 
 public class WalletModel : NotifyPropertyChanged
 {
-    private string? _Description;
-    public string? Description { 
-        get => _Description;
-        set {
-            if (_Description != value)
-            {
-                _Description = value;
-                RaisePropertyChanged();
-            }
-        }
-    }
+    private string? description;
+    private long? balance;
+    private long? pending;
 
     public Address Address { get; set; } = new Address();
-
     public PublicKey PublicKey { get; set; } = new PublicKey();
     public PrivateKey PrivateKey { get; set; } = new PrivateKey();
+    public List<TransactionModel> Transactions { get; set; } = new();
 
-    private long? _Balance;
-    public long? Balance { 
-        get => _Balance;
-        set {
-            if (_Balance != value)
-            {
-                _Balance = value;
-                RaisePropertyChanged();
-            }
-        }
+    public string? Description { 
+        get => description;
+        set => RaisePropertyChanged(ref description, value);
     }
 
-    private long? _Pending;
+
+    public long? Balance { 
+        get => balance;
+        set => RaisePropertyChanged(ref balance, value);
+    }
+
+
     public long? Pending
     {
-        get => _Pending;
-        set
-        {
-            if (_Pending != value)
-            {
-                _Pending = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => pending;
+        set => RaisePropertyChanged(ref pending, value);
     }
-
-    public List<TransactionModel> Transactions { get; set; } = new();
 }

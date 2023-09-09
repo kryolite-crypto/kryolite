@@ -23,6 +23,7 @@
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="Open.NAT.NET5" Version="1.0.0" />
     <PackageReference Include="QuikGraph" Version="2.5.0" />
+    <PackageReference Include="QuikGraph.Graphviz" Version="2.5.0" />
     <PackageReference Include="RedBus" Version="1.0.8" />
     <PackageReference Include="RocksDB" Version="8.3.2.39829" />
     <PackageReference Include="System.Data.SQLite" Version="1.0.117" />

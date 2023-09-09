@@ -1,8 +1,11 @@
+using System.Collections.Concurrent;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
+using QuikGraph;
+using QuikGraph.Algorithms;
 
 namespace Kryolite.Node;
 
@@ -44,27 +47,34 @@ public class Verifier : IVerifier
 
             tx.ExecutionResult = ExecutionResult.VERIFYING;
         });
+    }
 
-        foreach (var tx in transactions)
+    public bool VerifyTypeOnly(Transaction tx, ConcurrentDictionary<SHA256Hash, Transaction> transactionList)
+    {
+        if (tx.TransactionType == TransactionType.VIEW)
         {
-            if (tx.ExecutionResult != ExecutionResult.VERIFYING)
+            Console.WriteLine($"{tx.Height}");
+        }
+
+        if (tx.ExecutionResult != ExecutionResult.VERIFYING)
+        {
+            return false;
+        }
+
+        foreach (var parent in tx.Parents)
+        {
+            if (!transactionList.ContainsKey(parent) && !StateCache.Contains(parent) && !Store.Exists(parent))
             {
+                Logger.LogInformation($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
+                tx.ExecutionResult = ExecutionResult.VERIFY_FAILED;
                 continue;
             }
-
-            foreach (var parent in tx.Parents)
-            {
-                if (!StateCache.Contains(parent) && !Store.Exists(parent))
-                {
-                    Logger.LogInformation($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
-                    tx.ExecutionResult = ExecutionResult.VERIFY_FAILED;
-                    continue;
-                }
-            }
-
-            var success = VerifyByTransactionType(tx);
-            tx.ExecutionResult = success ? ExecutionResult.VERIFIED : ExecutionResult.VERIFY_FAILED;
         }
+
+        var success = VerifyByTransactionType(tx);
+        tx.ExecutionResult = success ? ExecutionResult.VERIFIED : ExecutionResult.VERIFY_FAILED;
+
+        return success;
     }
 
     public bool Verify(Transaction tx)
@@ -198,7 +208,7 @@ public class Verifier : IVerifier
 
     private bool VerifyView(View view)
     {
-        if (view.Parents.Count < 1)
+        if (view.Parents.Count < 2)
         {
             Logger.LogInformation($"View verification failed (reason = invalid parent reference count {view.Parents.Count})");
             return false;
@@ -241,7 +251,7 @@ public class Verifier : IVerifier
 
     private bool VerifyVote(Vote vote)
     {
-        if (vote.Parents.Count != 1)
+        if (vote.Parents.Count != 2)
         {
             Logger.LogInformation($"Vote verification failed (reason = invalid parent reference count {vote.Parents.Count})");
             return false;

@@ -23,6 +23,7 @@ public interface IStoreManager
     View? GetLastView();
     List<Vote> GetVotesAtHeight(long height);
     List<Transaction> GetTransactionsAfterHeight(long height);
+    List<Transaction> GetTransactions(int pageNum, int pageSize);
     List<SHA256Hash> GetTransactionToValidate();
     List<SHA256Hash> GetTransactionToValidate(int count);
     List<Transaction> GetLastNTransctions(Address address, int count);

@@ -11,106 +11,71 @@ public class MainWindowViewModel : NotifyPropertyChanged
 {
     public event EventHandler? ViewLogClicked;
     public event EventHandler? AboutClicked;
-
-    private long _Blocks;
+    
+    private long blocks;
+    private int connectedPeers;
+    private long balance;
+    private long pending;
+    private List<TransactionModel> transactions = new List<TransactionModel>();
+    private ObservableCollection<WalletModel> wallets = new ObservableCollection<WalletModel>();
 
     public long Blocks
     {
-       get 
-        {
-            return _Blocks; 
-        }
-        set
-        {
-            if (_Blocks != value)
-            {
-                _Blocks = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => blocks;
+        set => RaisePropertyChanged(ref blocks, value);
     }
 
-    private int _ConnectedPeers;
+
     public int ConnectedPeers
     {
-       get 
-        {
-            return _ConnectedPeers; 
-        }
-        set
-        {
-            if (_ConnectedPeers != value)
-            {
-                _ConnectedPeers = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => connectedPeers;
+        set => RaisePropertyChanged(ref connectedPeers, value);
     }
 
-    private long _Balance;
+
     public long Balance
     {
-        get 
-        {
-            return _Balance; 
-        }
-        set
-        {
-            if (_Balance != value)
-            {
-                _Balance = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => balance;
+        set => RaisePropertyChanged(ref balance, value);
     }
 
-    private long _Pending;
+
     public long Pending
     {
-        get 
-        {
-            return _Pending; 
-        }
-        set
-        {
-            if (_Pending != value)
-            {
-                _Pending = value;
-                RaisePropertyChanged();
-            }
-        }
+        get => pending;
+        set => RaisePropertyChanged(ref pending, value);
     }
 
-    private List<TransactionModel> _Transactions = new List<TransactionModel>();
+
     public List<TransactionModel> Transactions
     {
         get 
         {
-            return _Transactions; 
+            return transactions; 
         }
         set
         {
-            if (!Enumerable.SequenceEqual(_Transactions, value))
+            if (!Enumerable.SequenceEqual(transactions, value))
             {
-                _Transactions = value;
+                transactions = value;
                 RaisePropertyChanged();
             }
         }
     }
 
-    private ObservableCollection<WalletModel> _Wallets = new ObservableCollection<WalletModel>();
+
 
     public ObservableCollection<WalletModel> Wallets
     {
         get 
         {
-            return _Wallets;
+            return wallets;
         }
         set
         {
-            if (!Enumerable.SequenceEqual(_Wallets, value))
+            if (!Enumerable.SequenceEqual(wallets, value))
             {
-                _Wallets = value;
+                wallets = value;
                 RaisePropertyChanged();
             }
         }

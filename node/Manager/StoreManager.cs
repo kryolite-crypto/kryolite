@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Numerics;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
@@ -223,6 +224,24 @@ public class StoreManager : IStoreManager
                 var parents = new List<SHA256Hash>();
 
                 parents.Add(view.TransactionId);
+
+                foreach (var tx in toExecute.OrderBy(x => Random.Shared.Next()))
+                {
+                    if (!parents.Contains(tx.TransactionId))
+                    {
+                        parents.Add(tx.TransactionId);
+                    }
+
+                    if (parents.Count >= 2)
+                    {
+                        break;
+                    }
+                }
+
+                if (parents.Count < 2)
+                {
+                    parents.AddRange(toExecute.OrderBy(x => Random.Shared.Next()).Select(x => x.TransactionId).Take(1));
+                }
 
                 var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Amount ?? 0, parents);
 
@@ -525,11 +544,27 @@ public class StoreManager : IStoreManager
 
         Logger.LogDebug($"Tip has {transactions.Count} / {StateCache.GetPendingGraph().VertexCount} transactions");
 
-        if (transactions.Count == 0)
+        if (transactions.Count < 2)
         {
-            return Repository.GetLastNTransctions(1)
+            foreach (var tx in StateCache.GetTransactions())
+            {
+                if (!transactions.Contains(tx.Value.TransactionId))
+                {
+                    transactions.Add(tx.Value.TransactionId);
+                }
+
+                if (transactions.Count >= 2)
+                {
+                    break;
+                }
+            }
+        }
+
+        if (transactions.Count < 2)
+        {
+            transactions.AddRange(Repository.GetLastNTransctions(2 - transactions.Count)
                 .Select(x => x.TransactionId)
-                .ToList();
+                .ToList());
         }
 
         return transactions;
@@ -540,8 +575,25 @@ public class StoreManager : IStoreManager
         using var _ = rwlock.EnterReadLockEx();
         
         var hashes = StateCache.GetPendingGraph().Roots()
+            .OrderBy(x => Guid.NewGuid())
             .Take(count)
             .ToList();
+
+        if (hashes.Count < count)
+        {
+            foreach (var tx in StateCache.GetTransactions())
+            {
+                if (!hashes.Contains(tx.Value.TransactionId))
+                {
+                    hashes.Add(tx.Value.TransactionId);
+                }
+
+                if (hashes.Count >= 2)
+                {
+                    break;
+                }
+            }
+        }
 
         if (hashes.Count < count)
         {
@@ -606,6 +658,12 @@ public class StoreManager : IStoreManager
             foreach (var vertex in chainGraph.TopologicalSort().Reverse())
             {
                 var tx = transactions[vertex];
+
+                // Verify second part, requiring concurrent execution
+                if(!Verifier.VerifyTypeOnly(tx, transactions))
+                {
+                    continue;
+                }
 
                 if (tx.ExecutionResult != ExecutionResult.VERIFIED)
                 {
@@ -775,6 +833,7 @@ public class StoreManager : IStoreManager
         return Repository.GetStake(address);
     }
 
+    // TODO: Refactor to smaller methods
     private void RollbackChainIfNeeded(long startHeight, long count)
     {
         // long progress = 0;
@@ -820,7 +879,7 @@ public class StoreManager : IStoreManager
             {
                 var tx = transactions[vertex];
 
-                if (tx.PublicKey != null)
+                if (tx.PublicKey is not null && tx.PublicKey != PublicKey.NULL_PUBLIC_KEY)
                 {
                     var addr = tx.PublicKey.ToAddress();
 
@@ -830,7 +889,7 @@ public class StoreManager : IStoreManager
 
                         if (sender is null)
                         {
-                            continue;
+                            goto receiver;
                         }
 
                         ledger.Add(addr, sender);
@@ -842,7 +901,8 @@ public class StoreManager : IStoreManager
                     }
                 }
 
-                if (tx.To is not null)
+receiver:
+                if (tx.To is not null && tx.To != Address.NULL_ADDRESS)
                 {
                     if (tx.To.IsContract())
                     {
@@ -852,7 +912,7 @@ public class StoreManager : IStoreManager
 
                             if (contract is null)
                             {
-                                continue;
+                                goto delete;
                             }
 
                             contracts.Add(tx.To, contract);
@@ -885,7 +945,7 @@ public class StoreManager : IStoreManager
 
                             if (recipient is null)
                             {
-                                continue;
+                                goto delete;
                             }
 
                             ledger.Add(tx.To, recipient);
@@ -895,6 +955,7 @@ public class StoreManager : IStoreManager
                     }
                 }
 
+delete:
                 Repository.Delete(tx);
                 Repository.DeleteState(height);
 
@@ -1123,5 +1184,42 @@ public class StoreManager : IStoreManager
         var transactions = Repository.GetTransactionsAfterHeight(height);
         transactions.AddRange(StateCache.GetTransactions().Values);
         return transactions;
+    }
+
+    public List<Transaction> GetTransactions(int pageNum, int pageSize)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+
+        var results = new List<Transaction>(pageSize);
+
+        var toSkip = pageNum * pageSize;
+
+        Console.WriteLine(toSkip);
+        Console.WriteLine(StateCache.GetPendingGraph().VertexCount);
+
+        // First take from pending cache
+        if (StateCache.GetPendingGraph().VertexCount > toSkip)
+        {
+            var transactions = StateCache.GetPendingGraph().TopologicalSort()
+                .Reverse()
+                .Skip(toSkip)
+                .Take(pageSize);
+
+            foreach (var txId in transactions)
+            {
+                if (StateCache.GetTransactions().TryGetValue(txId, out var tx))
+                {
+                    results.Add(tx);
+                }
+            }
+        }
+
+        toSkip += results.Count;
+        var count = pageSize - results.Count;
+
+        // fill rest from db
+        results.AddRange(Repository.GetTransactions(count, toSkip));
+
+        return results;
     }
 }

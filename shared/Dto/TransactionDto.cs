@@ -37,7 +37,7 @@ public class TransactionDto
 
         stream.WriteByte((byte)TransactionType);
 
-        if (TransactionType == TransactionType.VIEW || TransactionType == TransactionType.PAYMENT || TransactionType == TransactionType.CONTRACT)
+        if (PublicKey is not null)
         {
             stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
         }
@@ -55,6 +55,9 @@ public class TransactionDto
         {
             stream.Write(hash);
         }
+
+        stream.Flush();
+        stream.Position = 0;
 
         return sha256.ComputeHash(stream.ToArray());
     }
