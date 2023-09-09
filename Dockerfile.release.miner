@@ -12,6 +12,7 @@ RUN [ "$(uname -m)" = "aarch64" ] && arch=arm64 || arch=amd64 \
 FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y \
   nano htop iputils-ping curl dnsutils \
+  libicu-dev zip libc6-dev libgflags-dev libsnappy-dev liblz4-dev libzstd-dev bzip2 lz4 \
   && useradd --home /kryolite --no-create-home kryolite
 
 COPY --from=current /kryolite-miner /usr/local/bin
