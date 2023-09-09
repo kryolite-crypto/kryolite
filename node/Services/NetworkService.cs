@@ -494,7 +494,7 @@ public class ChainObserver : IObserver<Chain>
 
             if (remoteState.Weight > localWeight)
             {
-                logger.LogInformation($"Mergin remote chain from height #{minRemoteHeight} to #{remoteState.Height}");
+                logger.LogInformation($"Merging remote chain from height #{minRemoteHeight} to #{remoteState.Height}");
 
                 if (!storeManager.SetChain(graph, transactions, minRemoteHeight))
                 {

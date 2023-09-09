@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net.Sockets;
 using System.Numerics;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
@@ -832,6 +833,7 @@ public class StoreManager : IStoreManager
         return Repository.GetStake(address);
     }
 
+    // TODO: Refactor to smaller methods
     private void RollbackChainIfNeeded(long startHeight, long count)
     {
         // long progress = 0;
@@ -877,9 +879,7 @@ public class StoreManager : IStoreManager
             {
                 var tx = transactions[vertex];
 
-                Console.WriteLine($"Deleting {tx.TransactionType} at {tx.Height}");
-
-                if (tx.PublicKey != null)
+                if (tx.PublicKey is not null && tx.PublicKey != PublicKey.NULL_PUBLIC_KEY)
                 {
                     var addr = tx.PublicKey.ToAddress();
 
@@ -889,7 +889,7 @@ public class StoreManager : IStoreManager
 
                         if (sender is null)
                         {
-                            continue;
+                            goto receiver;
                         }
 
                         ledger.Add(addr, sender);
@@ -901,7 +901,8 @@ public class StoreManager : IStoreManager
                     }
                 }
 
-                if (tx.To is not null)
+receiver:
+                if (tx.To is not null && tx.To != Address.NULL_ADDRESS)
                 {
                     if (tx.To.IsContract())
                     {
@@ -911,7 +912,7 @@ public class StoreManager : IStoreManager
 
                             if (contract is null)
                             {
-                                continue;
+                                goto delete;
                             }
 
                             contracts.Add(tx.To, contract);
@@ -944,7 +945,7 @@ public class StoreManager : IStoreManager
 
                             if (recipient is null)
                             {
-                                continue;
+                                goto delete;
                             }
 
                             ledger.Add(tx.To, recipient);
@@ -954,6 +955,7 @@ public class StoreManager : IStoreManager
                     }
                 }
 
+delete:
                 Repository.Delete(tx);
                 Repository.DeleteState(height);
 

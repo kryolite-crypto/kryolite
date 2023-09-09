@@ -166,4 +166,5 @@ public class PublicKey
     }
 
     public static int PUB_KEY_SZ = 32;
+    public static PublicKey NULL_PUBLIC_KEY = new PublicKey();
 }
