@@ -35,6 +35,7 @@ namespace Kryolite.Wallet
                 Host = WebHost.CreateDefaultBuilder()
                     .ConfigureAppConfiguration((hostingContext, config) => config
                         .AddJsonFile(configPath, optional: true, reloadOnChange: true)
+                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                         .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
                         .AddEnvironmentVariables(prefix: "KRYOLITE__")
                         .AddCommandLine(args))
