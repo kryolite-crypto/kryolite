@@ -27,7 +27,7 @@ public class Executor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public void Execute(IEnumerable<Transaction> transactions)
+    public void Execute(IEnumerable<Transaction> transactions, Difficulty currentDifficulty)
     {
         if (transactions.Count() == 0)
         {
@@ -51,6 +51,22 @@ public class Executor
             switch (tx.TransactionType)
             {
                 case TransactionType.BLOCK:
+                        var block = (Block)tx;
+                        var view = Context.GetLastView();
+
+                        if (view.TransactionId != block.ParentHash)
+                        {
+                            tx.ExecutionResult = ExecutionResult.STALE;
+                            continue;
+                        }
+
+                        if (block.Difficulty != currentDifficulty)
+                        {
+                            tx.ExecutionResult = ExecutionResult.STALE;
+                            continue;
+                        }
+
+                        goto case TransactionType.PAYMENT;
                 case TransactionType.PAYMENT:
                     if (tx.To is null)
                     {

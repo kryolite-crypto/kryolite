@@ -1,5 +1,6 @@
 ﻿using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
 using Redbus.Events;
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,7 @@ public interface IExecutorContext
     Random GetRand();
     void SetRand(long seed);
 
+    View GetLastView();
     public long GetTotalStake();
     public long GetHeight();
 

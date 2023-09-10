@@ -403,20 +403,6 @@ public class ChainObserver : IObserver<Chain>
 
             logger.LogInformation($"Starting chain sync (transactions = {chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
 
-            /*foreach (var tx in chain.Transactions)
-            {
-                foreach (var parent in tx.Parents)
-                {
-                    if (!storeManager.Exists(parent))
-                    {
-                        logger.LogInformation($"Chain failed, {tx.CalculateHash()} references unknown transaction ({parent})");
-                        ReportProgress("", 0, 0);
-                        InProgress = false;
-                        return;
-                    }
-                }
-            }*/
-
             var localState = storeManager.GetChainState();
 
             var minRemoteHeight = chain.Transactions

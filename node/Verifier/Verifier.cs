@@ -51,11 +51,6 @@ public class Verifier : IVerifier
 
     public bool VerifyTypeOnly(Transaction tx, ConcurrentDictionary<SHA256Hash, Transaction> transactionList)
     {
-        if (tx.TransactionType == TransactionType.VIEW)
-        {
-            Console.WriteLine($"{tx.Height}");
-        }
-
         if (tx.ExecutionResult != ExecutionResult.VERIFYING)
         {
             return false;
@@ -189,20 +184,6 @@ public class Verifier : IVerifier
             return false;
         }
 
-        var chainState = StateCache.GetCurrentState();
-
-        if (block.Difficulty != chainState.CurrentDifficulty)
-        {
-            Logger.LogInformation("Block verification failed (reason = invalid difficulty)");
-            return false;
-        }
-
-        if (block.ParentHash != chainState.LastHash)
-        {
-            Logger.LogInformation("Block verification failed (reason = invalid parent hash)");
-            return false;
-        }
-
         return true;
     }
 
@@ -277,14 +258,6 @@ public class Verifier : IVerifier
             return false;
         }
 
-        var view = StateCache.GetCurrentView();
-
-        if (view.TransactionId != vote.LastHash)
-        {
-            Logger.LogInformation("Vote verification failed (reason = invalid view reference)");
-            return false;
-        }
-
         return true;
     }
 
@@ -325,6 +298,7 @@ public class Verifier : IVerifier
         // do not allow seed validator registeration
         if (Constant.SEED_VALIDATORS.Contains(tx.From!))
         {
+            Logger.LogInformation($"Validator registeration verification failed (reason = sender is seed validator)");
             return false;
         }
 

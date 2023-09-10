@@ -174,12 +174,12 @@ public class StoreManager : IStoreManager
                 }
             }
 
-            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), totalStake, height);
+            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), totalStake, height);
             var executor = ExecutorFactory.Create(context);
-
-            executor.Execute(toExecute);
-
             var chainState = StateCache.GetCurrentState();
+
+            executor.Execute(toExecute, chainState.CurrentDifficulty);
+
             chainState.Weight += chainState.CurrentDifficulty.ToWork() * totalStake;
 
             if (height > 0)
@@ -206,6 +206,11 @@ public class StoreManager : IStoreManager
 
             Repository.AddRange(toExecute);
             Repository.SaveState(chainState);
+
+            // TODO: Remove blocks / votes that were not confirmed these will not pass verifications anymore
+            // but we need to all referencing thingies?
+            // instead let them be in chain as stales?
+            // StateCache.GetTransactions().
 
             StateCache.SetView(view);
             StateCache.RecreateGraph();
@@ -659,16 +664,20 @@ public class StoreManager : IStoreManager
             {
                 var tx = transactions[vertex];
 
-                // Verify second part, requiring concurrent execution
-                if(!Verifier.VerifyTypeOnly(tx, transactions))
+                if (tx.ExecutionResult == ExecutionResult.SUCCESS)
                 {
+                    Logger.LogDebug($"Skip {tx.TransactionId}");
                     continue;
                 }
 
-                if (tx.ExecutionResult != ExecutionResult.VERIFIED)
+                // Verify second part, requiring concurrent execution
+                if(!Verifier.VerifyTypeOnly(tx, transactions))
                 {
-                    continue;
+                    Logger.LogDebug($"Failed {tx.TransactionId}");
+                    return false;
                 }
+
+                Logger.LogDebug($"Add {tx.TransactionId}");
 
                 switch (tx.TransactionType)
                 {
@@ -853,9 +862,12 @@ public class StoreManager : IStoreManager
         }
 
         // ChainObserver.ReportProgress("Rolling back current chain", progress, count);
+        Logger.LogInformation($"Rollback from {max} to {min - 1}");
 
         for (long height = max; height >= min; height--)
         {
+            Logger.LogInformation($"Rollback height {height}");
+
             var transactions = Repository.GetTransactionsAtHeight(height)
                 .ToDictionary(x => x.TransactionId, y => y);
 
@@ -866,16 +878,7 @@ public class StoreManager : IStoreManager
 
             var graph = transactions.Values.ToList().AsGraph();
 
-            var view = transactions
-                .Where(x => x.Value.TransactionType == TransactionType.VIEW)
-                .Select(x => x.Value)
-                .Single();
-
-            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(graph);
-            bfs.SetRootVertex(view.TransactionId);
-            bfs.Compute();
-
-            foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
+            foreach (var vertex in graph.TopologicalSort())
             {
                 var tx = transactions[vertex];
 
@@ -970,6 +973,9 @@ delete:
         Repository.SaveState(newState);
 
         StateCache.SetView(Repository.GetViewAt(min - 1) ?? throw new Exception("view not found"));
+
+        Logger.LogDebug($"new state = {newState.Height}");
+        Logger.LogDebug($"new view = {StateCache.GetCurrentView().TransactionId}");
 
         Repository.UpdateWallets(ledger.Values);
         Repository.UpdateContracts(contracts.Values);

@@ -23,5 +23,6 @@ public enum ExecutionResult
     NO_VOTES,
     VERIFY_FAILED,
     UNKNOWN,
-    DUPLICATE_CONTRACT
+    DUPLICATE_CONTRACT,
+    STALE
 }
