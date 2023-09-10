@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Linq;
 
 namespace Kryolite.Wallet
 {
@@ -22,19 +23,38 @@ namespace Kryolite.Wallet
 
         [STAThread]
         public static int Main(string[] args) {
-            var dataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+            var config = new ConfigurationBuilder()
+                .AddCommandLine(args)
+                .Build();
+
+            var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+            var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
 
             try
             {
-                Directory.CreateDirectory(dataDir);
+                if (args.Contains("--resync"))
+                {
+                    Console.WriteLine("Performing full resync");
+                    var storeDir = Path.Join(dataDir, "store");
 
-                using var fileStream = new FileStream(Path.Join(dataDir, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                    Directory.Delete(storeDir, true);
+                }
+
+                if (args.Contains("--force-recreate"))
+                {
+                    var renamedTarget = $"{dataDir}-{DateTimeOffset.Now:yyyyMMddhhmmss}";
+                    Directory.Move(dataDir, renamedTarget);
+                    Console.WriteLine($"Rename {dataDir} to {renamedTarget}");
+                }
+
+                Directory.CreateDirectory(dataDir);
 
                 var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
                 Host = WebHost.CreateDefaultBuilder()
                     .ConfigureAppConfiguration((hostingContext, config) => config
                         .AddJsonFile(configPath, optional: true, reloadOnChange: true)
+                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
                         .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
                         .AddEnvironmentVariables(prefix: "KRYOLITE__")
                         .AddCommandLine(args))

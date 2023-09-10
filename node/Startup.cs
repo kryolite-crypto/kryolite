@@ -74,6 +74,7 @@ public class Startup
 
                     var network = Configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
                     var logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
+                    var networkManager = app.ApplicationServices.GetRequiredService<INetworkManager>();
 
                     if (!int.TryParse(context.Request.Headers["kryo-apilevel"], out var apilevel))
                     {
@@ -89,12 +90,6 @@ public class Startup
                         return;
                     }
 
-                    if (context.Request.Headers["kryo-network"] != network) 
-                    {
-                        logger.LogDebug($"Wrong network: '{context.Request.Headers["kryo-network"]}'");
-                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "WRONG_NETWORK", CancellationToken.None);
-                        return;
-                    }
 
                     if(string.IsNullOrEmpty(context.Request.Headers["kryo-client-id"])) 
                     {
@@ -107,6 +102,20 @@ public class Startup
                     {
                         logger.LogDebug("Received connection with invalid client-id, forcing disconnect...");
                         await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "INVALID_CLIENT_ID", CancellationToken.None);
+                        return;
+                    }
+
+                    if (networkManager.IsBanned(clientId))
+                    {
+                        logger.LogDebug($"Received connection from banned node {clientId}, forcing disconnect...");
+                        await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "BANNED_CLIENT", CancellationToken.None);
+                        return;
+                    }
+
+                    if (context.Request.Headers["kryo-network"] != network) 
+                    {
+                        logger.LogDebug($"Wrong network: '{context.Request.Headers["kryo-network"]}'");
+                        await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "WRONG_NETWORK", CancellationToken.None);
                         return;
                     }
 

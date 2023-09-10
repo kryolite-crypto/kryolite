@@ -32,10 +32,11 @@ public class MDNSService : BackgroundService
         serviceDiscovery = new ServiceDiscovery(mdns);
     }
 
-    protected override Task ExecuteAsync(CancellationToken stoppingToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
+            await Task.Run(() => startup.Application.Wait());
             var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
 
             var nameBytes = Guid.NewGuid().ToString()
@@ -70,7 +71,7 @@ public class MDNSService : BackgroundService
                     ipAddresses.Add(ipAddress);
                 }
 
-                var service = new ServiceProfile($"{name}-{id++}", "_kryolite._tcp", (ushort)uri.Port, ipAddresses);
+                var service = new ServiceProfile($"{name}-{id++}", "_kryolite._tcp.", (ushort)uri.Port, ipAddresses);
 
                 serviceDiscovery.Advertise(service);
             }
@@ -87,8 +88,6 @@ public class MDNSService : BackgroundService
         {
             logger.LogError(ex, "Error starting mDNS services");
         }
-
-        return Task.CompletedTask;
     }
 
     public override Task StopAsync(CancellationToken cancellationToken)

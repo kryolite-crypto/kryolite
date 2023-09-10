@@ -2,12 +2,14 @@ using System.Threading.Tasks.Dataflow;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.Logging;
+using NSec.Cryptography;
 
 namespace Kryolite.Node;
 
 public class NetworkManager : INetworkManager
 {
-    private List<NodeHost> Hosts = new List<NodeHost>();
+    private Dictionary<ulong, NodeHost> Hosts = new();
+
     private DateTime _lastDiscovery = DateTime.MinValue;
 
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
@@ -27,12 +29,10 @@ public class NetworkManager : INetworkManager
         }
 
         using var _ = rwlock.EnterWriteLockEx();
-        
-        var existing = Hosts.FirstOrDefault(x => x.ClientId == host.ClientId);
 
-        if (existing == null)
+        if (!Hosts.TryGetValue(host.ClientId, out var existing))
         {
-            Hosts.Add(host);
+            Hosts.Add(host.ClientId, host);
             logger.LogInformation($"Added host {host.Url.ToHostname()}");
         }
         else
@@ -42,7 +42,7 @@ public class NetworkManager : INetworkManager
             existing.LastSeen = host.LastSeen;
             existing.IsReachable = host.IsReachable;
 
-            logger.LogInformation($"Updated status for host {host.Url}");
+            logger.LogInformation($"Updated status for host {host.Url.ToHostname()}");
         }
     }
 
@@ -55,13 +55,53 @@ public class NetworkManager : INetworkManager
     public List<NodeHost> GetHosts()
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Hosts;
+        return Hosts.Values.ToList();
     }
 
     public void RemoveHost(NodeHost host)
     {
         using var _ = rwlock.EnterWriteLockEx();
-        Hosts.Remove(host);
+
+        if (Hosts.ContainsKey(host.ClientId))
+        {
+            Hosts.Remove(host.ClientId);
+        }
+    }
+
+    public void Ban(ulong clientId)
+    {
+        if (Hosts.TryGetValue(clientId, out var host))
+        {
+            host.Ban();
+
+            if (host.IsBanned())
+            {
+                logger.LogInformation($"Banned {host.Url.ToHostname()} for {Math.Round((host.BannedUntil - DateTimeOffset.Now).TotalMinutes)} minutes");
+            }
+        }
+    }
+
+    public bool IsBanned(ulong clientId)
+    {
+        if (Hosts.TryGetValue(clientId, out var host))
+        {
+            return host.IsBanned();
+        }
+
+        return false;
+    }
+
+    public bool IsBanned(string url)
+    {
+        var host = Hosts.Values.Where(x => x.Url.ToHostname() == url)
+            .FirstOrDefault();
+
+        if (host is null)
+        {
+            return false;
+        }
+
+        return host.IsBanned();
     }
 
     public class NodeHost
@@ -71,10 +111,28 @@ public class NetworkManager : INetworkManager
         public NodeInfo? NodeInfo { get; set; }
         public DateTime LastSeen { get; set; } // TODO unixtime
         public bool IsReachable { get; set; }
+
+        public DateTimeOffset BannedUntil { get; set; }
+        private int BanCount { get; set; }
         
         public NodeHost(Uri url)
         {
             Url = url;
+        }
+
+        public void Ban()
+        {
+            if (BanCount > 1)
+            {
+                BannedUntil = DateTimeOffset.Now.AddMinutes((BanCount - 1) * 5);
+            }
+
+            BanCount++;
+        }
+
+        public bool IsBanned()
+        {
+            return BannedUntil > DateTimeOffset.Now;
         }
     }
 }

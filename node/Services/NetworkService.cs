@@ -112,6 +112,7 @@ public class NetworkService : BackgroundService
                 var randomized = NetworkManager.GetHosts()
                     .Where(x => !peers.ContainsKey(x.ClientId))
                     .Where(x => x.IsReachable)
+                    .Where(x => !x.IsBanned())
                     .OrderBy(x => Guid.NewGuid())
                     .ToList();
 
@@ -160,15 +161,6 @@ public class NetworkService : BackgroundService
             }
         };
 
-        /*blockchainManager.OnVoteAdded(new ActionBlock<Vote>(async signature => {
-            var msg = new VoteBatch
-            {
-                Votes = new List<Vote> { signature }
-            };
-
-            await meshNetwork.BroadcastAsync(msg);
-        }));*/
-
         Logger.LogInformation("Network       [UP]");
 
         await Task.Run(() => Startup.Application.Wait(stoppingToken));
@@ -202,7 +194,7 @@ public class NetworkService : BackgroundService
             peers.Add(uriBuilder.Uri);
         }
 
-        var ret = new List<string>(peers.Select(x => x.ToString()));
+        var ret = new List<string>(peers.Select(x => x.ToHostname()));
 
         foreach (var peer in peers)
         {
@@ -217,7 +209,7 @@ public class NetworkService : BackgroundService
                     // Convert to uri to make sure it is valid, wel also want to have string ending with / to be consistent
                     if (Uri.TryCreate(url, new UriCreationOptions(), out var uri))
                     {
-                        ret.Add(uri.ToString());
+                        ret.Add(uri.ToHostname());
                     }
                 }
 
@@ -240,6 +232,7 @@ public class NetworkService : BackgroundService
 
         peers = peers
             .Where(x => x != publicUrl)
+            .Where (x => !NetworkManager.IsBanned(x))
             .Distinct()
             .OrderBy(x => Guid.NewGuid())
             .ToList();
@@ -353,6 +346,7 @@ public class ChainObserver : IObserver<Chain>
     private readonly IStoreManager storeManager;
     private readonly ILogger<NetworkService> logger;
     private readonly IEventBus eventBus;
+    private readonly INetworkManager networkManager;
 
     // TODO: Make better Sync state control
     public static bool InProgress;
@@ -363,6 +357,7 @@ public class ChainObserver : IObserver<Chain>
         storeManager = serviceProvider.GetRequiredService<IStoreManager>();
         logger = serviceProvider.GetRequiredService<ILogger<NetworkService>>();
         eventBus = serviceProvider.GetRequiredService<IEventBus>();
+        networkManager = serviceProvider.GetRequiredService<INetworkManager>();
     }
 
     public void ReportProgress(string status, double progress, double total)
@@ -402,20 +397,6 @@ public class ChainObserver : IObserver<Chain>
             InProgress = true;
 
             logger.LogInformation($"Starting chain sync (transactions = {chain.Transactions.Count}) (chain from node {chain.Peer.Uri.ToHostname()})");
-
-            /*foreach (var tx in chain.Transactions)
-            {
-                foreach (var parent in tx.Parents)
-                {
-                    if (!storeManager.Exists(parent))
-                    {
-                        logger.LogInformation($"Chain failed, {tx.CalculateHash()} references unknown transaction ({parent})");
-                        ReportProgress("", 0, 0);
-                        InProgress = false;
-                        return;
-                    }
-                }
-            }*/
 
             var localState = storeManager.GetChainState();
 
@@ -500,15 +481,13 @@ public class ChainObserver : IObserver<Chain>
                 {
                     logger.LogInformation("Failed to set chain, discarding...");
 
+                    networkManager.Ban(chain.Peer.ClientId);
                     _ = chain.Peer.DisconnectAsync();
 
                     ReportProgress("", 0, 0);
                     InProgress = false;
                     return;
                 }
-
-                // Query for next set
-                _ = chain.Peer.SendAsync(new QueryNodeInfo());
             }
             else if (remoteState.LastHash == localState?.LastHash!)
             {
@@ -518,6 +497,7 @@ public class ChainObserver : IObserver<Chain>
                 {
                     logger.LogInformation("Failed to apply pending transactions...");
 
+                    networkManager.Ban(chain.Peer.ClientId);
                     _ = chain.Peer.DisconnectAsync();
 
                     ReportProgress("", 0, 0);
@@ -525,6 +505,10 @@ public class ChainObserver : IObserver<Chain>
                     return;
                 }
             }
+
+
+            // Query for next set
+            _ = chain.Peer.SendAsync(new QueryNodeInfo());
 
             logger.LogInformation($"Chain sync finished");
             ReportProgress("", 0, 0);
@@ -535,6 +519,9 @@ public class ChainObserver : IObserver<Chain>
             logger.LogError(ex, "Chain Sync failed");
             ReportProgress("", 0, 0);
             InProgress = false;
+
+            networkManager.Ban(chain.Peer.ClientId);
+            _ = chain.Peer.DisconnectAsync();
         }
     }
 }

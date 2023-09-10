@@ -23,6 +23,13 @@ public class VoteExecutor : IExecutor
             return ExecutionResult.SUCCESS;
         }
 
+        var view = Context.GetLastView();
+
+        if (view.TransactionId != (tx.Data ?? SHA256Hash.NULL_HASH))
+        {
+            return ExecutionResult.STALE;
+        }
+
         var stake = Context.GetRepository().GetStake(tx.From!) ?? throw new Exception($"stake not found: {tx.From}");
 
         var reward = Constant.VALIDATOR_REWARD * (stake.Amount / Context.GetTotalStake());

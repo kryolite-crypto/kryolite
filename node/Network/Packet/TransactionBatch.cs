@@ -46,13 +46,9 @@ public class TransactionBatch : IPacket
             {
                 if (!keys.Contains(parent) && !storeManager.Exists(parent))
                 {
-                    logger.LogDebug($"Received transaction with unknown parent reference ({parent}), requesting sync");
+                    logger.LogDebug($"Received transaction with unknown parent reference ({parent}), requesting node info");
 
-                    var lastHash = storeManager.GetChainState().LastHash ?? new SHA256Hash();
-                    var request = new RequestChainSync
-                    {
-                        LastHash = lastHash
-                    };
+                    var request = new QueryNodeInfo();
 
                     _ = peer.SendAsync(request);
                     return;
