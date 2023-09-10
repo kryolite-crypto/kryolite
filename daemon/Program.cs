@@ -39,8 +39,6 @@ internal class Program
         var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
 
-        Directory.CreateDirectory(dataDir);
-
         if (args.Contains("--resync"))
         {
             Console.WriteLine("Performing full resync");
@@ -48,6 +46,15 @@ internal class Program
 
             Directory.Delete(storeDir, true);
         }
+
+        if (args.Contains("--force-recreate"))
+        {
+            var renamedTarget = $"{dataDir}-{DateTimeOffset.Now:yyyyMMddhhmmss}";
+            Directory.Move(dataDir, renamedTarget);
+            Console.WriteLine($"Rename {dataDir} to {renamedTarget}");
+        }
+
+        Directory.CreateDirectory(dataDir);
 
         var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
         var app = WebHost.CreateDefaultBuilder()
