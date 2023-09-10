@@ -32,8 +32,22 @@ internal class Program
                                          ");
         Console.ForegroundColor = ConsoleColor.Gray;
 
-        var dataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        var config = new ConfigurationBuilder()
+            .AddCommandLine(args)
+            .Build();
+
+        var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+
         Directory.CreateDirectory(dataDir);
+
+        if (args.Contains("--resync"))
+        {
+            Console.WriteLine("Performing full resync");
+            var storeDir = Path.Join(dataDir, "store");
+
+            Directory.Delete(storeDir, true);
+        }
 
         //using var fileStream = new FileStream(Path.Join(dataDir, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
 

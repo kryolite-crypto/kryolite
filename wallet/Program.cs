@@ -11,6 +11,7 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
+using System.Linq;
 
 namespace Kryolite.Wallet
 {
@@ -22,13 +23,24 @@ namespace Kryolite.Wallet
 
         [STAThread]
         public static int Main(string[] args) {
-            var dataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-
             try
             {
+                var config = new ConfigurationBuilder()
+                    .AddCommandLine(args)
+                    .Build();
+
+                var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+                var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+
                 Directory.CreateDirectory(dataDir);
 
-                using var fileStream = new FileStream(Path.Join(dataDir, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
+                if (args.Contains("--resync"))
+                {
+                    Console.WriteLine("Performing full resync");
+                    var storeDir = Path.Join(dataDir, "store");
+
+                    Directory.Delete(storeDir, true);
+                }
 
                 var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
