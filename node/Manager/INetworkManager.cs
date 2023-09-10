@@ -10,4 +10,7 @@ public interface INetworkManager
     int GetHostCount();
     List<NetworkManager.NodeHost> GetHosts();
     void RemoveHost (NetworkManager.NodeHost host);
+    void Ban(ulong clientId);
+    bool IsBanned(ulong clientId);
+    bool IsBanned(string url);
 }
