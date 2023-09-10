@@ -23,15 +23,15 @@ namespace Kryolite.Wallet
 
         [STAThread]
         public static int Main(string[] args) {
+            var config = new ConfigurationBuilder()
+                .AddCommandLine(args)
+                .Build();
+
+            var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+            var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+
             try
             {
-                var config = new ConfigurationBuilder()
-                    .AddCommandLine(args)
-                    .Build();
-
-                var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-                var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
-
                 if (args.Contains("--resync"))
                 {
                     Console.WriteLine("Performing full resync");
