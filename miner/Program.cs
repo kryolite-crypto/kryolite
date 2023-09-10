@@ -48,9 +48,9 @@ public class Program
         rootCmd.AddGlobalOption(threadsOption);
 
         rootCmd.SetHandler(async (node, address, throttle, threads) => {
-            var url = node ?? await ZeroConf.DiscoverNodeAsync(5);
+            var url = (node ?? await ZeroConf.DiscoverNodeAsync(5) ?? string.Empty).Trim('/');
 
-            if (node == null && url == null)
+            if (string.IsNullOrEmpty(url))
             {
                 Console.WriteLine("Failed to discover Kryolite node, use --url parameter");
                 return;
