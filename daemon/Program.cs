@@ -49,8 +49,6 @@ internal class Program
             Directory.Delete(storeDir, true);
         }
 
-        //using var fileStream = new FileStream(Path.Join(dataDir, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
-
         var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
         var app = WebHost.CreateDefaultBuilder()
             .ConfigureAppConfiguration((hostingContext, config) => config
