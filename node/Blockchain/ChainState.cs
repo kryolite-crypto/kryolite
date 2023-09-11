@@ -21,4 +21,8 @@ public class ChainState : EventBase
     public SHA256Hash LastHash { get; set; } = new SHA256Hash();
     [Key(5)]
     public Difficulty CurrentDifficulty { get; set; }
+    [Key(6)]
+    public int Votes { get; set; }
+    [Key(7)]
+    public int Transactions { get; set; }
 }
