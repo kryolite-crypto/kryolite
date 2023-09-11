@@ -506,10 +506,6 @@ public class ChainObserver : IObserver<Chain>
                 }
             }
 
-
-            // Query for next set
-            _ = chain.Peer.SendAsync(new QueryNodeInfo());
-
             logger.LogInformation($"Chain sync finished");
             ReportProgress("", 0, 0);
             InProgress = false;

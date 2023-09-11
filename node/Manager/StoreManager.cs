@@ -61,7 +61,7 @@ public class StoreManager : IStoreManager
         try
         {
             genesis.TransactionId = genesis.CalculateHash();
-            genesis.ExecutionResult = ExecutionResult.VERIFIED;
+            genesis.ExecutionResult = ExecutionResult.PENDING;
 
             var chainState = new ChainState
             {
@@ -105,7 +105,7 @@ public class StoreManager : IStoreManager
         if (isGenesis)
         {
             // skip verifications for genesis height
-            view.ExecutionResult = ExecutionResult.VERIFIED;
+            view.ExecutionResult = ExecutionResult.PENDING;
         }
         else if (!Verifier.Verify(view))
         {
@@ -201,6 +201,8 @@ public class StoreManager : IStoreManager
 
             chainState.Height++;
             chainState.LastHash = view.TransactionId;
+            chainState.Votes = voteCount;
+            chainState.Transactions = toExecute.Count;
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
@@ -251,7 +253,7 @@ public class StoreManager : IStoreManager
                 var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Amount ?? 0, parents);
 
                 vote.Sign(node.PrivateKey);
-                vote.ExecutionResult = ExecutionResult.VERIFIED;
+                vote.ExecutionResult = ExecutionResult.PENDING;
 
                 AddVoteInternal(vote, true);
             }
@@ -785,9 +787,7 @@ public class StoreManager : IStoreManager
     public long GetCurrentHeight()
     {
         using var _ = rwlock.EnterReadLockEx();
-
-        var chainState = Repository.GetChainState();
-        return chainState?.Height ?? 0;
+        return StateCache.GetCurrentState()?.Height ?? 0;
     }
 
     public List<Transaction> GetLastNTransctions(Address address, int count)
@@ -1200,32 +1200,32 @@ delete:
 
         var toSkip = pageNum * pageSize;
 
-        Console.WriteLine(toSkip);
-        Console.WriteLine(StateCache.GetPendingGraph().VertexCount);
+        var transactions = StateCache.GetPendingGraph().TopologicalSort()
+            .Reverse()
+            .Skip(toSkip)
+            .Take(pageSize);
 
-        // First take from pending cache
-        if (StateCache.GetPendingGraph().VertexCount > toSkip)
+        foreach (var txId in transactions)
         {
-            var transactions = StateCache.GetPendingGraph().TopologicalSort()
-                .Reverse()
-                .Skip(toSkip)
-                .Take(pageSize);
-
-            foreach (var txId in transactions)
+            if (StateCache.GetTransactions().TryGetValue(txId, out var tx))
             {
-                if (StateCache.GetTransactions().TryGetValue(txId, out var tx))
-                {
-                    results.Add(tx);
-                }
+                results.Add(tx);
             }
         }
 
-        toSkip += results.Count;
+        toSkip -= results.Count;
+
         var count = pageSize - results.Count;
 
         // fill rest from db
         results.AddRange(Repository.GetTransactions(count, toSkip));
 
         return results;
+    }
+
+    public List<Transaction> GetTransactionsAtHeight(long height)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetTransactionsAtHeight(height);
     }
 }

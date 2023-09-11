@@ -67,7 +67,7 @@ public class Verifier : IVerifier
         }
 
         var success = VerifyByTransactionType(tx);
-        tx.ExecutionResult = success ? ExecutionResult.VERIFIED : ExecutionResult.VERIFY_FAILED;
+        tx.ExecutionResult = success ? ExecutionResult.PENDING : ExecutionResult.VERIFY_FAILED;
 
         return success;
     }
@@ -101,7 +101,7 @@ public class Verifier : IVerifier
         }
 
         var success = VerifyByTransactionType(tx);
-        tx.ExecutionResult = success ? ExecutionResult.VERIFIED : ExecutionResult.VERIFY_FAILED;
+        tx.ExecutionResult = success ? ExecutionResult.PENDING : ExecutionResult.VERIFY_FAILED;
         return success;
     }
 
@@ -200,7 +200,14 @@ public class Verifier : IVerifier
 
         if (height != chainState.Height + 1)
         {
-            Logger.LogInformation($"View verification failed (reason = invalid height). Got {view.Height}, required: {chainState.Height + 1}");
+            if (height > chainState.Height)
+            {
+                Logger.LogInformation($"View verification failed (reason = invalid height). Got {view.Height}, required: {chainState.Height + 1}");
+            }
+            else
+            {
+                Logger.LogDebug($"View verification failed (reason = invalid height). Got {view.Height}, required: {chainState.Height + 1}");
+            }
             return false;
         }
 

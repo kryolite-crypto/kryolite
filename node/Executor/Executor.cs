@@ -38,7 +38,7 @@ public class Executor
 
         foreach (var tx in transactions)
         {
-            if (tx.ExecutionResult != ExecutionResult.VERIFIED)
+            if (tx.ExecutionResult != ExecutionResult.PENDING)
             {
                 throw new Exception($"expected verified transaction but got {tx.ExecutionResult} ({tx.TransactionType})");
             }

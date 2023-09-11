@@ -334,6 +334,7 @@ public class Startup
                     options.JsonSerializerOptions.Converters.Add(new SHA256HashConverter());
                     options.JsonSerializerOptions.Converters.Add(new SignatureConverter());
                     options.JsonSerializerOptions.Converters.Add(new DifficultyConverter());
+                    options.JsonSerializerOptions.Converters.Add(new BigIntegerConverter());
                 });
     }
 

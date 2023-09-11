@@ -149,9 +149,8 @@ public class ApiControllerBase : Controller
     public IActionResult GetRichList([FromQuery] int count = 25)
     {
         var wallets = blockchainManager.GetRichList(count).Select(wallet => new {
-            Address = wallet.Address,
-            Balance = wallet.Balance,
-            Pending = wallet.Pending
+            wallet.Address,
+            wallet.Balance
         });
 
         return Ok(wallets);
@@ -161,6 +160,12 @@ public class ApiControllerBase : Controller
     public IActionResult GetTransactionForHash(string hash)
     {
         return Ok(blockchainManager.GetTransactionForHash(hash));
+    }
+
+    [HttpGet("tx/height/{height}")]
+    public IActionResult GetTransactions([FromRoute(Name = "height")] long height)
+    {
+        return Ok(blockchainManager.GetTransactionsAtHeight(height));
     }
 
     [HttpGet("tx")]
@@ -176,6 +181,7 @@ public class ApiControllerBase : Controller
 
         var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, transactions.Count + 1);
         var map = new Dictionary<SHA256Hash, Transaction>(transactions.Count + 1);
+
         var terminatinEdges = new HashSet<SHA256Hash>();
 
         graph.AddVertexRange(transactions.Select(x => x.TransactionId));
@@ -189,13 +195,12 @@ public class ApiControllerBase : Controller
                 if (graph.ContainsVertex(parent))
                 {
                     graph.AddEdge(new (parent, tx.TransactionId ));
+                    continue;
                 }
-                else
-                {
-                    graph.AddVertex(parent);
-                    terminatinEdges.Add(parent);
-                    graph.AddEdge(new (parent, tx.TransactionId));
-                }
+
+                graph.AddVertex(parent);
+                terminatinEdges.Add(parent);
+                graph.AddEdge(new (parent, tx.TransactionId));
             }
         }
 
@@ -206,9 +211,16 @@ public class ApiControllerBase : Controller
 
         var dotString = graph.ToGraphviz(algorithm =>
             {
-                algorithm.CommonVertexFormat.Shape = GraphvizVertexShape.Record;
+                algorithm.CommonVertexFormat.Shape = GraphvizVertexShape.Point;
                 algorithm.CommonVertexFormat.FontColor = GraphvizColor.White;
                 algorithm.CommonVertexFormat.Style = GraphvizVertexStyle.Filled;
+                algorithm.CommonVertexFormat.Size = new GraphvizSizeF(0.08f, 0.08f);
+                algorithm.CommonVertexFormat.FixedSize = true;
+                
+                algorithm.CommonEdgeFormat.Length = 1;
+                algorithm.CommonEdgeFormat.PenWidth = 0.4;
+                algorithm.CommonEdgeFormat.StrokeColor = GraphvizColor.WhiteSmoke;
+                algorithm.CommonEdgeFormat.HeadArrow = new GraphvizArrow(GraphvizArrowShape.None);
 
                 algorithm.GraphFormat.BackgroundColor = new GraphvizColor(byte.MaxValue, 25, 25, 25);
                 algorithm.GraphFormat.RankDirection = GraphvizRankDirection.LR;
@@ -217,46 +229,49 @@ public class ApiControllerBase : Controller
                 {
                     if (terminatinEdges.Contains(args.Vertex))
                     {
+                        args.VertexFormat.ToolTip = "Not loaded";
                         args.VertexFormat.Shape = GraphvizVertexShape.Point;
                         return;
                     }
 
                     var tx = map[args.Vertex];
 
+                    args.VertexFormat.Url = $"/tx/{tx.TransactionId}";
+
                     switch (tx.TransactionType)
                     {
                         case TransactionType.PAYMENT:
-                            args.VertexFormat.Label = $"Transaction";
+                            args.VertexFormat.ToolTip = $"Transaction";
                             args.VertexFormat.FillColor = darkslateblue;
                             args.VertexFormat.StrokeColor = darkslateblue;
                         break;
                         case TransactionType.GENESIS:
-                            args.VertexFormat.Label = $"Genesis";
+                            args.VertexFormat.ToolTip = $"Genesis";
                             args.VertexFormat.FillColor = GraphvizColor.White;
                             args.VertexFormat.FontColor = GraphvizColor.Black;
                         break;
                         case TransactionType.BLOCK:
-                            args.VertexFormat.Label = $"Block";
+                            args.VertexFormat.ToolTip = $"Block";
                             args.VertexFormat.FillColor = goldenrod2;
                             args.VertexFormat.StrokeColor = goldenrod2;
                         break;
                         case TransactionType.VIEW:
-                            args.VertexFormat.Label = $"View #{BitConverter.ToInt64(tx.Data)}";
+                            args.VertexFormat.ToolTip = $"View #{BitConverter.ToInt64(tx.Data)}";
                             args.VertexFormat.FillColor = deepskyblue3;
                             args.VertexFormat.StrokeColor = deepskyblue3;
                         break;
                         case TransactionType.VOTE:
-                            args.VertexFormat.Label = $"Vote";
+                            args.VertexFormat.ToolTip = $"Vote";
                             args.VertexFormat.FillColor = darkslategray4;
                             args.VertexFormat.StrokeColor = darkslategray4;
                         break;
                         case TransactionType.CONTRACT:
-                            args.VertexFormat.Label = $"Contract";
+                            args.VertexFormat.ToolTip = $"Contract";
                             args.VertexFormat.FillColor = GraphvizColor.White;
                             args.VertexFormat.FontColor = GraphvizColor.Black;
                         break;
                         case TransactionType.REG_VALIDATOR:
-                            args.VertexFormat.Label = $"New Validator";
+                            args.VertexFormat.ToolTip = $"New Validator";
                             args.VertexFormat.FillColor = GraphvizColor.White;
                             args.VertexFormat.FontColor = GraphvizColor.Black;
                         break;
@@ -327,5 +342,12 @@ public class ApiControllerBase : Controller
     public Stake? GetValidator(string address)
     {
         return blockchainManager.GetStake(address);
+    }
+
+    [HttpGet("chainstate")]
+    public ChainState GetCurrentChainState()
+    {
+        var height = blockchainManager.GetCurrentHeight();
+        return blockchainManager.GetChainStateAt(height - 1) ?? new ChainState();
     }
 }

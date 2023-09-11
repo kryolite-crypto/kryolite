@@ -572,8 +572,6 @@ internal class RocksDBStorage : IStorage
 
         var results = new List<byte[]>(count);
 
-        Console.WriteLine(toSkip);
-
         while (iterator.Valid())
         {
             toSkip--;
