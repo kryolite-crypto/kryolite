@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
@@ -18,30 +19,30 @@ public class Transaction : IComparable<Transaction>
     [Key(2)]
     public long? Height { get; set; }
     [Key(3)]
-    public TransactionType TransactionType { get; set; }
+    public TransactionType TransactionType { get; init; }
     [Key(4)]
     public PublicKey? PublicKey {
         get => pk;
-        set {
+        init {
             pk = value;
             From = pk?.ToAddress() ?? new Address();
         }
     }
 
     [Key(5)]
-    public Address? To { get; set; }
+    public Address? To { get; init; }
     [Key(6)]
-    public long Value { get; set; }
+    public long Value { get; init; }
     [Key(7)]
-    public byte[]? Data { get; set; }
+    public byte[]? Data { get; init; }
     [Key(8)]
-    public long Timestamp { get; set; }
+    public long Timestamp { get; init; }
     [Key(9)]
     public Signature? Signature { get; set; }
     [Key(10)]
     public ExecutionResult ExecutionResult { get; set; }
     [Key(11)]
-    public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
+    public ImmutableList<SHA256Hash> Parents { get; init; } = ImmutableList<SHA256Hash>.Empty;
     [Key(12)]
     public List<Effect> Effects { get; set; } = new();
 
@@ -56,7 +57,7 @@ public class Transaction : IComparable<Transaction>
         TransactionId = SHA256Hash.NULL_HASH;
     }
 
-    public Transaction(TransactionDto tx, List<SHA256Hash> parents)
+    public Transaction(TransactionDto tx, ImmutableList<SHA256Hash> parents)
     {
         TransactionType = tx.TransactionType;
         PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");

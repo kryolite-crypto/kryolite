@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Net.Sockets;
 using System.Numerics;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
@@ -14,7 +14,6 @@ using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
 using Redbus.Interfaces;
-using Wasmtime;
 
 namespace Kryolite.Node;
 
@@ -245,7 +244,7 @@ public class StoreManager : IStoreManager
                     parents.AddRange(toExecute.OrderBy(x => Random.Shared.Next()).Select(x => x.TransactionId).Take(1));
                 }
 
-                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Amount ?? 0, parents);
+                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Amount ?? 0, parents.ToImmutableList());
 
                 vote.Sign(node.PrivateKey);
                 vote.ExecutionResult = ExecutionResult.PENDING;
@@ -744,7 +743,7 @@ public class StoreManager : IStoreManager
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
         var chainState = Repository.GetChainState() ?? throw new Exception("failed to load chainstate");
-        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, GetTransactionToValidate(2), new SHA256Hash());
+        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, GetTransactionToValidate(2).ToImmutableList(), new SHA256Hash());
 
         return new Blocktemplate
         {
@@ -803,14 +802,14 @@ public class StoreManager : IStoreManager
         return Repository.GetWallet(address)?.Balance ?? 0;
     }
 
-    public bool SetChain(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactions, long startHeight)
+    public bool SetChain(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactions, long minCommonHeight)
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
 
         try
         {
-            RollbackChainIfNeeded(startHeight, chainGraph.VertexCount);
+            RollbackChainIfNeeded(minCommonHeight, chainGraph.VertexCount);
 
             if (!AddTransactionBatchInternal(chainGraph, transactions, false, false))
             {
@@ -838,7 +837,7 @@ public class StoreManager : IStoreManager
     }
 
     // TODO: Refactor to smaller methods
-    private void RollbackChainIfNeeded(long startHeight, long count)
+    private void RollbackChainIfNeeded(long minCommonHeight, long count)
     {
         // long progress = 0;
 
@@ -848,18 +847,17 @@ public class StoreManager : IStoreManager
         var chainState = Repository.GetChainState();
         var wallets = WalletManager.GetWallets();
 
-        var min = startHeight;
         var max = chainState?.Height ?? 0;
 
-        if (min > max)
+        if (minCommonHeight >= max)
         {
             return;
         }
 
         // ChainObserver.ReportProgress("Rolling back current chain", progress, count);
-        Logger.LogInformation($"Rollback from {max} to {min - 1}");
+        Logger.LogInformation($"Rollback from {max} to {minCommonHeight}");
 
-        for (long height = max; height >= min; height--)
+        for (long height = max; height > minCommonHeight; height--)
         {
             Logger.LogInformation($"Rollback height {height}");
 
@@ -944,11 +942,11 @@ public class StoreManager : IStoreManager
             }
         }
 
-        var newState = Repository.GetChainStateAt(min - 1) ?? throw new Exception("view not found");
+        var newState = Repository.GetChainStateAt(minCommonHeight) ?? throw new Exception("chainstate not found");
         StateCache.SetChainState(newState);
         Repository.SaveState(newState);
 
-        StateCache.SetView(Repository.GetViewAt(min - 1) ?? throw new Exception("view not found"));
+        StateCache.SetView(Repository.GetViewAt(minCommonHeight) ?? throw new Exception("view not found"));
 
         Logger.LogDebug($"new state = {newState.Height}");
         Logger.LogDebug($"new view = {StateCache.GetCurrentView().TransactionId}");

@@ -1,6 +1,7 @@
 ﻿using Kryolite.Shared.Dto;
 using MessagePack;
 using NSec.Cryptography;
+using System.Collections.Immutable;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
@@ -13,7 +14,7 @@ public class View : Transaction
 
     }
 
-    public View(PublicKey publicKey, long height, List<SHA256Hash> parents)
+    public View(PublicKey publicKey, long height, ImmutableList<SHA256Hash> parents)
     {
         TransactionType = TransactionType.VIEW;
         Value = Constant.VALIDATOR_REWARD;
@@ -24,7 +25,7 @@ public class View : Transaction
         Parents = parents;
     }
 
-    public View(TransactionDto tx, List<SHA256Hash> parents)
+    public View(TransactionDto tx, ImmutableList<SHA256Hash> parents)
     {
         TransactionType = TransactionType.VIEW;
         PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");

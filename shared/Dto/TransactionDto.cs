@@ -1,6 +1,7 @@
 ﻿using Kryolite.Shared.Blockchain;
 using MessagePack;
 using NSec.Cryptography;
+using System.Collections.Immutable;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
 using KeyAttribute = MessagePack.KeyAttribute;
@@ -11,27 +12,34 @@ namespace Kryolite.Shared.Dto;
 public class TransactionDto
 {
     [Key(0)]
-    public TransactionType TransactionType { get; set; }
+    public TransactionType TransactionType { get; init; }
     [Key(1)]
     [Required]
-    public PublicKey? PublicKey { get; set; }
+    public PublicKey? PublicKey { get; init; }
     [Key(2)]
     [Required]
-    public Address? To { get; set; }
+    public Address? To { get; init; }
     [Key(3)]
-    public long Value { get; set; }
+    public long Value { get; init; }
     [Key(4)]
-    public byte[]? Data { get; set; }
+    public byte[]? Data { get; init; }
     [Key(5)]
-    public long Timestamp { get; set; }
+    public long Timestamp { get; init; }
     [Key(6)]
     [Required]
-    public Signature? Signature { get; set; }
+    public Signature? Signature { get; init; }
     [Key(7)]
-    public List<SHA256Hash> Parents { get; set; } = new List<SHA256Hash>();
+    public ImmutableList<SHA256Hash> Parents { get; init; }
 
-    public SHA256Hash CalculateHash()
+    private SHA256Hash? CachedTransactionId { get; set; }
+
+    public SHA256Hash CalculateHash(bool forceRefresh = false)
     {
+        if (CachedTransactionId is not null && !forceRefresh)
+        {
+            return CachedTransactionId;
+        }
+
         using var sha256 = SHA256.Create();
         using var stream = new MemoryStream();
 
@@ -59,12 +67,14 @@ public class TransactionDto
         stream.Flush();
         stream.Position = 0;
 
-        return sha256.ComputeHash(stream.ToArray());
+        CachedTransactionId = sha256.ComputeHash(stream.ToArray());
+
+        return CachedTransactionId;
     }
 
     public TransactionDto()
     {
-
+        Parents = ImmutableList<SHA256Hash>.Empty;
     }
     
     public TransactionDto(Transaction tx)
@@ -76,7 +86,7 @@ public class TransactionDto
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;
-        Parents = tx.Parents;
+        Parents = tx.Parents.ToImmutableList();
     }
 
     public Transaction AsTransaction()

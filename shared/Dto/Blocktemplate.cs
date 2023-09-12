@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Shared;
@@ -12,5 +13,5 @@ public class Blocktemplate
     public long Timestamp { get; set; }
     public SHA256Hash ParentHash { get; set; } = SHA256Hash.NULL_HASH;
     public byte[] Data = new byte[0];
-    public List<SHA256Hash> Validates { get; set; } = new List<SHA256Hash>();
+    public ImmutableList<SHA256Hash> Validates { get; set; } = ImmutableList<SHA256Hash>.Empty;
 }

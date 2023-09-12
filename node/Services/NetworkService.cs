@@ -2,6 +2,7 @@ using System.Net.NetworkInformation;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Timers;
+using Common.Logging;
 using DnsClient;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
@@ -11,7 +12,9 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using QuikGraph;
 using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Search;
 using Redbus.Events;
 using Redbus.Interfaces;
 using static Kryolite.Node.NetworkManager;
@@ -400,18 +403,26 @@ public class ChainObserver : IObserver<Chain>
 
             var localState = storeManager.GetChainState();
 
-            var minRemoteHeight = chain.Transactions
+            var minRemoteView = chain.Transactions
                 .Where(x => x.TransactionType == TransactionType.VIEW)
-                .Select(x => BitConverter.ToInt64(x.Data))
-                .DefaultIfEmpty(localState.Height) // if transaction batch does not contain view it means we have transactions on tip of chain
-                .Min();
+                .Where(x => !storeManager.Exists(x.CalculateHash()))
+                .MinBy(x => BitConverter.ToInt64(x.Data));
 
-            var transactions = chain.Transactions.ToDictionary(x => x.CalculateHash(), y => y);
+            var minCommonHeight = minRemoteView is not null ?
+                BitConverter.ToInt64(minRemoteView.Data) - 1:
+                localState.Height;
+
             var graph = chain.Transactions.AsGraph();
+            var transactions = chain.Transactions.ToDictionary(x => x.CalculateHash(), y => y);
 
             chain.Transactions.Clear();
 
-            var remoteState = storeManager.GetChainStateAt(Math.Max(minRemoteHeight - 1, 0))!;
+            if (minRemoteView is not null)
+            {
+                graph = FilterOutCommonVertices(minRemoteView, graph, transactions);
+            }
+
+            var remoteState = storeManager.GetChainStateAt(minCommonHeight) ?? throw new Exception($"chain not found at height {minCommonHeight}");
 
             var voteCount = 0;
             var blockCount = 0;
@@ -475,9 +486,9 @@ public class ChainObserver : IObserver<Chain>
 
             if (remoteState.Weight > localWeight)
             {
-                logger.LogInformation($"Merging remote chain from height #{minRemoteHeight} to #{remoteState.Height}");
+                logger.LogInformation($"Merging remote chain from height #{minCommonHeight} to #{remoteState.Height}");
 
-                if (!storeManager.SetChain(graph, transactions, minRemoteHeight))
+                if (!storeManager.SetChain(graph, transactions, minCommonHeight))
                 {
                     logger.LogInformation("Failed to set chain, discarding...");
 
@@ -523,5 +534,48 @@ public class ChainObserver : IObserver<Chain>
             networkManager.Ban(chain.Peer.ClientId);
             _ = chain.Peer.DisconnectAsync();
         }
+    }
+
+    private static AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> FilterOutCommonVertices(TransactionDto minRemoteView, AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> graph, Dictionary<SHA256Hash, TransactionDto> transactions)
+    {
+        var newGraph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
+
+        var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(graph);
+        bfs.SetRootVertex(minRemoteView.CalculateHash());
+        bfs.Compute();
+
+        var newVertices = bfs.VisitedGraph.Vertices.Where(vertex => bfs.VerticesColors[vertex] == GraphColor.White);
+
+        newGraph.AddVertexRange(newVertices);
+        newGraph.AddVertex(minRemoteView.CalculateHash());
+
+        foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
+        {
+            // white == not visited
+            if (bfs.VerticesColors[vertex] != GraphColor.White)
+            {
+                continue;
+            }
+
+            var tx = transactions[vertex];
+
+            foreach (var parent in tx.Parents)
+            {
+                if (newGraph.ContainsVertex(parent))
+                {
+                    newGraph.AddEdge(new Edge<SHA256Hash>(tx.CalculateHash(), parent));
+                }
+            }
+        }
+
+        foreach (var parent in minRemoteView.Parents)
+        {
+            if (newGraph.ContainsVertex(parent))
+            {
+                newGraph.AddEdge(new Edge<SHA256Hash>(minRemoteView.CalculateHash(), parent));
+            }
+        }
+
+        return newGraph;
     }
 }

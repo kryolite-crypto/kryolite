@@ -1,5 +1,6 @@
 ﻿using Kryolite.Shared.Dto;
 using MessagePack;
+using System.Collections.Immutable;
 using System.Reactive;
 using System.Security.Cryptography;
 
@@ -20,7 +21,7 @@ public class Block : Transaction
 
     }
 
-    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty, List<SHA256Hash> parents, SHA256Hash nonce)
+    public Block(Address wallet, long timestamp, SHA256Hash parentHash, Difficulty difficulty, ImmutableList<SHA256Hash> parents, SHA256Hash nonce)
     {
         TransactionType = TransactionType.BLOCK;
         To = wallet;
@@ -34,7 +35,7 @@ public class Block : Transaction
         TransactionId = CalculateHash();
     }
 
-    public Block(TransactionDto tx, List<SHA256Hash> parents)
+    public Block(TransactionDto tx, ImmutableList<SHA256Hash> parents)
     {
         TransactionType = TransactionType.BLOCK;
         To = tx.To;

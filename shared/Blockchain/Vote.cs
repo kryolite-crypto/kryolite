@@ -1,6 +1,7 @@
 using Kryolite.Shared.Dto;
 using MessagePack;
 using NSec.Cryptography;
+using System.Collections.Immutable;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
@@ -8,14 +9,17 @@ namespace Kryolite.Shared.Blockchain;
 [MessagePackObject]
 public class Vote : Transaction
 {
-    public SHA256Hash LastHash { get => Data ?? SHA256Hash.NULL_HASH; set => Data = value; }
+    public SHA256Hash LastHash { 
+        get => Data ?? SHA256Hash.NULL_HASH;
+        init => Data = value;
+    }
 
     public Vote()
     {
 
     }
 
-    public Vote(PublicKey publicKey, SHA256Hash viewId, long stake, List<SHA256Hash> parents)
+    public Vote(PublicKey publicKey, SHA256Hash viewId, long stake, ImmutableList<SHA256Hash> parents)
     {
         TransactionType = TransactionType.VOTE;
         PublicKey = publicKey;
@@ -26,7 +30,7 @@ public class Vote : Transaction
         TransactionId = CalculateHash();
     }
 
-    public Vote(TransactionDto tx, List<SHA256Hash> parents)
+    public Vote(TransactionDto tx, ImmutableList<SHA256Hash> parents)
     {
         TransactionType = TransactionType.VOTE;
         PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");

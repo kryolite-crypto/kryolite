@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Collections.Immutable;
 using System.Reactive;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Node.Repository;
@@ -164,7 +165,7 @@ public class ValidatorService : BackgroundService
     private void GenerateView(IStoreManager blockchainManager, View lastView)
     {
         var height = (lastView?.Height ?? 0) + 1L;
-        var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate());
+        var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate().ToImmutableList());
         
         nextView.Sign(Node.PrivateKey);
 
