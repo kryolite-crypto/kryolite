@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.CommandLine;
 using System.Text;
 using System.Text.Json;
@@ -128,7 +129,7 @@ public static class ValidatorCmd
             To = rewardAddress,
             Value = (long)(stake * Constant.DECIMAL_MULTIPLIER),
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Parents = parents
+            Parents = parents.ToImmutableList()
         };
 
         tx.Sign(keys.PrivateKey);

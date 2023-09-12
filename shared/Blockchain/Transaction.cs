@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
 using Kryolite.Shared.Dto;
@@ -45,6 +46,7 @@ public class Transaction : IComparable<Transaction>
     public List<Effect> Effects { get; set; } = new();
 
     [IgnoreMember]
+    [NotNullIfNotNull(nameof(PublicKey))]
     public Address? From { get; private set; }
 
     private PublicKey? pk;

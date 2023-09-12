@@ -274,6 +274,8 @@ public class StoreRepository : IStoreRepository, IDisposable
         var id = BitConverter.GetBytes(tx.Id);
         Storage.Delete("Transaction", id, CurrentTransaction);
 
+        Storage.Delete("ixTransactionId", tx.TransactionId.Buffer, CurrentTransaction);
+
         var keyBuf = ArrayPool<byte>.Shared.Rent(34);
         var keyMem = keyBuf.AsSpan();
 

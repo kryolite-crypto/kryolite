@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Kryolite.Node;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,7 +27,7 @@ public partial class TokensTab : UserControl
         WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
         EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IWalletManager));
 
-        InitializeComponent();
+        AvaloniaXamlLoader.Load(this);
         DataContext = Model;
 
         var grid = this.GetControl<DataGrid>("TokensGrid");

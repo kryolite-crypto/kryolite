@@ -40,6 +40,13 @@ public class VoteExecutor : IExecutor
             wallet.Balance += reward;
         }
 
+        tx.Effects.Add(new Effect
+        {
+            From = Address.NULL_ADDRESS,
+            To = tx.From!,
+            Value = reward
+        });
+
         return ExecutionResult.SUCCESS;
     }
 
