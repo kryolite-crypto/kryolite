@@ -891,12 +891,6 @@ public class StoreManager : IStoreManager
                             sender.Balance += tx.Value;
                             recipient.Balance -= tx.Value;
                         }
-
-                        if (to.IsContract())
-                        {
-                            contract.Balance = recipient.Balance;
-                            Repository.DeleteContractSnapshot(to, height);
-                        }
                     break;
                     case TransactionType.BLOCK:
                         recipient.Balance = checked(recipient.Balance - tx.Value);
@@ -909,6 +903,12 @@ public class StoreManager : IStoreManager
                     case TransactionType.REG_VALIDATOR:
                         Repository.DeleteValidator(from);
                     break;
+                }
+
+                if (to.IsContract())
+                {
+                    contract.Balance = recipient.Balance;
+                    Repository.DeleteContractSnapshot(to, height);
                 }
 
                 foreach (var effect in tx.Effects)
