@@ -19,6 +19,8 @@ public class Peer : IDisposable
     public DateTime ConnectedSince { get; set; }
     public bool IsReachable { get; set; }
     public int ApiLevel { get; private init; }
+    public DateTime? LastNodeInfo { get; set; }
+    public DateTime? LastChainSync { get; set; }
 
 
     private WebSocket Socket { get; }

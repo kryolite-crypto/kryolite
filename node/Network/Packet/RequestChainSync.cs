@@ -13,6 +13,11 @@ public class RequestChainSync : IPacket
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
+        if (peer.LastChainSync is not null && (DateTime.Now - peer.LastChainSync).Value.TotalSeconds < 30)
+        {
+            return;
+        }
+
         using var scope = serviceProvider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
@@ -45,6 +50,8 @@ public class RequestChainSync : IPacket
             .ToList();
 
 answer:
+        peer.LastChainSync = DateTime.Now;
+
         _ = peer.SendAsync(chain);
     }
 }

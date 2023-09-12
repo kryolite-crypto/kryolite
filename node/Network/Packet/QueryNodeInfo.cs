@@ -11,6 +11,11 @@ public class QueryNodeInfo : IPacket
 {
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
+        if (peer.LastNodeInfo is not null && (DateTime.Now - peer.LastNodeInfo).Value.TotalSeconds < 30)
+        {
+            return;
+        }
+
         using var scope = serviceProvider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
@@ -26,6 +31,8 @@ public class QueryNodeInfo : IPacket
             LastHash = blockchainManager.GetLastView()?.TransactionId ?? SHA256Hash.NULL_HASH,
             CurrentTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
+
+        peer.LastNodeInfo = DateTime.Now;
 
         _ = peer.SendAsync(response);
     }
