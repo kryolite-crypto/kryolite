@@ -57,12 +57,22 @@ public class Executor
                         if (view.TransactionId != block.ParentHash)
                         {
                             tx.ExecutionResult = ExecutionResult.STALE;
-                            continue;
                         }
 
                         if (block.Difficulty != currentDifficulty)
                         {
                             tx.ExecutionResult = ExecutionResult.STALE;
+                        }
+
+                        if (tx.ExecutionResult == ExecutionResult.STALE)
+                        {
+                            var ledger = Context.GetWallet(tx.To!);
+
+                            if (ledger is not null)
+                            {
+                                ledger.Pending = checked(ledger.Pending - tx.Value);
+                            }
+
                             continue;
                         }
 
