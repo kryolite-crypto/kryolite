@@ -14,6 +14,7 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
+using System.Collections.Immutable;
 
 namespace Kryolite.Wallet;
 
@@ -35,16 +36,9 @@ public partial class SendTab : UserControl
                 return;
             }
 
-            var transaction = new Transaction {
-                TransactionType = TransactionType.PAYMENT,
-                PublicKey = Model.SelectedWallet.PublicKey,
-                To = Model.Recipient,
-                Value = (long)(decimal.Parse(Model.Amount) * 1000000),
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Parents = blockchainManager.GetTransactionToValidate(2)
-            };
+            var payload = Array.Empty<byte>();
 
-            if (transaction.To.IsContract())
+            if (((Address)Model.Recipient).IsContract())
             {
                 if (Model.Method is null)
                 {
@@ -64,8 +58,18 @@ public partial class SendTab : UserControl
                     .WithCompression(MessagePackCompression.Lz4BlockArray)
                     .WithOmitAssemblyVersion(true);
 
-                transaction.Data = MessagePackSerializer.Serialize(transactionPayload, lz4Options);
+                payload = MessagePackSerializer.Serialize(transactionPayload, lz4Options);
             }
+
+            var transaction = new Transaction {
+                TransactionType = TransactionType.PAYMENT,
+                PublicKey = Model.SelectedWallet.PublicKey,
+                To = Model.Recipient,
+                Value = (long)(decimal.Parse(Model.Amount) * 1000000),
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Data = payload,
+                Parents = blockchainManager.GetTransactionToValidate(2).ToImmutableList()
+            };
 
             transaction.Sign(Model.SelectedWallet!.PrivateKey);
 

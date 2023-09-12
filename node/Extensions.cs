@@ -2,6 +2,7 @@ using System.Linq.Expressions;
 using System.Net;
 using System.Net.Sockets;
 using Kryolite.Node;
+using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -140,5 +141,45 @@ public static class Extensions
         bool IsClassC() => ipv4Bytes[0] == 192 && ipv4Bytes[1] == 168;
 
         return IsLinkLocal() || IsClassA() || IsClassB() || IsClassC();
+    }
+
+    public static Ledger? TryGetWallet(this Dictionary<Address, Ledger> ledger, Address address, IStoreRepository repository)
+    {
+        if (address == Address.NULL_ADDRESS)
+        {
+            return null;
+        }
+
+        if (!ledger.TryGetValue(address, out var wallet))
+        {
+            wallet = repository.GetWallet(address);
+
+            if (wallet is not null)
+            {
+                ledger.Add(address, wallet);
+            }
+        }
+
+        return wallet;
+    }
+
+   public static Contract? TryGetContract(this Dictionary<Address, Contract> ledger, Address address, IStoreRepository repository)
+    {
+        if (address == Address.NULL_ADDRESS)
+        {
+            return null;
+        }
+
+        if (!ledger.TryGetValue(address, out var contract))
+        {
+            contract = repository.GetContract(address);
+
+            if (contract is not null)
+            {
+                ledger.Add(address, contract);
+            }
+        }
+
+        return contract;
     }
 }

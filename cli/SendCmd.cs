@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.CommandLine;
 using System.Text;
 using System.Text.Json;
@@ -117,7 +118,7 @@ public static class SendCmd
                 Value = (long)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null,
-                Parents = parents
+                Parents = parents.ToImmutableList()
             };
 
             tx.Sign(wallet.PrivateKey);

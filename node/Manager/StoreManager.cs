@@ -71,6 +71,7 @@ public class StoreManager : IStoreManager
                 CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty()
             };
 
+            Repository.AddRange(new() { genesis });
             Repository.SaveState(chainState);
 
             foreach (var validator in Constant.SEED_VALIDATORS)
@@ -83,7 +84,6 @@ public class StoreManager : IStoreManager
             }
 
             StateCache.SetChainState(chainState);
-            StateCache.Add(genesis);
 
             dbtx.Commit();
             return true;
@@ -208,11 +208,6 @@ public class StoreManager : IStoreManager
 
             Repository.AddRange(toExecute);
             Repository.SaveState(chainState);
-
-            // TODO: Remove blocks / votes that were not confirmed these will not pass verifications anymore
-            // but we need to all referencing thingies?
-            // instead let them be in chain as stales?
-            // StateCache.GetTransactions().
 
             StateCache.SetView(view);
             StateCache.RecreateGraph();
@@ -882,83 +877,64 @@ public class StoreManager : IStoreManager
             {
                 var tx = transactions[vertex];
 
-                if (tx.PublicKey is not null && tx.PublicKey != PublicKey.NULL_PUBLIC_KEY)
+                var from = tx.From ?? Address.NULL_ADDRESS;
+                var to = tx.To ?? Address.NULL_ADDRESS;
+
+                // Assign new Ledgers to avoid null checks in many parts
+                var sender = ledger.TryGetWallet(from, Repository) ?? new Ledger();
+                var recipient = ledger.TryGetWallet(to, Repository) ?? new Ledger();
+                var contract = (to.IsContract() ? contracts.TryGetContract(to, Repository) : null) ?? new Contract();
+
+                switch (tx.TransactionType)
                 {
-                    var addr = tx.PublicKey.ToAddress();
-
-                    if (!ledger.TryGetValue(addr, out var sender))
-                    {
-                        sender = Repository.GetWallet(addr);
-
-                        if (sender is null)
+                    case TransactionType.PAYMENT:
+                        checked
                         {
-                            goto receiver;
+                            sender.Balance += tx.Value;
+                            recipient.Balance -= tx.Value;
                         }
 
-                        ledger.Add(addr, sender);
-                    }
+                        if (to.IsContract())
+                        {
+                            contract.Balance = recipient.Balance;
+                            Repository.DeleteContractSnapshot(to, height);
+                        }
+                    break;
+                    case TransactionType.BLOCK:
+                        recipient.Balance = checked(recipient.Balance - tx.Value);
+                    break;
+                    case TransactionType.CONTRACT:
+                        sender.Balance = checked(sender.Balance += tx.Value);
+                        Repository.DeleteContract(to);
+                    break;
 
-                    checked
-                    {
-                        sender.Balance += tx.Value;
-                    }
+                    case TransactionType.REG_VALIDATOR:
+                        Repository.DeleteValidator(from);
+                    break;
                 }
 
-receiver:
-                if (tx.To is not null && tx.To != Address.NULL_ADDRESS)
+                foreach (var effect in tx.Effects)
                 {
-                    if (tx.To.IsContract())
+                    if (effect.IsTokenEffect())
                     {
-                        if (!contracts.TryGetValue(tx.To, out var contract))
-                        {
-                            contract = Repository.GetContract(tx.To);
-
-                            if (contract is null)
-                            {
-                                goto delete;
-                            }
-
-                            contracts.Add(tx.To, contract);
-                        }
-
-                        foreach (var effect in tx.Effects)
-                        {
-                            if (effect.IsTokenEffect())
-                            {
-                                RollbackTokenEffect(ledger, contract, effect);
-                            }
-                            else
-                            {
-                                RollbackEffectBalance(ledger, contract, effect);
-                            }
-                        }
-
-                        Repository.DeleteContractSnapshot(contract.Address, height);
-
-                        if (tx.TransactionType == TransactionType.CONTRACT)
-                        {
-                            Repository.DeleteContract(contract.Address);
-                        }
+                        RollbackTokenEffect(ledger, contract, effect);
                     }
                     else
                     {
-                        if (!ledger.TryGetValue(tx.To, out var recipient))
+                        var effectRecipient = ledger.TryGetWallet(effect.To, Repository);
+
+                        if (effectRecipient is not null)
                         {
-                            recipient = Repository.GetWallet(tx.To);
-
-                            if (recipient is null)
-                            {
-                                goto delete;
-                            }
-
-                            ledger.Add(tx.To, recipient);
+                            effectRecipient.Balance = checked(effectRecipient.Balance - effect.Value);
                         }
 
-                        recipient.Balance = checked(recipient.Balance - tx.Value);
+                        if (effect.To.IsContract())
+                        {
+                            contract.Balance = checked(contract.Balance + effect.Value);
+                        }
                     }
                 }
 
-delete:
                 Repository.Delete(tx);
                 Repository.DeleteState(height);
 
@@ -1101,27 +1077,6 @@ delete:
         using var _ = rwlock.EnterReadLockEx();
 
         return Repository.GetContractTokens(contractAddress);
-    }
-
-    private void RollbackEffectBalance(Dictionary<Address, Ledger> ledger, Contract contract, Effect effect)
-    {
-        if (!ledger.TryGetValue(effect.To, out var toWallet))
-        {
-            toWallet = Repository.GetWallet(effect.To);
-
-            if (toWallet is null)
-            {
-                return;
-            }
-
-            ledger.Add(effect.To, toWallet);
-        }
-
-        checked
-        {
-            toWallet.Balance -= effect.Value;
-            contract.Balance += effect.Value;
-        }
     }
 
     private void RollbackTokenEffect(Dictionary<Address, Ledger> ledger, Contract contract, Effect effect)
