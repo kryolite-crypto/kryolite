@@ -15,7 +15,7 @@ public interface IStoreManager
     bool AddView(View view, bool broadcast, bool castVote, bool isGenesis = false);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
-    bool AddValidatorReg(TransactionDto txDto, bool broadcast);
+    ExecutionResult AddValidatorReg(TransactionDto txDto, bool broadcast);
     ExecutionResult AddTransaction(TransactionDto tx, bool broadcast);
 
     Genesis? GetGenesis();

@@ -132,7 +132,15 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid transaction");
         }
 
-        return blockchainManager.AddTransaction(tx, true);
+        switch (tx.TransactionType)
+        {
+            case TransactionType.PAYMENT:
+                return blockchainManager.AddTransaction(tx, true);
+            case TransactionType.REG_VALIDATOR:
+                return blockchainManager.AddValidatorReg(tx, true);
+            default:
+                throw new Exception("invalid transaction type");
+        }
     }
 
     [HttpPost("tx/batch")]

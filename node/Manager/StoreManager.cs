@@ -477,7 +477,7 @@ cleanup:
         return false;
     }
 
-    public bool AddValidatorReg(TransactionDto txDto, bool broadcast)
+    public ExecutionResult AddValidatorReg(TransactionDto txDto, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
 
@@ -485,10 +485,12 @@ cleanup:
 
         if (!Verifier.Verify(tx))
         {
-            return false;
+            return ExecutionResult.VERIFY_FAILED;
         }
 
-        return AddValidatorRegInternal(tx, broadcast);
+        AddValidatorRegInternal(tx, broadcast);
+
+        return tx.ExecutionResult;
     }
 
     private bool AddValidatorRegInternal(Transaction tx, bool broadcast)
