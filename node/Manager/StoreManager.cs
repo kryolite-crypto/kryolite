@@ -182,7 +182,7 @@ public class StoreManager : IStoreManager
 
             executor.Execute(toExecute, chainState.CurrentDifficulty);
 
-            chainState.Weight += chainState.CurrentDifficulty.ToWork() * totalStake;
+            chainState.Weight += chainState.CurrentDifficulty.ToWork() * (totalStake / 1_000_000);
 
             if (height > 0)
             {

@@ -440,7 +440,7 @@ public class ChainObserver : IObserver<Chain>, IDisposable
                 {
                     case TransactionType.VIEW:
                         // TODO: Similar implementation exists in StoreManager
-                        remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * totalStake;
+                        remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * (totalStake / 1_000_000);
                         remoteState.LastHash = tx.CalculateHash();
 
                         if (blockCount == 0)
