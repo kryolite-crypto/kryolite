@@ -23,13 +23,6 @@ public class VoteExecutor : IExecutor
             return ExecutionResult.SUCCESS;
         }
 
-        var view = Context.GetLastView();
-
-        if (view.TransactionId != (tx.Data ?? SHA256Hash.NULL_HASH))
-        {
-            return ExecutionResult.STALE;
-        }
-
         var stake = Context.GetRepository().GetStake(tx.From!) ?? throw new Exception($"stake not found: {tx.From}");
 
         var reward = (long)Math.Floor(Constant.VALIDATOR_REWARD * (stake.Amount / (double)Context.GetTotalStake()));
@@ -43,7 +36,7 @@ public class VoteExecutor : IExecutor
         tx.Effects.Add(new Effect
         {
             From = Address.NULL_ADDRESS,
-            To = tx.From!,
+            To = stake.RewardAddress,
             Value = reward
         });
 

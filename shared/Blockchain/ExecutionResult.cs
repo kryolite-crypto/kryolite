@@ -22,5 +22,6 @@ public enum ExecutionResult
     VERIFY_FAILED,
     UNKNOWN,
     DUPLICATE_CONTRACT,
-    STALE
+    STALE,
+    ORPHAN
 }

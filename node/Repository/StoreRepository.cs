@@ -347,7 +347,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Ledger? GetWallet(Address address)
     {
-        return Storage.Get<Ledger>("Ledger", address.Buffer);
+        return Storage.Get<Ledger>("Ledger", address.Buffer, CurrentTransaction);
     }
 
     public void UpdateWallet(Ledger ledger)

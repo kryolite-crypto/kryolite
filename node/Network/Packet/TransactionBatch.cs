@@ -28,7 +28,7 @@ public class TransactionBatch : IPacket
 
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBatch>>();
 
-        logger.LogDebug($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
+        logger.LogInformation($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
 
         var keys = Transactions.AsParallel()
             .Select(x => x.CalculateHash())

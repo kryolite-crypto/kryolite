@@ -184,6 +184,20 @@ public class Verifier : IVerifier
             return false;
         }
 
+        var view = StateCache.GetCurrentView();
+
+        if (view.TransactionId != block.ParentHash)
+        {
+            Logger.LogInformation($"Block verification failed (reason = invalid parent hash). Got {block.ParentHash}, required: {view.TransactionId}");
+            return false;
+        }
+
+        if (block.Difficulty != StateCache.GetCurrentState().CurrentDifficulty)
+        {
+            Logger.LogInformation($"Block verification failed (reason = invalid difficulty). Got {block.Difficulty}, required: {StateCache.GetCurrentState().CurrentDifficulty}");
+            return false;
+        }
+
         return true;
     }
 
@@ -262,6 +276,14 @@ public class Verifier : IVerifier
         if (stake?.Amount != vote.Value)
         {
             Logger.LogInformation($"Vote verification failed (reason = invalid stake set ({vote.Value} / {stake}))");
+            return false;
+        }
+
+        var view = StateCache.GetCurrentView();
+
+        if (view.TransactionId != (vote.Data ?? SHA256Hash.NULL_HASH))
+        {
+            Logger.LogInformation($"Vote verification failed (reason = invalid parent hash)");
             return false;
         }
 

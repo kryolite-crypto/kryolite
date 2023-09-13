@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Numerics;
 using Kryolite.Node.Blockchain;
@@ -206,6 +207,64 @@ public class StoreManager : IStoreManager
             chainState.Transactions = toExecute.Count;
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
+
+            // cleanup stales and orphans
+cleanup:
+            bool removed = false;
+
+            foreach (var tx in StateCache.GetTransactions().Values.ToList())
+            {
+                if (tx.TransactionType == TransactionType.BLOCK)
+                {
+                    if (StateCache.TryGet(tx.To!, out var ledger))
+                    {
+                        ledger.Pending = checked(ledger.Pending - tx.Value);
+                    }
+
+                    tx.ExecutionResult = ExecutionResult.STALE;
+
+                    StateCache.Remove(tx.TransactionId, out _);
+                    toExecute.Add(tx);
+
+                    removed = true;
+                }
+                else if (tx.TransactionType == TransactionType.VOTE)
+                {
+                    tx.ExecutionResult = ExecutionResult.STALE;
+
+                    StateCache.Remove(tx.TransactionId, out _);
+                    toExecute.Add(tx);
+
+                    removed = true;
+                }
+                else
+                {
+                    bool orphaned = false;
+
+                    foreach (var parent in tx.Parents)
+                    {
+                        if (!StateCache.Contains(parent) && !Repository.Exists(parent))
+                        {
+                            orphaned = true;
+                        }
+                    }
+
+                    if (orphaned)
+                    {
+                        tx.ExecutionResult = ExecutionResult.ORPHAN;
+
+                        StateCache.Remove(tx.TransactionId, out _);
+                        toExecute.Add(tx);
+
+                        removed = true;
+                    }
+                }
+            }
+
+            if (removed)
+            {
+                goto cleanup;
+            }
 
             Repository.AddRange(toExecute);
             Repository.SaveState(chainState);
