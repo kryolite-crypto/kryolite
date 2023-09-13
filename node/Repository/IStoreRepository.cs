@@ -51,7 +51,8 @@ public interface IStoreRepository
     List<Token> GetContractTokens(Address contractAddress);
     ITransaction BeginTransaction();
     bool IsValidator(Address address);
-    Stake? GetStake(Address address);
-    void SetStake(Address address, Stake stake);
+    Validator? GetStake(Address address);
+    void SetStake(Address address, Validator stake);
     void DeleteValidator(Address address);
+    List<Validator> GetValidators();
 }

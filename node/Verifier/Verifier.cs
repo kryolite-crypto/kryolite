@@ -273,7 +273,7 @@ public class Verifier : IVerifier
 
         var stake = Store.GetStake(vote.From!);
 
-        if (stake?.Amount != vote.Value)
+        if (stake?.Stake != vote.Value)
         {
             Logger.LogInformation($"Vote verification failed (reason = invalid stake set ({vote.Value} / {stake}))");
             return false;

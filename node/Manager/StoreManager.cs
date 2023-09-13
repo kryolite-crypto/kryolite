@@ -77,7 +77,7 @@ public class StoreManager : IStoreManager
 
             foreach (var validator in Constant.SEED_VALIDATORS)
             {
-                var stake = new Stake();
+                var stake = new Validator();
                 stake.PushStake(0, new Address());
 
                 Repository.SetStake(validator, stake);
@@ -305,7 +305,7 @@ cleanup:
                     parents.AddRange(toExecute.OrderBy(x => Random.Shared.Next()).Select(x => x.TransactionId).Take(1));
                 }
 
-                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Amount ?? 0, parents.ToImmutableList());
+                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Stake ?? 0, parents.ToImmutableList());
 
                 vote.Sign(node.PrivateKey);
                 vote.ExecutionResult = ExecutionResult.PENDING;
@@ -506,7 +506,7 @@ cleanup:
 
             checked
             {
-                balance = from.Balance + (stake?.Amount ?? 0);
+                balance = from.Balance + (stake?.Stake ?? 0);
             }
 
             if (balance < tx.Value)
@@ -891,7 +891,7 @@ cleanup:
         return true;
     }
 
-    public Stake? GetStake(Address address)
+    public Validator? GetStake(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
         return Repository.GetStake(address);
@@ -962,11 +962,11 @@ cleanup:
                         Repository.DeleteContract(to);
                     break;
                     case TransactionType.REG_VALIDATOR:
-                        var stake = Repository.GetStake(from) ?? new Stake();
+                        var stake = Repository.GetStake(from) ?? new Validator();
 
-                        sender.Balance = checked(sender.Balance + stake.Amount);
+                        sender.Balance = checked(sender.Balance + stake.Stake);
                         stake.PopStake();
-                        sender.Balance = checked (sender.Balance - stake.Amount);
+                        sender.Balance = checked (sender.Balance - stake.Stake);
 
                         if (stake.StakeHistory.Count > 0)
                         {
@@ -978,7 +978,7 @@ cleanup:
                             Repository.DeleteValidator(from);
                         }
 
-                        EventBus.Publish<EventBase>(stake.Amount >= Constant.MIN_STAKE ? 
+                        EventBus.Publish<EventBase>(stake.Stake >= Constant.MIN_STAKE ? 
                             new ValidatorEnable(from) : 
                             new ValidatorDisable(from)
                         );
@@ -1248,6 +1248,14 @@ cleanup:
     public List<Transaction> GetTransactionsAtHeight(long height)
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetTransactionsAtHeight(height);
+        return Repository.GetTransactionsAtHeight(height)
+            .OrderByDescending(x => x.Height)
+            .ToList();
+    }
+
+    public List<Validator> GetValidators()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetValidators();
     }
 }

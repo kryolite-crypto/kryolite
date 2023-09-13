@@ -48,5 +48,6 @@ public interface IStoreManager
     Token? GetToken(Address contract, SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
     List<Token> GetContractTokens(Address contractAddress);
-    Stake? GetStake(Address address);
+    Validator? GetStake(Address address);
+    List<Validator> GetValidators();
 }

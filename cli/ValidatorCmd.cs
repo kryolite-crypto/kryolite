@@ -70,14 +70,14 @@ public static class ValidatorCmd
                 return;
             }
 
-            var stake = JsonSerializer.Deserialize<Stake>(text, Program.serializerOpts);
+            var stake = JsonSerializer.Deserialize<Validator>(text, Program.serializerOpts);
 
             var answer = new
             {
                 NodeAddress = keys.PublicKey.ToAddress().ToString(),
                 RewardAddress = stake?.RewardAddress.ToString(),
-                Stake = stake?.Amount,
-                Status = stake?.Amount >= Constant.MIN_STAKE ? "Enabled" : "Disabled"
+                Stake = stake?.Stake,
+                Status = stake?.Stake >= Constant.MIN_STAKE ? "Enabled" : "Disabled"
             };
 
             Console.WriteLine(JsonSerializer.Serialize(answer, Program.serializerOpts));

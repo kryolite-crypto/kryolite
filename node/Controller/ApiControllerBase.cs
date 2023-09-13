@@ -339,9 +339,15 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("validator/{address}")]
-    public Stake? GetValidator(string address)
+    public Shared.Validator? GetValidator(string address)
     {
         return blockchainManager.GetStake(address);
+    }
+
+    [HttpGet("validator")]
+    public List<Shared.Validator> GetValidators()
+    {
+        return blockchainManager.GetValidators();
     }
 
     [HttpGet("chainstate")]

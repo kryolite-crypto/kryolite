@@ -3,10 +3,10 @@ using MessagePack;
 namespace Kryolite.Shared;
 
 [MessagePackObject]
-public class Stake
+public class Validator
 {
     [Key(0)]
-    public long Amount { get; set; }
+    public long Stake { get; set; }
     [Key(1)]
     public Address RewardAddress { get; set; } = Address.NULL_ADDRESS;
     [Key(2)]
@@ -17,13 +17,13 @@ public class Stake
     {
         var lastState = StakeHistory.Pop();
         
-        Amount = lastState.Amount;
+        Stake = lastState.Stake;
         RewardAddress = lastState.RewardAddress;
     }
 
     public void PushStake(long stake, Address rewardAddress)
     {
-        Amount = stake;
+        Stake = stake;
         RewardAddress = rewardAddress;
 
         StakeHistory.Push(new StakeHistory(stake, rewardAddress));
@@ -34,13 +34,13 @@ public class Stake
 public class StakeHistory
 {
     [Key(0)]
-    public long Amount { get; set; }
+    public long Stake { get; set; }
     [Key(1)]
     public Address RewardAddress { get; set; } = Address.NULL_ADDRESS;
 
     public StakeHistory(long amount, Address rewardAddress)
     {
-        Amount = amount;
+        Stake = amount;
         RewardAddress = rewardAddress ?? throw new ArgumentNullException(nameof(rewardAddress));
     }
 }

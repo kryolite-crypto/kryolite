@@ -564,22 +564,22 @@ public class StoreRepository : IStoreRepository, IDisposable
             return true;
         }
 
-        var stake = Storage.Get<Stake>("Validator", address.Buffer, CurrentTransaction);
+        var stake = Storage.Get<Validator>("Validator", address.Buffer, CurrentTransaction);
 
         if (stake == null)
         {
             return false;
         }
 
-        return stake.Amount >= Constant.MIN_STAKE;
+        return stake.Stake >= Constant.MIN_STAKE;
     }
 
-    public Stake? GetStake(Address address)
+    public Validator? GetStake(Address address)
     {
-        return Storage.Get<Stake>("Validator", address.Buffer, CurrentTransaction);
+        return Storage.Get<Validator>("Validator", address.Buffer, CurrentTransaction);
     }
 
-    public void SetStake(Address address, Stake stake)
+    public void SetStake(Address address, Validator stake)
     {
         Storage.Put("Validator", address.Buffer, stake, CurrentTransaction);
     }
@@ -587,6 +587,16 @@ public class StoreRepository : IStoreRepository, IDisposable
     public void DeleteValidator(Address address)
     {
         Storage.Delete("Validator", address.Buffer, CurrentTransaction);
+    }
+
+    public List<Validator> GetValidators()
+    {
+        var validators = Storage.GetAll<Validator>("Validator");
+
+        return validators
+            .Where(x => x.Stake >= Constant.MIN_STAKE)
+            .OrderByDescending(x => x.Stake)
+            .ToList();
     }
 
     public List<Transaction> GetTransactions(int pageNum, int pageSize)
