@@ -12,7 +12,6 @@ namespace Kryolite.Node;
 
 public class MDNSService : BackgroundService
 {
-    private readonly IWalletManager walletManager;
     private readonly IServer server;
     private readonly IConfiguration configuration;
     private readonly ILogger<UPnPService> logger;
@@ -20,9 +19,8 @@ public class MDNSService : BackgroundService
     private readonly MulticastService mdns;
     private readonly ServiceDiscovery serviceDiscovery;
 
-    public MDNSService(IWalletManager walletManager, IServer server, IConfiguration configuration, ILogger<UPnPService> logger, StartupSequence startup)
+    public MDNSService(IServer server, IConfiguration configuration, ILogger<UPnPService> logger, StartupSequence startup)
     {
-        this.walletManager = walletManager ?? throw new ArgumentNullException(nameof(walletManager));
         this.server = server ?? throw new ArgumentNullException(nameof(server));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));

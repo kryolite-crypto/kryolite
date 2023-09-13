@@ -42,7 +42,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 continue;
             }
 
-            var observer = new ChainObserver(ServiceProvider);
+            using var observer = new ChainObserver(ServiceProvider);
             observer.OnNext(chain);
         }
     }

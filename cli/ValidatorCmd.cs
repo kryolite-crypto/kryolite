@@ -60,7 +60,7 @@ public static class ValidatorCmd
                 var keyAnswer = new
                 {
                     NodeAddress = keys.PublicKey.ToAddress().ToString(),
-                    InterestRecipient = "",
+                    RewardAddress = "",
                     Stake = 0,
                     Status = "Stake not set"
                 };
@@ -75,7 +75,7 @@ public static class ValidatorCmd
             var answer = new
             {
                 NodeAddress = keys.PublicKey.ToAddress().ToString(),
-                InterestRecipient = stake?.RewardAddress.ToString(),
+                RewardAddress = stake?.RewardAddress.ToString(),
                 Stake = stake?.Amount,
                 Status = stake?.Amount >= Constant.MIN_STAKE ? "Enabled" : "Disabled"
             };

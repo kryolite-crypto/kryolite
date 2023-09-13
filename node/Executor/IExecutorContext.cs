@@ -2,6 +2,7 @@
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Redbus.Events;
+using Redbus.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -33,4 +34,6 @@ public interface IExecutorContext
 
     IStoreRepository GetRepository();
     void Save();
+
+    IEventBus GetEventBus();
 }

@@ -13,6 +13,7 @@ using Microsoft.Extensions.Logging;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
+using Redbus.Events;
 using Redbus.Interfaces;
 
 namespace Kryolite.Node;
@@ -75,11 +76,10 @@ public class StoreManager : IStoreManager
 
             foreach (var validator in Constant.SEED_VALIDATORS)
             {
-                Repository.SetStake(validator, new Stake
-                {
-                    RewardAddress = new Address(),
-                    Amount = 0
-                });
+                var stake = new Stake();
+                stake.PushStake(0, new Address());
+
+                Repository.SetStake(validator, stake);
             }
 
             StateCache.SetChainState(chainState);
@@ -139,6 +139,7 @@ public class StoreManager : IStoreManager
             var voteCount = 0;
             var blockCount = 0;
             var totalStake = 0L;
+            var seedStake = 0L;
 
             foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
             {
@@ -166,6 +167,7 @@ public class StoreManager : IStoreManager
                         if (Constant.SEED_VALIDATORS.Contains(tx.From!))
                         {
                             stake = Constant.MIN_STAKE;
+                            seedStake += stake;
                         }
 
                         totalStake += stake;
@@ -173,7 +175,7 @@ public class StoreManager : IStoreManager
                 }
             }
 
-            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), totalStake, height);
+            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), EventBus, totalStake - seedStake, height);
             var executor = ExecutorFactory.Create(context);
             var chainState = StateCache.GetCurrentState();
 
@@ -256,10 +258,10 @@ public class StoreManager : IStoreManager
 
             foreach (var ledger in StateCache.GetLedgers().Values)
             {
-                if (ledger.Pending == 0)
+                /*if (ledger.Pending == 0)
                 {
                     StateCache.GetLedgers().Remove(ledger.Address);
-                }
+                }*/
 
                 EventBus.Publish(ledger);
             }
@@ -843,6 +845,7 @@ public class StoreManager : IStoreManager
 
         var ledger = new Dictionary<Address, Ledger>();
         var contracts = new Dictionary<Address, Contract>();
+        var tokens = new Dictionary<SHA256Hash, Token>();
 
         var chainState = Repository.GetChainState();
         var wallets = WalletManager.GetWallets();
@@ -899,9 +902,27 @@ public class StoreManager : IStoreManager
                         sender.Balance = checked(sender.Balance += tx.Value);
                         Repository.DeleteContract(to);
                     break;
-
                     case TransactionType.REG_VALIDATOR:
-                        Repository.DeleteValidator(from);
+                        var stake = Repository.GetStake(from) ?? new Stake();
+
+                        sender.Balance = checked(sender.Balance + stake.Amount);
+                        stake.PopStake();
+                        sender.Balance = checked (sender.Balance - stake.Amount);
+
+                        if (stake.StakeHistory.Count > 0)
+                        {
+                            Repository.SetStake(from, stake);
+
+                        }
+                        else
+                        {
+                            Repository.DeleteValidator(from);
+                        }
+
+                        EventBus.Publish<EventBase>(stake.Amount >= Constant.MIN_STAKE ? 
+                            new ValidatorEnable(from) : 
+                            new ValidatorDisable(from)
+                        );
                     break;
                 }
 
@@ -915,7 +936,7 @@ public class StoreManager : IStoreManager
                 {
                     if (effect.IsTokenEffect())
                     {
-                        RollbackTokenEffect(ledger, contract, effect);
+                        RollbackTokenEffect(ledger, tokens, contract, effect);
                     }
                     else
                     {
@@ -1077,26 +1098,15 @@ public class StoreManager : IStoreManager
         return Repository.GetContractTokens(contractAddress);
     }
 
-    private void RollbackTokenEffect(Dictionary<Address, Ledger> ledger, Contract contract, Effect effect)
+    private void RollbackTokenEffect(Dictionary<Address, Ledger> ledger, Dictionary<SHA256Hash, Token> tokens, Contract contract, Effect effect)
     {
         if (effect.TokenId is null)
         {
             throw new ArgumentNullException("effect.TokenId is null, unable to rollback token");
         }
 
-        if (!ledger.TryGetValue(effect.From, out var fromWallet))
-        {
-            fromWallet = Repository.GetWallet(effect.From);
-
-            if (fromWallet is null)
-            {
-                return;
-            }
-
-            ledger.Add(effect.From, fromWallet);
-        }
-
-        var token = Repository.GetToken(contract.Address, effect.TokenId);
+        var fromWallet = ledger.TryGetWallet(effect.From, Repository);
+        var token = tokens.TryGetToken(contract.Address, effect.TokenId, Repository);
 
         if (token is null)
         {
@@ -1117,7 +1127,7 @@ public class StoreManager : IStoreManager
         }
         else
         {
-            token.Ledger = fromWallet.Address;
+            token.Ledger = fromWallet!.Address;
             Repository.UpdateToken(token);
         }
     }

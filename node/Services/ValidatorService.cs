@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Reactive;
 using System.Threading.Tasks.Dataflow;
+using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -43,37 +44,34 @@ public class ValidatorService : BackgroundService
             if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey.ToAddress()))
             {
                 AllowExecution.Set();
+                await task;
+                return;
             }
-            else
-            {
-                EventBus.Subscribe<Ledger>(ledger => {
-                    if (ledger.Address != Node.Address)
-                    {
-                        return;
-                    }
 
-                    var isEnabled = AllowExecution.IsSet;
-
-                    if (isEnabled && ledger.Balance < Constant.MIN_STAKE)
-                    {
-                        AllowExecution.Reset();
-                    }
-
-                    if (!isEnabled && ledger.Balance >= Constant.MIN_STAKE)
-                    {
-                        AllowExecution.Set();
-                    }
-                });
-
-                using var scope = serviceProvider.CreateScope();
-
-                var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-
-                // TODO: Repository.IsVerifier
-                if (storeManager.GetLedger(Node.Address)?.Balance >= Constant.MIN_STAKE)
+            EventBus.Subscribe<ValidatorEnable>(validator => {
+                if (validator.Address != Node.Address)
                 {
-                    AllowExecution.Set();
+                    return;
                 }
+
+                AllowExecution.Set();
+            });
+
+            EventBus.Subscribe<ValidatorDisable>(validator => {
+                if (validator.Address != Node.Address)
+                {
+                    return;
+                }
+
+                AllowExecution.Reset();
+            });
+
+            using var scope = serviceProvider.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<IStoreRepository>();
+
+            if (repository.IsValidator(Node.Address))
+            {
+                AllowExecution.Set();
             }
 
             await task;

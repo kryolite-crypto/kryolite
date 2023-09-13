@@ -1,6 +1,10 @@
+using System.Security.Cryptography;
+using Kryolite.Node.Blockchain;
+using Kryolite.Redbus;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
+using Redbus.Events;
 
 namespace Kryolite.Node.Executor;
 
@@ -17,24 +21,18 @@ public class ValidatorRegExecutor : IExecutor
 
     public ExecutionResult Execute(Transaction tx)
     {
-        var wallet = Context.GetOrNewWallet(tx.To);
+        var from = Context.GetOrNewWallet(tx.From);
         var stake = Context.GetRepository().GetStake(tx.From!) ?? new Stake();
 
-        if (tx.Value >= Constant.MIN_STAKE)
-        {
-            stake.Amount = tx.Value;
-            stake.RewardAddress = tx.To!;
+        from.Balance = checked(from.Balance + stake.Amount);
+        stake.PushStake(tx.Value, tx.To!);
+        from.Balance = checked (from.Balance - stake.Amount);
 
-            Context.GetRepository().SetStake(tx.From!, stake);
-        }
-        else if (tx.Value == 0)
-        {
-            Context.GetRepository().DeleteValidator(tx.From!);
-        }
-        else
-        {
-            return ExecutionResult.UNKNOWN;
-        }
+        Context.GetRepository().SetStake(tx.From!, stake);
+        Context.GetEventBus().Publish<EventBase>(stake.Amount >= Constant.MIN_STAKE ? 
+            new ValidatorEnable(tx.From!) : 
+            new ValidatorDisable(tx.From!)
+        );
         
         return ExecutionResult.SUCCESS;
     }

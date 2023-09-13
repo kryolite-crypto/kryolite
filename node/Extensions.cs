@@ -1,6 +1,7 @@
 using System.Linq.Expressions;
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using Kryolite.Node;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
@@ -181,5 +182,25 @@ public static class Extensions
         }
 
         return contract;
+    }
+
+   public static Token? TryGetToken(this Dictionary<SHA256Hash, Token> tokens, Address contract, SHA256Hash tokenId, IStoreRepository repository)
+    {
+        if (tokenId == SHA256Hash.NULL_HASH)
+        {
+            return null;
+        }
+
+        if (!tokens.TryGetValue(tokenId, out var token))
+        {
+            token = repository.GetToken(contract, tokenId);
+
+            if (token is not null)
+            {
+                tokens.Add(tokenId, token);
+            }
+        }
+
+        return token;
     }
 }

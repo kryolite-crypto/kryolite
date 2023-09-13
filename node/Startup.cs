@@ -74,7 +74,9 @@ public class Startup
 
                     var network = Configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
                     var logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
-                    var networkManager = app.ApplicationServices.GetRequiredService<INetworkManager>();
+
+                    using var scope = app.ApplicationServices.CreateScope();
+                    var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
 
                     if (!int.TryParse(context.Request.Headers["kryo-apilevel"], out var apilevel))
                     {
@@ -297,11 +299,11 @@ public class Startup
         services.AddSingleton<IStorage, RocksDBStorage>()
                 .AddSingleton<IStateCache, StateCache>()
                 .AddSingleton<IKeyRepository, KeyRepository>()
-                .AddTransient<IStoreRepository, StoreRepository>()
-                .AddTransient<IStoreManager, StoreManager>()
-                .AddTransient<IWalletRepository, WalletRepository>()
-                .AddTransient<IWalletManager, WalletManager>()
-                .AddTransient<IVerifier, Verifier>()
+                .AddScoped<IStoreRepository, StoreRepository>()
+                .AddScoped<IStoreManager, StoreManager>()
+                .AddScoped<IWalletRepository, WalletRepository>()
+                .AddScoped<IWalletManager, WalletManager>()
+                .AddScoped<IVerifier, Verifier>()
                 .AddSingleton<INetworkManager, NetworkManager>()
                 .AddSingleton<IMeshNetwork, MeshNetwork>()
                 .AddSingleton<IExecutorFactory, ExecutorFactory>()

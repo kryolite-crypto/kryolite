@@ -439,7 +439,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         if (token.Id == 0)
         {
-            token.Id = Storage.NextKey();
+            token.Id = Storage.NextKey(CurrentTransaction);
         }
 
         var id = BitConverter.GetBytes(token.Id);
@@ -497,11 +497,6 @@ public class StoreRepository : IStoreRepository, IDisposable
         var keyBuf = ArrayPool<byte>.Shared.Rent(84);
         var keyMem = keyBuf.AsSpan();
 
-        if (token.Id == 0)
-        {
-            token.Id = Storage.NextKey();
-        }
-
         var id = BitConverter.GetBytes(token.Id);
         Storage.Delete("Token", id, CurrentTransaction);
 
@@ -536,14 +531,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         contract.Buffer.CopyTo(id, 0);
         tokenId.Buffer.CopyTo(id, 26);
 
-        var key = Storage.FindFirst("ixTokenId", id);
+        var key = Storage.Get("ixTokenId", id, CurrentTransaction);
 
         if (key is null)
         {
             return null;
         }
 
-        return Storage.Get<Token>("Token", key);
+        return Storage.Get<Token>("Token", key, CurrentTransaction);
     }
 
     public List<Token> GetTokens(Address ledger)
@@ -564,7 +559,19 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public bool IsValidator(Address address)
     {
-        return Storage.Exists("Validator", address.Buffer, CurrentTransaction);
+        if (Constant.SEED_VALIDATORS.Contains(address))
+        {
+            return true;
+        }
+
+        var stake = Storage.Get<Stake>("Validator", address.Buffer, CurrentTransaction);
+
+        if (stake == null)
+        {
+            return false;
+        }
+
+        return stake.Amount >= Constant.MIN_STAKE;
     }
 
     public Stake? GetStake(Address address)
@@ -588,7 +595,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
-    private static ITransaction? CurrentTransaction;
+    private ITransaction? CurrentTransaction;
 
     public ITransaction BeginTransaction()
     {

@@ -105,15 +105,15 @@ internal class RocksDBStorage : IStorage
         return new RocksDBTransaction(Database, this);
     }
 
-    public bool Exists(string ixName, ReadOnlySpan<byte> key, ITransaction? transaction = null)
+    public bool Exists(string ixName, byte[] key, ITransaction? transaction = null)
     {
         var ix = ColumnFamilies[ixName];
 
         if (transaction is not null)
         {
-            var result = transaction.GetConnection().Get(key.ToArray(), ix);
+            var res = transaction.GetConnection().Get(key, ix);
 
-            if (result is not null)
+            if (res is not null)
             {
                 return true;
             }
@@ -128,11 +128,11 @@ internal class RocksDBStorage : IStorage
 
         if (transaction is not null)
         {
-            var result = transaction.GetConnection().Get(key, ix);
+            var res = transaction.GetConnection().Get(key, ix);
 
-            if (result is not null)
+            if (res is not null)
             {
-                return result;
+                return res;
             }
         }
 
@@ -151,7 +151,7 @@ internal class RocksDBStorage : IStorage
 
             if (res is not null)
             {
-                return MessagePackSerializer.Deserialize<T>(res);;
+                return MessagePackSerializer.Deserialize<T>(res);
             }
         }
 

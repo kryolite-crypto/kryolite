@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Microsoft.Extensions.DependencyInjection;
 using QuikGraph;
 
 namespace Kryolite.Node.Blockchain;
@@ -14,13 +15,14 @@ public class StateCache : IStateCache
     private Dictionary<Address, Ledger> LedgerCache = new();
     private View CurrentView;
     private ChainState ChainState;
-    private Wallet Node;
 
-    public StateCache(IStoreRepository store, IKeyRepository keyRepository, IWalletManager walletManager)
+    public StateCache(IServiceProvider serviceProvider)
     {
-        CurrentView = store.GetLastView() ?? new View();
-        ChainState = store.GetChainState() ?? new ChainState();
-        Node = keyRepository.GetKey();
+        using var scope = serviceProvider.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<IStoreRepository>();
+
+        CurrentView = repository.GetLastView() ?? new View();
+        ChainState = repository.GetChainState() ?? new ChainState();
     }
 
     public void Add(Transaction tx)

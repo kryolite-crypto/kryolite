@@ -41,10 +41,11 @@ public class NetworkService : BackgroundService
         Server = serviceProvider.GetRequiredService<IServer>();
         MeshNetwork = serviceProvider.GetRequiredService<IMeshNetwork>();
         Configuration = serviceProvider.GetRequiredService<IConfiguration>();
-        NetworkManager = serviceProvider.GetRequiredService<INetworkManager>();
         Logger = serviceProvider.GetRequiredService<ILogger<NetworkService>>();
         LookupClient = serviceProvider.GetRequiredService<ILookupClient>();
         Startup = serviceProvider.GetRequiredService<StartupSequence>();
+
+        NetworkManager = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<INetworkManager>();
 
         MulticastService.IncludeLoopbackInterfaces = true;
         mdns = new MulticastService();
@@ -343,8 +344,10 @@ public class SyncProgress : EventBase
     public bool Completed { get; set; }
 }
 
-public class ChainObserver : IObserver<Chain>
+public class ChainObserver : IObserver<Chain>, IDisposable
 {
+    private readonly IServiceScope scope;
+
     private readonly IMeshNetwork nodeNetwork;
     private readonly IStoreManager storeManager;
     private readonly ILogger<NetworkService> logger;
@@ -356,11 +359,12 @@ public class ChainObserver : IObserver<Chain>
 
     public ChainObserver(IServiceProvider serviceProvider)
     {
-        nodeNetwork = serviceProvider.GetRequiredService<IMeshNetwork>();
-        storeManager = serviceProvider.GetRequiredService<IStoreManager>();
-        logger = serviceProvider.GetRequiredService<ILogger<NetworkService>>();
-        eventBus = serviceProvider.GetRequiredService<IEventBus>();
-        networkManager = serviceProvider.GetRequiredService<INetworkManager>();
+        scope = serviceProvider.CreateScope();
+        nodeNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
+        storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+        logger = scope.ServiceProvider.GetRequiredService<ILogger<NetworkService>>();
+        eventBus = scope.ServiceProvider.GetRequiredService<IEventBus>();
+        networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
     }
 
     public void ReportProgress(string status, double progress, double total)
@@ -577,5 +581,10 @@ public class ChainObserver : IObserver<Chain>
         }
 
         return newGraph;
+    }
+
+    public void Dispose()
+    {
+        scope.Dispose();
     }
 }

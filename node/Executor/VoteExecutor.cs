@@ -32,7 +32,7 @@ public class VoteExecutor : IExecutor
 
         var stake = Context.GetRepository().GetStake(tx.From!) ?? throw new Exception($"stake not found: {tx.From}");
 
-        var reward = Constant.VALIDATOR_REWARD * (stake.Amount / Context.GetTotalStake());
+        var reward = (long)Math.Floor(Constant.VALIDATOR_REWARD * (stake.Amount / (double)Context.GetTotalStake()));
         var wallet = Context.GetOrNewWallet(stake.RewardAddress);
 
         checked

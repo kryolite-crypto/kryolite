@@ -2,6 +2,7 @@
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Redbus.Events;
+using Redbus.Interfaces;
 using RocksDbSharp;
 using Wasmtime;
 
@@ -18,12 +19,14 @@ public class ExecutorContext : IExecutorContext
     private Dictionary<(Address contract, SHA256Hash tokenId), Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
+    private IEventBus EventBus { get; }
 
-    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, View view, long totalStake, long height)
+    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, View view, IEventBus eventBus, long totalStake, long height)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
         View = view ?? throw new ArgumentNullException(nameof(view));
+        EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         TotalStake = totalStake;
         Height = height;
     }
@@ -176,5 +179,10 @@ public class ExecutorContext : IExecutorContext
     public long GetHeight()
     {
         return Height;
+    }
+
+    public IEventBus GetEventBus()
+    {
+        return EventBus;
     }
 }
