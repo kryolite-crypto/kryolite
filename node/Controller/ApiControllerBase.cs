@@ -236,7 +236,7 @@ public class ApiControllerBase : Controller
 
                     var tx = map[args.Vertex];
 
-                    args.VertexFormat.Url = $"/tx/{tx.TransactionId}";
+                    args.VertexFormat.Url = $"/explorer/tx/{tx.TransactionId}";
 
                     switch (tx.TransactionType)
                     {
