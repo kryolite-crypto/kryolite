@@ -20,7 +20,8 @@ public partial class AddressesTab : UserControl
 
     public AddressesTab()
     {
-        WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
+        var scope = Program.ServiceCollection.CreateScope();
+        WalletManager = scope.ServiceProvider.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
 
         AvaloniaXamlLoader.Load(this);
 

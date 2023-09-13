@@ -24,7 +24,8 @@ public partial class TokensTab : UserControl
 
     public TokensTab()
     {
-        WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
+        var scope = Program.ServiceCollection.CreateScope();
+        WalletManager = scope.ServiceProvider.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
         EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IWalletManager));
 
         AvaloniaXamlLoader.Load(this);

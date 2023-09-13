@@ -33,9 +33,10 @@ public partial class MainWindow : Window
 
     public MainWindow()
     {
-        NetworkManager = Program.ServiceCollection.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
-        WalletManager = Program.ServiceCollection.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
-        StoreManager = Program.ServiceCollection.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+        var scope = Program.ServiceCollection.CreateScope();
+        NetworkManager = scope.ServiceProvider.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
+        WalletManager = scope.ServiceProvider.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
+        StoreManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
         MeshNetwork = Program.ServiceCollection.GetService<IMeshNetwork>() ?? throw new ArgumentNullException(nameof(IMeshNetwork));
         EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IEventBus));
 
