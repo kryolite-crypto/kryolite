@@ -564,12 +564,12 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public bool IsValidator(Address address)
     {
-        return Storage.Exists("Validator", address.Buffer);
+        return Storage.Exists("Validator", address.Buffer, CurrentTransaction);
     }
 
     public Stake? GetStake(Address address)
     {
-        return Storage.Get<Stake>("Validator", address.Buffer);
+        return Storage.Get<Stake>("Validator", address.Buffer, CurrentTransaction);
     }
 
     public void SetStake(Address address, Stake stake)
@@ -588,7 +588,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
-    private ITransaction? CurrentTransaction;
+    private static ITransaction? CurrentTransaction;
 
     public ITransaction BeginTransaction()
     {

@@ -105,23 +105,55 @@ internal class RocksDBStorage : IStorage
         return new RocksDBTransaction(Database, this);
     }
 
-    public bool Exists(string ixName, ReadOnlySpan<byte> key)
+    public bool Exists(string ixName, ReadOnlySpan<byte> key, ITransaction? transaction = null)
     {
         var ix = ColumnFamilies[ixName];
+
+        if (transaction is not null)
+        {
+            var result = transaction.GetConnection().Get(key.ToArray(), ix);
+
+            if (result is not null)
+            {
+                return true;
+            }
+        }
+
         return Database.HasKey(key, ix);
     }
 
-    public byte[]? Get(string ixName, byte[] key)
+    public byte[]? Get(string ixName, byte[] key, ITransaction? transaction = null)
     {
         var ix = ColumnFamilies[ixName];
+
+        if (transaction is not null)
+        {
+            var result = transaction.GetConnection().Get(key, ix);
+
+            if (result is not null)
+            {
+                return result;
+            }
+        }
+
         return Database.Get(key, ix) ?? default;
     }
 
-    public T? Get<T>(string ixName, byte[] key)
+    public T? Get<T>(string ixName, byte[] key, ITransaction? transaction = null)
     {
         byte[] result;
 
         var ix = ColumnFamilies[ixName];
+
+        if (transaction is not null)
+        {
+            var res = transaction.GetConnection().Get(key, ix);
+
+            if (res is not null)
+            {
+                return MessagePackSerializer.Deserialize<T>(res);;
+            }
+        }
 
         result = Database.Get(key, ix);
 

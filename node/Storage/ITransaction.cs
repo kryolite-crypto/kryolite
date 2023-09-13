@@ -11,6 +11,6 @@ public interface ITransaction : IDisposable
 {
     void Commit();
     void Rollback();
-    WriteBatch GetConnection();
+    WriteBatchWithIndex GetConnection();
     bool IsDisposed { get; }
 }

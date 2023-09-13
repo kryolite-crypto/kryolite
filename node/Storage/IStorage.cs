@@ -11,10 +11,10 @@ public interface IStorage
     ulong GetCurrentKey();
     ulong NextKey(ITransaction? transaction = null);
 
-    bool Exists(string ixName, ReadOnlySpan<byte> key);
+    bool Exists(string ixName, ReadOnlySpan<byte> key, ITransaction? transaction = null);
 
-    byte[]? Get(string ixName, byte[] key);
-    T? Get<T>(string ixName, byte[] key);
+    byte[]? Get(string ixName, byte[] key, ITransaction? transaction = null);
+    T? Get<T>(string ixName, byte[] key, ITransaction? transaction = null);
 
     byte[][] GetMany(string ixName, byte[][] keys);
     List<T> GetMany<T>(string ixName, byte[][] keys);

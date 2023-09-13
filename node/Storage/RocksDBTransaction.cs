@@ -7,7 +7,7 @@ internal class RocksDBTransaction : ITransaction
 {
     RocksDb Connection { get; }
     RocksDBStorage Store { get; }
-    WriteBatch Batch { get; }
+    WriteBatchWithIndex Batch { get; }
 
     public bool IsDisposed => Disposed;
 
@@ -19,7 +19,7 @@ internal class RocksDBTransaction : ITransaction
     {
         Connection = connection ?? throw new ArgumentNullException(nameof(connection));
         Store = store ?? throw new ArgumentNullException(nameof(store));
-        Batch = new WriteBatch();
+        Batch = new WriteBatchWithIndex();
     }
 
     public void Commit()
@@ -47,7 +47,7 @@ internal class RocksDBTransaction : ITransaction
         Batch.Dispose();
     }
 
-    public WriteBatch GetConnection()
+    public WriteBatchWithIndex GetConnection()
     {
         return Batch;
     }
