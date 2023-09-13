@@ -626,4 +626,61 @@ internal class RocksDBStorage : IStorage
 
         return results;
     }
+
+    public void Reset()
+    {
+        Database.DropColumnFamily("Key");
+        Database.DropColumnFamily("ChainState");
+        Database.DropColumnFamily("ChainStateHistory");
+        Database.DropColumnFamily("Ledger");
+        Database.DropColumnFamily("Transaction");
+        Database.DropColumnFamily("Contract");
+        Database.DropColumnFamily("ContractCode");
+        Database.DropColumnFamily("ContractSnapshot");
+        Database.DropColumnFamily("Token");
+        Database.DropColumnFamily("Validator");
+        Database.DropColumnFamily("ixTokenId");
+        Database.DropColumnFamily("ixTokenLedger");
+        Database.DropColumnFamily("ixTransactionId");
+        Database.DropColumnFamily("ixTransactionAddress");
+        Database.DropColumnFamily("ixTransactionHeight");
+
+        var opts = new ColumnFamilyOptions()
+            .SetCreateIfMissing(true)
+            .SetCreateMissingColumnFamilies(true)
+            .IncreaseParallelism(4);
+
+        Database.CreateColumnFamily(opts, "Key");
+        Database.CreateColumnFamily(opts, "ChainState");
+        Database.CreateColumnFamily(opts, "ChainStateHistory");
+        Database.CreateColumnFamily(opts, "Ledger");
+        Database.CreateColumnFamily(opts, "Transaction");
+        Database.CreateColumnFamily(opts, "Contract");
+        Database.CreateColumnFamily(opts, "ContractCode");
+        Database.CreateColumnFamily(opts, "ContractSnapshot");
+        Database.CreateColumnFamily(opts, "Token");
+        Database.CreateColumnFamily(opts, "Validator");
+        Database.CreateColumnFamily(opts, "ixTokenId");
+        Database.CreateColumnFamily(opts, "ixTokenLedger");
+        Database.CreateColumnFamily(opts, "ixTransactionId");
+        Database.CreateColumnFamily(opts, "ixTransactionAddress");
+        Database.CreateColumnFamily(opts, "ixTransactionHeight");
+
+        ColumnFamilies.Clear();
+        ColumnFamilies.Add("Key", Database.GetColumnFamily("Key"));
+        ColumnFamilies.Add("ChainState", Database.GetColumnFamily("ChainState"));
+        ColumnFamilies.Add("ChainStateHistory", Database.GetColumnFamily("ChainStateHistory"));
+        ColumnFamilies.Add("Ledger", Database.GetColumnFamily("Ledger"));
+        ColumnFamilies.Add("Transaction", Database.GetColumnFamily("Transaction"));
+        ColumnFamilies.Add("Contract", Database.GetColumnFamily("Contract"));
+        ColumnFamilies.Add("ContractCode", Database.GetColumnFamily("ContractCode"));
+        ColumnFamilies.Add("ContractSnapshot", Database.GetColumnFamily("ContractSnapshot"));
+        ColumnFamilies.Add("Token", Database.GetColumnFamily("Token"));
+        ColumnFamilies.Add("Validator", Database.GetColumnFamily("Validator"));
+        ColumnFamilies.Add("ixTokenId", Database.GetColumnFamily("ixTokenId"));
+        ColumnFamilies.Add("ixTokenLedger", Database.GetColumnFamily("ixTokenLedger"));
+        ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
+        ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
+        ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
+    }
 }

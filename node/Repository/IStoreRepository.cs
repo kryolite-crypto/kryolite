@@ -55,4 +55,5 @@ public interface IStoreRepository
     void SetStake(Address address, Validator stake);
     void DeleteValidator(Address address);
     List<Validator> GetValidators();
+    void Reset();
 }

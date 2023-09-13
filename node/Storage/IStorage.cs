@@ -39,6 +39,7 @@ public interface IStorage
     List<T> GetAll<T>(string ixName);
     List<byte[]> GetRange(string ixName, int count, int toSkip);
     List<T> GetRange<T>(string ixName, int count, int toSkip);
+    void Reset();
 
     ITransaction BeginTransaction();
 }

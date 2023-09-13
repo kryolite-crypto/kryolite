@@ -617,6 +617,11 @@ public class StoreRepository : IStoreRepository, IDisposable
         return CurrentTransaction;
     }
 
+    public void Reset()
+    {
+        Storage.Reset();
+    }
+
     public void Dispose()
     {
 

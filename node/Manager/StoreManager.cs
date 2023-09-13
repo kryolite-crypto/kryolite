@@ -1038,10 +1038,7 @@ cleanup:
     public void ResetChain()
     {
         using var _ = rwlock.EnterWriteLockEx();
-
-        throw new NotImplementedException();
-        // Repository.GetContext().Database.EnsureDeleted();
-        // Repository.GetContext().Database.Migrate();
+        Repository.Reset();
     }
 
     public Contract? GetContract(Address address)
