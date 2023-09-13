@@ -77,7 +77,10 @@ public class StoreManager : IStoreManager
 
             foreach (var validator in Constant.SEED_VALIDATORS)
             {
-                var stake = new Validator();
+                var stake = new Validator
+                {
+                    NodeAddress = validator
+                };
                 stake.PushStake(0, new Address());
 
                 Repository.SetStake(validator, stake);
@@ -964,7 +967,7 @@ cleanup:
                         Repository.DeleteContract(to);
                     break;
                     case TransactionType.REG_VALIDATOR:
-                        var stake = Repository.GetStake(from) ?? new Validator();
+                        var stake = Repository.GetStake(from) ?? new Validator { NodeAddress = from };
 
                         sender.Balance = checked(sender.Balance + stake.Stake);
                         stake.PopStake();

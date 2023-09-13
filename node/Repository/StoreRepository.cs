@@ -594,7 +594,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         var validators = Storage.GetAll<Validator>("Validator");
 
         return validators
-            .Where(x => x.Stake >= Constant.MIN_STAKE)
+            .Where(x => Constant.SEED_VALIDATORS.Contains(x.NodeAddress) || x.Stake >= Constant.MIN_STAKE)
             .OrderByDescending(x => x.Stake)
             .ToList();
     }

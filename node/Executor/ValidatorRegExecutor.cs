@@ -21,7 +21,7 @@ public class ValidatorRegExecutor : IExecutor
 
     public ExecutionResult Execute(Transaction tx)
     {
-        var stake = Context.GetRepository().GetStake(tx.From!) ?? new Validator();
+        var stake = Context.GetRepository().GetStake(tx.From!) ?? new Validator { NodeAddress = tx.From! };
 
         stake.PushStake(tx.Value, tx.To!);
 

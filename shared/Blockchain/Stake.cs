@@ -6,10 +6,12 @@ namespace Kryolite.Shared;
 public class Validator
 {
     [Key(0)]
-    public long Stake { get; set; }
+    public Address NodeAddress { get; set; } = Address.NULL_ADDRESS;
     [Key(1)]
-    public Address RewardAddress { get; set; } = Address.NULL_ADDRESS;
+    public long Stake { get; set; }
     [Key(2)]
+    public Address RewardAddress { get; set; } = Address.NULL_ADDRESS;
+    [Key(3)]
     public Stack<StakeHistory> StakeHistory = new();
 
     // Needed for rollbacks
