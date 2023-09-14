@@ -217,6 +217,12 @@ cleanup:
 
             foreach (var tx in StateCache.GetTransactions().Values.ToList())
             {
+                // white == not visited
+                if (bfs.VerticesColors[tx.TransactionId] == GraphColor.White)
+                {
+                    continue;
+                }
+
                 if (tx.TransactionType == TransactionType.BLOCK)
                 {
                     if (StateCache.TryGet(tx.To!, out var ledger))
