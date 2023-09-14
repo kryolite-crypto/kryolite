@@ -407,14 +407,35 @@ public class ChainObserver : IObserver<Chain>, IDisposable
 
             var localState = storeManager.GetChainState();
 
-            var maxCommonView = chain.Transactions
-                .Where(x => x.TransactionType == TransactionType.VIEW)
-                .Where(x => storeManager.Exists(x.CalculateHash()))
-                .MaxBy(x => BitConverter.ToInt64(x.Data));
+            TransactionDto? maxCommonView = null;
+            long? maxHeight = null;
+            long? minHeight = null;
 
-            var maxCommonHeight = maxCommonView is not null ?
-                BitConverter.ToInt64(maxCommonView.Data) - 1:
-                localState.Height;
+            foreach (var tx in chain.Transactions)
+            {
+                if (tx.TransactionType != TransactionType.VIEW)
+                {
+                    continue;
+                }
+
+                var height = BitConverter.ToInt64(tx.Data);
+
+                if (height > (maxHeight ?? 0))
+                {
+                    if (storeManager.Exists(tx.CalculateHash()))
+                    {
+                        maxHeight = height;
+                        maxCommonView = tx;
+                    }
+                }
+
+                if (height < (minHeight ?? long.MaxValue))
+                {
+                    minHeight = height;
+                }
+            }
+
+            var maxCommonHeight = maxHeight ?? --minHeight ?? localState.Height;
 
             logger.LogInformation($"Found common height at {maxCommonHeight}");
 
