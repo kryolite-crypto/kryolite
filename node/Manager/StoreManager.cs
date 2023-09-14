@@ -181,8 +181,6 @@ public class StoreManager : IStoreManager
 
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), EventBus, totalStake - seedStake, height);
             var executor = ExecutorFactory.Create(context);
-
-            var lastState = Repository.GetChainState();
             var chainState = StateCache.GetCurrentState();
 
             executor.Execute(toExecute, chainState.CurrentDifficulty);
@@ -210,7 +208,6 @@ public class StoreManager : IStoreManager
             chainState.LastHash = view.TransactionId;
             chainState.Votes = voteCount;
             chainState.Transactions = toExecute.Count;
-            chainState.Blocks = (lastState?.Blocks ?? 0) + blockCount;
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
@@ -228,6 +225,8 @@ cleanup:
                     }
 
                     tx.ExecutionResult = ExecutionResult.STALE;
+
+                    chainState.Blocks--;
 
                     StateCache.Remove(tx.TransactionId, out _);
                     toExecute.Add(tx);
