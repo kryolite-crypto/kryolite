@@ -218,7 +218,7 @@ cleanup:
             foreach (var tx in StateCache.GetTransactions().Values.ToList())
             {
                 // white == not visited
-                if (bfs.VerticesColors[tx.TransactionId] == GraphColor.White)
+                if (bfs.VerticesColors[tx.TransactionId] != GraphColor.White)
                 {
                     continue;
                 }
