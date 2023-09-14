@@ -720,7 +720,6 @@ cleanup:
 
         try
         {
-            Logger.LogDebug($"Executing {transactions.Count} transactions");
 
             foreach (var vertex in chainGraph.TopologicalSort().Reverse())
             {
@@ -876,6 +875,8 @@ cleanup:
         try
         {
             RollbackChainIfNeeded(minCommonHeight, chainGraph.VertexCount);
+
+            Logger.LogInformation($"Verifying {transactions.Count} transactions (this could take a while)");
 
             if (!AddTransactionBatchInternal(chainGraph, transactions, false, false))
             {

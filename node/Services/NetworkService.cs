@@ -407,26 +407,28 @@ public class ChainObserver : IObserver<Chain>, IDisposable
 
             var localState = storeManager.GetChainState();
 
-            var minRemoteView = chain.Transactions
+            var maxCommonView = chain.Transactions
                 .Where(x => x.TransactionType == TransactionType.VIEW)
-                .Where(x => !storeManager.Exists(x.CalculateHash()))
-                .MinBy(x => BitConverter.ToInt64(x.Data));
+                .Where(x => storeManager.Exists(x.CalculateHash()))
+                .MaxBy(x => BitConverter.ToInt64(x.Data));
 
-            var minCommonHeight = minRemoteView is not null ?
-                BitConverter.ToInt64(minRemoteView.Data) - 1:
+            var maxCommonHeight = maxCommonView is not null ?
+                BitConverter.ToInt64(maxCommonView.Data) - 1:
                 localState.Height;
+
+            logger.LogInformation($"Found common height at {maxCommonHeight}");
 
             var graph = chain.Transactions.AsGraph();
             var transactions = chain.Transactions.ToDictionary(x => x.CalculateHash(), y => y);
 
             chain.Transactions.Clear();
 
-            if (minRemoteView is not null)
+            if (maxCommonView is not null)
             {
-                graph = FilterOutCommonVertices(minRemoteView, graph, transactions);
+                graph = FilterOutCommonVertices(maxCommonView, graph, transactions);
             }
 
-            var remoteState = storeManager.GetChainStateAt(minCommonHeight) ?? throw new Exception($"chain not found at height {minCommonHeight}");
+            var remoteState = storeManager.GetChainStateAt(maxCommonHeight) ?? throw new Exception($"chain not found at height {maxCommonHeight}");
 
             var voteCount = 0;
             var blockCount = 0;
@@ -490,9 +492,9 @@ public class ChainObserver : IObserver<Chain>, IDisposable
 
             if (remoteState.Weight > localWeight)
             {
-                logger.LogInformation($"Merging remote chain from height #{minCommonHeight} to #{remoteState.Height}");
+                logger.LogInformation($"Merging remote chain from height #{maxCommonHeight} to #{remoteState.Height}");
 
-                if (!storeManager.SetChain(graph, transactions, minCommonHeight))
+                if (!storeManager.SetChain(graph, transactions, maxCommonHeight))
                 {
                     logger.LogInformation("Failed to set chain, discarding...");
 
@@ -540,18 +542,17 @@ public class ChainObserver : IObserver<Chain>, IDisposable
         }
     }
 
-    private static AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> FilterOutCommonVertices(TransactionDto minRemoteView, AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> graph, Dictionary<SHA256Hash, TransactionDto> transactions)
+    private static AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> FilterOutCommonVertices(TransactionDto maxCommonView, AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> graph, Dictionary<SHA256Hash, TransactionDto> transactions)
     {
         var newGraph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
 
         var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(graph);
-        bfs.SetRootVertex(minRemoteView.CalculateHash());
+        bfs.SetRootVertex(maxCommonView.CalculateHash());
         bfs.Compute();
 
         var newVertices = bfs.VisitedGraph.Vertices.Where(vertex => bfs.VerticesColors[vertex] == GraphColor.White);
 
         newGraph.AddVertexRange(newVertices);
-        newGraph.AddVertex(minRemoteView.CalculateHash());
 
         foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
         {
@@ -569,14 +570,6 @@ public class ChainObserver : IObserver<Chain>, IDisposable
                 {
                     newGraph.AddEdge(new Edge<SHA256Hash>(tx.CalculateHash(), parent));
                 }
-            }
-        }
-
-        foreach (var parent in minRemoteView.Parents)
-        {
-            if (newGraph.ContainsVertex(parent))
-            {
-                newGraph.AddEdge(new Edge<SHA256Hash>(minRemoteView.CalculateHash(), parent));
             }
         }
 

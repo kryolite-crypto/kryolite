@@ -57,7 +57,7 @@ public class Contract
 
         var addressBytes = ripemdHash.ToList();
         addressBytes.Insert(0, (byte)Network.MAIN); // network (161 mainnet, 177 testnet)
-        addressBytes.Insert(1, ((byte)AddressType.CONTRACT)); // type / version
+        addressBytes.Insert(1, (byte)AddressType.CONTRACT); // type / version
 
         var ripemdBytes = new List<byte>(addressBytes);
         ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
