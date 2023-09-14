@@ -181,6 +181,8 @@ public class StoreManager : IStoreManager
 
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), EventBus, totalStake - seedStake, height);
             var executor = ExecutorFactory.Create(context);
+
+            var lastState = Repository.GetChainState();
             var chainState = StateCache.GetCurrentState();
 
             executor.Execute(toExecute, chainState.CurrentDifficulty);
@@ -208,6 +210,7 @@ public class StoreManager : IStoreManager
             chainState.LastHash = view.TransactionId;
             chainState.Votes = voteCount;
             chainState.Transactions = toExecute.Count;
+            chainState.Blocks = (lastState?.Blocks ?? 0) + blockCount;
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
@@ -444,6 +447,7 @@ cleanup:
 
             if (from.Balance < tx.Value)
             {
+                tx.ExecutionResult = ExecutionResult.TOO_LOW_BALANCE;
                 Logger.LogInformation("AddTransaction rejected (reason = too low balance)");
                 return false;
             }
