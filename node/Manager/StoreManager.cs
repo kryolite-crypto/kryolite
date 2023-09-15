@@ -633,6 +633,17 @@ cleanup:
 
         if (transactions.Count < 2)
         {
+            var chainState = Repository.GetChainState();
+            
+            transactions.AddRange(Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
+                .Take(2 - transactions.Count)
+                .Select(x => x.TransactionId)
+                .ToList());
+        }
+        
+        if (transactions.Count < 2)
+        {
+            // should never get this far...
             transactions.AddRange(Repository.GetLastNTransctions(2 - transactions.Count)
                 .Select(x => x.TransactionId)
                 .ToList());
