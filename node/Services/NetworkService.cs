@@ -2,7 +2,6 @@ using System.Net.NetworkInformation;
 using System.Numerics;
 using System.Reactive.Linq;
 using System.Timers;
-using Common.Logging;
 using DnsClient;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
@@ -463,7 +462,7 @@ public class ChainObserver : IObserver<Chain>, IDisposable
                 {
                     case TransactionType.VIEW:
                         // TODO: Similar implementation exists in StoreManager
-                        remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * (totalStake / 1_000_000);
+                        remoteState.Weight += remoteState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE);
                         remoteState.LastHash = tx.CalculateHash();
 
                         if (blockCount == 0)
