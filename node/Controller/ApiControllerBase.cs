@@ -1,10 +1,7 @@
-using System.ComponentModel.DataAnnotations;
-using System.Diagnostics;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using QuikGraph;
@@ -133,21 +130,51 @@ public class ApiControllerBase : Controller
     }
 
     [HttpPost("tx")]
-    public ExecutionResult PostTransaction([FromBody] TransactionDto tx)
+    public async Task<IActionResult> PostTransactionDto([FromBody] TransactionDto tx, [FromQuery]bool wait = false)
     {
-        if (!ModelState.IsValid) {
+        if (!ModelState.IsValid)
+        {
             throw new Exception("invalid transaction");
         }
+        
+        var result = ExecutionResult.UNKNOWN;
 
         switch (tx.TransactionType)
         {
             case TransactionType.PAYMENT:
-                return blockchainManager.AddTransaction(tx, true);
+                result = blockchainManager.AddTransaction(tx, true);
+                break;
             case TransactionType.REG_VALIDATOR:
-                return blockchainManager.AddValidatorReg(tx, true);
+                result = blockchainManager.AddValidatorReg(tx, true);
+                break;
             default:
                 throw new Exception("invalid transaction type");
         }
+        
+        if (result != ExecutionResult.PENDING)
+        {
+            return Ok(new { TransactionId = tx.CalculateHash(), Status = result.ToString() });
+        }
+        
+        if (wait)
+        {
+            // wait max 2 minutes for execution
+            var expires = DateTime.Now.AddMinutes(2);
+            
+            while (expires > DateTime.Now)
+            {
+                result = blockchainManager.GetTransactionForHash(tx.CalculateHash())?.ExecutionResult ?? ExecutionResult.UNKNOWN;
+                
+                if (result != ExecutionResult.PENDING)
+                {
+                    break;
+                }
+                
+                await Task.Delay(1000);
+            }
+        }
+
+        return Ok(new { TransactionId = tx.CalculateHash(), Status = result.ToString() });
     }
 
     [HttpPost("tx/batch")]

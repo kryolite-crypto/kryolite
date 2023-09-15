@@ -39,6 +39,11 @@ public static class SendCmd
         {
             IsRequired = false
         };
+        
+        var waitOption = new Option<bool>("--wait", "Wait for transaction to execute")
+        {
+            IsRequired = false
+        };
 
         sendCmd.AddValidator(result => 
         {
@@ -58,8 +63,9 @@ public static class SendCmd
         sendCmd.AddOption(amountOption);
         sendCmd.AddOption(contractMethodOption);
         sendCmd.AddOption(contractParamsOption);
+        sendCmd.AddOption(waitOption);
 
-        sendCmd.SetHandler(async (from, to, amount, node, contractMethod, contractParams) =>
+        sendCmd.SetHandler(async (from, to, amount, node, contractMethod, contractParams, wait) =>
         {
             var walletRepository = new WalletRepository();
             var wallets = walletRepository.GetWallets();
@@ -126,7 +132,7 @@ public static class SendCmd
             var json = JsonSerializer.Serialize(tx, Program.serializerOpts);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
-            var response = await http.PostAsync($"{node}/tx", stringContent);
+            var response = await http.PostAsync($"{node}/tx?wait={wait}", stringContent);
 
             if (!response.IsSuccessStatusCode)
             {
@@ -136,7 +142,7 @@ public static class SendCmd
             }
 
             Console.WriteLine(await response.Content.ReadAsStringAsync());
-        }, fromOption, toOption, amountOption, nodeOption, contractMethodOption, contractParamsOption);
+        }, fromOption, toOption, amountOption, nodeOption, contractMethodOption, contractParamsOption, waitOption);
 
         return sendCmd;
     }

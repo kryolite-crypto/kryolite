@@ -1,7 +1,6 @@
 using Kryolite.Node;
 using Kryolite.Node.Services;
 using Kryolite.Shared.Dto;
-using System;
 
 namespace Kryolite.Daemon;
 
