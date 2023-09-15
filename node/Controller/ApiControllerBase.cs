@@ -398,4 +398,16 @@ public class ApiControllerBase : Controller
         var height = blockchainManager.GetCurrentHeight();
         return blockchainManager.GetChainStateAt(height - 1) ?? new ChainState();
     }
+    
+    [HttpGet("nodes")]
+    public IActionResult GetKnownNodes()
+    {
+        var list = networkManager.GetHosts().Select(x => new {
+            x.Url,
+            x.IsReachable,
+            x.LastSeen
+        });
+        
+        return Ok(list);
+    }
 }
