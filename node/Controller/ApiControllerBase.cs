@@ -116,13 +116,20 @@ public class ApiControllerBase : Controller
     }
 
     [HttpPost("solution")]
-    public bool PostSolution([FromBody] Blocktemplate blocktemplate)
+    public IActionResult PostSolution([FromBody] Blocktemplate blocktemplate)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid blocktemplate");
         }
 
-        return blockchainManager.AddBlock(blocktemplate, true);
+        var ok = blockchainManager.AddBlock(blocktemplate, true);
+
+        if (!ok)
+        {
+            return BadRequest();
+        }
+
+        return Ok();
     }
 
     [HttpPost("tx")]

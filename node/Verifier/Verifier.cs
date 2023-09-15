@@ -95,7 +95,7 @@ public class Verifier : IVerifier
         {
             if (!StateCache.Contains(parent) && !Store.Exists(parent))
             {
-                Logger.LogInformation($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
+                Logger.LogDebug($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
                 return false;
             }
         }

@@ -243,7 +243,7 @@ public class StoreRepository : IStoreRepository, IDisposable
     public ChainState? GetChainState()
     {
         var chainKey = new byte[1];
-        return Storage.Get<ChainState>("ChainState", chainKey); //do not load from transaction
+        return Storage.Get<ChainState>("ChainState", chainKey, CurrentTransaction);
     }
 
     public ChainState? GetChainStateAt(long height)
