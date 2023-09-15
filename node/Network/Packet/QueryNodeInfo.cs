@@ -11,7 +11,7 @@ public class QueryNodeInfo : IPacket
 {
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        if (peer.LastNodeInfo is not null && (DateTime.Now - peer.LastNodeInfo).Value.TotalSeconds < 30)
+        if (peer.LastNodeInfo is not null && (DateTime.Now - peer.LastNodeInfo).Value.TotalSeconds < 10)
         {
             return;
         }

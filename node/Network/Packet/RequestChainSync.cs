@@ -13,7 +13,7 @@ public class RequestChainSync : IPacket
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        if (peer.LastChainSync is not null && (DateTime.Now - peer.LastChainSync).Value.TotalSeconds < 30)
+        if (peer.LastChainSync is not null && (DateTime.Now - peer.LastChainSync).Value.TotalSeconds < 10)
         {
             return;
         }
