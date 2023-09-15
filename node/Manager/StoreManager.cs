@@ -611,6 +611,7 @@ cleanup:
     {
         using var _ = rwlock.EnterReadLockEx();
         var transactions = StateCache.GetPendingGraph().Roots()
+            .OrderBy(x => Guid.NewGuid())
             .ToList();
 
         Logger.LogDebug($"Tip has {transactions.Count} / {StateCache.GetPendingGraph().VertexCount} transactions");
@@ -635,18 +636,43 @@ cleanup:
         {
             var chainState = Repository.GetChainState();
             
-            transactions.AddRange(Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
-                .Take(2 - transactions.Count)
+            var hashes = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
                 .Select(x => x.TransactionId)
-                .ToList());
+                .ToList();
+                
+            foreach (var hash in hashes)
+            {
+                if (!transactions.Contains(hash))
+                {
+                    transactions.Add(hash);
+                }
+                
+                if (transactions.Count >= 2 )
+                {
+                    break;
+                }
+            }
         }
         
         if (transactions.Count < 2)
         {
             // should never get this far...
-            transactions.AddRange(Repository.GetLastNTransctions(2 - transactions.Count)
+            var hashes = Repository.GetLastNTransctions(2)
                 .Select(x => x.TransactionId)
-                .ToList());
+                .ToList();
+
+            foreach (var hash in hashes)
+            {
+                if (!transactions.Contains(hash))
+                {
+                    transactions.Add(hash);
+                }
+
+                if (transactions.Count >= 2)
+                {
+                    break;
+                }
+            }
         }
 
         return transactions;
@@ -670,7 +696,29 @@ cleanup:
                     hashes.Add(tx.Value.TransactionId);
                 }
 
-                if (hashes.Count >= 2)
+                if (hashes.Count >= count)
+                {
+                    break;
+                }
+            }
+        }
+        
+        if (hashes.Count < count)
+        {
+            var chainState = Repository.GetChainState();
+            
+            var transactions = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
+                .Select(x => x.TransactionId)
+                .ToList();
+                
+            foreach (var hash in transactions)
+            {
+                if (!hashes.Contains(hash))
+                {
+                    hashes.Add(hash);
+                }
+                
+                if (hashes.Count >= count )
                 {
                     break;
                 }
@@ -679,6 +727,7 @@ cleanup:
 
         if (hashes.Count < count)
         {
+            // should never get this far...
             var transactions = Repository.GetLastNTransctions(count);
 
             foreach (var tx in transactions)
@@ -688,7 +737,7 @@ cleanup:
                     hashes.Add(tx.TransactionId);
                 }
 
-                if (hashes.Count == count)
+                if (hashes.Count >= count)
                 {
                     break;
                 }
