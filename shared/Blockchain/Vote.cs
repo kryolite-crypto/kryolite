@@ -39,7 +39,7 @@ public class Vote : Transaction
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("vote requires signature");
-        Parents = parents;
+        Parents = parents.Distinct().ToImmutableList();
         TransactionId = CalculateHash();
     }
 

@@ -138,9 +138,9 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (tx.Parents.Count != 2)
+        if (tx.Parents.Distinct().Count() != 2)
         {
-            Logger.LogInformation($"Payment verification failed (reason = invalid parent reference count {tx.Parents.Count})");
+            Logger.LogInformation($"Payment verification failed (reason = invalid parent reference count {tx.Parents.Distinct().Count()})");
             return false;
         }
 
@@ -170,9 +170,9 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (block.Parents.Count != 2)
+        if (block.Parents.Distinct().Count()  != 2)
         {
-            Logger.LogInformation($"Block verification failed (reason = invalid parent reference count {block.Parents.Count})");
+            Logger.LogInformation($"Block verification failed (reason = invalid parent reference count {block.Parents.Distinct().Count()})");
             return false;
         }
 
@@ -201,9 +201,9 @@ public class Verifier : IVerifier
 
     private bool VerifyView(View view)
     {
-        if (view.Parents.Count < 2)
+        if (view.Parents.Distinct().Count() < 2)
         {
-            Logger.LogInformation($"View verification failed (reason = invalid parent reference count {view.Parents.Count})");
+            Logger.LogInformation($"View verification failed (reason = invalid parent reference count {view.Parents.Distinct().Count()})");
             return false;
         }
 
@@ -251,9 +251,9 @@ public class Verifier : IVerifier
 
     private bool VerifyVote(Vote vote)
     {
-        if (vote.Parents.Count != 2)
+        if (vote.Parents.Distinct().Count() != 2)
         {
-            Logger.LogInformation($"Vote verification failed (reason = invalid parent reference count {vote.Parents.Count})");
+            Logger.LogInformation($"Vote verification failed (reason = invalid parent reference count {vote.Parents.Distinct().Count()})");
             return false;
         }
 
@@ -302,9 +302,9 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (tx.Parents.Count != 2)
+        if (tx.Parents.Distinct().Count() != 2)
         {
-            Logger.LogInformation($"Validator registeration verification failed (reason = invalid parent reference count {tx.Parents.Count})");
+            Logger.LogInformation($"Validator registeration verification failed (reason = invalid parent reference count {tx.Parents.Distinct().Count()})");
             return false;
         }
 

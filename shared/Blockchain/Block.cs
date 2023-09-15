@@ -42,7 +42,7 @@ public class Block : Transaction
         Value = Constant.BLOCK_REWARD;
         Timestamp = tx.Timestamp;
         Data = tx.Data;
-        Parents = parents;
+        Parents = parents.Distinct().ToImmutableList();
 
         var blockPayload = MessagePackSerializer.Deserialize<BlockPayload>(tx.Data);
         Difficulty = blockPayload.Difficulty;

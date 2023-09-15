@@ -35,7 +35,7 @@ public class View : Transaction
         Timestamp = tx.Timestamp;
         Height = BitConverter.ToInt64(tx.Data);
         Signature = tx.Signature ?? throw new Exception("view requires signature");
-        Parents = parents;
+        Parents = parents.Distinct().ToImmutableList();
         TransactionId = CalculateHash();
     }
 

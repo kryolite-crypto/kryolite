@@ -66,7 +66,7 @@ public class Transaction : IComparable<Transaction>
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature ?? throw new Exception("payment requires signature");
-        Parents = parents;
+        Parents = parents.Distinct().ToImmutableList();
         TransactionId = CalculateHash();
     }
 
