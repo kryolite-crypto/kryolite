@@ -738,7 +738,7 @@ cleanup:
                 // Verify second part, requiring concurrent execution
                 if(!Verifier.VerifyTypeOnly(tx, transactions))
                 {
-                    Logger.LogDebug($"Failed {tx.TransactionId}");
+                    Logger.LogError($"Failed: {tx.TransactionId}");
                     return false;
                 }
 
@@ -875,6 +875,14 @@ cleanup:
     {
         using var _ = rwlock.EnterWriteLockEx();
         using var dbtx = Repository.BeginTransaction();
+        
+        var sw = Stopwatch.StartNew();
+        
+        // Copy pending values
+        var pending = StateCache.GetTransactions()
+            .ToDictionary(x => x.Key, y => y.Value);
+        var ledger = StateCache.GetLedgers()
+            .ToDictionary(x => x.Key, y => y.Value);
 
         try
         {
@@ -885,20 +893,45 @@ cleanup:
             if (!AddTransactionBatchInternal(chainGraph, transactions, false, false))
             {
                 dbtx.Rollback();
-                Logger.LogError($"Set chain failed");
+                Logger.LogError($"Set chain failed. Old state restored");
                 return false;
             }
         }
         catch (Exception ex)
         {
+            RestoreState(pending, ledger);
+
             dbtx.Rollback();
-            Logger.LogError(ex, "Chain reorg failure");
+            Logger.LogError(ex, "Chain reorg failure. Old state restored");
             return false;
         }
 
         dbtx.Commit();
-        Logger.LogInformation("Chain synchronization completed");
+        sw.Stop();
+
+        Logger.LogInformation($"Chain synchronization completed in {sw.Elapsed.TotalSeconds} seconds ({Math.Round(transactions.Count / sw.Elapsed.TotalSeconds, 0)} t/s).");
         return true;
+    }
+    
+    private void RestoreState(Dictionary<SHA256Hash, Transaction> pending, Dictionary<Address, Ledger> ledger)
+    {
+        StateCache.ClearTransactions();
+        StateCache.EnsureTransactionCapacity(pending.Count);
+                
+        foreach (var tx in pending)
+        {
+            StateCache.Add(tx.Value);
+        }
+                
+        StateCache.ClearLedgers();
+        StateCache.EnsureLedgerCapacity(ledger.Count);
+
+        foreach (var wallet in ledger)
+        {
+            StateCache.Add(wallet.Value);
+        }
+                
+        StateCache.RecreateGraph();
     }
 
     public Validator? GetStake(Address address)

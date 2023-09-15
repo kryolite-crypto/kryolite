@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using QuikGraph;
 
 namespace Kryolite.Node;
 

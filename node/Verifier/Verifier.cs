@@ -4,8 +4,6 @@ using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
-using QuikGraph;
-using QuikGraph.Algorithms;
 
 namespace Kryolite.Node;
 
