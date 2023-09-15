@@ -1,6 +1,5 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Numerics;
 using Kryolite.Node.Blockchain;
@@ -214,6 +213,39 @@ public class StoreManager : IStoreManager
 
             view.ExecutionResult = ExecutionResult.SUCCESS;
 
+            var node = KeyRepository.GetKey();
+            var address = node!.PublicKey.ToAddress();
+
+            var shouldVote = castVote && Repository.IsValidator(address);
+            var voteParents = new List<SHA256Hash>();
+            
+            if (shouldVote)
+            {
+                voteParents.Add(view.TransactionId);
+
+                foreach (var tx in toExecute.OrderBy(x => Random.Shared.Next()))
+                {
+                    if (!voteParents.Contains(tx.TransactionId))
+                    {
+                        voteParents.Add(tx.TransactionId);
+                    }
+
+                    if (voteParents.Count >= 2)
+                    {
+                        break;
+                    }
+                }
+
+                if (voteParents.Count < 2)
+                {
+                    voteParents.AddRange(toExecute
+                        .Where(x => !voteParents.Contains(x.TransactionId))
+                        .OrderBy(x => Random.Shared.Next())
+                        .Select(x => x.TransactionId)
+                        .Take(1));
+                }
+            }
+            
             // cleanup stales and orphans
 cleanup:
             bool removed = false;
@@ -282,36 +314,11 @@ cleanup:
             {
                 TransactionBuffer.Add(new TransactionDto(view));
             }
-
-            var node = KeyRepository.GetKey();
-            var address = node!.PublicKey.ToAddress();
-
-            if (castVote && Repository.IsValidator(address))
+            
+            if (shouldVote)
             {
                 var stake = Repository.GetStake(address);
-                var parents = new List<SHA256Hash>();
-
-                parents.Add(view.TransactionId);
-
-                foreach (var tx in toExecute.OrderBy(x => Random.Shared.Next()))
-                {
-                    if (!parents.Contains(tx.TransactionId))
-                    {
-                        parents.Add(tx.TransactionId);
-                    }
-
-                    if (parents.Count >= 2)
-                    {
-                        break;
-                    }
-                }
-
-                if (parents.Count < 2)
-                {
-                    parents.AddRange(toExecute.OrderBy(x => Random.Shared.Next()).Select(x => x.TransactionId).Take(1));
-                }
-
-                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Stake ?? 0, parents.ToImmutableList());
+                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Stake ?? 0, voteParents.ToImmutableList());
 
                 vote.Sign(node.PrivateKey);
                 vote.ExecutionResult = ExecutionResult.PENDING;
