@@ -610,72 +610,81 @@ cleanup:
     public List<SHA256Hash> GetTransactionToValidate()
     {
         using var _ = rwlock.EnterReadLockEx();
-        var transactions = StateCache.GetPendingGraph().Roots()
+        var hashes = StateCache.GetPendingGraph().Roots()
             .OrderBy(x => Guid.NewGuid())
             .ToList();
 
-        Logger.LogDebug($"Tip has {transactions.Count} / {StateCache.GetPendingGraph().VertexCount} transactions");
+        Logger.LogDebug($"Tip has {hashes.Count} / {StateCache.GetPendingGraph().VertexCount} transactions");
 
-        if (transactions.Count < 2)
+        if (hashes.Count < 2)
         {
             foreach (var tx in StateCache.GetTransactions())
             {
-                if (!transactions.Contains(tx.Value.TransactionId))
+                if (!hashes.Contains(tx.Value.TransactionId))
                 {
-                    transactions.Add(tx.Value.TransactionId);
+                    hashes.Add(tx.Value.TransactionId);
                 }
 
-                if (transactions.Count >= 2)
+                if (hashes.Count >= 2)
                 {
-                    break;
+                    return hashes;
                 }
             }
         }
 
-        if (transactions.Count < 2)
+        var chainState = Repository.GetChainState();    
+        
+        if (hashes.Count < 2)
         {
-            var chainState = Repository.GetChainState();
-            
-            var hashes = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
+            // we should always point at minimum to previous view
+            if (chainState is not null)
+            {
+                hashes.Add(chainState.LastHash);
+            }
+        }
+        
+        if (hashes.Count < 2)
+        {
+            var nextHashes = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
                 .Select(x => x.TransactionId)
                 .ToList();
                 
-            foreach (var hash in hashes)
+            foreach (var hash in nextHashes)
             {
-                if (!transactions.Contains(hash))
+                if (!hashes.Contains(hash))
                 {
-                    transactions.Add(hash);
+                    hashes.Add(hash);
                 }
                 
-                if (transactions.Count >= 2 )
+                if (hashes.Count >= 2 )
                 {
-                    break;
+                    return hashes;
                 }
             }
         }
         
-        if (transactions.Count < 2)
+        if (hashes.Count < 2)
         {
             // should never get this far...
-            var hashes = Repository.GetLastNTransctions(2)
+            var nextHashes = Repository.GetLastNTransctions(2)
                 .Select(x => x.TransactionId)
                 .ToList();
 
-            foreach (var hash in hashes)
+            foreach (var hash in nextHashes)
             {
-                if (!transactions.Contains(hash))
+                if (!hashes.Contains(hash))
                 {
-                    transactions.Add(hash);
+                    hashes.Add(hash);
                 }
 
-                if (transactions.Count >= 2)
+                if (hashes.Count >= 2)
                 {
-                    break;
+                    return hashes;
                 }
             }
         }
 
-        return transactions;
+        return hashes;
     }
 
     public List<SHA256Hash> GetTransactionToValidate(int count)
@@ -698,15 +707,24 @@ cleanup:
 
                 if (hashes.Count >= count)
                 {
-                    break;
+                    return hashes;
                 }
+            }
+        }
+        
+        var chainState = Repository.GetChainState();    
+        
+        if (hashes.Count < count)
+        {
+            // we should always point at minimum to previous view
+            if (chainState is not null)
+            {
+                hashes.Add(chainState.LastHash);
             }
         }
         
         if (hashes.Count < count)
         {
-            var chainState = Repository.GetChainState();
-            
             var transactions = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
                 .Select(x => x.TransactionId)
                 .ToList();
@@ -720,7 +738,7 @@ cleanup:
                 
                 if (hashes.Count >= count )
                 {
-                    break;
+                    return hashes;
                 }
             }
         }
@@ -739,7 +757,7 @@ cleanup:
 
                 if (hashes.Count >= count)
                 {
-                    break;
+                    return hashes;
                 }
             }
         }
