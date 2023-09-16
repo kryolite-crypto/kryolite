@@ -1,138 +1,131 @@
-using Kryolite.Node.Migrations;
+
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using MessagePack;
+using Microsoft.Extensions.Configuration;
 using System.Data;
-using System.Data.SQLite;
 
 namespace Kryolite.Node;
 
 public class WalletRepository : IWalletRepository
 {
-    private static SQLiteConnection? Connection { get; set; }
+    private string DataDir { get; }
+    private string StorePath { get; }
 
-    public WalletRepository()
+    public WalletRepository(IConfiguration configuration)
     {
-        if (Connection is null)
+        DataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        StorePath = Path.Combine(DataDir, "wallet.blob");
+
+        if (!File.Exists(StorePath))
         {
-            var walletPath = Path.Join(BlockchainService.DATA_PATH, "wallet.dat");
-            var migrate = !Path.Exists(walletPath);
-
-            Connection = new SQLiteConnection($"Data Source={walletPath};Version=3;");
-
-            Connection.Open();
-
-            if (migrate)
-            {
-                new WalletMigration(Connection).Baseline();
-            }
-
-            Connection.Flags |= SQLiteConnectionFlags.NoVerifyTextAffinity;
-            Connection.Flags |= SQLiteConnectionFlags.NoVerifyTypeAffinity;
-
-            using var cmd = Connection.CreateCommand();
-
-            cmd.CommandText = $@"
-                pragma threads = 4;
-                pragma journal_mode = wal; 
-                pragma synchronous = normal;
-                pragma temp_store = default; 
-                pragma mmap_size = -1;";
-
-            cmd.ExecuteNonQuery();
+            Commit(new WalletContainer());
         }
     }
 
     public void Add(Wallet wallet)
     {
-        using var cmd = Connection!.CreateCommand();
+        using var mutex = new Mutex(false, StorePath.Replace(Path.DirectorySeparatorChar.ToString(), ""));
 
-        cmd.CommandText = @"
-            INSERT INTO Wallet (
-                Address,
-                Description,
-                PublicKey,
-                PrivateKey
-            ) VALUES (@addr, @desc, @pubk, @priv);
-        ";
+        var hasHandle = false;
 
-        cmd.Parameters.Add(new SQLiteParameter("@addr", wallet.Address.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@desc", wallet.Description));
-        cmd.Parameters.Add(new SQLiteParameter("@pubk", wallet.PublicKey.ToString()));
-        cmd.Parameters.Add(new SQLiteParameter("@priv", wallet.PrivateKey.Buffer));
+        try
+        {
+            hasHandle = mutex.WaitOne( Timeout.Infinite, false );
 
-        cmd.ExecuteNonQuery(CommandBehavior.SequentialAccess);
+            var store = Load();
+            store.Container[wallet.Address] = wallet;
+            Commit(store);
+        }
+        finally
+        {
+            if ( hasHandle )
+            {
+                mutex.ReleaseMutex();
+            }
+        }
     }
 
     public Wallet? Get(Address address)
     {
-        using var cmd = Connection!.CreateCommand();
-
-        cmd.CommandText = @"
-            SELECT
-                Address,
-                Description,
-                PublicKey,
-                PrivateKey
-            FROM
-                Wallet
-            WHERE
-                Address = @addr
-        ";
-
-        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
-
-        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
-
-        if (!reader.Read())
+        var store = Load();
+        
+        if (!store.Container.TryGetValue(address, out var wallet))
         {
             return null;
         }
 
-        return Wallet.Read(reader);
+        return wallet;
     }
 
     public void UpdateDescription(Address address, string description)
     {
-        var cmd = Connection!.CreateCommand();
+        using var mutex = new Mutex(false, StorePath.Replace(Path.DirectorySeparatorChar.ToString(), ""));
 
-        cmd.CommandText += $@"
-                UPDATE
-                    Wallet
-                SET
-                    Description = @desc
-                WHERE
-                    Address = @addr";
+        var hasHandle = false;
 
-        cmd.Parameters.Add(new SQLiteParameter("@desc", description));
-        cmd.Parameters.Add(new SQLiteParameter("@addr", address.ToString()));
+        try
+        {
+            hasHandle = mutex.WaitOne( Timeout.Infinite, false );
 
-        cmd.ExecuteNonQuery();
+            var store = Load();
+            
+            if (store.Container.TryGetValue(address, out var wallet))
+            {
+                wallet.Description = description;
+            }
+
+            Commit(store);
+        }
+        finally
+        {
+            if ( hasHandle )
+            {
+                mutex.ReleaseMutex();
+            }
+        }
     }
 
     public Dictionary<Address, Wallet> GetWallets()
     {
-        using var cmd = Connection!.CreateCommand();
+        return Load().Container;
+    }
 
-        cmd.CommandText = @"
-            SELECT
-                Address,
-                Description,
-                PublicKey,
-                PrivateKey
-            FROM
-                Wallet
-        ";
+    public void Backup()
+    {
+        var backupFolder = Path.Combine(DataDir, "backup");
+        Directory.CreateDirectory(backupFolder);
 
-        using var reader = cmd.ExecuteReader(CommandBehavior.SequentialAccess);
+        var backupPath = Path.Combine(backupFolder, $"wallet-{DateTimeOffset.Now.ToString("yyyyMMddhhmmss")}.blob");
+        File.Copy(StorePath, backupPath, true);
 
-        var results = new Dictionary<Address, Wallet>();
+        var oldestBackup = Directory.EnumerateFiles(backupFolder)
+            .Where(x => x.StartsWith("wallet.blob"))
+            .MinBy(x => File.GetCreationTime(x));
 
-        while (reader.Read())
+        if (oldestBackup is not null && Directory.EnumerateFiles(backupFolder).Count() > 5)
         {
-            var wallet = Wallet.Read(reader);
-            results.TryAdd(wallet.Address, wallet);
+            File.Delete(oldestBackup);
         }
+    }
 
-        return results;
+    private WalletContainer Load()
+    {
+        var bytes = File.ReadAllBytes(StorePath);
+        return MessagePackSerializer.Deserialize<WalletContainer>(bytes);
+    }
+
+    private void Commit(WalletContainer container)
+    {
+        var bytes = MessagePackSerializer.Serialize(container);
+        File.WriteAllBytes(StorePath, bytes);
+    }
+
+    [MessagePackObject]
+    public class WalletContainer
+    {
+        [Key(0)]
+        public Dictionary<Address, Wallet> Container = new();
     }
 }
+

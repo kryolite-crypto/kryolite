@@ -49,10 +49,10 @@ public class Program
             .AddCommandLine(args)
             .Build();
 
-        rootCmd.Add(ContractCmd.Build(nodeOption));
-        rootCmd.Add(SendCmd.Build(nodeOption));
+        rootCmd.Add(ContractCmd.Build(nodeOption, config));
+        rootCmd.Add(SendCmd.Build(nodeOption, config));
         rootCmd.Add(ValidatorCmd.Build(nodeOption, config));
-        rootCmd.Add(WalletCmd.Build());
+        rootCmd.Add(WalletCmd.Build(config));
 
         return await rootCmd.InvokeAsync(args);
     }

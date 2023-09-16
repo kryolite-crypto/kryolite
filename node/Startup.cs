@@ -12,7 +12,6 @@ using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using Kryolite.Shared.Formatters;
 using LettuceEncrypt.Acme;
-using MessagePack;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;

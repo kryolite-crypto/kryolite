@@ -6,12 +6,13 @@ using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using MessagePack;
+using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Cli;
 
 public static class SendCmd
 {
-    public static Command Build(Option<string?> nodeOption)
+    public static Command Build(Option<string?> nodeOption, IConfiguration configuration)
     {
         var sendCmd = new Command("send", "Send funds / assets to address");
 
@@ -67,7 +68,7 @@ public static class SendCmd
 
         sendCmd.SetHandler(async (from, to, amount, node, contractMethod, contractParams, wait) =>
         {
-            var walletRepository = new WalletRepository();
+            var walletRepository = new WalletRepository(configuration);
             var wallets = walletRepository.GetWallets();
 
             node = node ?? await ZeroConf.DiscoverNodeAsync();

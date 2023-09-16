@@ -2,12 +2,13 @@ using System.CommandLine;
 using System.Text.Json;
 using Kryolite.Node;
 using Kryolite.Shared;
+using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Cli;
 
 public static class WalletCmd
 {
-    public static Command Build()
+    public static Command Build(IConfiguration configuration)
     {
         var walletCmd = new Command("wallet", "Manage wallets");
         var createCmd = new Command("create", "Create new wallet");
@@ -22,7 +23,7 @@ public static class WalletCmd
 
         createCmd.SetHandler((output) =>
         {
-            var walletRepository = new WalletRepository();
+            var walletRepository = new WalletRepository(configuration);
             var wallet = Wallet.Create();
 
             walletRepository.Add(wallet);
@@ -46,7 +47,7 @@ public static class WalletCmd
 
         listCmd.SetHandler((output) => 
         {
-            var walletRepository = new WalletRepository();
+            var walletRepository = new WalletRepository(configuration);
             var wallets = walletRepository.GetWallets();
 
             switch (output)

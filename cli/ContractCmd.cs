@@ -5,12 +5,13 @@ using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using MessagePack;
+using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Cli;
 
 public static class ContractCmd
 {
-    public static Command Build(Option<string?> nodeOption)
+    public static Command Build(Option<string?> nodeOption, IConfiguration configuration)
     {
         var contractCmd = new Command("contract", "Manage Contracts");
         var uploadCmd = new Command("upload", "Upload contract");
@@ -32,7 +33,7 @@ public static class ContractCmd
 
         uploadCmd.SetHandler(async (from, file, node) =>
         {
-            var walletRepository = new WalletRepository();
+            var walletRepository = new WalletRepository(configuration);
             var wallets = walletRepository.GetWallets();
 
             node = node ?? await ZeroConf.DiscoverNodeAsync();

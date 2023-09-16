@@ -17,9 +17,6 @@
 
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
-    <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
-    <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
   </ItemGroup>
 
   <ItemGroup>
