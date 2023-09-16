@@ -60,7 +60,7 @@ public class Verifier : IVerifier
             {
                 Logger.LogInformation($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
                 tx.ExecutionResult = ExecutionResult.VERIFY_FAILED;
-                continue;
+                return false;
             }
         }
 
@@ -189,6 +189,9 @@ public class Verifier : IVerifier
             Logger.LogInformation($"Block verification failed (reason = invalid parent hash). Got {block.ParentHash}, required: {view.TransactionId}");
             return false;
         }
+
+        Console.WriteLine(StateCache.GetCurrentState().CurrentDifficulty.ToString());
+        Console.WriteLine(block.Difficulty.ToString());
 
         if (block.Difficulty != StateCache.GetCurrentState().CurrentDifficulty)
         {

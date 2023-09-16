@@ -216,22 +216,6 @@ public class StoreManager : IStoreManager
             var node = KeyRepository.GetKey();
             var address = node!.PublicKey.ToAddress();
             
-            // Vote needs to always be child of the view it votes against or it might get stale or executed in wrong order
-            var voteParents = new List<SHA256Hash>() { view.TransactionId };
-            var shouldVote = castVote && Repository.IsValidator(address);
-            
-            if (shouldVote)
-            {
-                foreach (var parent in GetTransactionToValidate(2))
-                {
-                    if (!voteParents.Contains(parent))
-                    {
-                        voteParents.Add(parent);
-                        break;
-                    }
-                }
-            }
-            
             // cleanup stales and orphans
 cleanup:
             bool removed = false;
@@ -240,12 +224,13 @@ cleanup:
             {
                 if (tx.TransactionType == TransactionType.BLOCK)
                 {
+                    tx.Height = height;
+                    tx.ExecutionResult = ExecutionResult.STALE;
+
                     if (StateCache.TryGet(tx.To!, out var ledger))
                     {
                         ledger.Pending = checked(ledger.Pending - tx.Value);
                     }
-
-                    tx.ExecutionResult = ExecutionResult.STALE;
 
                     StateCache.Remove(tx.TransactionId, out _);
                     toExecute.Add(tx);
@@ -254,6 +239,7 @@ cleanup:
                 }
                 else if (tx.TransactionType == TransactionType.VOTE)
                 {
+                    tx.Height = height;
                     tx.ExecutionResult = ExecutionResult.STALE;
 
                     StateCache.Remove(tx.TransactionId, out _);
@@ -275,6 +261,7 @@ cleanup:
 
                     if (orphaned)
                     {
+                        tx.Height = height;
                         tx.ExecutionResult = ExecutionResult.ORPHAN;
 
                         StateCache.Remove(tx.TransactionId, out _);
@@ -288,6 +275,22 @@ cleanup:
             if (removed)
             {
                 goto cleanup;
+            }
+
+            // Vote needs to always be child of the view it votes against or it might get stale or executed in wrong order
+            var voteParents = new List<SHA256Hash>() { view.TransactionId };
+            var shouldVote = castVote && Repository.IsValidator(address);
+            
+            if (shouldVote)
+            {
+                foreach (var parent in GetTransactionToValidate(2))
+                {
+                    if (!voteParents.Contains(parent))
+                    {
+                        voteParents.Add(parent);
+                        break;
+                    }
+                }
             }
 
             Repository.AddRange(toExecute);
