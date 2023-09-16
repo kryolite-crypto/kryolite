@@ -215,34 +215,20 @@ public class StoreManager : IStoreManager
 
             var node = KeyRepository.GetKey();
             var address = node!.PublicKey.ToAddress();
-
+            
+            // Vote needs to always be child of the view it votes against or it might get stale or executed in wrong order
+            var voteParents = new List<SHA256Hash>() { view.TransactionId };
             var shouldVote = castVote && Repository.IsValidator(address);
-            var voteParents = new List<SHA256Hash>();
             
             if (shouldVote)
             {
-                voteParents.Add(view.TransactionId);
-
-                foreach (var tx in toExecute.OrderBy(x => Random.Shared.Next()))
+                foreach (var parent in GetTransactionToValidate(2))
                 {
-                    if (!voteParents.Contains(tx.TransactionId))
+                    if (!voteParents.Contains(parent))
                     {
-                        voteParents.Add(tx.TransactionId);
-                    }
-
-                    if (voteParents.Count >= 2)
-                    {
+                        voteParents.Add(parent);
                         break;
                     }
-                }
-
-                if (voteParents.Count < 2)
-                {
-                    voteParents.AddRange(toExecute
-                        .Where(x => !voteParents.Contains(x.TransactionId))
-                        .OrderBy(x => Random.Shared.Next())
-                        .Select(x => x.TransactionId)
-                        .Take(1));
                 }
             }
             
