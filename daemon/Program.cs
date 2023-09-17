@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using System.Net.Sockets;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Reflection;
+using Kryolite.Node.Repository;
 
 namespace Kryolite.Daemon;
 
@@ -58,6 +59,11 @@ internal class Program
 
         var walletRepository = new WalletRepository(config);
         walletRepository.Backup();
+
+        var keyRepository = new KeyRepository(config);
+        Console.WriteLine($"Server");
+        Console.WriteLine($"\tPublic Key: {keyRepository.GetKey().PublicKey}");
+        Console.WriteLine($"\tAddress: {keyRepository.GetKey().Address}");
 
         var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
         var app = WebHost.CreateDefaultBuilder()

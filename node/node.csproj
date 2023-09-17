@@ -17,6 +17,7 @@
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
     <PackageReference Include="DnsClient" Version="1.7.0" />
     <PackageReference Include="LettuceEncrypt" Version="1.2.0" />
+    <PackageReference Include="Lib.AspNetCore.ServerSentEvents" Version="8.2.0" />
     <PackageReference Include="MessagePack" Version="2.5.108" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />

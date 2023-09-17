@@ -10,6 +10,7 @@ using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using Lib.AspNetCore.ServerSentEvents;
 using Microsoft.Extensions.Logging;
 using QuikGraph;
 using QuikGraph.Algorithms;
@@ -20,19 +21,20 @@ namespace Kryolite.Node;
 public class StoreManager : IStoreManager
 {
     private IStoreRepository Repository { get; }
-    public IKeyRepository KeyRepository { get; }
+    private IKeyRepository KeyRepository { get; }
     private IBufferService<TransactionDto, OutgoingTransactionService> TransactionBuffer { get; }
     private IExecutorFactory ExecutorFactory { get; }
     private INetworkManager NetworkManager { get; }
     private IWalletManager WalletManager { get; }
     private IEventBus EventBus { get; }
-    public IStateCache StateCache { get; }
-    public IVerifier Verifier { get; }
+    private IStateCache StateCache { get; }
+    private IVerifier Verifier { get; }
+    private IServerSentEventsService NotificationService { get; }
     private ILogger<StoreManager> Logger { get; }
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, ILogger<StoreManager> logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, INetworkManager networkManager, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         KeyRepository = keyRepository ?? throw new ArgumentNullException(nameof(keyRepository));
@@ -43,6 +45,7 @@ public class StoreManager : IStoreManager
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
+        NotificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -116,6 +119,7 @@ public class StoreManager : IStoreManager
         if (AddViewInternal(view, broadcast, castVote))
         {
             dbtx.Commit();
+            NotificationService.SendEventAsync(view.TransactionId.ToString());
             return true;
         }
 
@@ -363,7 +367,11 @@ cleanup:
                 return false;
             }
 
-            return AddBlockInternal(block, broadcast);
+            if (AddBlockInternal(block, broadcast))
+            {
+                NotificationService.SendEventAsync(block.TransactionId.ToString());
+                return true;
+            }
         }
         catch (Exception ex)
         {
@@ -425,7 +433,10 @@ cleanup:
             return ExecutionResult.VERIFY_FAILED;
         }
 
-        AddTransactionInternal(tx, broadcast);
+        if(AddTransactionInternal(tx, broadcast))
+        {
+            NotificationService.SendEventAsync(tx.TransactionId.ToString());
+        }
 
         return tx.ExecutionResult;
     }
@@ -490,7 +501,10 @@ cleanup:
             return ExecutionResult.VERIFY_FAILED;
         }
 
-        AddValidatorRegInternal(tx, broadcast);
+        if(AddValidatorRegInternal(tx, broadcast))
+        {
+            NotificationService.SendEventAsync(tx.TransactionId.ToString());
+        }
 
         return tx.ExecutionResult;
     }
@@ -550,7 +564,13 @@ cleanup:
             return false;
         }
 
-        return AddVoteInternal(vote, broadcast);
+        if (AddVoteInternal(vote, broadcast))
+        {
+            NotificationService.SendEventAsync(vote.TransactionId.ToString());
+            return true;
+        }
+
+        return false;
     }
 
     private bool AddVoteInternal(Vote vote, bool broadcast)
@@ -875,7 +895,13 @@ cleanup:
 
         Logger.LogDebug($"Incoming batch has {transactionList.Count} transactions. Graph has {graph.VertexCount} vertices.");
 
-        return AddTransactionBatchInternal(graph, transactions, broadcast, true);
+        if (AddTransactionBatchInternal(graph, transactions, broadcast, true))
+        {
+            NotificationService.SendEventAsync("BATCH");
+            return true;
+        }
+
+        return false;
     }
 
     public Blocktemplate GetBlocktemplate(Address wallet)
@@ -980,6 +1006,7 @@ cleanup:
         }
 
         dbtx.Commit();
+        NotificationService.SendEventAsync("RESYNC");
         sw.Stop();
 
         Logger.LogInformation($"Chain synchronization completed in {sw.Elapsed.TotalSeconds} seconds ({Math.Round(transactions.Count / sw.Elapsed.TotalSeconds, 0)} t/s).");

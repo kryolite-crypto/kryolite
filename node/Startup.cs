@@ -9,10 +9,10 @@ using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Kryolite.Shared.Formatters;
 using LettuceEncrypt.Acme;
+using Lib.AspNetCore.ServerSentEvents;
 using MessagePack.Resolvers;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.DataProtection;
@@ -52,6 +52,7 @@ public class Startup
         app.UseWebSockets();
         app.UseRouting();
         app.UseCors();
+        app.MapServerSentEvents("/events/newtx");
         app.UseEndpoints(endpoints =>
         {
             // for let's encrypt
@@ -325,7 +326,9 @@ public class Startup
                     .AllowAnyMethod()
                     .AllowAnyHeader()
                 ))
-                .AddControllers().AddJsonOptions(options =>
+                .AddServerSentEvents()
+                .AddControllers()
+                .AddJsonOptions(options =>
                 {
                     options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
                     options.JsonSerializerOptions.Converters.Add(new AddressConverter());

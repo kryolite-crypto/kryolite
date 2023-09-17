@@ -217,9 +217,9 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("tx/graph")]
-    public IActionResult GetTransactionGraph([FromQuery] int pageNum = 0, [FromQuery] int pageSize = 100)
+    public IActionResult GetTransactionGraph([FromQuery] long startHeight)
     {
-        var transactions = blockchainManager.GetTransactions(pageNum, pageSize);
+        var transactions = blockchainManager.GetTransactionsAfterHeight(startHeight);
 
         var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, transactions.Count + 1);
         var map = new Dictionary<SHA256Hash, Transaction>(transactions.Count + 1);
