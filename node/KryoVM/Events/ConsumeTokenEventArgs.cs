@@ -1,5 +1,5 @@
-﻿using Kryolite.Shared;
-using Redbus.Events;
+﻿using Kryolite.EventBus;
+using Kryolite.Shared;
 
 namespace Kryolite.Node;
 

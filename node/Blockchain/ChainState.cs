@@ -1,8 +1,7 @@
-using System.Data.Common;
 using System.Numerics;
+using Kryolite.EventBus;
 using Kryolite.Shared;
 using MessagePack;
-using Redbus.Events;
 
 namespace Kryolite.Node;
 

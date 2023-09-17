@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Numerics;
+using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
@@ -13,8 +14,6 @@ using Microsoft.Extensions.Logging;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
-using Redbus.Events;
-using Redbus.Interfaces;
 
 namespace Kryolite.Node;
 

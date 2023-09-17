@@ -3,6 +3,7 @@ using System.Data.Common;
 using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 using System.Text;
+using Kryolite.EventBus;
 using Kryolite.Shared.Dto;
 using MessagePack;
 using NSec.Cryptography;
@@ -10,7 +11,7 @@ using NSec.Cryptography;
 namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class Transaction : IComparable<Transaction>
+public class Transaction : EventBase, IComparable<Transaction>
 {
     [Key(0)]
     public ulong Id { get; set; }

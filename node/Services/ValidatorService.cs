@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
-using System.Reactive;
-using System.Threading.Tasks.Dataflow;
+using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
@@ -9,7 +8,6 @@ using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Redbus.Interfaces;
 
 namespace Kryolite.Node;
 

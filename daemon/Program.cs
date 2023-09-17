@@ -56,6 +56,9 @@ internal class Program
 
         Directory.CreateDirectory(dataDir);
 
+        var walletRepository = new WalletRepository(config);
+        walletRepository.Backup();
+
         var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
         var app = WebHost.CreateDefaultBuilder()
             .ConfigureAppConfiguration((hostingContext, config) => config

@@ -1,7 +1,7 @@
-﻿using Kryolite.Shared;
+﻿using Kryolite.EventBus;
+using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
-using Redbus.Events;
 
 namespace Kryolite.Node;
 

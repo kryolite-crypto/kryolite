@@ -3,6 +3,7 @@ using System.Numerics;
 using System.Reactive.Linq;
 using System.Timers;
 using DnsClient;
+using Kryolite.EventBus;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using Makaretu.Dns;
@@ -14,8 +15,6 @@ using Microsoft.Extensions.Logging;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
-using Redbus.Events;
-using Redbus.Interfaces;
 using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;

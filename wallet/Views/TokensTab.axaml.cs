@@ -1,10 +1,9 @@
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Kryolite.EventBus;
 using Kryolite.Node;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using Redbus.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;

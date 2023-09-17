@@ -1,6 +1,6 @@
 using System.Data.Common;
+using Kryolite.EventBus;
 using MessagePack;
-using Redbus.Events;
 
 namespace Kryolite.Shared;
 

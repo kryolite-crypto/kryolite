@@ -1,8 +1,7 @@
-﻿using Kryolite.Node.Repository;
+﻿using Kryolite.EventBus;
+using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using Redbus.Events;
-using Redbus.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.Linq;

@@ -1,4 +1,5 @@
-﻿using Kryolite.Shared.Blockchain;
+﻿using Kryolite.EventBus;
+using Kryolite.Shared.Blockchain;
 using MessagePack;
 using NSec.Cryptography;
 using System.Collections.Immutable;
@@ -9,7 +10,7 @@ using KeyAttribute = MessagePack.KeyAttribute;
 namespace Kryolite.Shared.Dto;
 
 [MessagePackObject]
-public class TransactionDto
+public class TransactionDto : EventBase
 {
     [Key(0)]
     public TransactionType TransactionType { get; init; }

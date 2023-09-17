@@ -1,5 +1,5 @@
+using Kryolite.EventBus;
 using Kryolite.Shared;
-using Redbus.Events;
 
 namespace Kryolite.Node.Blockchain;
 

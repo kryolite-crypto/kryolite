@@ -11,11 +11,11 @@ using System.Collections.Generic;
 using System.Reactive.Linq;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
-using Redbus.Interfaces;
 using System.Diagnostics;
 using Kryolite.Shared;
 using System.Collections.Concurrent;
 using Avalonia.Logging;
+using Kryolite.EventBus;
 
 namespace Kryolite.Wallet;
 
