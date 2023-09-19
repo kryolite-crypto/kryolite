@@ -34,5 +34,5 @@ public interface IExecutorContext
     IStoreRepository GetRepository();
     void Save();
 
-    IEventBus GetEventBus();
+    void AddEvent(EventBase ev);
 }

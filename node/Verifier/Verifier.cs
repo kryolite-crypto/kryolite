@@ -190,9 +190,6 @@ public class Verifier : IVerifier
             return false;
         }
 
-        Console.WriteLine(StateCache.GetCurrentState().CurrentDifficulty.ToString());
-        Console.WriteLine(block.Difficulty.ToString());
-
         if (block.Difficulty != StateCache.GetCurrentState().CurrentDifficulty)
         {
             Logger.LogInformation($"Block verification failed (reason = invalid difficulty). Got {block.Difficulty}, required: {StateCache.GetCurrentState().CurrentDifficulty}");

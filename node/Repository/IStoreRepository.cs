@@ -56,4 +56,5 @@ public interface IStoreRepository
     void DeleteValidator(Address address);
     List<Validator> GetValidators();
     void Reset();
+    void ReplaceDbFrom(string storeName);
 }

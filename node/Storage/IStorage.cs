@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using RocksDbSharp;
 
 namespace Kryolite.Node.Storage;
 
@@ -42,4 +43,6 @@ public interface IStorage
     void Reset();
 
     ITransaction BeginTransaction();
+    RocksDb Open(string storePath);
+    void Close();
 }

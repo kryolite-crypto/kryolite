@@ -1,5 +1,7 @@
 using System.Numerics;
 using System.Threading.Tasks.Dataflow;
+using Kryolite.EventBus;
+using Kryolite.Node.Blockchain;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -11,7 +13,7 @@ namespace Kryolite.Node;
 public interface IStoreManager
 {
     bool Exists(SHA256Hash hash);
-    bool AddGenesis(Genesis genesis);
+    bool AddGenesis(Genesis genesis, View view);
     bool AddView(View view, bool broadcast, bool castVote, bool isGenesis = false);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
@@ -22,6 +24,7 @@ public interface IStoreManager
     View? GetView(SHA256Hash transactionId);
     View? GetLastView();
     List<Vote> GetVotesAtHeight(long height);
+    ICollection<Transaction> GetPendingTransactions();
     List<Transaction> GetTransactionsAfterHeight(long height);
     List<Transaction> GetTransactionsAtHeight(long height);
     List<Transaction> GetTransactions(int pageNum, int pageSize);
@@ -36,7 +39,6 @@ public interface IStoreManager
     long GetBalance(Address address);
 
     bool AddTransactionBatch(List<TransactionDto> transactions, bool breadcast);
-    bool SetChain(AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> chainGraph, Dictionary<SHA256Hash, TransactionDto> transactions, long startHeight);
     void ResetChain();
 
     Contract? GetContract(Address address);
@@ -50,4 +52,5 @@ public interface IStoreManager
     List<Token> GetContractTokens(Address contractAddress);
     Validator? GetStake(Address address);
     List<Validator> GetValidators();
+    void LoadStagingChain(string storeName, ChainState newChain, IStateCache stateCache, List<EventBase> events);
 }

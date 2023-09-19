@@ -25,8 +25,7 @@ public class BlockchainService : BackgroundService
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
-        // TODO: build argument?? or configuration property?
-        var bytes = Encoding.UTF8.GetBytes(configuration.GetValue<string?>("NetworkName") ?? "MAINNET");
+        var bytes = Encoding.UTF8.GetBytes(Constant.NETWORK_NAME);
         Array.Resize(ref bytes, 32);
 
         GenesisSeed = new SHA256Hash(bytes);
@@ -43,7 +42,7 @@ public class BlockchainService : BackgroundService
 
             if (genesis is null)
             {
-                InitializeGenesisBlock(blockchainManager);
+                InitializeGenesisBlock((TransactionManager)blockchainManager, Logger);
             }
 
             if (genesis != null && !Enumerable.SequenceEqual(genesis.Data ?? new byte[0], GenesisSeed.Buffer))
@@ -51,7 +50,7 @@ public class BlockchainService : BackgroundService
                 Logger.LogInformation($"{genesis.Id}: {genesis.TransactionType}");
                 Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
                 blockchainManager.ResetChain();
-                InitializeGenesisBlock(blockchainManager);
+                InitializeGenesisBlock((TransactionManager)blockchainManager, Logger);
             }
 
             Logger.LogInformation($"Blockchain    [UP][{Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
@@ -65,13 +64,16 @@ public class BlockchainService : BackgroundService
         return Task.CompletedTask;
     }
 
-    private void InitializeGenesisBlock(IStoreManager blockchainManager)
+    public static void InitializeGenesisBlock(TransactionManager blockchainManager, ILogger logger)
     {
+        var bytes = Encoding.UTF8.GetBytes(Constant.NETWORK_NAME);
+        Array.Resize(ref bytes, 32);
+
         var timestamp = new DateTimeOffset(2023, 1, 1, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
         var genesis = new Genesis {
             TransactionType = TransactionType.GENESIS,
-            Data = GenesisSeed,
+            Data = new SHA256Hash(bytes),
             Timestamp = timestamp,
             Height = 0,
             PublicKey = new PublicKey(),
@@ -79,11 +81,6 @@ public class BlockchainService : BackgroundService
         };
 
         genesis.TransactionId = genesis.CalculateHash();
-
-        if (!blockchainManager.AddGenesis(genesis))
-        {
-            Logger.LogError("Failed to initialize Genesis");
-        }
 
         var view = new View
         {
@@ -98,7 +95,11 @@ public class BlockchainService : BackgroundService
 
         view.Parents.Add(genesis.TransactionId);
         view.TransactionId = view.CalculateHash();
+        view.ExecutionResult = ExecutionResult.PENDING;
 
-        blockchainManager.AddView(view, false, false, true);
+        if (!blockchainManager.AddGenesis(genesis, view))
+        {
+            logger.LogError("Failed to initialize Genesis");
+        }
     }
 }

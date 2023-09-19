@@ -25,6 +25,12 @@ public class StateCache : IStateCache
         ChainState = repository.GetChainState() ?? new ChainState();
     }
 
+    public StateCache()
+    {
+        CurrentView = new View();
+        ChainState =  new ChainState();
+    }
+
     public void Add(Transaction tx)
     {
         PendingCache.Add(tx.TransactionId, tx);

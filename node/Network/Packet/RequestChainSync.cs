@@ -35,6 +35,20 @@ public class RequestChainSync : IPacket
             goto answer;
         }
 
+        var chainState = blockchainManager.GetChainState();
+
+        if (LastHash == chainState.LastHash)
+        {
+            var batch = new TransactionBatch
+            {
+                Transactions = blockchainManager.GetPendingTransactions()
+                    .Select(x => new Shared.Dto.TransactionDto(x))
+                    .ToList()
+            };
+
+            _ = peer.SendAsync(chain);
+        }
+
         var view = blockchainManager.GetView(LastHash);
 
         if (view is null) {

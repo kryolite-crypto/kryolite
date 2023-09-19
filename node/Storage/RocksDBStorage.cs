@@ -18,12 +18,21 @@ internal class RocksDBStorage : IStorage
         var dataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var storePath = Path.Combine(dataDir, "store");
 
-        // Used only in testing
-        /*if (Directory.Exists(storePath))
+        Database = Open(storePath);
+    }
+
+    public RocksDBStorage(string storePath, bool forceDelete)
+    {
+        if (forceDelete && Directory.Exists(storePath))
         {
             Directory.Delete(storePath, true);
-        }*/
+        }
 
+        Database = Open(storePath);
+    }
+
+    public RocksDb Open(string storePath)
+    {
         var options = new DbOptions()
             .SetCreateIfMissing(true)
             .SetWalDir(storePath)
@@ -98,6 +107,14 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
 
         CurrentKey = InitializeKey();
+
+        return Database;
+    }
+
+    public void Close()
+    {
+        ColumnFamilies.Clear();
+        Database.Dispose();
     }
 
     public ITransaction BeginTransaction()

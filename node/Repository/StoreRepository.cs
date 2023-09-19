@@ -2,6 +2,7 @@ using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using MessagePack;
+using Microsoft.Extensions.Configuration;
 using System.Buffers;
 
 namespace Kryolite.Node.Repository;
@@ -9,9 +10,17 @@ namespace Kryolite.Node.Repository;
 public class StoreRepository : IStoreRepository, IDisposable
 {
     private IStorage Storage { get; set; }
+    private IConfiguration? Configuration { get; }
 
-    public StoreRepository(IStorage storage)
+    public StoreRepository(IStorage storage, IConfiguration configuration)
     {
+        Storage = storage ?? throw new ArgumentNullException(nameof(storage));
+        Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
+    }
+
+    public StoreRepository(string storePath)
+    {
+        var storage = new RocksDBStorage(storePath, true);
         Storage = storage ?? throw new ArgumentNullException(nameof(storage));
     }
 
@@ -605,7 +614,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
-    private ITransaction? CurrentTransaction;
+    private ITransaction? _currentTransaction;
+
+    private ITransaction? CurrentTransaction
+    {
+        get => _currentTransaction is null || _currentTransaction.IsDisposed ?
+            null : _currentTransaction;
+        set => _currentTransaction = value;
+    }
 
     public ITransaction BeginTransaction()
     {
@@ -620,6 +636,27 @@ public class StoreRepository : IStoreRepository, IDisposable
     public void Reset()
     {
         Storage.Reset();
+    }
+
+    public void ReplaceDbFrom(string storeName)
+    {
+        var dataDir = Configuration?.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        
+        var activeStore = Path.Combine(dataDir, $"store");
+        var newStore = Path.Combine(dataDir, $"store.{storeName}");
+        var backupStore = Path.Combine(dataDir, $"store.bak");
+
+        Storage.Close();
+
+        if (Directory.Exists(backupStore))
+        {
+            Directory.Delete(backupStore, true);
+        }
+
+        Directory.Move(activeStore, backupStore);
+        Directory.Move(newStore, activeStore);
+
+        Storage.Open(activeStore);
     }
 
     public void Dispose()

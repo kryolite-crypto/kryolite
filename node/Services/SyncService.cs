@@ -1,4 +1,7 @@
-﻿using Kryolite.Shared.Dto;
+﻿using Kryolite.Shared;
+using Kryolite.Shared.Dto;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using System;
@@ -42,8 +45,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 continue;
             }
 
-            using var observer = new ChainObserver(ServiceProvider);
-            observer.OnNext(chain);
+            HandleSync(chain);
         }
     }
 
@@ -68,5 +70,77 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
     public Task AddAsync(List<Chain> items)
     {
         throw new NotImplementedException();
+    }
+
+    private void HandleSync(Chain chain)
+    {
+        try
+        {
+            using var scope = ServiceProvider.CreateScope();
+            var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+            var chainState = storeManager.GetChainState();
+
+            var maxView = chain.Transactions
+                .Where(x => x.TransactionType == TransactionType.VIEW)
+                .MaxBy(x => BitConverter.ToInt64(x.Data));
+
+            if (maxView is null || maxView.CalculateHash() == chainState.LastHash)
+            {
+                storeManager.AddTransactionBatch(chain.Transactions, true);
+            }
+
+            var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+            var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+
+            var staging = StagingManager.Create("staging", configuration, loggerFactory);
+
+            var minView = chain.Transactions
+                .Where(x => x.TransactionType == TransactionType.VIEW)
+                .MinBy(x => BitConverter.ToInt64(x.Data));
+
+            var minHeight = BitConverter.ToInt64(minView?.Data ?? new byte[8]);
+            var maxHeight = BitConverter.ToInt64(maxView?.Data ?? new byte[8]);
+
+            Logger.LogInformation("Initalizing staging context");
+
+            BlockchainService.InitializeGenesisBlock(staging, Logger);
+
+            Logger.LogInformation($"Loading local transactions up to height {minHeight}");
+
+            for (var i = 1; i < minHeight; i++)
+            {
+                var txs = storeManager.GetTransactionsAtHeight(i);
+
+                if (txs.Count > 0)
+                {
+                    // FIXME: very inefficient
+                    staging.LoadTransactions(txs.Select(x => new TransactionDto(x)).ToList());
+                }
+            }
+
+            Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Height}");
+            Logger.LogInformation("Loading remote chain to staging context");
+
+            staging.LoadTransactions(chain.Transactions);
+
+            Logger.LogInformation("Remote chain loaded in staging");
+
+            var newState = staging.GetChainState();
+
+            if (newState is null)
+            {
+                Logger.LogInformation("Failed to load chain in staging (chainstate not found)");
+                return;
+            }
+
+            chainState = storeManager.GetChainState();
+            Logger.LogInformation($"Staging has height {newState.Height} and weight {newState.Weight}. Compared to local height {chainState.Height} and weight {chainState.Weight}");
+
+            storeManager.LoadStagingChain("staging", newState, staging.StateCache, staging.Events);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogInformation(ex, "ChainSync resulted in error");
+        }
     }
 }
