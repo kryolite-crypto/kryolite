@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
@@ -10,7 +9,6 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using QuikGraph;
 using QuikGraph.Algorithms;
-using Zeroconf;
 
 namespace Kryolite.Node;
 
@@ -72,6 +70,9 @@ public class StagingManager : TransactionManager
         foreach (var vertex in graph.TopologicalSort().Reverse())
         {
             var tx = transactions[vertex];
+
+            tx.Height = null;
+            tx.ExecutionResult = ExecutionResult.PENDING;
 
             bool success = false;
 
