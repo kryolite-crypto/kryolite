@@ -1,4 +1,5 @@
-﻿using Kryolite.Shared.Dto;
+﻿using Common.Logging;
+using Kryolite.Shared.Dto;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -21,7 +22,7 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var items = new List<TransactionDto>(10000);
+        /*var items = new List<TransactionDto>(10000);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -48,32 +49,54 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
             }
 
             manager.AddTransactionBatch(items, false);
-        }
+        }*/
     }
 
     public void Add(TransactionDto item)
     {
-        TxChannel.Writer.TryWrite(item);
+        //TxChannel.Writer.TryWrite(item);
+        using var scope = Provider.CreateScope();
+        var manager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
+        manager.AddTransaction(item, true);
     }
 
     public void Add(List<TransactionDto> items)
     {
-        foreach (var item in items)
+        /*foreach (var item in items)
         {
             TxChannel.Writer.TryWrite(item);
-        }
+        }*/
+
+        using var scope = Provider.CreateScope();
+        var manager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
+        manager.AddTransactionBatch(items, true);
     }
 
     public async Task AddAsync(TransactionDto item)
     {
-        await TxChannel.Writer.WriteAsync(item);
+        //await TxChannel.Writer.WriteAsync(item);
+        using var scope = Provider.CreateScope();
+        var manager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
+        manager.AddTransaction(item, true);
+
+        await Task.CompletedTask;
     }
 
     public async Task AddAsync(List<TransactionDto> items)
     {
-        foreach (var item in items)
+        /*foreach (var item in items)
         {
             await TxChannel.Writer.WriteAsync(item);
-        }
+        }*/
+
+        using var scope = Provider.CreateScope();
+        var manager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
+        manager.AddTransactionBatch(items, true);
+
+        await Task.CompletedTask;
     }
 }

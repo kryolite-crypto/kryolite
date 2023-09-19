@@ -57,7 +57,12 @@ public class TransactionBatch : IPacket
             }
         }
 
-        _ = txQueue.AddAsync(Transactions);
+        txQueue.Add(Transactions);
+
+        // do not rebroadcast invalid transactions
+        Transactions = Transactions.Where(x => x.IsValid)
+            .ToList();
+
         args.Rebroadcast = true;
     }
 }

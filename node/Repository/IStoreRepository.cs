@@ -57,4 +57,5 @@ public interface IStoreRepository
     List<Validator> GetValidators();
     void Reset();
     void ReplaceDbFrom(string storeName);
+    void Close();
 }

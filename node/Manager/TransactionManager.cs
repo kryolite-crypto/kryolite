@@ -41,6 +41,8 @@ public abstract class TransactionManager
 
     public bool AddGenesis(Genesis genesis, View view)
     {
+        using var dbtx = Repository.BeginTransaction();
+
         try
         {
             genesis.TransactionId = genesis.CalculateHash();
@@ -130,6 +132,8 @@ public abstract class TransactionManager
 
         Verifier.Verify(transactions.Values);
 
+        bool success = true;
+
         try
         {
             foreach (var vertex in graph.TopologicalSort().Reverse())
@@ -146,12 +150,11 @@ public abstract class TransactionManager
                 if(!Verifier.VerifyTypeOnly(tx, transactions))
                 {
                     LogError($"{CHAIN_NAME}{tx.TransactionId}");
-                    return false;
+                    success = false;
+                    break;
                 }
 
                 Logger.LogDebug($"{CHAIN_NAME}{tx.TransactionId}");
-
-                bool success = false;
 
                 switch (tx.TransactionType)
                 {
@@ -179,17 +182,26 @@ public abstract class TransactionManager
                 if (!success)
                 {
                     LogInformation($"{CHAIN_NAME}Failed to add transaction");
-                    return false;
+                    success = false;
+                    break;
                 }
             }
         }
         catch (Exception ex)
         {
             LogError(ex, $"{CHAIN_NAME}AddTransactionBatch error");
-            return false;
+            success = false;
         }
 
-        return true;
+        foreach (var txDto in transactionList)
+        {
+            if (transactions.TryGetValue(txDto.CalculateHash(), out var tx))
+            {
+                txDto.IsValid = tx.ExecutionResult == ExecutionResult.PENDING;
+            }
+        }
+
+        return success;
     }
 
     protected bool AddViewInternal(View view, bool broadcast, bool castVote)

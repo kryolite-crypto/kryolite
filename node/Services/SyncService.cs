@@ -101,7 +101,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             Logger.LogInformation("Initalizing staging context");
 
-            var staging = StagingManager.Create("staging", configuration, loggerFactory);
+            using var staging = StagingManager.Create("staging", configuration, loggerFactory);
 
             var minView = chain.Transactions
                 .Where(x => x.TransactionType == TransactionType.VIEW)

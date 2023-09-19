@@ -47,6 +47,7 @@ public class RequestChainSync : IPacket
             };
 
             _ = peer.SendAsync(chain);
+            return;
         }
 
         var view = blockchainManager.GetView(LastHash);

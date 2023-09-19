@@ -12,7 +12,7 @@ using QuikGraph.Algorithms;
 
 namespace Kryolite.Node;
 
-public class StagingManager : TransactionManager
+public class StagingManager : TransactionManager, IDisposable
 {
     public IStoreRepository Repository { get; }
     public ILogger<StagingManager> Logger { get; }
@@ -34,6 +34,12 @@ public class StagingManager : TransactionManager
     {
         var dataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var storePath = Path.Combine(dataDir, $"store.{storeName}");
+
+        if (Directory.Exists(storePath))
+        {
+            Directory.Delete(storePath, true);
+        }
+
         var repository = new StoreRepository(storePath);
         var keyRepository = new KeyRepository(configuration);
 
@@ -71,7 +77,6 @@ public class StagingManager : TransactionManager
         {
             var tx = transactions[vertex];
 
-            tx.Height = null;
             tx.ExecutionResult = ExecutionResult.PENDING;
 
             bool success = false;
@@ -132,5 +137,10 @@ public class StagingManager : TransactionManager
     public void EnableLogging()
     {
         loggingDisabled = false;
+    }
+
+    public void Dispose()
+    {
+        Repository.Close();
     }
 }

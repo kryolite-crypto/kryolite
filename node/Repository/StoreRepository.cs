@@ -4,6 +4,7 @@ using Kryolite.Shared.Blockchain;
 using MessagePack;
 using Microsoft.Extensions.Configuration;
 using System.Buffers;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Kryolite.Node.Repository;
 
@@ -657,6 +658,11 @@ public class StoreRepository : IStoreRepository, IDisposable
         Directory.Move(newStore, activeStore);
 
         Storage.Open(activeStore);
+    }
+
+    public void Close()
+    {
+        Storage.Close();
     }
 
     public void Dispose()

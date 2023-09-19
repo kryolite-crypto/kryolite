@@ -31,6 +31,8 @@ public class TransactionDto : EventBase
     public Signature? Signature { get; init; }
     [Key(7)]
     public ImmutableList<SHA256Hash> Parents { get; init; }
+    [IgnoreMember]
+    public bool IsValid { get; set; }
 
     private SHA256Hash? CachedTransactionId { get; set; }
 
