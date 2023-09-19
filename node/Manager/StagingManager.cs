@@ -9,6 +9,7 @@ using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using QuikGraph;
+using QuikGraph.Algorithms;
 using Zeroconf;
 
 namespace Kryolite.Node;
@@ -23,7 +24,7 @@ public class StagingManager : TransactionManager
 
     public override string CHAIN_NAME => "[STAGING] ";
 
-    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, IExecutorFactory executorFactory, IEventBus eventBus, ILoggerFactory loggerFactory) : base(repository, keyRepository, verifier, stateCache, executorFactory, loggerFactory.CreateLogger("TransactionManager"))
+    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, IExecutorFactory executorFactory, ILoggerFactory loggerFactory) : base(repository, keyRepository, verifier, stateCache, executorFactory, loggerFactory.CreateLogger("TransactionManager"))
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
@@ -39,17 +40,72 @@ public class StagingManager : TransactionManager
         var keyRepository = new KeyRepository(configuration);
 
         var executor = new ExecutorFactory(loggerFactory.CreateLogger<ExecutorFactory>());
-        var eventBus = new EventBus.EventBus(); // TODO: need eventbus that records and replays events
-
         var stateCache = new StateCache();
         var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
 
-        return new StagingManager(repository, keyRepository, verifier, stateCache, executor, eventBus, loggerFactory);
+        return new StagingManager(repository, keyRepository, verifier, stateCache, executor, loggerFactory);
     }
 
     public bool LoadTransactions(List<TransactionDto> transactions)
     {
         return AddTransactionBatchInternal(transactions, false, false);
+    }
+
+    public bool LoadTransactionsWithoutValidation(List<Transaction> transactionList)
+    {
+        var transactions = transactionList.ToDictionary(x => x.TransactionId, x => x);
+        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
+
+        graph.AddVertexRange(transactionList.Select(x => x.TransactionId));
+
+        foreach (var tx in transactionList)
+        {
+            foreach (var parent in tx.Parents)
+            {
+                if (graph.ContainsVertex(parent))
+                {
+                    graph.AddEdge(new Edge<SHA256Hash>(tx.TransactionId, parent));
+                }
+            }
+        }
+
+        foreach (var vertex in graph.TopologicalSort().Reverse())
+        {
+            var tx = transactions[vertex];
+
+            bool success = false;
+
+            switch (tx.TransactionType)
+            {
+                case TransactionType.BLOCK:
+                    success = AddBlockInternal((Block)tx, false);
+                    break;
+                case TransactionType.PAYMENT:
+                case TransactionType.CONTRACT:
+                    success = AddTransactionInternal(tx, false);
+                    break;
+                case TransactionType.VIEW:
+                    success = AddViewInternal((View)tx, false, false);
+                    break;
+                case TransactionType.VOTE:
+                    success = AddVoteInternal((Vote)tx, false);
+                    break;
+                case TransactionType.REG_VALIDATOR:
+                    success = AddValidatorRegInternal(tx, false);
+                    break;
+                default:
+                    Logger.LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
+                    break;
+            }
+
+            if (!success)
+            {
+                Logger.LogInformation($"{CHAIN_NAME}Failed to add transaction");
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public ChainState? GetChainState()

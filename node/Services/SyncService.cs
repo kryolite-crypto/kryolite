@@ -78,6 +78,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         {
             using var scope = ServiceProvider.CreateScope();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
             var chainState = storeManager.GetChainState();
 
             var maxView = chain.Transactions
@@ -87,10 +88,24 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             if (maxView is null || maxView.CalculateHash() == chainState.LastHash)
             {
                 storeManager.AddTransactionBatch(chain.Transactions, true);
+                return;
+            }
+
+            var hasNewView = chain.Transactions
+                .Where(x => x.TransactionType == TransactionType.VIEW)
+                .Where(x => !storeManager.Exists(x.CalculateHash()))
+                .Any();
+
+            if (!hasNewView)
+            {
+                storeManager.AddTransactionBatch(chain.Transactions, true);
+                return;
             }
 
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+
+            Logger.LogInformation("Initalizing staging context");
 
             var staging = StagingManager.Create("staging", configuration, loggerFactory);
 
@@ -100,8 +115,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             var minHeight = BitConverter.ToInt64(minView?.Data ?? new byte[8]);
             var maxHeight = BitConverter.ToInt64(maxView?.Data ?? new byte[8]);
-
-            Logger.LogInformation("Initalizing staging context");
 
             BlockchainService.InitializeGenesisBlock(staging, Logger);
 
@@ -113,13 +126,12 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                 if (txs.Count > 0)
                 {
-                    // FIXME: very inefficient
-                    staging.LoadTransactions(txs.Select(x => new TransactionDto(x)).ToList());
+                    staging.LoadTransactionsWithoutValidation(txs);
                 }
             }
 
             Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Height}");
-            Logger.LogInformation("Loading remote chain to staging context");
+            Logger.LogInformation("Loading remote chain to staging context (this might take a while)");
 
             staging.LoadTransactions(chain.Transactions);
 

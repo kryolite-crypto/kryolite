@@ -458,16 +458,23 @@ public class StoreManager : TransactionManager, IStoreManager
         return Repository.GetValidators();
     }
 
+    public IDisposable TakeLock()
+    {
+        return rwlock.EnterWriteLockEx();
+    }
+
     public void LoadStagingChain(string storeName, ChainState newChain, IStateCache stateCache, List<EventBase> events)
     {
-        using var _ = rwlock.EnterWriteLockEx();
+        using var _ = rwlock.EnterReadLockEx();
         var chainState = Repository.GetChainState();
 
-        if (newChain.Weight > chainState?.Weight)
+        if (newChain.Weight <= chainState?.Weight)
         {
-            Logger.LogInformation("Replacing current chain with staging");
+            Logger.LogInformation("Discarding staging due to lower weight");
+            return;
         }
 
+        Logger.LogInformation("Replacing current chain with staging");
         Repository.ReplaceDbFrom(storeName);
 
         Logger.LogInformation("Restoring State");
@@ -482,6 +489,8 @@ public class StoreManager : TransactionManager, IStoreManager
         {
             EventBus.Publish(ev);
         }
+
+        Logger.LogInformation("Chain restored from staging");
     }
 
     public override void Broadcast(Transaction tx)

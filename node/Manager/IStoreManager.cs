@@ -53,4 +53,5 @@ public interface IStoreManager
     Validator? GetStake(Address address);
     List<Validator> GetValidators();
     void LoadStagingChain(string storeName, ChainState newChain, IStateCache stateCache, List<EventBase> events);
+    IDisposable TakeLock();
 }
