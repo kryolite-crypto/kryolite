@@ -78,17 +78,17 @@ public class StagingManager : TransactionManager
             switch (tx.TransactionType)
             {
                 case TransactionType.BLOCK:
-                    success = AddBlockInternal((Block)tx, false);
+                    success = AddBlockInternal(new Block(tx), false);
                     break;
                 case TransactionType.PAYMENT:
                 case TransactionType.CONTRACT:
                     success = AddTransactionInternal(tx, false);
                     break;
                 case TransactionType.VIEW:
-                    success = AddViewInternal((View)tx, false, false);
+                    success = AddViewInternal(new View(tx), false, false);
                     break;
                 case TransactionType.VOTE:
-                    success = AddVoteInternal((Vote)tx, false);
+                    success = AddVoteInternal(new Vote(tx), false);
                     break;
                 case TransactionType.REG_VALIDATOR:
                     success = AddValidatorRegInternal(tx, false);
@@ -121,5 +121,15 @@ public class StagingManager : TransactionManager
     public override void Publish(EventBase ev)
     {
         Events.Add(ev);
+    }
+
+    public void DisableLogging()
+    {
+        loggingDisabled = true;
+    }
+
+    public void EnableLogging()
+    {
+        loggingDisabled = false;
     }
 }

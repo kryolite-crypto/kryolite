@@ -52,6 +52,26 @@ public class Block : Transaction
         TransactionId = CalculateHash();
     }
 
+    public Block(Transaction tx)
+    {
+        Id = tx.Id;
+        TransactionId = tx.TransactionId;
+        Height = tx.Height;
+        TransactionType = tx.TransactionType;
+        To = tx.To;
+        Value = tx.Value;
+        Data = tx.Data;
+        Timestamp = tx.Timestamp;
+        ExecutionResult = tx.ExecutionResult;
+        Parents = tx.Parents;
+        Effects = tx.Effects;
+
+        var blockPayload = MessagePackSerializer.Deserialize<BlockPayload>(tx.Data);
+        Difficulty = blockPayload.Difficulty;
+        ParentHash = blockPayload.ParentHash;
+        Nonce = blockPayload.Nonce;
+    }
+
     public override void Sign(PrivateKey privateKey)
     {
         throw new NotSupportedException();

@@ -1,15 +1,9 @@
 ﻿using Kryolite.Shared;
-using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading.Channels;
-using System.Threading.Tasks;
 
 namespace Kryolite.Node.Services;
 
@@ -126,7 +120,15 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                 if (txs.Count > 0)
                 {
-                    staging.LoadTransactionsWithoutValidation(txs);
+                    staging.DisableLogging();
+                    var success = staging.LoadTransactionsWithoutValidation(txs);
+                    staging.EnableLogging();
+
+                    if (!success)
+                    {
+                        Logger.LogError($"Failed to setup staging from current db");
+                        return;
+                    }
                 }
             }
 
@@ -149,6 +151,8 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             Logger.LogInformation($"Staging has height {newState.Height} and weight {newState.Weight}. Compared to local height {chainState.Height} and weight {chainState.Weight}");
 
             storeManager.LoadStagingChain("staging", newState, staging.StateCache, staging.Events);
+
+            _ = chain.Peer.SendAsync(new QueryNodeInfo());
         }
         catch (Exception ex)
         {

@@ -74,7 +74,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, $"{CHAIN_NAME}AddGenesis error");
+            LogError(ex, $"{CHAIN_NAME}AddGenesis error");
         }
 
         return false;
@@ -105,7 +105,7 @@ public abstract class TransactionManager
                     transactions.TryAdd(hash, new Vote(tx, tx.Parents));
                     break;
                 default:
-                    Logger.LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
+                    LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
                     return;
             }
         });
@@ -145,7 +145,7 @@ public abstract class TransactionManager
                 // Verify second part, requiring concurrent execution
                 if(!Verifier.VerifyTypeOnly(tx, transactions))
                 {
-                    Logger.LogError($"{CHAIN_NAME}{tx.TransactionId}");
+                    LogError($"{CHAIN_NAME}{tx.TransactionId}");
                     return false;
                 }
 
@@ -172,20 +172,20 @@ public abstract class TransactionManager
                         success = AddValidatorRegInternal(tx, broadcast);
                         break;
                     default:
-                        Logger.LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
+                        LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
                         break;
                 }
 
                 if (!success)
                 {
-                    Logger.LogInformation($"{CHAIN_NAME}Failed to add transaction");
+                    LogInformation($"{CHAIN_NAME}Failed to add transaction");
                     return false;
                 }
             }
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, $"{CHAIN_NAME}AddTransactionBatch error");
+            LogError(ex, $"{CHAIN_NAME}AddTransactionBatch error");
             return false;
         }
 
@@ -405,13 +405,13 @@ cleanup:
             dbtx.Commit();
 
             sw.Stop();
-            Logger.LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
+            LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
 
             return true;
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, $"{CHAIN_NAME}AddView error");
+            LogError(ex, $"{CHAIN_NAME}AddView error");
 
             StateCache.ClearTransactions();
             StateCache.ClearLedgers();
@@ -452,7 +452,7 @@ cleanup:
 
         sw.Stop();
 
-        Logger.LogInformation($"{CHAIN_NAME}Added block #{chainState.Blocks} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
+        LogInformation($"{CHAIN_NAME}Added block #{chainState.Blocks} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
 
         if (broadcast)
         {
@@ -479,7 +479,7 @@ cleanup:
             if (from.Balance < tx.Value)
             {
                 tx.ExecutionResult = ExecutionResult.TOO_LOW_BALANCE;
-                Logger.LogInformation($"{CHAIN_NAME}AddTransaction rejected (reason = too low balance)");
+                LogInformation($"{CHAIN_NAME}AddTransaction rejected (reason = too low balance)");
                 return false;
             }
 
@@ -509,7 +509,7 @@ cleanup:
         }
         catch (Exception ex) 
         {
-            Logger.LogError(ex, $"{CHAIN_NAME}AddTransaction error");
+            LogError(ex, $"{CHAIN_NAME}AddTransaction error");
         }
 
         return false;
@@ -540,7 +540,7 @@ cleanup:
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, $"{CHAIN_NAME}AddVote error.");
+            LogError(ex, $"{CHAIN_NAME}AddVote error.");
         }
 
         return false;
@@ -566,7 +566,7 @@ cleanup:
 
             if (balance < tx.Value)
             {
-                Logger.LogInformation($"{CHAIN_NAME}AddValidatorReg rejected (reason = too low balance)");
+                LogInformation($"{CHAIN_NAME}AddValidatorReg rejected (reason = too low balance)");
                 return false;
             }
 
@@ -586,7 +586,7 @@ cleanup:
         }
         catch (Exception ex) 
         {
-            Logger.LogError(ex, $"{CHAIN_NAME}AddValidatorReg error");
+            LogError(ex, $"{CHAIN_NAME}AddValidatorReg error");
         }
 
         return false;
@@ -745,5 +745,37 @@ cleanup:
         }
 
         return hashes;
+    }
+
+    protected bool loggingDisabled;
+
+    private void LogInformation(string msg)
+    {
+        if (loggingDisabled)
+        {
+            return;
+        }
+
+        Logger.LogInformation(msg);
+    }
+
+    private void LogInformation(Exception ex, string msg)
+    {
+        if (loggingDisabled)
+        {
+            return;
+        }
+
+        Logger.LogInformation(ex, msg);
+    }
+
+    private void LogError(string msg)
+    {
+        Logger.LogError(msg);
+    }
+
+    private void LogError(Exception ex, string msg)
+    {
+        Logger.LogError(ex, msg);
     }
 }
