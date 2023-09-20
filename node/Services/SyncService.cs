@@ -68,6 +68,8 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
     private void HandleSync(Chain chain)
     {
+        chain.Peer.IsSyncInProgress = true;
+
         try
         {
             using var scope = ServiceProvider.CreateScope();
@@ -105,6 +107,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             var minView = chain.Transactions
                 .Where(x => x.TransactionType == TransactionType.VIEW)
+                .Where(x => !storeManager.Exists(x.CalculateHash()))
                 .MinBy(x => BitConverter.ToInt64(x.Data));
 
             var minHeight = BitConverter.ToInt64(minView?.Data ?? new byte[8]);
@@ -156,6 +159,10 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         catch (Exception ex)
         {
             Logger.LogInformation(ex, "ChainSync resulted in error");
+        }
+        finally
+        {
+            chain.Peer.IsSyncInProgress = false;
         }
     }
 }

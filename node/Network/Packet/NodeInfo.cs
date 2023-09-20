@@ -30,6 +30,12 @@ public class NodeInfo : IPacket
         logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
         var chainState = blockchainManager.GetChainState();
 
+        if (peer.IsSyncInProgress)
+        {
+            // Do not request chain sync if previous sync is ongoing
+            return;
+        }
+
         if (Weight > chainState.Weight)
         {
             logger.LogInformation($"{peer.Uri.ToHostname()} has greater weight ({Weight}) compared to local ({chainState.Weight}). Initiating chain download...");

@@ -22,6 +22,7 @@ public class IncomingTransactionService : BackgroundService, IBufferService<Tran
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        await Task.CompletedTask;
         /*var items = new List<TransactionDto>(10000);
 
         while (!stoppingToken.IsCancellationRequested)

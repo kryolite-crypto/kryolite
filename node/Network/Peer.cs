@@ -21,7 +21,7 @@ public class Peer : IDisposable
     public int ApiLevel { get; private init; }
     public DateTime? LastNodeInfo { get; set; }
     public DateTime? LastChainSync { get; set; }
-
+    public bool IsSyncInProgress { get; set; }
 
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
