@@ -479,11 +479,52 @@ public class StoreManager : TransactionManager, IStoreManager
 
         Logger.LogInformation("Restoring State");
 
-        StateCache.ClearLedgers();
-        StateCache.ClearTransactions();
+        var pending = StateCache.GetTransactions();
 
-        StateCache.SetView(Repository.GetLastView()!);
-        StateCache.SetChainState(Repository.GetChainState()!);
+        StateCache.ClearLedgers();
+
+        // Add pending transactions from new state
+        foreach (var tx in stateCache.GetTransactions())
+        {
+            StateCache.Add(tx.Value);
+        }
+
+        // Add pending ledgers from new state
+        foreach (var ledger in stateCache.GetLedgers())
+        {
+            StateCache.Add(ledger.Value);
+        }
+
+        StateCache.SetView(stateCache.GetCurrentView());
+        StateCache.SetChainState(stateCache.GetCurrentState());
+
+        var toAdd = new List<TransactionDto>();
+
+        // Replay pending transactions from old state
+        foreach (var tx in pending)
+        {
+            if (StateCache.Contains(tx.Value.TransactionId) || Repository.Exists(tx.Value.TransactionId))
+            {
+                continue;
+            }
+
+            var missingParents = false;
+
+            foreach (var parent in tx.Value.Parents)
+            {
+                if (!StateCache.Contains(parent) && !Repository.Exists(tx.Value.TransactionId))
+                {
+                    missingParents = true;
+                }
+            }
+
+            if (!missingParents)
+            {
+                toAdd.Add(new TransactionDto(tx.Value));
+            }
+        }
+
+        AddTransactionBatchInternal(toAdd, true, false);
 
         foreach (var ev in events)
         {

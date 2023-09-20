@@ -108,7 +108,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 .MinBy(x => BitConverter.ToInt64(x.Data));
 
             var minHeight = BitConverter.ToInt64(minView?.Data ?? new byte[8]);
-            var maxHeight = BitConverter.ToInt64(maxView?.Data ?? new byte[8]);
 
             BlockchainService.InitializeGenesisBlock(staging, Logger);
 

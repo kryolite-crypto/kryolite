@@ -24,8 +24,6 @@ public class TransactionBatch : IPacket
         using var scope = serviceProvider.CreateScope();
 
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var txQueue = scope.ServiceProvider.GetRequiredService<IBufferService<TransactionDto, IncomingTransactionService>>();
-
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBatch>>();
 
         logger.LogInformation($"Received {Transactions.Count} transactions from {peer.Uri.ToHostname()}");
@@ -46,7 +44,7 @@ public class TransactionBatch : IPacket
             {
                 if (!keys.Contains(parent) && !storeManager.Exists(parent))
                 {
-                    logger.LogDebug($"Received transaction with unknown parent reference ({parent}), requesting node info");
+                    logger.LogInformation($"Received transaction with unknown parent reference ({parent}), requesting node info");
 
                     var request = new QueryNodeInfo();
 
@@ -57,12 +55,15 @@ public class TransactionBatch : IPacket
             }
         }
 
-        txQueue.Add(Transactions);
+        storeManager.AddTransactionBatch(Transactions, false);
 
         // do not rebroadcast invalid transactions
         Transactions = Transactions.Where(x => x.IsValid)
             .ToList();
 
-        args.Rebroadcast = true;
+        if (Transactions.Count > 0)
+        {
+            args.Rebroadcast = true;
+        }
     }
 }

@@ -38,7 +38,7 @@ public interface IStoreManager
     ChainState? GetChainStateAt(long height);
     long GetBalance(Address address);
 
-    bool AddTransactionBatch(List<TransactionDto> transactions, bool breadcast);
+    bool AddTransactionBatch(List<TransactionDto> transactions, bool broadcast);
     void ResetChain();
 
     Contract? GetContract(Address address);
