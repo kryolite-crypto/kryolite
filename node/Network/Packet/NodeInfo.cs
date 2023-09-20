@@ -18,7 +18,7 @@ public class NodeInfo : IPacket
     [Key(2)]
     public BigInteger Weight { get; init; }
     [Key(3)]
-    public SHA256Hash? LastHash { get; init; }
+    public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
@@ -28,7 +28,6 @@ public class NodeInfo : IPacket
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfo>>();
 
         logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
-        var chainState = blockchainManager.GetChainState();
 
         if (peer.IsSyncInProgress)
         {
@@ -36,15 +35,15 @@ public class NodeInfo : IPacket
             return;
         }
 
-        if (Weight > chainState.Weight)
-        {
-            logger.LogInformation($"{peer.Uri.ToHostname()} has greater weight ({Weight}) compared to local ({chainState.Weight}). Initiating chain download...");
+        var chainState = blockchainManager.GetChainState();
 
-            var lastView = blockchainManager.GetLastView();
+        if (LastHash != chainState.LastHash && Weight > chainState.Weight)
+        {
+            logger.LogInformation($"{peer.Uri.ToHostname()}: View ({LastHash}) at height {Height} does not match with local view ({chainState.LastHash}) and remote weight ({Weight}) is higher compared to local ({chainState.Weight}). Performing sync...");
 
             var msg = new RequestChainSync
             {
-                LastHash = lastView?.TransactionId ?? SHA256Hash.NULL_HASH
+                LastHash = chainState?.LastHash ?? SHA256Hash.NULL_HASH
             };
 
             _ = peer.SendAsync(msg);

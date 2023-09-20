@@ -191,8 +191,6 @@ public class Startup
 
                 var ports = context.Request.Headers["kryo-connect-to-ports"].ToString();
 
-                Console.WriteLine("Possible ports: " + ports);
-
                 foreach (var portStr in ports.Split(','))
                 {
                     if (int.TryParse(portStr, out var port))

@@ -3,6 +3,7 @@ using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MessagePack;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -38,27 +39,55 @@ public class TransactionBatch : IPacket
             return;
         }
 
+        var toAdd = new List<TransactionDto>();
+
         foreach (var tx in Transactions)
         {
+            bool missingParents = false;
+
             foreach (var parent in tx.Parents)
             {
                 if (!keys.Contains(parent) && !storeManager.Exists(parent))
                 {
-                    logger.LogInformation($"Received transaction with unknown parent reference ({parent}), requesting node info");
-
-                    var request = new QueryNodeInfo();
-
-                    _ = peer.SendAsync(request);
-                    return;
-
+                    missingParents = true;
+                    break;
                 }
+            }
+
+            if (missingParents)
+            {
+                peer.QueuedTransactions.TryAdd(tx.CalculateHash(), (DateTimeOffset.Now.AddMinutes(2), tx));
+                continue;
+            }
+
+            toAdd.Add(tx);
+        }
+
+        foreach (var entry in peer.QueuedTransactions)
+        {
+            var (_, tx) = entry.Value;
+
+            bool missingParents = false;
+
+            foreach (var parent in tx.Parents)
+            {
+                if (!keys.Contains(parent) && !storeManager.Exists(parent))
+                {
+                    missingParents = true;
+                    break;
+                }
+            }
+
+            if (!missingParents)
+            {
+                toAdd.Add(tx);
             }
         }
 
-        storeManager.AddTransactionBatch(Transactions, false);
+        storeManager.AddTransactionBatch(toAdd, false);
 
         // do not rebroadcast invalid transactions
-        Transactions = Transactions.Where(x => x.IsValid)
+        Transactions = toAdd.Where(x => x.IsValid)
             .ToList();
 
         if (Transactions.Count > 0)

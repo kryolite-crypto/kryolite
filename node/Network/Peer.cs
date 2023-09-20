@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
 using System.Net.WebSockets;
+using Kryolite.Shared;
+using Kryolite.Shared.Dto;
 using MessagePack;
 
 namespace Kryolite.Node;
@@ -22,9 +25,11 @@ public class Peer : IDisposable
     public DateTime? LastNodeInfo { get; set; }
     public DateTime? LastChainSync { get; set; }
     public bool IsSyncInProgress { get; set; }
+    public ConcurrentDictionary<SHA256Hash, (DateTimeOffset Expires, TransactionDto Transaction)> QueuedTransactions = new();
 
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
+    private System.Timers.Timer Watchdog;
 
     public Peer(WebSocket socket, ulong id, Uri uri, ConnectionType connectionType, bool isReacable, int apiLevel)
     {
@@ -37,6 +42,23 @@ public class Peer : IDisposable
         ConnectedSince = DateTime.UtcNow;
         LastSeen = DateTime.UtcNow;
         ApiLevel = apiLevel;
+
+        Watchdog = new System.Timers.Timer(TimeSpan.FromMinutes(1));
+        Watchdog.Elapsed += async ( sender, e ) => await HandleWatchdog();
+    }
+
+    private async Task HandleWatchdog()
+    {
+        await SendAsync(new QueryNodeInfo());
+
+        var toRemove = QueuedTransactions
+            .Where(entry => entry.Value.Expires < DateTimeOffset.Now)
+            .Select(x => x.Key);
+
+        foreach (var key in toRemove)
+        {
+            QueuedTransactions.TryRemove(key, out _);
+        }
     }
 
     public async Task SendAsync(IPacket packet, CancellationToken? token = null)
@@ -87,7 +109,7 @@ public class Peer : IDisposable
 
             if (Socket.State == WebSocketState.Open || Socket.State == WebSocketState.CloseReceived || Socket.State == WebSocketState.CloseSent)
             {
-                await Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "ByeBye!", token ?? CancellationToken.None);
+                await Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, "Disconnected", token ?? CancellationToken.None);
             }
         }
         catch (ObjectDisposedException)

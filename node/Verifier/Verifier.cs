@@ -79,6 +79,7 @@ public class Verifier : IVerifier
 
         if (StateCache.Contains(tx.TransactionId) || Store.Exists(tx.TransactionId))
         {
+            tx.ExecutionResult = ExecutionResult.SUCCESS;
             Logger.LogDebug($"{tx.TransactionId} already exists");
             return true;
         }
@@ -218,7 +219,7 @@ public class Verifier : IVerifier
             }
             else
             {
-                Logger.LogDebug($"View verification failed (reason = invalid height). Got {view.Height}, required: {chainState.Height + 1}");
+                Logger.LogInformation($"View verification failed (reason = invalid height). Got {view.Height}, required: {chainState.Height + 1}");
             }
             return false;
         }

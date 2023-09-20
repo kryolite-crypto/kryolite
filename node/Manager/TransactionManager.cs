@@ -114,7 +114,7 @@ public abstract class TransactionManager
 
         var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
 
-        graph.AddVertexRange(transactionList.Select(x => x.CalculateHash()));
+        graph.AddVertexRange(transactions.Values.Select(x => x.CalculateHash()));
 
         foreach (var tx in transactions)
         {
@@ -142,14 +142,14 @@ public abstract class TransactionManager
 
                 if (tx.ExecutionResult == ExecutionResult.SUCCESS)
                 {
-                    Logger.LogDebug($"{CHAIN_NAME}{tx.TransactionId}");
+                    Logger.LogDebug($"{CHAIN_NAME}{tx.TransactionId} already exists");
                     continue;
                 }
 
                 // Verify second part, requiring concurrent execution
                 if(!Verifier.VerifyTypeOnly(tx, transactions))
                 {
-                    LogError($"{CHAIN_NAME}{tx.TransactionId}");
+                    LogError($"{CHAIN_NAME}{tx.TransactionId} = {tx.ExecutionResult}");
                     success = false;
                     break;
                 }
@@ -531,16 +531,6 @@ cleanup:
     {
         try
         {
-            vote.TransactionId = vote.CalculateHash();
-
-            var exists = Repository.Exists(vote.TransactionId);
-
-            if (exists)
-            {
-                // we already have this
-                return true;
-            }
-
             StateCache.Add(vote);
 
             if (broadcast)

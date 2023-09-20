@@ -58,6 +58,11 @@ public class StoreManager : TransactionManager, IStoreManager
             return false;
         }
 
+        if (view.ExecutionResult == ExecutionResult.SUCCESS)
+        {
+            return true;
+        }
+
         if (AddViewInternal(view, broadcast, castVote))
         {
             NotificationService.SendEventAsync(view.TransactionId.ToString());
@@ -78,6 +83,11 @@ public class StoreManager : TransactionManager, IStoreManager
             if (!Verifier.Verify(block))
             {
                 return false;
+            }
+
+            if (block.ExecutionResult == ExecutionResult.SUCCESS)
+            {
+                return true;
             }
 
             if (AddBlockInternal(block, broadcast))
@@ -105,6 +115,11 @@ public class StoreManager : TransactionManager, IStoreManager
             return ExecutionResult.VERIFY_FAILED;
         }
 
+        if (tx.ExecutionResult == ExecutionResult.SUCCESS)
+        {
+            return ExecutionResult.PENDING;
+        }
+
         if(AddTransactionInternal(tx, broadcast))
         {
             NotificationService.SendEventAsync(tx.TransactionId.ToString());
@@ -124,6 +139,11 @@ public class StoreManager : TransactionManager, IStoreManager
             return ExecutionResult.VERIFY_FAILED;
         }
 
+        if (tx.ExecutionResult == ExecutionResult.SUCCESS)
+        {
+            return ExecutionResult.PENDING;
+        }
+
         if(AddValidatorRegInternal(tx, broadcast))
         {
             NotificationService.SendEventAsync(tx.TransactionId.ToString());
@@ -139,6 +159,11 @@ public class StoreManager : TransactionManager, IStoreManager
         if (!Verifier.Verify(vote))
         {
             return false;
+        }
+
+        if (vote.ExecutionResult == ExecutionResult.SUCCESS)
+        {
+            return true;
         }
 
         if (AddVoteInternal(vote, broadcast))
