@@ -45,6 +45,7 @@ public class Peer : IDisposable
 
         Watchdog = new System.Timers.Timer(TimeSpan.FromMinutes(1));
         Watchdog.Elapsed += async ( sender, e ) => await HandleWatchdog();
+        Watchdog.Start();
     }
 
     private async Task HandleWatchdog()

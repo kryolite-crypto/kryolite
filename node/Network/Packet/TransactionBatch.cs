@@ -80,8 +80,14 @@ public class TransactionBatch : IPacket
 
             if (!missingParents)
             {
+                keys.Add(tx.CalculateHash());
                 toAdd.Add(tx);
             }
+        }
+
+        if (toAdd.Count == 0)
+        {
+            return;
         }
 
         storeManager.AddTransactionBatch(toAdd, false);
