@@ -10,11 +10,11 @@ namespace Kryolite.Node;
 public class NodeDiscovery : IPacket
 {
     [Key(0)]
-    public Uri Uri { get; set; }
+    public string Url { get; set; }                 
 
     public NodeDiscovery(Uri uri)
     {
-        Uri = uri;
+        Url = uri.ToString();
     }
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
@@ -27,18 +27,20 @@ public class NodeDiscovery : IPacket
 
         logger.LogInformation($"Received NodeDiscovery from {peer.Uri.ToHostname()}");
 
-        var nodeHost = new NodeHost(Uri)
+        var uri = new Uri(Url);
+
+        var nodeHost = new NodeHost(uri)
         {
             ClientId = peer.ClientId,
             LastSeen = DateTime.UtcNow,
-            IsReachable = Connection.TestConnection(Uri)
+            IsReachable = Connection.TestConnection(uri)
         };
 
         networkManager.AddHost(nodeHost);
 
         if (meshNetwork.GetPeers().Count < Constant.MAX_PEERS)
         {
-            _ = meshNetwork.ConnectToAsync(Uri);
+            _ = meshNetwork.ConnectToAsync(uri);
         }
 
         if (nodeHost.IsReachable)
