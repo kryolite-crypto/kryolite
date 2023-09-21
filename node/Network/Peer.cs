@@ -74,7 +74,7 @@ public class Peer : IDisposable
 
         try
         {
-            var bytes = MessagePackSerializer.Serialize(msg, MeshNetwork.lz4Options);
+            var bytes = MessagePackSerializer.Serialize((IMessage)msg, MeshNetwork.lz4Options);
             
             token ??= CancellationToken.None;
 
@@ -101,7 +101,7 @@ public class Peer : IDisposable
         try
         {
             var msg = new Reply(replyTo, packet);
-            var bytes = MessagePackSerializer.Serialize(msg, MeshNetwork.lz4Options);
+            var bytes = MessagePackSerializer.Serialize((IMessage)msg, MeshNetwork.lz4Options);
 
             await SendAsync(bytes,token ?? CancellationToken.None);
         }
@@ -116,7 +116,7 @@ public class Peer : IDisposable
         try
         {
             var msg = new Message(packet);
-            var bytes = MessagePackSerializer.Serialize(msg, MeshNetwork.lz4Options);
+            var bytes = MessagePackSerializer.Serialize((IMessage)msg, MeshNetwork.lz4Options);
 
             await SendAsync(bytes,token ?? CancellationToken.None);
         }

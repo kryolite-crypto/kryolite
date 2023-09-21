@@ -32,7 +32,7 @@ public class Message : IMessage
 }
 
 [MessagePackObject]
-public class Reply
+public class Reply : IMessage
 {
     [Key(0)]
     public ulong Id { get; set; }

@@ -108,7 +108,7 @@ public class MeshNetwork : IMeshNetwork
         }
     }
 
-    private async Task BroadcastAsync(Message msg)
+    private async Task BroadcastAsync(IMessage msg)
     {
         try
         {
@@ -238,8 +238,6 @@ public class MeshNetwork : IMeshNetwork
 
                     await client.ConnectAsync(targetUri.Uri, token);
 
-                    await Task.Delay(100);
-
                     if (client.State == WebSocketState.Open)
                     {
                         await cLock.WaitAsync(token);
@@ -272,6 +270,10 @@ public class MeshNetwork : IMeshNetwork
                             var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, apiLevel);
 
                             _ = AddSocketAsync(client, peer);
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogDebug(ex, "error");
                         }
                         finally
                         {
@@ -358,35 +360,42 @@ public class MeshNetwork : IMeshNetwork
                 }
 
                 _ = Task.Run(async () => {
-                    var messageArgs = new MessageReceivedEventArgs(peer, message);
-
-                    using(var _ = rwlock.EnterWriteLockEx())
+                    try
                     {
-                        if(cache.TryGetValue(messageArgs.Message.Id, out var _))
+                        var messageArgs = new MessageReceivedEventArgs(peer, message);
+
+                        using(var _ = rwlock.EnterWriteLockEx())
                         {
+                            if(cache.TryGetValue(messageArgs.Message.Id, out var _))
+                            {
+                                return;
+                            }
+
+                            cache.Set(messageArgs.Message.Id, peer.ClientId, DateTimeOffset.Now.AddMinutes(30));
+                        }
+
+                        peer.LastSeen = DateTime.UtcNow;
+
+                        if (peer.SupportsIMessage && messageArgs.Message is Reply reply)
+                        {
+                            if (peer.ReplyQueue.TryGetValue(reply.ReplyTo, out var tcs))
+                            {
+                                tcs.TrySetResult(reply);
+                            }
+
                             return;
                         }
 
-                        cache.Set(messageArgs.Message.Id, peer.ClientId, DateTimeOffset.Now.AddMinutes(30));
-                    }
+                        MessageReceived?.Invoke(peer, messageArgs);
 
-                    peer.LastSeen = DateTime.UtcNow;
-
-                    if (messageArgs.Message is Reply reply)
-                    {
-                        if (peer.ReplyQueue.TryGetValue(reply.ReplyTo, out var tcs))
+                        if (messageArgs.Rebroadcast)
                         {
-                            tcs.TrySetResult(reply);
+                            await BroadcastAsync(message.Bytes.Array!);
                         }
-
-                        return;
                     }
-
-                    MessageReceived?.Invoke(peer, messageArgs);
-
-                    if (messageArgs.Rebroadcast)
+                    catch (Exception ex)
                     {
-                        await BroadcastAsync(message.Bytes.Array!);
+                        logger.LogDebug(ex, "failed to handle incoming message");
                     }
                 });
             }
