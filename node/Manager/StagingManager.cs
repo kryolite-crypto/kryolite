@@ -47,7 +47,10 @@ public class StagingManager : TransactionManager, IDisposable
         var stateCache = new StateCache();
         var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
 
-        return new StagingManager(repository, keyRepository, verifier, stateCache, executor, loggerFactory);
+        var staging = new StagingManager(repository, keyRepository, verifier, stateCache, executor, loggerFactory);
+        BlockchainService.InitializeGenesisBlock(staging, loggerFactory.CreateLogger<StagingManager>());
+
+        return staging;
     }
 
     public bool LoadTransactions(List<TransactionDto> transactions)

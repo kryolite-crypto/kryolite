@@ -268,6 +268,10 @@ public class Startup
         PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
         PacketFormatter.Register<CallMethod>(Packet.CallMethod);
         PacketFormatter.Register<NewContract>(Packet.NewContract);
+        PacketFormatter.Register<DownloadRequest>(Packet.DownloadRequest);
+        PacketFormatter.Register<DownloadResponse>(Packet.DownloadResponse);
+        PacketFormatter.Register<HeightRequest>(Packet.HeightRequest);
+        PacketFormatter.Register<HeightResponse>(Packet.HeightResponse);
 
         var resolver = CompositeResolver.Create(
                 BigIntegerResolver.Instance,

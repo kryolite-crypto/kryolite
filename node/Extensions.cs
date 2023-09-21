@@ -14,6 +14,18 @@ namespace Kryolite;
 
 public static class Extensions
 {
+
+
+    public static async Task<T> WithTimeout<T>(this Task<T> task, TimeSpan timeout)
+    {
+        if (task == await Task.WhenAny(task, Task.Delay(timeout)))
+        {
+            return await task;
+        }
+
+        throw new TimeoutException();
+    }
+
     public static AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> AsGraph(this List<TransactionDto> transactions)
     {
         var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();

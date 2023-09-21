@@ -1,5 +1,6 @@
 using System.Net.Sockets;
 using System.Numerics;
+using Kryolite.Node.Services;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,6 +27,7 @@ public class NodeInfo : IPacket
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfo>>();
+        var syncService = scope.ServiceProvider.GetRequiredService<IBufferService<Chain, SyncService>>();
 
         logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
 
@@ -40,6 +42,13 @@ public class NodeInfo : IPacket
         if (LastHash != chainState.LastHash && Weight > chainState.Weight)
         {
             logger.LogInformation($"{peer.Uri.ToHostname()}: View ({LastHash}) at height {Height} does not match with local view ({chainState.LastHash}) and remote weight ({Weight}) is higher compared to local ({chainState.Weight}). Performing sync...");
+
+            if (peer.SupportsReplyTo)
+            {
+                // We can use synchronous download
+                syncService.Add(new Chain(peer, new(), Height));
+                return;
+            }
 
             var msg = new RequestChainSync
             {

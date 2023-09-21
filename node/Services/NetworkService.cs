@@ -327,11 +327,13 @@ public class Chain
 {
     public Peer Peer { get; set; }
     public List<TransactionDto> Transactions { get; set; }
+    public long Height { get; set; }
 
-    public Chain(Peer peer, List<TransactionDto> transactions)
+    public Chain(Peer peer, List<TransactionDto> transactions, long height)
     {
-        Peer = peer;
-        Transactions = transactions;
+        Peer = peer ?? throw new ArgumentNullException(nameof(peer));
+        Transactions = transactions ?? throw new ArgumentNullException(nameof(transactions));
+        Height = height;
     }
 }
 

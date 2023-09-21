@@ -26,7 +26,7 @@ public class ChainData : IPacket
 
         if (Transactions is not null)
         {
-            syncService.Add(new Chain(peer, Transactions));
+            syncService.Add(new Chain(peer, Transactions, 0));
         }
     }
 }

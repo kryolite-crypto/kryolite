@@ -127,8 +127,8 @@ public abstract class TransactionManager
             }
         }
 
-        StateCache.EnsureTransactionCapacity(StateCache.TransactionCount() + transactionList.Count());
-        StateCache.EnsureLedgerCapacity(StateCache.LedgerCount() + transactionList.Count());
+        StateCache.EnsureTransactionCapacity(StateCache.TransactionCount() + transactions.Count());
+        StateCache.EnsureLedgerCapacity(StateCache.LedgerCount() + transactions.Count());
 
         Verifier.Verify(transactions.Values);
 
@@ -314,20 +314,22 @@ cleanup:
                         ledger.Pending = checked(ledger.Pending - tx.Value);
                     }
 
-                    StateCache.Remove(tx.TransactionId, out _);
-                    toExecute.Add(tx);
-
-                    removed = true;
+                    if (StateCache.Remove(tx.TransactionId, out _))
+                    {
+                        toExecute.Add(tx);
+                        removed = true;
+                    }
                 }
                 else if (tx.TransactionType == TransactionType.VOTE)
                 {
                     tx.Height = height;
                     tx.ExecutionResult = ExecutionResult.STALE;
 
-                    StateCache.Remove(tx.TransactionId, out _);
-                    toExecute.Add(tx);
-
-                    removed = true;
+                    if (StateCache.Remove(tx.TransactionId, out _))
+                    {
+                        toExecute.Add(tx);
+                        removed = true;
+                    }
                 }
                 else
                 {
@@ -346,10 +348,11 @@ cleanup:
                         tx.Height = height;
                         tx.ExecutionResult = ExecutionResult.ORPHAN;
 
-                        StateCache.Remove(tx.TransactionId, out _);
-                        toExecute.Add(tx);
-
-                        removed = true;
+                        if (StateCache.Remove(tx.TransactionId, out _))
+                        {
+                            toExecute.Add(tx);
+                            removed = true;
+                        }
                     }
                 }
             }

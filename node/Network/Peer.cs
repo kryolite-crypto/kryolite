@@ -26,6 +26,10 @@ public class Peer : IDisposable
     public DateTime? LastChainSync { get; set; }
     public bool IsSyncInProgress { get; set; }
     public ConcurrentDictionary<SHA256Hash, (DateTimeOffset Expires, TransactionDto Transaction)> QueuedTransactions = new();
+    public Dictionary<ulong, TaskCompletionSource<Reply>> ReplyQueue = new();
+
+    public bool SupportsIMessage => ApiLevel >= 2;
+    public bool SupportsReplyTo => ApiLevel >= 2;
 
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
@@ -59,6 +63,51 @@ public class Peer : IDisposable
         foreach (var key in toRemove)
         {
             QueuedTransactions.TryRemove(key, out _);
+        }
+    }
+
+    public Dictionary<ulong, SemaphoreSlim> Ops = new();
+
+    public async Task<Reply?> PostAsync(IPacket packet, CancellationToken? token = null)
+    {
+        var msg = new Message(packet);
+
+        try
+        {
+            var bytes = MessagePackSerializer.Serialize(msg, MeshNetwork.lz4Options);
+            
+            token ??= CancellationToken.None;
+
+            var tcs = new TaskCompletionSource<Reply>();
+            ReplyQueue.Add(msg.Id, tcs);
+
+            await SendAsync(bytes);
+
+            return await tcs.Task.WithTimeout(TimeSpan.FromSeconds(30));
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+            return null;
+        }
+        finally
+        {
+            ReplyQueue.Remove(msg.Id);
+        }
+    }
+
+    public async Task ReplyAsync(ulong replyTo, IPacket packet, CancellationToken? token = null)
+    {
+        try
+        {
+            var msg = new Reply(replyTo, packet);
+            var bytes = MessagePackSerializer.Serialize(msg, MeshNetwork.lz4Options);
+
+            await SendAsync(bytes,token ?? CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
         }
     }
 

@@ -23,7 +23,11 @@ public enum Packet : byte
     NodeList,
     QueryNodeList,
     CallMethod,
-    NewContract
+    NewContract,
+    DownloadRequest,
+    DownloadResponse,
+    HeightRequest,
+    HeightResponse
 }
 
 public class PacketFormatter : IMessagePackFormatter<object>

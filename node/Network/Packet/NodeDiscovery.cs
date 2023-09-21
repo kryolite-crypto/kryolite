@@ -9,6 +9,7 @@ namespace Kryolite.Node;
 [MessagePackObject]
 public class NodeDiscovery : IPacket
 {
+    [Key(0)]
     public Uri Uri { get; set; }
 
     public NodeDiscovery(Uri uri)

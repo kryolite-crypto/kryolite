@@ -250,7 +250,7 @@ public class MeshNetwork : IMeshNetwork
 
                             if (clientId == serverId)
                             {
-                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, self connection");
+                                logger.LogDebug($"Cancel connection to {targetUri.Uri}, self connection");
                                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                                 return false;
                             }
@@ -358,7 +358,7 @@ public class MeshNetwork : IMeshNetwork
                 }
 
                 _ = Task.Run(async () => {
-                    var messageArgs = new MessageReceivedEventArgs(message);
+                    var messageArgs = new MessageReceivedEventArgs(peer, message);
 
                     using(var _ = rwlock.EnterWriteLockEx())
                     {
@@ -371,6 +371,17 @@ public class MeshNetwork : IMeshNetwork
                     }
 
                     peer.LastSeen = DateTime.UtcNow;
+
+                    if (messageArgs.Message is Reply reply)
+                    {
+                        if (peer.ReplyQueue.TryGetValue(reply.ReplyTo, out var tcs))
+                        {
+                            tcs.TrySetResult(reply);
+                        }
+
+                        return;
+                    }
+
                     MessageReceived?.Invoke(peer, messageArgs);
 
                     if (messageArgs.Rebroadcast)
@@ -390,7 +401,7 @@ public class MeshNetwork : IMeshNetwork
         }
         catch (Exception ex)
         {
-            logger.LogInformation(ex, "Connection failure");
+            logger.LogDebug(ex, "Connection failure");
         }
 
         Peers.TryRemove(peer.ClientId, out _);
@@ -501,19 +512,27 @@ public class PeerDisconnectedEventArgs
 
 public class MessageReceivedEventArgs
 {
-    public Message Message{ get; }
+    public IMessage Message{ get; }
     public WebSocketMessageType MessageType { get; }
     public bool Rebroadcast { get; set; }
 
-    public MessageReceivedEventArgs(RawMessage message)
+    public MessageReceivedEventArgs(Peer peer, RawMessage message)
     {
         if (message is null)
         {
             throw new ArgumentNullException(nameof(message));
         }
 
-        Message = MessagePackSerializer.Deserialize<Message>(message.Bytes, MeshNetwork.lz4Options);
         MessageType = message.MessageType;
+
+        if (peer.SupportsIMessage)
+        {
+            Message = MessagePackSerializer.Deserialize<IMessage>(message.Bytes, MeshNetwork.lz4Options);
+        }
+        else
+        {
+            Message = MessagePackSerializer.Deserialize<Message>(message.Bytes, MeshNetwork.lz4Options);
+        }
     }
 }
 
