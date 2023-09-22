@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class QueryNodeInfo : IPacket
+public class NodeInfoRequest : IPacket
 {
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
@@ -19,12 +19,12 @@ public class QueryNodeInfo : IPacket
         using var scope = serviceProvider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<QueryNodeInfo>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoRequest>>();
 
-        logger.LogInformation($"Node query received from {peer.Uri.ToHostname()}");
+        logger.LogInformation($"NodeInfoRequest from {peer.Uri.ToHostname()}");
 
         var chainState = blockchainManager.GetChainState();
-        var response = new NodeInfo
+        var response = new NodeInfoResponse
         {
             Height = chainState.Height,
             Weight = chainState.Weight,

@@ -7,12 +7,12 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class NodeDiscovery : IPacket
+public class NodeBroadcast : IPacket
 {
     [Key(0)]
     public string Url { get; set; }                 
 
-    public NodeDiscovery(Uri uri)
+    public NodeBroadcast(Uri uri)
     {
         Url = uri.ToString();
     }
@@ -23,9 +23,9 @@ public class NodeDiscovery : IPacket
 
         var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
         var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeDiscovery>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
 
-        logger.LogInformation($"Received NodeDiscovery from {peer.Uri.ToHostname()}");
+        logger.LogInformation($"Received NodeBroadcast from {peer.Uri.ToHostname()}");
 
         var uri = new Uri(Url);
 

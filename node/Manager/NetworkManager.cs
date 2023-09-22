@@ -107,7 +107,7 @@ public class NetworkManager : INetworkManager
     {
         public Uri Url { get; set; }
         public ulong ClientId { get; set; }
-        public NodeInfo? NodeInfo { get; set; }
+        public NodeInfoResponse? NodeInfo { get; set; }
         public DateTime LastSeen { get; set; } // TODO unixtime
         public bool IsReachable { get; set; }
 

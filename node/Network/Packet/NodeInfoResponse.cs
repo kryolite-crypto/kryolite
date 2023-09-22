@@ -10,7 +10,7 @@ using static Kryolite.Node.NetworkManager;
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class NodeInfo : IPacket
+public class NodeInfoResponse : IPacket
 {
     [Key(0)]
     public long CurrentTime { get; init; }
@@ -26,10 +26,10 @@ public class NodeInfo : IPacket
         using var scope = serviceProvider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfo>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoResponse>>();
         var syncService = scope.ServiceProvider.GetRequiredService<IBufferService<Chain, SyncService>>();
 
-        logger.LogInformation($"Received NodeInfo from {peer.Uri.ToHostname()}");
+        logger.LogInformation($"NodeInfoResponse from {peer.Uri.ToHostname()}");
 
         if (peer.IsSyncInProgress)
         {

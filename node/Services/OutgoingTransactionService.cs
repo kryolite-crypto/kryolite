@@ -50,7 +50,7 @@ public class OutgoingTransactionService : BackgroundService, IBufferService<Tran
                 }
             }
 
-            var msg = new TransactionBatch
+            var msg = new TransactionBroadcast
             {
                 Transactions = items.ToList()
             };

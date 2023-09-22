@@ -3,7 +3,7 @@ using MessagePack;
 namespace Kryolite.Shared;
 
 [MessagePackObject]
-public class NewContract
+public class NewContract : ITransactionPayload
 {
     [Key(0)]
     public ContractManifest Manifest { get; set; }

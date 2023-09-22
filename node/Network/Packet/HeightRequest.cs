@@ -18,7 +18,7 @@ public class HeightRequest : IPacket
 
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeDiscovery>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
 
         logger.LogDebug($"Received HeightRequest from {peer.Uri.ToHostname()}");
 

@@ -25,7 +25,6 @@ public class Peer : IDisposable
     public DateTime? LastNodeInfo { get; set; }
     public DateTime? LastChainSync { get; set; }
     public bool IsSyncInProgress { get; set; }
-    public ConcurrentDictionary<SHA256Hash, (DateTimeOffset Expires, TransactionDto Transaction)> QueuedTransactions = new();
     public Dictionary<ulong, TaskCompletionSource<Reply>> ReplyQueue = new();
 
     private WebSocket Socket { get; }
@@ -51,16 +50,7 @@ public class Peer : IDisposable
 
     private async Task HandleWatchdog()
     {
-        await SendAsync(new QueryNodeInfo());
-
-        var toRemove = QueuedTransactions
-            .Where(entry => entry.Value.Expires < DateTimeOffset.Now)
-            .Select(x => x.Key);
-
-        foreach (var key in toRemove)
-        {
-            QueuedTransactions.TryRemove(key, out _);
-        }
+        await SendAsync(new NodeInfoRequest());
     }
 
     public async Task<Reply?> PostAsync(IPacket packet, CancellationToken? token = null)

@@ -25,7 +25,7 @@ public class DownloadRequest : IPacket
 
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeDiscovery>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
 
         logger.LogDebug($"Received DownloadRequest from {peer.Uri.ToHostname()}");
 
@@ -37,6 +37,8 @@ public class DownloadRequest : IPacket
 
             if (txs.Count == 0)
             {
+                // we are at the tip, add pending transactions to request
+                transactions.AddRange(storeManager.GetPendingTransactions().Select(x => new TransactionDto(x)));
                 break;
             }
 

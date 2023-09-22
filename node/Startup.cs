@@ -260,24 +260,6 @@ public class Startup
 
         BlockchainService.DATA_PATH = dataDir;
 
-        PacketFormatter.Register<NodeInfo>(Packet.NodeInfo);
-        PacketFormatter.Register<QueryNodeInfo>(Packet.QueryNodeInfo);
-        PacketFormatter.Register<TransactionBatch>(Packet.TransactionData);
-        PacketFormatter.Register<NodeDiscovery>(Packet.NodeDiscovery);
-        PacketFormatter.Register<CallMethod>(Packet.CallMethod);
-        PacketFormatter.Register<NewContract>(Packet.NewContract);
-        PacketFormatter.Register<DownloadRequest>(Packet.DownloadRequest);
-        PacketFormatter.Register<DownloadResponse>(Packet.DownloadResponse);
-        PacketFormatter.Register<HeightRequest>(Packet.HeightRequest);
-        PacketFormatter.Register<HeightResponse>(Packet.HeightResponse);
-
-        var resolver = CompositeResolver.Create(
-                BigIntegerResolver.Instance,
-                StandardResolver.Instance
-            );
-        
-        // MessagePackSerializer.DefaultOptions = MessagePackSerializer.DefaultOptions.WithResolver(resolver);
-
         services.AddDataProtection()
             .PersistKeysToFileSystem(new DirectoryInfo(dataDir))
             .AddKeyManagementOptions(options =>

@@ -7,6 +7,12 @@ namespace Kryolite.Shared;
 public class TransactionPayload
 {
     [Key(0)]
-    [MessagePackFormatter(typeof(PacketFormatter))]
-    public object? Payload { get; set; }
+    public ITransactionPayload? Payload { get; set; }
+}
+
+[Union(0, typeof(NewContract))]
+[Union(1, typeof(CallMethod))]
+public interface ITransactionPayload
+{
+
 }

@@ -286,11 +286,11 @@ public class MeshNetwork : IMeshNetwork
                 {
                     if (wsEx.WebSocketErrorCode == WebSocketError.NotAWebSocket)
                     {
-                        logger.LogInformation($"Error connecting to {uri.ToHostname()}: Node is unreachable or offline");
+                        logger.LogDebug($"Error connecting to {uri.ToHostname()}: Node is unreachable or offline");
                     }
                     else
                     {
-                        logger.LogInformation($"Error connecting to {uri.ToHostname()}: {wsEx.Message}");
+                        logger.LogDebug($"Error connecting to {uri.ToHostname()}: {wsEx.Message}");
                     }
                 }
 
@@ -316,6 +316,7 @@ public class MeshNetwork : IMeshNetwork
             logger.LogInformation(ex, "Unknown error with websocket connection");
         }
 
+        logger.LogInformation($"Error connecting to {uri.ToHostname()}");
         return false;
     }
 
@@ -333,7 +334,7 @@ public class MeshNetwork : IMeshNetwork
         if (peer.ConnectionType == ConnectionType.IN && peer.IsReachable)
         {
             // notify other nodes of this new connection
-            var discovery = new NodeDiscovery(peer.Uri);
+            var discovery = new NodeBroadcast(peer.Uri);
             var msg = new Message(peer.ClientId, discovery);
 
             await BroadcastAsync(msg);

@@ -184,7 +184,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             if (loaded)
             {
-                await peer.SendAsync(new QueryNodeInfo());
+                await peer.SendAsync(new NodeInfoRequest());
             }
         }
         catch (Exception ex)

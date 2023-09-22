@@ -10,8 +10,7 @@ public class Message : IMessage
     public ulong Id { get; set; }
 
     [Key(1)]
-    [MessagePackFormatter(typeof(PacketFormatter))]
-    public object? Payload { get; set; }
+    public IPacket? Payload { get; set; }
 
     public Message()
     {
@@ -38,8 +37,7 @@ public class Reply : IMessage
     public ulong Id { get; set; }
 
     [Key(1)]
-    [MessagePackFormatter(typeof(PacketFormatter))]
-    public object? Payload { get; set; }
+    public IPacket? Payload { get; set; }
 
     [Key(2)]
     public ulong ReplyTo { get; set; }
@@ -71,5 +69,5 @@ public interface IMessage
     [Key(0)]
     ulong Id { get; }
     [Key(1)]
-    public object? Payload { get; set; }
+    public IPacket? Payload { get; set; }
 }

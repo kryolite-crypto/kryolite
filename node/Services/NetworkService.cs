@@ -85,7 +85,7 @@ public class NetworkService : BackgroundService
 
             if (peer.ConnectionType == ConnectionType.OUT)
             {
-                await peer.SendAsync(new QueryNodeInfo());
+                await peer.SendAsync(new NodeInfoRequest());
             }
         };
 
