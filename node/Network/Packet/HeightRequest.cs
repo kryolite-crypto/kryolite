@@ -31,10 +31,10 @@ public class HeightRequest : IPacket
                 continue;
             }
 
-            _ = peer.ReplyAsync(args.Message.Id, new HeightResponse(view.Height ?? 0));
+            _ = peer.ReplyAsync(args.Message.Id, new HeightResponse(view.Height ?? 1));
             return;
         }
 
-        _ = peer.ReplyAsync(args.Message.Id, new HeightResponse(0));
+        _ = peer.ReplyAsync(args.Message.Id, new HeightResponse(1));
     }
 }

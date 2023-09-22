@@ -108,7 +108,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             foreach (var qHeight in queryHeights)
             {
-                if (qHeight < 0)
+                if (qHeight <= 0)
                 {
                     continue;
                 }

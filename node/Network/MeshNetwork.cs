@@ -93,7 +93,7 @@ public class MeshNetwork : IMeshNetwork
         try
         {
             var msg = new Message(packet);
-            var bytes = MessagePackSerializer.Serialize(msg, lz4Options);
+            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, lz4Options);
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
@@ -112,7 +112,7 @@ public class MeshNetwork : IMeshNetwork
     {
         try
         {
-            var bytes = MessagePackSerializer.Serialize(msg, lz4Options);
+            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, lz4Options);
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
@@ -396,6 +396,7 @@ public class MeshNetwork : IMeshNetwork
                     catch (Exception ex)
                     {
                         logger.LogDebug(ex, "failed to handle incoming message");
+                        logger.LogDebug(MessagePackSerializer.ConvertToJson(message.Bytes, lz4Options));
                     }
                 });
             }
@@ -521,7 +522,7 @@ public class PeerDisconnectedEventArgs
 
 public class MessageReceivedEventArgs
 {
-    public IMessage Message{ get; }
+    public IMessage Message { get; }
     public WebSocketMessageType MessageType { get; }
     public bool Rebroadcast { get; set; }
 

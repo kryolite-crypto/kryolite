@@ -68,6 +68,8 @@ public class Reply : IMessage
 [Union(1, typeof(Reply))]
 public interface IMessage
 {
+    [Key(0)]
     ulong Id { get; }
+    [Key(1)]
     public object? Payload { get; set; }
 }
