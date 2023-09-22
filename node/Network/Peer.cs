@@ -28,9 +28,6 @@ public class Peer : IDisposable
     public ConcurrentDictionary<SHA256Hash, (DateTimeOffset Expires, TransactionDto Transaction)> QueuedTransactions = new();
     public Dictionary<ulong, TaskCompletionSource<Reply>> ReplyQueue = new();
 
-    public bool SupportsIMessage => ApiLevel >= 2;
-    public bool SupportsReplyTo => ApiLevel >= 2;
-
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
     private System.Timers.Timer Watchdog;

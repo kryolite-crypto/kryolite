@@ -42,20 +42,7 @@ public class NodeInfo : IPacket
         if (LastHash != chainState.LastHash && Weight > chainState.Weight)
         {
             logger.LogInformation($"{peer.Uri.ToHostname()}: View ({LastHash}) at height {Height} does not match with local view ({chainState.LastHash}) and remote weight ({Weight}) is higher compared to local ({chainState.Weight}). Performing sync...");
-
-            if (peer.SupportsReplyTo)
-            {
-                // We can use synchronous download
-                syncService.Add(new Chain(peer, new(), Height));
-                return;
-            }
-
-            var msg = new RequestChainSync
-            {
-                LastHash = chainState?.LastHash ?? SHA256Hash.NULL_HASH
-            };
-
-            _ = peer.SendAsync(msg);
+            syncService.Add(new Chain(peer, new(), Height));
         }
     }
 }

@@ -2,9 +2,6 @@ using System.Buffers;
 using System.Collections.Concurrent;
 using System.Linq.Expressions;
 using System.Reflection;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using System.Text;
 using MessagePack;
 using MessagePack.Formatters;
 
@@ -13,10 +10,8 @@ namespace Kryolite.Shared;
 public enum Packet : byte
 {
     NodeInfo,
-    Blockchain,
     NewBlock,
     QueryNodeInfo,
-    RequestChainSync,
     TransactionData,
     VoteBatch,
     NodeDiscovery,

@@ -376,7 +376,7 @@ public class MeshNetwork : IMeshNetwork
 
                         peer.LastSeen = DateTime.UtcNow;
 
-                        if (peer.SupportsIMessage && messageArgs.Message is Reply reply)
+                        if (messageArgs.Message is Reply reply)
                         {
                             if (peer.ReplyQueue.TryGetValue(reply.ReplyTo, out var tcs))
                             {
@@ -534,15 +534,7 @@ public class MessageReceivedEventArgs
         }
 
         MessageType = message.MessageType;
-
-        if (peer.SupportsIMessage)
-        {
-            Message = MessagePackSerializer.Deserialize<IMessage>(message.Bytes, MeshNetwork.lz4Options);
-        }
-        else
-        {
-            Message = MessagePackSerializer.Deserialize<Message>(message.Bytes, MeshNetwork.lz4Options);
-        }
+        Message = MessagePackSerializer.Deserialize<IMessage>(message.Bytes, MeshNetwork.lz4Options);
     }
 }
 

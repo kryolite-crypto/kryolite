@@ -40,14 +40,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 continue;
             }
 
-            if (chain.Peer.SupportsReplyTo)
-            {
-                await HandleSynchronization(chain.Peer, chain.Height);
-            }
-            else
-            {
-                await HandleSynchronization(chain);
-            }
+            await HandleSynchronization(chain.Peer, chain.Height);
         }
     }
 
@@ -201,111 +194,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         finally
         {
             peer.IsSyncInProgress = false;
-        }
-    }
-
-    private async Task HandleSynchronization(Chain chain)
-    {
-        chain.Peer.IsSyncInProgress = true;
-
-        try
-        {
-            await Task.CompletedTask;
-
-            using var scope = ServiceProvider.CreateScope();
-            var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-
-            var chainState = storeManager.GetChainState();
-
-            var maxView = chain.Transactions
-                .Where(x => x.TransactionType == TransactionType.VIEW)
-                .MaxBy(x => BitConverter.ToInt64(x.Data));
-
-            if (maxView is null || maxView.CalculateHash() == chainState.LastHash)
-            {
-                storeManager.AddTransactionBatch(chain.Transactions, true);
-                return;
-            }
-
-            var hasNewView = chain.Transactions
-                .Where(x => x.TransactionType == TransactionType.VIEW)
-                .Where(x => !storeManager.Exists(x.CalculateHash()))
-                .Any();
-
-            if (!hasNewView)
-            {
-                storeManager.AddTransactionBatch(chain.Transactions, true);
-                return;
-            }
-
-            var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-            var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
-
-            Logger.LogInformation("Initalizing staging context");
-
-            using var staging = StagingManager.Create("staging", configuration, loggerFactory);
-
-            var minView = chain.Transactions
-                .Where(x => x.TransactionType == TransactionType.VIEW)
-                .Where(x => !storeManager.Exists(x.CalculateHash()))
-                .MinBy(x => BitConverter.ToInt64(x.Data));
-
-            var minHeight = BitConverter.ToInt64(minView?.Data ?? new byte[8]);
-
-            BlockchainService.InitializeGenesisBlock(staging, Logger);
-
-            Logger.LogInformation($"Loading local transactions up to height {minHeight}");
-
-            for (var i = 1; i < minHeight; i++)
-            {
-                var txs = storeManager.GetTransactionsAtHeight(i);
-
-                if (txs.Count > 0)
-                {
-                    staging.DisableLogging();
-                    var success = staging.LoadTransactionsWithoutValidation(txs);
-                    staging.EnableLogging();
-
-                    if (!success)
-                    {
-                        Logger.LogError($"Failed to setup staging from current db");
-                        return;
-                    }
-                }
-            }
-
-            Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Height}");
-            Logger.LogInformation("Loading remote chain to staging context (this might take a while)");
-
-            staging.LoadTransactions(chain.Transactions);
-
-            Logger.LogInformation("Remote chain loaded in staging");
-
-            var newState = staging.GetChainState();
-
-            if (newState is null)
-            {
-                Logger.LogInformation("Failed to load chain in staging (chainstate not found)");
-                return;
-            }
-
-            chainState = storeManager.GetChainState();
-            Logger.LogInformation($"Staging has height {newState.Height} and weight {newState.Weight}. Compared to local height {chainState.Height} and weight {chainState.Weight}");
-
-            var loaded = storeManager.LoadStagingChain("staging", newState, staging.StateCache, staging.Events);
-
-            if (loaded)
-            {
-                await chain.Peer.SendAsync(new QueryNodeInfo());
-            }
-        }
-        catch (Exception ex)
-        {
-            Logger.LogInformation(ex, "ChainSync resulted in error");
-        }
-        finally
-        {
-            chain.Peer.IsSyncInProgress = false;
         }
     }
 }

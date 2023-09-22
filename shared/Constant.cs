@@ -7,7 +7,7 @@ public static class Constant
 {
     public const string NETWORK_NAME = "KIRKNIEMI-4";
     public const int API_LEVEL = 2;
-    public const int MIN_API_LEVEL = 1;
+    public const int MIN_API_LEVEL = 2;
 
     public const int HEARTBEAT_INTERVAL = 60;
     public const byte STARTING_DIFFICULTY = 8;
