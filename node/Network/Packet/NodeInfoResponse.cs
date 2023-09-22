@@ -1,11 +1,9 @@
-using System.Net.Sockets;
 using System.Numerics;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
 

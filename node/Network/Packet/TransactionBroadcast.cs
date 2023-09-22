@@ -1,10 +1,8 @@
-using System.Windows.Markup;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.Net.Http.Headers;
 
 namespace Kryolite.Node;
 

@@ -101,7 +101,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             foreach (var qHeight in queryHeights)
             {
-                Console.WriteLine(qHeight);
                 if (qHeight <= 0)
                 {
                     continue;
@@ -111,10 +110,9 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                 if (state is null)
                 {
-                    Console.WriteLine("not found");
                     continue;
                 }
-                Console.WriteLine(state.LastHash);
+
                 query.Views.Add(state.LastHash);
             }
 

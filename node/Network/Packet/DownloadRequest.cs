@@ -24,7 +24,6 @@ public class DownloadRequest : IPacket
         using var scope = serviceProvider.CreateScope();
 
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
 
         logger.LogDebug($"Received DownloadRequest from {peer.Uri.ToHostname()}");

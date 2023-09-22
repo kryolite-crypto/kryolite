@@ -43,7 +43,7 @@ public class Peer : IDisposable
         LastSeen = DateTime.UtcNow;
         ApiLevel = apiLevel;
 
-        Watchdog = new System.Timers.Timer(TimeSpan.FromMinutes(1));
+        Watchdog = new System.Timers.Timer(TimeSpan.FromSeconds(69));
         Watchdog.Elapsed += async ( sender, e ) => await HandleWatchdog();
         Watchdog.Start();
     }

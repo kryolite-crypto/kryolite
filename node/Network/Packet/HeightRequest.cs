@@ -2,7 +2,6 @@ using MessagePack;
 using Microsoft.Extensions.Logging;
 using Kryolite.Shared;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Mvc.ViewEngines;
 
 namespace Kryolite.Node;
 
@@ -10,20 +9,20 @@ namespace Kryolite.Node;
 public class HeightRequest : IPacket
 {
     [Key(0)]
-    public List<SHA256Hash> Views { get; } = new();
+    public List<SHA256Hash> Views { get; set; } = new();
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
 
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
 
         logger.LogDebug($"Received HeightRequest from {peer.Uri.ToHostname()}");
 
         foreach (var hash in Views)
         {
+            logger.LogDebug($"Searching for View with hash {hash}");
             var view = storeManager.GetView(hash);
 
             if (view is not null)

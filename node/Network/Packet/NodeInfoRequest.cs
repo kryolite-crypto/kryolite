@@ -1,7 +1,6 @@
 using MessagePack;
 using Microsoft.Extensions.Logging;
 using Kryolite.Shared;
-using static Kryolite.Node.NetworkManager;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Node;

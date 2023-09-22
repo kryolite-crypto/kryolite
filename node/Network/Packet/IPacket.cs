@@ -1,4 +1,3 @@
-using Kryolite.Shared;
 using MessagePack;
 
 namespace Kryolite.Node;
