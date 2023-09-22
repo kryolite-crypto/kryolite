@@ -21,7 +21,7 @@ public class NodeInfoRequest : IPacket
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoRequest>>();
 
-        logger.LogInformation($"NodeInfoRequest from {peer.Uri.ToHostname()}");
+        logger.LogDebug($"NodeInfoRequest from {peer.Uri.ToHostname()}");
 
         var chainState = blockchainManager.GetChainState();
         var response = new NodeInfoResponse

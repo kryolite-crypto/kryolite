@@ -29,7 +29,7 @@ public class NodeInfoResponse : IPacket
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoResponse>>();
         var syncService = scope.ServiceProvider.GetRequiredService<IBufferService<Chain, SyncService>>();
 
-        logger.LogInformation($"NodeInfoResponse from {peer.Uri.ToHostname()}");
+        logger.LogDebug($"NodeInfoResponse from {peer.Uri.ToHostname()}");
 
         if (peer.IsSyncInProgress)
         {

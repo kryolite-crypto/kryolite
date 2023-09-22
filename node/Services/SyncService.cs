@@ -101,6 +101,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             foreach (var qHeight in queryHeights)
             {
+                Console.WriteLine(qHeight);
                 if (qHeight <= 0)
                 {
                     continue;
@@ -110,9 +111,10 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                 if (state is null)
                 {
+                    Console.WriteLine("not found");
                     continue;
                 }
-
+                Console.WriteLine(state.LastHash);
                 query.Views.Add(state.LastHash);
             }
 
@@ -120,7 +122,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             if (response is null || response.Payload is not HeightResponse heightResponse)
             {
-                Logger.LogInformation($"Failed to request possible views from {peer.Uri.ToHostname()}");
+                Logger.LogInformation($"Failed to request common height from {peer.Uri.ToHostname()}");
                 return;
             }
 

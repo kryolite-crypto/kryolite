@@ -12,7 +12,7 @@ public class HeightRequest : IPacket
     [Key(0)]
     public List<SHA256Hash> Views { get; } = new();
 
-    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
+    public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
 
@@ -22,19 +22,19 @@ public class HeightRequest : IPacket
 
         logger.LogDebug($"Received HeightRequest from {peer.Uri.ToHostname()}");
 
-        for (int i = 0; i < Views.Count; i++)
+        foreach (var hash in Views)
         {
-            var view = storeManager.GetView(Views[i]);
+            var view = storeManager.GetView(hash);
 
-            if (view is null)
+            if (view is not null)
             {
-                continue;
+                logger.LogDebug($"Found common height at {view.Height ?? 1}");
+                await peer.ReplyAsync(args.Message.Id, new HeightResponse(view.Height ?? 1));
+                return;
             }
-
-            _ = peer.ReplyAsync(args.Message.Id, new HeightResponse(view.Height ?? 1));
-            return;
         }
 
-        _ = peer.ReplyAsync(args.Message.Id, new HeightResponse(1));
+        logger.LogDebug($"No common height found");
+        await peer.ReplyAsync(args.Message.Id, new HeightResponse(1));
     }
 }
