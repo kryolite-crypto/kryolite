@@ -40,9 +40,20 @@ public class TransactionBroadcast : IPacket
 
         var missing = new HashSet<SHA256Hash>();
 
+        foreach (var tx in Transactions)
+        {
+            foreach (var parent in tx.Parents)
+            {
+                if (!keys.Contains(parent) && !storeManager.Exists(parent))
+                {
+                    missing.Add(parent);
+                }
+            }
+        }
+
         for (int i = 0; i < SEARCH_DEPTH; i++)
         {
-            var batch = missing.ToList();
+            var batch = missing.ToList(); // Copy current working set
             missing.Clear();
 
             foreach (var hash in batch)

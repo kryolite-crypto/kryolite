@@ -77,6 +77,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         {
             using var scope = ServiceProvider.CreateScope();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+            var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
@@ -151,20 +152,26 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Height}");
             Logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
 
-            for (var i = heightResponse.CommonHeight; i <= height; i += 100)
+            const int BATCH_SIZE = 100;
+
+            for (var i = heightResponse.CommonHeight; i <= height; i += BATCH_SIZE)
             {
-                var request = new DownloadRequest(i, i + 100);
+                Logger.LogDebug($"Downloading transactions from {i} to {i + BATCH_SIZE}");
+
+                var request = new DownloadRequest(i, i + BATCH_SIZE);
                 var txResponse = await peer.PostAsync(request);
 
                 if (txResponse is null || txResponse.Payload is not DownloadResponse download)
                 {
-                    Logger.LogInformation($"Chain download from {peer.Uri.ToHostname()} failed at height {i} - {1 + 100}");
+                    Logger.LogInformation($"Chain download from {peer.Uri.ToHostname()} failed at height {i} - {i + BATCH_SIZE}");
                     break;
                 }
 
+                Logger.LogDebug($"Loading {download.Transactions.Count} to staging");
+
                 if (!staging.LoadTransactions(download.Transactions))
                 {
-                    Logger.LogInformation($"Failed to apply chain from {peer.Uri.ToHostname()} at height {i} - {1 + 100}");
+                    Logger.LogInformation($"Applying remote chain in staging failed");
                     break;
                 }
             }
@@ -182,10 +189,14 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             var loaded = storeManager.LoadStagingChain("staging", newState, staging.StateCache, staging.Events);
 
-            if (loaded)
+            if (!loaded)
             {
-                await peer.SendAsync(new NodeInfoRequest());
+                networkManager.Ban(peer.ClientId);
+                await peer.DisconnectAsync();
+                return;
             }
+
+            await peer.SendAsync(new NodeInfoRequest());
         }
         catch (Exception ex)
         {

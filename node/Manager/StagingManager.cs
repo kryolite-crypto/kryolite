@@ -48,7 +48,10 @@ public class StagingManager : TransactionManager, IDisposable
         var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
 
         var staging = new StagingManager(repository, keyRepository, verifier, stateCache, executor, loggerFactory);
+
+        staging.DisableLogging();
         BlockchainService.InitializeGenesisBlock(staging, loggerFactory.CreateLogger<StagingManager>());
+        staging.EnableLogging();
 
         return staging;
     }
@@ -80,6 +83,7 @@ public class StagingManager : TransactionManager, IDisposable
         {
             var tx = transactions[vertex];
 
+            tx.Id = 0; // These need to be new entities!!!
             tx.ExecutionResult = ExecutionResult.PENDING;
 
             bool success = false;

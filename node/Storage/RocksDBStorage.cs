@@ -9,8 +9,6 @@ internal class RocksDBStorage : IStorage
 {
     private RocksDb Database { get; set; }
     private Dictionary<string, ColumnFamilyHandle>  ColumnFamilies { get; } = new();
-
-
     private ulong CurrentKey = 0;
 
     public RocksDBStorage(IConfiguration configuration)

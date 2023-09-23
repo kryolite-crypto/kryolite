@@ -93,18 +93,26 @@ public abstract class TransactionManager
             switch (tx.TransactionType)
             {
                 case TransactionType.BLOCK:
-                    transactions.TryAdd(hash, new Block(tx, tx.Parents));
+                    var block = new Block(tx, tx.Parents);
+                    transactions.TryAdd(hash, block);
+                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({block.TransactionId})");
                     break;
                 case TransactionType.PAYMENT:
                 case TransactionType.CONTRACT:
                 case TransactionType.REG_VALIDATOR:
-                    transactions.TryAdd(hash, new Transaction(tx, tx.Parents));
+                    var transaction = new Transaction(tx, tx.Parents);
+                    transactions.TryAdd(hash, transaction);
+                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({transaction.TransactionId})");
                     break;
                 case TransactionType.VIEW:
-                    transactions.TryAdd(hash, new View(tx, tx.Parents));
+                    var view = new View(tx, tx.Parents);
+                    transactions.TryAdd(hash, view);
+                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({view.TransactionId})");
                     break;
                 case TransactionType.VOTE:
-                    transactions.TryAdd(hash, new Vote(tx, tx.Parents));
+                    var vote = new Vote(tx, tx.Parents);
+                    transactions.TryAdd(hash, vote);
+                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({vote.TransactionId})");
                     break;
                 default:
                     LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
@@ -146,6 +154,8 @@ public abstract class TransactionManager
                     continue;
                 }
 
+                Logger.LogDebug($"{CHAIN_NAME}{tx.TransactionId}");
+
                 // Verify second part, requiring concurrent execution
                 if(!Verifier.VerifyTypeOnly(tx, transactions))
                 {
@@ -153,8 +163,6 @@ public abstract class TransactionManager
                     success = false;
                     break;
                 }
-
-                Logger.LogDebug($"{CHAIN_NAME}{tx.TransactionId}");
 
                 switch (tx.TransactionType)
                 {
