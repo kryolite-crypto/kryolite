@@ -2,6 +2,7 @@ using MessagePack;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Shared.Dto;
+using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Node;
 
@@ -41,7 +42,9 @@ public class DownloadRequest : IPacket
                 break;
             }
 
-            transactions.AddRange(txs.Select(x => new TransactionDto(x)));
+            transactions.AddRange(txs
+                .Where(x => x.ExecutionResult == ExecutionResult.SUCCESS)
+                .Select(x => new TransactionDto(x)));
         }
 
         if (transactions.Count == 0)
