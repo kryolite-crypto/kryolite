@@ -617,6 +617,11 @@ cleanup:
         {
             foreach (var tx in StateCache.GetTransactions())
             {
+                if (tx.Value.ExecutionResult == ExecutionResult.STALE || tx.Value.ExecutionResult == ExecutionResult.ORPHAN)
+                {
+                    continue;
+                }
+
                 if (!hashes.Contains(tx.Value.TransactionId))
                 {
                     hashes.Add(tx.Value.TransactionId);
@@ -634,7 +639,7 @@ cleanup:
         if (hashes.Count < 2)
         {
             // we should always point at minimum to previous view
-            if (chainState is not null)
+            if (chainState is not null && !hashes.Contains(chainState.LastHash))
             {
                 hashes.Add(chainState.LastHash);
             }
@@ -643,14 +648,18 @@ cleanup:
         if (hashes.Count < 2)
         {
             var nextHashes = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
-                .Select(x => x.TransactionId)
                 .ToList();
                 
-            foreach (var hash in nextHashes)
+            foreach (var tx in nextHashes)
             {
-                if (!hashes.Contains(hash))
+                if (tx.ExecutionResult == ExecutionResult.STALE || tx.ExecutionResult == ExecutionResult.ORPHAN)
                 {
-                    hashes.Add(hash);
+                    continue;
+                }
+
+                if (!hashes.Contains(tx.TransactionId))
+                {
+                    hashes.Add(tx.TransactionId);
                 }
                 
                 if (hashes.Count >= 2 )
@@ -695,6 +704,11 @@ cleanup:
         {
             foreach (var tx in StateCache.GetTransactions())
             {
+                if (tx.Value.ExecutionResult == ExecutionResult.STALE || tx.Value.ExecutionResult == ExecutionResult.ORPHAN)
+                {
+                    continue;
+                }
+
                 if (!hashes.Contains(tx.Value.TransactionId))
                 {
                     hashes.Add(tx.Value.TransactionId);
@@ -712,7 +726,7 @@ cleanup:
         if (hashes.Count < count)
         {
             // we should always point at minimum to previous view
-            if (chainState is not null)
+            if (chainState is not null && !hashes.Contains(chainState.LastHash))
             {
                 hashes.Add(chainState.LastHash);
             }
@@ -721,14 +735,18 @@ cleanup:
         if (hashes.Count < count)
         {
             var transactions = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
-                .Select(x => x.TransactionId)
                 .ToList();
                 
-            foreach (var hash in transactions)
+            foreach (var tx in transactions)
             {
-                if (!hashes.Contains(hash))
+                if (tx.ExecutionResult == ExecutionResult.STALE || tx.ExecutionResult == ExecutionResult.ORPHAN)
                 {
-                    hashes.Add(hash);
+                    continue;
+                }
+
+                if (!hashes.Contains(tx.TransactionId))
+                {
+                    hashes.Add(tx.TransactionId);
                 }
                 
                 if (hashes.Count >= count )

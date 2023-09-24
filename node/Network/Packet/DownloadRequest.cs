@@ -43,7 +43,7 @@ public class DownloadRequest : IPacket
             }
 
             transactions.AddRange(txs
-                .Where(x => x.ExecutionResult == ExecutionResult.SUCCESS)
+                .Where(x => x.ExecutionResult != ExecutionResult.STALE && x.ExecutionResult != ExecutionResult.ORPHAN)
                 .Select(x => new TransactionDto(x)));
         }
 

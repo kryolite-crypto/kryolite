@@ -90,7 +90,11 @@ public class TransactionBroadcast : IPacket
             return;
         }
 
-        storeManager.AddTransactionBatch(Transactions, false);
+        if (!storeManager.AddTransactionBatch(Transactions, false))
+        {
+            await peer.SendAsync(new NodeInfoRequest());
+            return;
+        }
 
         // do not rebroadcast invalid transactions
         Transactions = Transactions.Where(x => x.IsValid)

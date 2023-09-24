@@ -70,6 +70,11 @@ public class Peer : IDisposable
 
             return await tcs.Task.WithTimeout(TimeSpan.FromSeconds(30));
         }
+        catch (TimeoutException)
+        {
+            // WithTimeout timeouts
+            return null;
+        }
         catch (Exception ex)
         {
             Console.WriteLine(ex);
