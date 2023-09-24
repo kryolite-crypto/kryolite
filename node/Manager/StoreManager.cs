@@ -485,7 +485,7 @@ public class StoreManager : TransactionManager, IStoreManager
 
     public bool LoadStagingChain(string storeName, ChainState newChain, IStateCache newState, List<EventBase> events)
     {
-        using var _ = rwlock.EnterReadLockEx();
+        using var _ = rwlock.EnterWriteLockEx();
         var chainState = Repository.GetChainState();
 
         if (newChain.Weight <= chainState?.Weight)

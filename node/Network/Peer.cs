@@ -25,7 +25,7 @@ public class Peer : IDisposable
     public DateTime? LastNodeInfo { get; set; }
     public DateTime? LastChainSync { get; set; }
     public bool IsSyncInProgress { get; set; }
-    public Dictionary<ulong, TaskCompletionSource<Reply>> ReplyQueue = new();
+    public ConcurrentDictionary<ulong, TaskCompletionSource<Reply>> ReplyQueue = new();
 
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
@@ -64,7 +64,7 @@ public class Peer : IDisposable
             token ??= CancellationToken.None;
 
             var tcs = new TaskCompletionSource<Reply>();
-            ReplyQueue.Add(msg.Id, tcs);
+            ReplyQueue.TryAdd(msg.Id, tcs);
 
             await SendAsync(bytes);
 
@@ -77,7 +77,7 @@ public class Peer : IDisposable
         }
         finally
         {
-            ReplyQueue.Remove(msg.Id);
+            ReplyQueue.TryRemove(msg.Id, out _);
         }
     }
 
