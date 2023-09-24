@@ -40,6 +40,11 @@ internal class Program
         var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
 
+        if (!Path.Exists(dataDir))
+        {
+            Directory.CreateDirectory(dataDir);
+        }
+
         if (args.Contains("--resync"))
         {
             Console.WriteLine("Performing full resync");

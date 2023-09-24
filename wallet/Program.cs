@@ -35,6 +35,11 @@ namespace Kryolite.Wallet
 
             try
             {
+                if (!Path.Exists(dataDir))
+                {
+                    Directory.CreateDirectory(dataDir);
+                }
+
                 if (args.Contains("--resync"))
                 {
                     Console.WriteLine("Performing full resync");
