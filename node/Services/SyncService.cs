@@ -1,4 +1,6 @@
-﻿using Kryolite.Shared;
+﻿using Kryolite.EventBus;
+using Kryolite.Node.Blockchain;
+using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -127,67 +129,75 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             Logger.LogInformation("Initalizing staging context");
 
-            using var staging = StagingManager.Create("staging", configuration, loggerFactory);
+            ChainState? newState = null;
+            IStateCache? stateCache = null;
+            List<EventBase>? events = null;
 
-            Logger.LogInformation($"Loading local transactions up to height {heightResponse.CommonHeight}");
-
-            for (var i = 1; i < heightResponse.CommonHeight; i++)
+            using (var staging = StagingManager.Create("staging", configuration, loggerFactory))
             {
-                var txs = storeManager.GetTransactionsAtHeight(i);
+                Logger.LogInformation($"Loading local transactions up to height {heightResponse.CommonHeight}");
 
-                if (txs.Count > 0)
+                for (var i = 1; i < heightResponse.CommonHeight; i++)
                 {
-                    staging.DisableLogging();
-                    var success = staging.LoadTransactionsWithoutValidation(txs);
-                    staging.EnableLogging();
+                    var txs = storeManager.GetTransactionsAtHeight(i);
 
-                    if (!success)
+                    if (txs.Count > 0)
                     {
-                        Logger.LogError($"Failed to setup staging from current db");
-                        return;
+                        staging.DisableLogging();
+                        var success = staging.LoadTransactionsWithoutValidation(txs);
+                        staging.EnableLogging();
+
+                        if (!success)
+                        {
+                            Logger.LogError($"Failed to setup staging from current db");
+                            return;
+                        }
                     }
                 }
-            }
 
-            Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Height}");
-            Logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
+                Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Height}");
+                Logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
 
-            const int BATCH_SIZE = 100;
+                const int BATCH_SIZE = 100;
 
-            for (var i = heightResponse.CommonHeight; i <= height; i += BATCH_SIZE)
-            {
-                Logger.LogDebug($"Downloading transactions from {i} to {i + BATCH_SIZE}");
-
-                var request = new DownloadRequest(i, i + BATCH_SIZE);
-                var txResponse = await peer.PostAsync(request);
-
-                if (txResponse is null || txResponse.Payload is not DownloadResponse download)
+                for (var i = heightResponse.CommonHeight; i <= height; i += BATCH_SIZE)
                 {
-                    Logger.LogInformation($"Chain download from {peer.Uri.ToHostname()} failed at height {i} - {i + BATCH_SIZE}");
-                    break;
+                    Logger.LogDebug($"Downloading transactions from {i} to {i + BATCH_SIZE}");
+
+                    var request = new DownloadRequest(i, i + BATCH_SIZE);
+                    var txResponse = await peer.PostAsync(request);
+
+                    if (txResponse is null || txResponse.Payload is not DownloadResponse download)
+                    {
+                        Logger.LogInformation($"Chain download from {peer.Uri.ToHostname()} failed at height {i} - {i + BATCH_SIZE}");
+                        break;
+                    }
+
+                    Logger.LogDebug($"Loading {download.Transactions.Count} to staging");
+
+                    if (!staging.LoadTransactions(download.Transactions))
+                    {
+                        Logger.LogInformation($"Applying remote chain in staging failed");
+                        break;
+                    }
                 }
 
-                Logger.LogDebug($"Loading {download.Transactions.Count} to staging");
+                newState = staging.GetChainState();
 
-                if (!staging.LoadTransactions(download.Transactions))
+                if (newState is null)
                 {
-                    Logger.LogInformation($"Applying remote chain in staging failed");
-                    break;
+                    Logger.LogInformation("Failed to load chain in staging (chainstate not found)");
+                    return;
                 }
-            }
 
-            var newState = staging.GetChainState();
-
-            if (newState is null)
-            {
-                Logger.LogInformation("Failed to load chain in staging (chainstate not found)");
-                return;
+                stateCache = staging.StateCache;
+                events = staging.Events;
             }
 
             var chainState = storeManager.GetChainState();
             Logger.LogInformation($"Staging has height {newState.Height} and weight {newState.Weight}. Compared to local height {chainState.Height} and weight {chainState.Weight}");
 
-            var loaded = storeManager.LoadStagingChain("staging", newState, staging.StateCache, staging.Events);
+            var loaded = storeManager.LoadStagingChain("staging", newState, stateCache, events);
 
             if (!loaded)
             {
