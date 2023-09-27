@@ -1,3 +1,4 @@
+using System.Numerics;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using MessagePack;
@@ -15,6 +16,11 @@ public class TransactionBroadcast : IPacket
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
         if (Transactions.Count == 0)
+        {
+            return;
+        }
+
+        if (peer.IsSyncInProgress)
         {
             return;
         }
@@ -51,6 +57,8 @@ public class TransactionBroadcast : IPacket
             }
         }
 
+        var chainState = storeManager.GetChainState();
+
         for (int i = 0; i < SEARCH_DEPTH; i++)
         {
             var batch = missing.ToList(); // Copy current working set
@@ -66,11 +74,25 @@ public class TransactionBroadcast : IPacket
                     return;
                 }
 
-                foreach (var parent in response.Transaction.Parents)
+                var tx = response.Transaction;
+
+                foreach (var parent in tx.Parents)
                 {
                     if (!keys.Contains(parent) && !storeManager.Exists(parent))
                     {
                         missing.Add(parent);
+                    }
+                }
+
+                // If we receive view below local chain we need to resync
+                if (tx.TransactionType == TransactionType.VIEW)
+                {
+                    var height = BitConverter.ToInt64(tx.Data);
+
+                    if (height <= chainState.Height)
+                    {
+                        await peer.SendAsync(new NodeInfoRequest());
+                        return;
                     }
                 }
 

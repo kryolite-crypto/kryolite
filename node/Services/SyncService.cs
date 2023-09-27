@@ -1,11 +1,9 @@
 ﻿using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
-using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using System.Runtime.CompilerServices;
 using System.Threading.Channels;
 
 namespace Kryolite.Node.Services;
@@ -50,7 +48,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 return;
             }
 
-            ok = await HandleSynchronization(chain.Peer, 0);
+            ok = await HandleSynchronization(chain.Peer, chain.Height);
 
             if (ok)
             {
@@ -93,7 +91,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         throw new NotImplementedException();
     }
 
-    private async Task<bool> HandleSynchronization(Peer peer, long height)
+    private async Task<bool> HandleSynchronization(Peer peer, long height, bool findCommonHeight = true)
     {
         peer.IsSyncInProgress = true;
 
@@ -105,48 +103,11 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
-            var queryHeights = new List<long>
+            var commonHeight = 0L;
+
+            if (findCommonHeight)
             {
-                height - 1,
-                height - 5,
-                height - 10,
-                height - 50,
-                height - 100,
-                height - 500,
-                height - 1000,
-                height - 5000,
-                height - 10000,
-                height - 50000,
-                height - 100000,
-                height - 500000,
-                height - 1000000,
-            };
-
-            var query = new HeightRequest();
-
-            foreach (var qHeight in queryHeights)
-            {
-                var state = storeManager.GetChainStateAt(Math.Max(qHeight, 0));
-
-                if (state is null)
-                {
-                    continue;
-                }
-
-                query.Views.Add(state.LastHash);
-
-                if (qHeight <= 0)
-                {
-                    break;
-                }
-            }
-
-            var response = await peer.PostAsync(query);
-
-            if (response is null || response.Payload is not HeightResponse heightResponse)
-            {
-                Logger.LogInformation($"Failed to request common height from {peer.Uri.ToHostname()}");
-                return false;
+                commonHeight = await FindCommonHeight(storeManager, peer, height);
             }
 
             Logger.LogInformation("Initalizing staging context");
@@ -157,9 +118,9 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             using (var staging = StagingManager.Create("staging", configuration, loggerFactory))
             {
-                Logger.LogInformation($"Loading local transactions up to height {heightResponse.CommonHeight}");
+                Logger.LogInformation($"Loading local transactions up to height {commonHeight}");
 
-                for (var i = 1; i <= heightResponse.CommonHeight; i++)
+                for (var i = 1; i <= commonHeight; i++)
                 {
                     var txs = storeManager.GetTransactionsAtHeight(i);
 
@@ -184,7 +145,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                 const int BATCH_SIZE = 100;
 
-                for (var i = heightResponse.CommonHeight + 1; i <= height; i += BATCH_SIZE)
+                for (var i = commonHeight + 1; i <= height; i += BATCH_SIZE)
                 {
                     Logger.LogDebug($"Downloading transactions from {i} to {i + BATCH_SIZE}");
 
@@ -232,5 +193,54 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         {
             peer.IsSyncInProgress = false;
         }
+    }
+
+    private async Task<long> FindCommonHeight(IStoreManager storeManager, Peer peer, long height)
+    {
+        var queryHeights = new List<long>
+        {
+            height - 1,
+            height - 5,
+            height - 10,
+            height - 50,
+            height - 100,
+            height - 500,
+            height - 1000,
+            height - 5000,
+            height - 10000,
+            height - 50000,
+            height - 100000,
+            height - 500000,
+            height - 1000000,
+        };
+
+        var query = new HeightRequest();
+
+        foreach (var qHeight in queryHeights)
+        {
+            var state = storeManager.GetChainStateAt(Math.Max(qHeight, 0));
+
+            if (state is null)
+            {
+                continue;
+            }
+
+            query.Views.Add(state.LastHash);
+
+            if (qHeight <= 0)
+            {
+                break;
+            }
+        }
+
+        var response = await peer.PostAsync(query);
+
+        if (response is null || response.Payload is not HeightResponse heightResponse)
+        {
+            Logger.LogInformation($"Failed to request common height from {peer.Uri.ToHostname()}");
+            return 0;
+        }
+
+        return heightResponse.CommonHeight;
     }
 }

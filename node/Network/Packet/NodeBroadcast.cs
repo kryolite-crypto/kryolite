@@ -12,6 +12,11 @@ public class NodeBroadcast : IPacket
     [Key(0)]
     public string Url { get; set; }                 
 
+    public NodeBroadcast(string url)
+    {
+        Url = url;
+    }
+
     public NodeBroadcast(Uri uri)
     {
         Url = uri.ToString();
