@@ -188,7 +188,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                         else
                         {
                             // Force sync from beginning
-                            await AddAsync(new Chain(peer, 0));
+                            await HandleSynchronization(peer, 0);
                         }
 
                         break;
