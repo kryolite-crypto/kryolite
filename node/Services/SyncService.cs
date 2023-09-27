@@ -42,7 +42,29 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 continue;
             }
 
-            await HandleSynchronization(chain.Peer, chain.Height);
+            var ok = await HandleSynchronization(chain.Peer, chain.Height);
+
+            if (ok)
+            {
+                await chain.Peer.SendAsync(new NodeInfoRequest());
+                return;
+            }
+
+            ok = await HandleSynchronization(chain.Peer, 0);
+
+            if (ok)
+            {
+                await chain.Peer.SendAsync(new NodeInfoRequest());
+                return;
+            }
+            
+            using var scope = ServiceProvider.CreateScope();
+            var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
+
+            if (networkManager.Ban(chain.Peer.ClientId))
+            {
+                await chain.Peer.DisconnectAsync();
+            }
         }
     }
 
@@ -71,7 +93,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         throw new NotImplementedException();
     }
 
-    private async Task HandleSynchronization(Peer peer, long height)
+    private async Task<bool> HandleSynchronization(Peer peer, long height)
     {
         peer.IsSyncInProgress = true;
 
@@ -124,7 +146,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             if (response is null || response.Payload is not HeightResponse heightResponse)
             {
                 Logger.LogInformation($"Failed to request common height from {peer.Uri.ToHostname()}");
-                return;
+                return false;
             }
 
             Logger.LogInformation("Initalizing staging context");
@@ -153,7 +175,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                     if (!success)
                     {
                         Logger.LogError($"Failed to setup staging from current db");
-                        return;
+                        return false;
                     }
                 }
 
@@ -180,17 +202,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                     if (!staging.LoadTransactions(download.Transactions))
                     {
                         Logger.LogInformation($"Applying remote chain in staging failed");
-
-                        if (networkManager.Ban(peer.ClientId))
-                        {
-                            await peer.DisconnectAsync();
-                        }
-                        else
-                        {
-                            // Force sync from beginning
-                            await HandleSynchronization(peer, 0);
-                        }
-
                         break;
                     }
                 }
@@ -200,7 +211,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 if (newState is null)
                 {
                     Logger.LogInformation("Failed to load chain in staging (chainstate not found)");
-                    return;
+                    return false;
                 }
 
                 stateCache = staging.StateCache;
@@ -210,13 +221,12 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             var chainState = storeManager.GetChainState();
             Logger.LogInformation($"Staging has height {newState.Height} and weight {newState.Weight}. Compared to local height {chainState.Height} and weight {chainState.Weight}");
 
-            storeManager.LoadStagingChain("staging", newState, stateCache, events);
-
-            await peer.SendAsync(new NodeInfoRequest());
+            return storeManager.LoadStagingChain("staging", newState, stateCache, events);
         }
         catch (Exception ex)
         {
             Logger.LogInformation(ex, "ChainSync resulted in error");
+            return false;
         }
         finally
         {
