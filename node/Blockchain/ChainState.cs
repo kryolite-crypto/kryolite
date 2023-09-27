@@ -21,7 +21,7 @@ public class ChainState : EventBase
     [Key(5)]
     public Difficulty CurrentDifficulty { get; set; }
     [Key(6)]
-    public int Votes { get; set; }
+    public long Votes { get; set; }
     [Key(7)]
-    public int Transactions { get; set; }
+    public long Transactions { get; set; }
 }

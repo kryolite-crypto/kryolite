@@ -1,6 +1,8 @@
+using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
@@ -10,6 +12,7 @@ using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Logging;
+using Microsoft.VisualBasic;
 using QuikGraph;
 using QuikGraph.Algorithms;
 using QuikGraph.Algorithms.Search;
@@ -229,6 +232,7 @@ public abstract class TransactionManager
             bfs.Compute();
 
             var toExecute = new List<Transaction>(bfs.VisitedGraph.VertexCount);
+            var stales = new List<Transaction>(bfs.VisitedGraph.VertexCount);
             var voteCount = 0;
             var blockCount = 0;
             var totalStake = 0L;
@@ -239,32 +243,19 @@ public abstract class TransactionManager
                 // white == not visited
                 if (bfs.VerticesColors[vertex] == GraphColor.White)
                 {
+                    // If we did not visit blocks and votes they become stale due to
+                    // referencing old view
+                    if (TryHandleStale(vertex, height, out var stale))
+                    {
+                        stales.Add(stale);
+                    }
+
                     continue;
                 }
 
-                if (StateCache.Remove(vertex, out var tx))
+                if (TryHandleExecutable(vertex, ref blockCount, ref voteCount, ref seedStake, ref totalStake, out var tx))
                 {
                     toExecute.Add(tx);
-
-                    if (tx.TransactionType == TransactionType.BLOCK)
-                    {
-                        blockCount++;
-                    }
-                    else if (tx.TransactionType == TransactionType.VOTE)
-                    {
-                        voteCount++;
-
-                        // Note: votes value must equal to signers stake, this is verified in Verifier
-                        var stake = tx.Value;
-
-                        if (Constant.SEED_VALIDATORS.Contains(tx.From!))
-                        {
-                            stake = Constant.MIN_STAKE;
-                            seedStake += stake;
-                        }
-
-                        totalStake += stake;
-                    }
                 }
             }
 
@@ -276,129 +267,32 @@ public abstract class TransactionManager
 
             executor.Execute(toExecute, chainState.CurrentDifficulty);
 
-            chainState.Weight += chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE);
-
-            if (height > 0)
-            {
-                if (blockCount == 0)
-                {
-                    var work = chainState.CurrentDifficulty.ToWork();
-                    var nextTarget = work / 4 * 3;
-                    var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
-
-                    chainState.CurrentDifficulty = BigInteger.Max(minTarget, nextTarget).ToDifficulty();
-                }
-                else
-                {
-                    var totalWork = chainState.CurrentDifficulty.ToWork() * blockCount;
-                    chainState.CurrentDifficulty = totalWork.ToDifficulty();
-                }
-            }
-
-            chainState.Height++;
             chainState.LastHash = view.TransactionId;
-            chainState.Votes = voteCount;
-            chainState.Transactions = toExecute.Count;
-            chainState.Blocks = (lastState?.Blocks ?? 0) + blockCount;
-
-            view.ExecutionResult = ExecutionResult.SUCCESS;
-
-            var node = KeyRepository.GetKey();
-            var address = node!.PublicKey.ToAddress();
+            chainState.Height++;
+            chainState.Weight += chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE);
+            chainState.Votes += voteCount;
+            chainState.Transactions += toExecute.Count;
+            chainState.Blocks += blockCount;
+            chainState.CurrentDifficulty = CalculateDifficulty(chainState.CurrentDifficulty.ToWork(), blockCount);
             
-            // cleanup stales and orphans
-cleanup:
-            bool removed = false;
+            CleanupOrphans(height, stales);
 
-            foreach (var tx in StateCache.GetTransactions().Values.ToList())
-            {
-                if (tx.TransactionType == TransactionType.BLOCK)
-                {
-                    tx.Height = height;
-                    tx.ExecutionResult = ExecutionResult.STALE;
-
-                    if (StateCache.TryGet(tx.To!, out var ledger))
-                    {
-                        ledger.Pending = checked(ledger.Pending - tx.Value);
-                    }
-
-                    if (StateCache.Remove(tx.TransactionId, out _))
-                    {
-                        toExecute.Add(tx);
-                        removed = true;
-                    }
-                }
-                else if (tx.TransactionType == TransactionType.VOTE)
-                {
-                    tx.Height = height;
-                    tx.ExecutionResult = ExecutionResult.STALE;
-
-                    if (StateCache.Remove(tx.TransactionId, out _))
-                    {
-                        toExecute.Add(tx);
-                        removed = true;
-                    }
-                }
-                else
-                {
-                    bool orphaned = false;
-
-                    foreach (var parent in tx.Parents)
-                    {
-                        if (!StateCache.Contains(parent) && !Repository.Exists(parent))
-                        {
-                            orphaned = true;
-                        }
-                    }
-
-                    if (orphaned)
-                    {
-                        tx.Height = height;
-                        tx.ExecutionResult = ExecutionResult.ORPHAN;
-
-                        if (StateCache.Remove(tx.TransactionId, out _))
-                        {
-                            toExecute.Add(tx);
-                            removed = true;
-                        }
-                    }
-                }
-            }
-
-            if (removed)
-            {
-                goto cleanup;
-            }
-
-            // Vote needs to always be child of the view it votes against or it might get stale or executed in wrong order
-            var voteParents = new List<SHA256Hash>() { view.TransactionId };
-            var shouldVote = castVote && Repository.IsValidator(address);
-            
-            if (shouldVote)
-            {
-                foreach (var parent in GetTransactionToValidateInternal(2))
-                {
-                    if (!voteParents.Contains(parent))
-                    {
-                        voteParents.Add(parent);
-                        break;
-                    }
-                }
-            }
-
+            Repository.AddRange(stales);
             Repository.AddRange(toExecute);
             Repository.SaveState(chainState);
-
-            StateCache.SetView(view);
-            StateCache.RecreateGraph();
 
             if (broadcast)
             {
                 Broadcast(view);
             }
             
+            var node = KeyRepository.GetKey();
+            var address = node!.PublicKey.ToAddress();
+            var shouldVote = castVote && Repository.IsValidator(address);
+
             if (shouldVote)
             {
+                var voteParents = GetParentsForVote(view, toExecute);
                 var stake = Repository.GetStake(address);
                 var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Stake ?? 0, voteParents.ToImmutableList());
 
@@ -426,6 +320,9 @@ cleanup:
             }
 
             dbtx.Commit();
+
+            StateCache.SetView(view);
+            StateCache.RecreateGraph();
 
             sw.Stop();
             LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
@@ -808,5 +705,139 @@ cleanup:
     private void LogError(Exception ex, string msg)
     {
         Logger.LogError(ex, msg);
+    }
+
+    private bool TryHandleExecutable(SHA256Hash transactionId, ref int blockCount, ref int voteCount, ref long seedStake, ref long totalStake, [NotNullWhen(true)] out Transaction? tx)
+    {
+        if (!StateCache.Remove(transactionId, out tx))
+        {
+            return false;
+        }
+
+        switch (tx.TransactionType)
+        {
+            case TransactionType.BLOCK:
+                blockCount++;
+                break;
+            case TransactionType.VOTE:
+                voteCount++;
+
+                // Note: votes value must equal to signers stake, this is verified in Verifier
+                var stake = tx.Value;
+
+                if (Constant.SEED_VALIDATORS.Contains(tx.From!))
+                {
+                    stake = Constant.MIN_STAKE;
+                    seedStake += stake;
+                }
+
+                totalStake += stake;
+                break;
+        }
+
+        return true;
+    }
+
+    private bool TryHandleStale(SHA256Hash transactionId, long height, out Transaction tx)
+    {
+        tx = StateCache.GetTransactions()[transactionId];
+
+        switch (tx.TransactionType)
+        {
+            case TransactionType.BLOCK:
+                tx.Height = height;
+                tx.ExecutionResult = ExecutionResult.STALE;
+
+                if (StateCache.TryGet(tx.To!, out var ledger))
+                {
+                    ledger.Pending = checked(ledger.Pending - tx.Value);
+                }
+
+                return StateCache.Remove(tx.TransactionId, out _);
+            case TransactionType.VOTE:
+                tx.Height = height;
+                tx.ExecutionResult = ExecutionResult.STALE;
+
+                return StateCache.Remove(tx.TransactionId, out _);
+            default:
+                return false;
+        }
+    }
+
+    private void CleanupOrphans(long height, List<Transaction> stales)
+    {
+        bool removed = false;
+
+        do foreach (var tx in StateCache.GetTransactions().Values.ToList())
+        {
+            bool orphaned = false;
+
+            foreach (var parent in tx.Parents)
+            {
+                if (!StateCache.Contains(parent) && !Repository.Exists(parent))
+                {
+                    orphaned = true;
+                }
+            }
+
+            if (orphaned && !stales.Contains(tx))
+            {
+                tx.Height = height;
+                tx.ExecutionResult = ExecutionResult.ORPHAN;
+
+                if (StateCache.Remove(tx.TransactionId, out _))
+                {
+                    stales.Add(tx);
+                    removed = true;
+                }
+            }
+        } while (removed);
+    }
+
+    private List<SHA256Hash> GetParentsForVote(View view, List<Transaction> toExecute)
+    {
+        // Vote needs to always be child of the view it votes against or it might get stale or executed in wrong order
+        var voteParents = new List<SHA256Hash>() { view.TransactionId };
+
+        foreach (var tx in toExecute)
+        {
+            if (!voteParents.Contains(tx.TransactionId))
+            {
+                voteParents.Add(tx.TransactionId);
+                break;
+            }
+        }
+
+        if (voteParents.Count >= 2)
+        {
+            return voteParents;
+        }
+        
+        foreach (var tx in GetTransactionToValidateInternal(2))
+        {
+            if (!voteParents.Contains(tx))
+            {
+                voteParents.Add(tx);
+                break;
+            }
+        }
+
+        return voteParents;
+    }
+
+    private Difficulty CalculateDifficulty(BigInteger currentWork, int blockCount)
+    {
+        if (blockCount == 0)
+        {
+            var nextTarget = currentWork / 4 * 3;
+            var minTarget = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
+
+            return BigInteger.Max(minTarget, nextTarget).ToDifficulty();
+        }
+        else
+        {
+            var totalWork = currentWork * blockCount;
+            return totalWork.ToDifficulty();
+        }
     }
 }
