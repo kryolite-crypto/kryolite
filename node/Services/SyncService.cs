@@ -104,12 +104,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             foreach (var qHeight in queryHeights)
             {
-                if (qHeight <= 0)
-                {
-                    continue;
-                }
-
-                var state = storeManager.GetChainStateAt(qHeight);
+                var state = storeManager.GetChainStateAt(Math.Max(qHeight, 0));
 
                 if (state is null)
                 {
@@ -117,6 +112,11 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 }
 
                 query.Views.Add(state.LastHash);
+
+                if (qHeight <= 0)
+                {
+                    break;
+                }
             }
 
             var response = await peer.PostAsync(query);
@@ -180,6 +180,17 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                     if (!staging.LoadTransactions(download.Transactions))
                     {
                         Logger.LogInformation($"Applying remote chain in staging failed");
+
+                        if (networkManager.Ban(peer.ClientId))
+                        {
+                            await peer.DisconnectAsync();
+                        }
+                        else
+                        {
+                            // Force sync from beginning
+                            await AddAsync(new Chain(peer, 0));
+                        }
+
                         break;
                     }
                 }
@@ -199,14 +210,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             var chainState = storeManager.GetChainState();
             Logger.LogInformation($"Staging has height {newState.Height} and weight {newState.Weight}. Compared to local height {chainState.Height} and weight {chainState.Weight}");
 
-            var loaded = storeManager.LoadStagingChain("staging", newState, stateCache, events);
-
-            if (!loaded)
-            {
-                networkManager.Ban(peer.ClientId);
-                await peer.DisconnectAsync();
-                return;
-            }
+            storeManager.LoadStagingChain("staging", newState, stateCache, events);
 
             await peer.SendAsync(new NodeInfoRequest());
         }

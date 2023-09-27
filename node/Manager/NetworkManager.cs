@@ -67,7 +67,7 @@ public class NetworkManager : INetworkManager
         }
     }
 
-    public void Ban(ulong clientId)
+    public bool Ban(ulong clientId)
     {
         if (Hosts.TryGetValue(clientId, out var host))
         {
@@ -77,7 +77,11 @@ public class NetworkManager : INetworkManager
             {
                 logger.LogInformation($"Banned {host.Url.ToHostname()} for {Math.Round((host.BannedUntil - DateTimeOffset.Now).TotalMinutes)} minutes");
             }
+
+            return host.IsBanned();
         }
+
+        return false;
     }
 
     public bool IsBanned(ulong clientId)

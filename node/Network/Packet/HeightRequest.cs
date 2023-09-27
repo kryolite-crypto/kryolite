@@ -27,13 +27,13 @@ public class HeightRequest : IPacket
 
             if (view is not null)
             {
-                logger.LogDebug($"Found common height at {view.Height ?? 1}");
-                await peer.ReplyAsync(args.Message.Id, new HeightResponse(view.Height ?? 1));
+                logger.LogDebug($"Found common height at {view.Height ?? 0}");
+                await peer.ReplyAsync(args.Message.Id, new HeightResponse(view.Height ?? 0));
                 return;
             }
         }
 
         logger.LogDebug($"No common height found");
-        await peer.ReplyAsync(args.Message.Id, new HeightResponse(1));
+        await peer.ReplyAsync(args.Message.Id, new HeightResponse(0));
     }
 }

@@ -268,14 +268,14 @@ public abstract class TransactionManager
                 switch (tx.TransactionType)
                 {
                     case TransactionType.BLOCK:
+                    {
+                        if (StateCache.TryGet(tx.To!, out var to))
                         {
-                            if (StateCache.TryGet(tx.To!, out var to))
-                            {
-                                to.Pending = checked(to.Pending - tx.Value);
-                            }
-
-                            break;
+                            to.Pending = checked(to.Pending - tx.Value);
                         }
+
+                        break;
+                    }
                     case TransactionType.PAYMENT:
                     {
                         if (StateCache.TryGet(tx.From!, out var from))
