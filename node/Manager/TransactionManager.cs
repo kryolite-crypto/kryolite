@@ -232,24 +232,82 @@ public abstract class TransactionManager
             bfs.Compute();
 
             var toExecute = new List<Transaction>(bfs.VisitedGraph.VertexCount);
-            var stales = new List<Transaction>(bfs.VisitedGraph.VertexCount);
+            var stalesAndOrphans = new List<Transaction>(bfs.VisitedGraph.VertexCount);
             var voteCount = 0;
             var blockCount = 0;
             var totalStake = 0L;
             var seedStake = 0L;
 
-            foreach (var vertex in bfs.VisitedGraph.TopologicalSort().Reverse())
+            var traversedGraph = bfs.VisitedGraph.TopologicalSort()
+                .Reverse()
+                .ToList();
+
+            foreach (var vertex in traversedGraph)
+            {
+                // white == not visited
+                if (bfs.VerticesColors[vertex] != GraphColor.White)
+                {
+                    continue;
+                }
+
+                // If we did not visit blocks and votes they become stale due to
+                // referencing old view
+                if (TryHandleStale(vertex, height, out var stale))
+                {
+                    stalesAndOrphans.Add(stale);
+                }
+            }
+
+            CleanupOrphans(height, stalesAndOrphans);
+
+            foreach (var tx in stalesAndOrphans)
+            {
+                // mark orphaned tx not visited
+                bfs.VerticesColors[tx.TransactionId] = GraphColor.White;
+                
+                switch (tx.TransactionType)
+                {
+                    case TransactionType.BLOCK:
+                        {
+                            if (StateCache.TryGet(tx.To!, out var to))
+                            {
+                                to.Pending = checked(to.Pending - tx.Value);
+                            }
+
+                            break;
+                        }
+                    case TransactionType.PAYMENT:
+                    {
+                        if (StateCache.TryGet(tx.From!, out var from))
+                        {
+                            from.Balance = checked(from.Balance + tx.Value);
+                        }
+
+                        if (StateCache.TryGet(tx.To!, out var to))
+                        {
+                            to.Pending = checked(to.Pending - tx.Value);
+                        }
+
+                        break;
+                    }
+                    case TransactionType.REG_VALIDATOR:
+                    {
+                        if (StateCache.TryGet(tx.From!, out var from))
+                        {
+                            var stake = Repository.GetStake(tx.From!);
+                            from.Balance = checked(from.Balance + tx.Value - (stake?.Stake ?? 0));
+                        }
+                        break;
+                    }
+                }
+            }
+
+
+            foreach (var vertex in traversedGraph)
             {
                 // white == not visited
                 if (bfs.VerticesColors[vertex] == GraphColor.White)
                 {
-                    // If we did not visit blocks and votes they become stale due to
-                    // referencing old view
-                    if (TryHandleStale(vertex, height, out var stale))
-                    {
-                        stales.Add(stale);
-                    }
-
                     continue;
                 }
 
@@ -274,10 +332,8 @@ public abstract class TransactionManager
             chainState.Transactions += toExecute.Count;
             chainState.Blocks += blockCount;
             chainState.CurrentDifficulty = CalculateDifficulty(chainState.CurrentDifficulty.ToWork(), blockCount);
-            
-            CleanupOrphans(height, stales);
 
-            Repository.AddRange(stales);
+            Repository.AddRange(stalesAndOrphans);
             Repository.AddRange(toExecute);
             Repository.SaveState(chainState);
 
@@ -745,15 +801,6 @@ public abstract class TransactionManager
         switch (tx.TransactionType)
         {
             case TransactionType.BLOCK:
-                tx.Height = height;
-                tx.ExecutionResult = ExecutionResult.STALE;
-
-                if (StateCache.TryGet(tx.To!, out var ledger))
-                {
-                    ledger.Pending = checked(ledger.Pending - tx.Value);
-                }
-
-                return StateCache.Remove(tx.TransactionId, out _);
             case TransactionType.VOTE:
                 tx.Height = height;
                 tx.ExecutionResult = ExecutionResult.STALE;
@@ -764,7 +811,7 @@ public abstract class TransactionManager
         }
     }
 
-    private void CleanupOrphans(long height, List<Transaction> stales)
+    private void CleanupOrphans(long height, List<Transaction> stalesAndOrphans)
     {
         bool removed = false;
 
@@ -777,17 +824,18 @@ public abstract class TransactionManager
                 if (!StateCache.Contains(parent) && !Repository.Exists(parent))
                 {
                     orphaned = true;
+                    break;
                 }
             }
 
-            if (orphaned && !stales.Contains(tx))
+            if (orphaned && !stalesAndOrphans.Contains(tx))
             {
                 tx.Height = height;
                 tx.ExecutionResult = ExecutionResult.ORPHAN;
 
                 if (StateCache.Remove(tx.TransactionId, out _))
                 {
-                    stales.Add(tx);
+                    stalesAndOrphans.Add(tx);
                     removed = true;
                 }
             }

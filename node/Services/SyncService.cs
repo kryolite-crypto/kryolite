@@ -137,21 +137,23 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             {
                 Logger.LogInformation($"Loading local transactions up to height {heightResponse.CommonHeight}");
 
-                for (var i = 1; i < heightResponse.CommonHeight; i++)
+                for (var i = 1; i <= heightResponse.CommonHeight; i++)
                 {
                     var txs = storeManager.GetTransactionsAtHeight(i);
 
-                    if (txs.Count > 0)
+                    if (txs.Count == 0)
                     {
-                        staging.DisableLogging();
-                        var success = staging.LoadTransactionsWithoutValidation(txs);
-                        staging.EnableLogging();
+                        break;
+                    }
 
-                        if (!success)
-                        {
-                            Logger.LogError($"Failed to setup staging from current db");
-                            return;
-                        }
+                    staging.DisableLogging();
+                    var success = staging.LoadTransactionsWithoutValidation(txs);
+                    staging.EnableLogging();
+
+                    if (!success)
+                    {
+                        Logger.LogError($"Failed to setup staging from current db");
+                        return;
                     }
                 }
 
@@ -160,7 +162,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                 const int BATCH_SIZE = 100;
 
-                for (var i = heightResponse.CommonHeight; i <= height; i += BATCH_SIZE)
+                for (var i = heightResponse.CommonHeight + 1; i <= height; i += BATCH_SIZE)
                 {
                     Logger.LogDebug($"Downloading transactions from {i} to {i + BATCH_SIZE}");
 
