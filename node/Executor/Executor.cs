@@ -81,6 +81,9 @@ public class Executor
                 case TransactionType.CONTRACT:
                     tx.ExecutionResult = ContractInstallerExecutor.Execute(tx);
                     break;
+                case TransactionType.VIEW:
+                    tx.ExecutionResult = ExecutionResult.SUCCESS;
+                    break;
             }
         }
 

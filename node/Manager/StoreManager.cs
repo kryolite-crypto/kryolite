@@ -447,7 +447,6 @@ public class StoreManager : TransactionManager, IStoreManager
         var toSkip = pageNum * pageSize;
 
         var transactions = StateCache.GetPendingGraph().TopologicalSort()
-            .Reverse()
             .Skip(toSkip)
             .Take(pageSize);
 
