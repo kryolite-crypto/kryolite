@@ -48,7 +48,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 return;
             }
 
-            ok = await HandleSynchronization(chain.Peer, chain.Height);
+            ok = await HandleSynchronization(chain.Peer, chain.Height, false);
 
             if (ok)
             {
