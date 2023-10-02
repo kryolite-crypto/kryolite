@@ -1,6 +1,5 @@
 using System.Numerics;
 using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,14 +8,14 @@ using Microsoft.Extensions.Logging;
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class TransactionBroadcast : IPacket
+public class BlockBroadcast : IPacket
 {
     [Key(0)]
-    public SHA256Hash TransactionId { get; set; }
+    public SHA256Hash Blockhash { get; set; } = SHA256Hash.NULL_HASH;
 
-    public TransactionBroadcast(SHA256Hash transactionId)
+    public BlockBroadcast(SHA256Hash blockhash)
     {
-        TransactionId = transactionId;
+        Blockhash = blockhash;
     }
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
@@ -31,23 +30,21 @@ public class TransactionBroadcast : IPacket
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBroadcast>>();
 
-        logger.LogDebug($"Received TransactionBroadcast from {peer.Uri.ToHostname()}");
+        logger.LogDebug($"Received BlockBroadcast from {peer.Uri.ToHostname()}");
 
-        if (storeManager.TransactionExists(TransactionId))
+        if (storeManager.BlockExists(Blockhash))
         {
             return;
         }
 
-        var result = await peer.PostAsync(new TransactionRequest(TransactionId));
+        var result = await peer.PostAsync(new BlockRequest(Blockhash));
 
-        if (result is null || result.Payload is not TransactionResponse response || response.Transaction is null)
+        if (result is null || result.Payload is not BlockResponse response || response.Block is null)
         {
             return;
         }
 
-        var er = storeManager.AddTransaction(response.Transaction, false);
-
-        if (er == ExecutionResult.SUCCESS)
+        if (storeManager.AddBlock(response.Block, false))
         {
             args.Rebroadcast = true;
         }

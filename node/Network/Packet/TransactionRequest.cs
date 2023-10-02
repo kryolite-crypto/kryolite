@@ -14,10 +14,10 @@ public class TransactionRequest : IPacket
 
     public TransactionRequest(SHA256Hash transactionId)
     {
-        TransactionId = transactionId ?? throw new ArgumentNullException(nameof(transactionId));
+        TransactionId = transactionId;
     }
 
-    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
+    public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
     {
         using var scope = provider.CreateScope();
 
@@ -30,10 +30,10 @@ public class TransactionRequest : IPacket
 
         if (tx is null)
         {
-            _ = peer.ReplyAsync(args.Message.Id, new TransactionResponse(null));
+            await peer.ReplyAsync(args.Message.Id, new TransactionResponse(null));
             return;
         }
 
-        _ = peer.ReplyAsync(args.Message.Id, new TransactionResponse(new TransactionDto(tx)));
+        await peer.ReplyAsync(args.Message.Id, new TransactionResponse(new TransactionDto(tx)));
     }
 }

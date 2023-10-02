@@ -102,13 +102,13 @@ public class ValidatorService : BackgroundService
                 var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
                 var lastView = blockchainManager.GetLastView() ?? throw new Exception("LastView returned null");
+                var votes = blockchainManager.GetVotesAtHeight(lastView.Id);
 
-                var votes = blockchainManager.GetVotesAtHeight(lastView.Height ?? 0);
                 var nextLeader = votes
                     .Where(x => !Banned.Contains(x.PublicKey))
                     .MinBy(x => x.Signature)?.PublicKey;
 
-                logger.LogInformation("View #{} received {} votes", lastView.Height, votes.Count);
+                logger.LogInformation("View #{} received {} votes", lastView.Id, votes.Count);
 
                 if (nextLeader is null)
                 {
@@ -127,7 +127,7 @@ public class ValidatorService : BackgroundService
 
                 var nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
 
-                if (nextView.TransactionId == lastView.TransactionId)
+                if (nextView.Id == lastView.Id)
                 {
                     logger.LogInformation("Leader {publicKey} failed to create view", nextLeader);
                     Banned.Add(nextLeader);
@@ -160,8 +160,16 @@ public class ValidatorService : BackgroundService
 
     private void GenerateView(IStoreManager blockchainManager, View lastView)
     {
-        var height = (lastView?.Height ?? 0) + 1L;
-        var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate().ToImmutableList());
+        var nextView = new View
+        {
+            Id = (lastView?.Id ?? 0) + 1L,
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            LastHash = lastView?.GetHash() ?? SHA256Hash.NULL_HASH,
+            PublicKey = Node.PublicKey,
+            Blocks = blockchainManager.GetPendingBlocks().Select(x => x.GetHash()).ToList(),
+            Votes = blockchainManager.GetPendingVotes().Select(x => x.GetHash()).ToList(),
+            Transactions = blockchainManager.GetPendingTransactions().Select(x => x.CalculateHash()).ToList()
+        };
         
         nextView.Sign(Node.PrivateKey);
 

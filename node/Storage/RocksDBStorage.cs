@@ -50,8 +50,10 @@ internal class RocksDBStorage : IStorage
             using (var db = RocksDb.Open(options, storePath, new ColumnFamilies()))
             {
                 db.CreateColumnFamily(opts, "Key");
+                db.CreateColumnFamily(opts, "Block");
+                db.CreateColumnFamily(opts, "View");
+                db.CreateColumnFamily(opts, "Vote");
                 db.CreateColumnFamily(opts, "ChainState");
-                db.CreateColumnFamily(opts, "ChainStateHistory");
                 db.CreateColumnFamily(opts, "Ledger");
                 db.CreateColumnFamily(opts, "Transaction");
                 db.CreateColumnFamily(opts, "Contract");
@@ -59,19 +61,20 @@ internal class RocksDBStorage : IStorage
                 db.CreateColumnFamily(opts, "ContractSnapshot");
                 db.CreateColumnFamily(opts, "Token");
                 db.CreateColumnFamily(opts, "Validator");
+                db.CreateColumnFamily(opts, "ixViewHash");
                 db.CreateColumnFamily(opts, "ixTokenId");
                 db.CreateColumnFamily(opts, "ixTokenLedger");
-                db.CreateColumnFamily(opts, "ixTransactionId");
                 db.CreateColumnFamily(opts, "ixTransactionAddress");
-                db.CreateColumnFamily(opts, "ixTransactionHeight");
             }
         }
 
         var families = new ColumnFamilies
         {
             { "Key", opts },
+            { "Block", opts },
+            { "View", opts },
+            { "Vote", opts },
             { "ChainState", opts },
-            { "ChainStateHistory", opts },
             { "Ledger", opts },
             { "Transaction", opts },
             { "Contract", opts },
@@ -79,18 +82,19 @@ internal class RocksDBStorage : IStorage
             { "ContractSnapshot", opts },
             { "Token", opts },
             { "Validator", opts},
+            { "ixViewHash", opts },
             { "ixTokenId", opts },
             { "ixTokenLedger", opts },
-            { "ixTransactionId", opts },
-            { "ixTransactionAddress", opts },
-            { "ixTransactionHeight", opts }
+            { "ixTransactionAddress", opts }
         };
 
         Database = RocksDb.Open(options, storePath, families);
 
         ColumnFamilies.Add("Key", Database.GetColumnFamily("Key"));
+        ColumnFamilies.Add("Block", Database.GetColumnFamily("Block"));
+        ColumnFamilies.Add("View", Database.GetColumnFamily("View"));
+        ColumnFamilies.Add("Vote", Database.GetColumnFamily("Vote"));
         ColumnFamilies.Add("ChainState", Database.GetColumnFamily("ChainState"));
-        ColumnFamilies.Add("ChainStateHistory", Database.GetColumnFamily("ChainStateHistory"));
         ColumnFamilies.Add("Ledger", Database.GetColumnFamily("Ledger"));
         ColumnFamilies.Add("Transaction", Database.GetColumnFamily("Transaction"));
         ColumnFamilies.Add("Contract", Database.GetColumnFamily("Contract"));
@@ -98,11 +102,10 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ContractSnapshot", Database.GetColumnFamily("ContractSnapshot"));
         ColumnFamilies.Add("Token", Database.GetColumnFamily("Token"));
         ColumnFamilies.Add("Validator", Database.GetColumnFamily("Validator"));
+        ColumnFamilies.Add("ixViewHash", Database.GetColumnFamily("ixViewHash"));
         ColumnFamilies.Add("ixTokenId", Database.GetColumnFamily("ixTokenId"));
         ColumnFamilies.Add("ixTokenLedger", Database.GetColumnFamily("ixTokenLedger"));
-        ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
-        ColumnFamilies.Add("ixTransactionHeight", Database.GetColumnFamily("ixTransactionHeight"));
 
         CurrentKey = InitializeKey();
 

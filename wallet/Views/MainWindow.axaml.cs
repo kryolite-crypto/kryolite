@@ -86,7 +86,7 @@ public partial class MainWindow : Window
 
         EventBus.Subscribe<ChainState>(async state => {
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Blocks = state.Height;
+                Model.Blocks = state.Id;
             });
         });
 
@@ -184,7 +184,7 @@ public partial class MainWindow : Window
             var state = blockchainManager.GetChainState();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Blocks = state.Height;
+                Model.Blocks = state.Id;
             });
         });
 

@@ -7,12 +7,24 @@ namespace Kryolite.Node.Repository;
 
 public interface IStoreRepository
 {
-    bool Exists(SHA256Hash transactionId);
-    Transaction? Get(SHA256Hash transactionId);
-    List<Transaction> GetPending();
+    bool BlockExists(SHA256Hash transactionId);
+    bool VoteExists(SHA256Hash transactionId);
+    bool TransactionExists(SHA256Hash transactionId);
+    View? GetView(long height);
+    View? GetView(SHA256Hash viewHash);
+    Block? GetBlock(SHA256Hash blockhash);
+    Vote? GetVote(SHA256Hash votehash);
+    Transaction? GetTransaction(SHA256Hash transactionId);
+    List<Block> GetBlocks(List<SHA256Hash> blockhashes);
+    List<Vote> GetVotes(List<SHA256Hash> votehashes);
+    List<Transaction> GetTransactions(List<SHA256Hash> transactionIds);
+    void Add(View view);
+    void Add(Block block);
+    void Add(Vote vote);
+    void Add(Transaction transaction);
+    void AddRange(List<Block> blocks);
+    void AddRange(List<Vote> votes);
     void AddRange(List<Transaction> transactions);
-    void Delete(Transaction tx);
-    Genesis? GetGenesis();
     View? GetLastView();
     View? GetViewAt(long height);
     List<Transaction> GetTransactionsAtHeight(long height);
@@ -20,7 +32,6 @@ public interface IStoreRepository
     List<Transaction> GetTransactions(int count, int toSkip);
     List<Vote> GetVotesAtHeight(long height);
     void SaveState(ChainState chainState);
-    void DeleteState(long height);
     long? GetTimestamp(SHA256Hash transactionId);
     ChainState? GetChainState();
     ChainState? GetChainStateAt(long height);
@@ -38,8 +49,6 @@ public interface IStoreRepository
     void AddContractCode(Address contract, byte[] code);
     void AddContractSnapshot(Address contract, long height, byte[] snapshot);
     void UpdateContract(Contract contract);
-    void DeleteContract(Address address);
-    void DeleteContractSnapshot(Address address, long height);
     void UpdateContracts(IEnumerable<Contract> contracts);
     void AddToken(Token token);
     void UpdateToken(Token token);

@@ -17,14 +17,11 @@ public class ApiControllerBase : Controller
     private readonly INetworkManager networkManager;
     private readonly IMeshNetwork meshNetwork;
 
-    public IBufferService<TransactionDto, IncomingTransactionService> TxBuffer { get; }
-
-    public ApiControllerBase(IStoreManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork, IBufferService<TransactionDto, IncomingTransactionService> txBuffer)
+    public ApiControllerBase(IStoreManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork)
     {
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
-        TxBuffer = txBuffer ?? throw new ArgumentNullException(nameof(txBuffer));
     }
 
     [HttpGet("blocktemplate")]
@@ -184,7 +181,12 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid transaction");
         }
 
-        return blockchainManager.AddTransactionBatch(transactions, true);
+        foreach (var tx in transactions)
+        {
+            blockchainManager.AddTransaction(tx, true);
+        }
+
+        return true;
     }
 
     [HttpGet("richlist")]
@@ -207,7 +209,14 @@ public class ApiControllerBase : Controller
     [HttpGet("tx/height/{height}")]
     public IActionResult GetTransactions([FromRoute(Name = "height")] long height)
     {
-        return Ok(blockchainManager.GetTransactionsAtHeight(height));
+        var view = blockchainManager.GetView(height);
+
+        if (view is null)
+        {
+            return Ok(new List<Transaction>());
+        }
+
+        return Ok(blockchainManager.GetTransactions(view.Transactions));
     }
 
     [HttpGet("tx")]
@@ -219,7 +228,7 @@ public class ApiControllerBase : Controller
     [HttpGet("tx/graph")]
     public IActionResult GetTransactionGraph([FromQuery] long startHeight)
     {
-        var transactions = blockchainManager.GetTransactionsAfterHeight(startHeight);
+        /*var transactions = blockchainManager.GetTransactionsAfterHeight(startHeight);
 
         var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, transactions.Count + 1);
         var map = new Dictionary<SHA256Hash, Transaction>(transactions.Count + 1);
@@ -231,19 +240,7 @@ public class ApiControllerBase : Controller
         foreach (var tx in transactions)
         {
             map.Add(tx.TransactionId, tx);
-
-            foreach (var parent in tx.Parents)
-            {
-                if (graph.ContainsVertex(parent))
-                {
-                    graph.AddEdge(new (parent, tx.TransactionId ));
-                    continue;
-                }
-
-                graph.AddVertex(parent);
-                terminatinEdges.Add(parent);
-                graph.AddEdge(new (parent, tx.TransactionId));
-            }
+            graph.AddEdge(new (tx., tx.TransactionId ));
         }
 
         var darkslategray4 = new GraphvizColor(byte.MaxValue, 52, 139, 139);
@@ -321,13 +318,8 @@ public class ApiControllerBase : Controller
                 };
             });
 
-        return Ok(dotString);
-    }
-
-    [HttpGet("chain/tip")]
-    public IActionResult GetChainTip()
-    {
-        return Ok(blockchainManager.GetTransactionToValidate(2));
+        return Ok(dotString);*/
+        return Ok("");
     }
 
     [HttpGet("ledger/{address}")]

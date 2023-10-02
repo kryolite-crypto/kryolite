@@ -25,9 +25,9 @@ public class NodeInfoRequest : IPacket
         var chainState = blockchainManager.GetChainState();
         var response = new NodeInfoResponse
         {
-            Height = chainState.Height,
+            Height = chainState.Id,
             Weight = chainState.Weight,
-            LastHash = blockchainManager.GetLastView()?.TransactionId ?? SHA256Hash.NULL_HASH,
+            LastHash = chainState.LastHash,
             CurrentTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
 

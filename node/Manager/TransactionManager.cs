@@ -38,181 +38,55 @@ public abstract class TransactionManager
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
+    public abstract void Broadcast(View view);
     public abstract void Broadcast(Transaction tx);
+    public abstract void Broadcast(Block block);
+    public abstract void Broadcast(Vote vote);
+
     public abstract void Publish(EventBase ev);
     public abstract string CHAIN_NAME { get; }
 
-    public bool AddGenesis(Genesis genesis, View view)
+    public bool AddGenesis(View view)
     {
         using var dbtx = Repository.BeginTransaction();
 
         try
         {
-            genesis.TransactionId = genesis.CalculateHash();
-            genesis.ExecutionResult = ExecutionResult.PENDING;
-
             var chainState = new ChainState
             {
                 Id = 0,
-                Height = -1,
-                LastHash = genesis.TransactionId,
+                LastHash = view.GetHash(),
                 CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty()
             };
-
-            Repository.AddRange(new() { genesis });
-            Repository.SaveState(chainState);
 
             foreach (var validator in Constant.SEED_VALIDATORS)
             {
                 var stake = new Validator
                 {
-                    NodeAddress = validator
+                    NodeAddress = validator,
+                    Stake = 0,
+                    RewardAddress = Address.NULL_ADDRESS
                 };
-                stake.PushStake(0, new Address());
 
                 Repository.SetStake(validator, stake);
             }
 
             StateCache.SetChainState(chainState);
+            StateCache.SetView(view);
 
-            return AddViewInternal(view, false, false);
+            Repository.SaveState(chainState);
+            Repository.Add(view);
+
+            dbtx.Commit();
+            return true;
         }
         catch (Exception ex)
         {
             LogError(ex, $"{CHAIN_NAME}AddGenesis error");
+            dbtx.Rollback();
         }
 
         return false;
-    }
-
-    protected bool AddTransactionBatchInternal(List<TransactionDto> transactionList, bool broadcast, bool castVote)
-    {
-        var transactions = new ConcurrentDictionary<SHA256Hash, Transaction>(Environment.ProcessorCount, transactionList.Count());
-
-        Parallel.ForEach(transactionList, tx =>
-        {
-            var hash = tx.CalculateHash();
-
-            switch (tx.TransactionType)
-            {
-                case TransactionType.BLOCK:
-                    var block = new Block(tx, tx.Parents);
-                    transactions.TryAdd(hash, block);
-                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({block.TransactionId})");
-                    break;
-                case TransactionType.PAYMENT:
-                case TransactionType.CONTRACT:
-                case TransactionType.REG_VALIDATOR:
-                    var transaction = new Transaction(tx, tx.Parents);
-                    transactions.TryAdd(hash, transaction);
-                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({transaction.TransactionId})");
-                    break;
-                case TransactionType.VIEW:
-                    var view = new View(tx, tx.Parents);
-                    transactions.TryAdd(hash, view);
-                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({view.TransactionId})");
-                    break;
-                case TransactionType.VOTE:
-                    var vote = new Vote(tx, tx.Parents);
-                    transactions.TryAdd(hash, vote);
-                    Logger.LogDebug($"Converted TransactionDto ({hash}) to Transaction ({vote.TransactionId})");
-                    break;
-                default:
-                    LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
-                    return;
-            }
-        });
-
-        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
-
-        graph.AddVertexRange(transactions.Values.Select(x => x.CalculateHash()));
-
-        foreach (var tx in transactions)
-        {
-            foreach (var parent in tx.Value.Parents)
-            {
-                if (graph.ContainsVertex(parent))
-                {
-                    graph.AddEdge(new Edge<SHA256Hash>(tx.Key, parent));
-                }
-            }
-        }
-
-        StateCache.EnsureTransactionCapacity(StateCache.TransactionCount() + transactions.Count());
-        StateCache.EnsureLedgerCapacity(StateCache.LedgerCount() + transactions.Count());
-
-        Verifier.Verify(transactions.Values);
-
-        bool success = true;
-
-        try
-        {
-            foreach (var vertex in graph.TopologicalSort().Reverse())
-            {
-                var tx = transactions[vertex];
-
-                if (tx.ExecutionResult == ExecutionResult.SUCCESS)
-                {
-                    Logger.LogDebug($"{CHAIN_NAME}{tx.TransactionId} already exists");
-                    continue;
-                }
-
-                Logger.LogDebug($"{CHAIN_NAME}{tx.TransactionId}");
-
-                // Verify second part, requiring concurrent execution
-                if(!Verifier.VerifyTypeOnly(tx, transactions))
-                {
-                    LogError($"{CHAIN_NAME}{tx.TransactionId} = {tx.ExecutionResult}");
-                    success = false;
-                    break;
-                }
-
-                switch (tx.TransactionType)
-                {
-                    case TransactionType.BLOCK:
-                        success = AddBlockInternal((Block)tx, broadcast);
-                        break;
-                    case TransactionType.PAYMENT:
-                    case TransactionType.CONTRACT:
-                        success = AddTransactionInternal(tx, broadcast);
-                        break;
-                    case TransactionType.VIEW:
-                        success = AddViewInternal((View)tx, broadcast, castVote);
-                        break;
-                    case TransactionType.VOTE:
-                        success = AddVoteInternal((Vote)tx, broadcast);
-                        break;
-                    case TransactionType.REG_VALIDATOR:
-                        success = AddValidatorRegInternal(tx, broadcast);
-                        break;
-                    default:
-                        LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
-                        break;
-                }
-
-                if (!success)
-                {
-                    LogInformation($"{CHAIN_NAME}Failed to add transaction");
-                    success = false;
-                    break;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            LogError(ex, $"{CHAIN_NAME}AddTransactionBatch error");
-            success = false;
-        }
-
-        foreach (var txDto in transactionList)
-        {
-            if (transactions.TryGetValue(txDto.CalculateHash(), out var tx))
-            {
-                txDto.IsValid = tx.ExecutionResult == ExecutionResult.PENDING;
-            }
-        }
-
-        return success;
     }
 
     protected bool AddViewInternal(View view, bool broadcast, bool castVote)
@@ -223,98 +97,82 @@ public abstract class TransactionManager
         {
             var sw = Stopwatch.StartNew();
 
-            var height = view.Height ?? 0;
+            var height = view.Id;
 
-            StateCache.Add(view);
-
-            var bfs = new BreadthFirstSearchAlgorithm<SHA256Hash, Edge<SHA256Hash>>(StateCache.GetPendingGraph());
-            bfs.SetRootVertex(view.TransactionId);
-            bfs.Compute();
-
-            var toExecute = new List<Transaction>(bfs.VisitedGraph.VertexCount);
-            var stalesAndOrphans = new List<Transaction>(bfs.VisitedGraph.VertexCount);
-            var voteCount = 0;
+            var toExecute = new List<Transaction>(StateCache.TransactionCount());
             var blockCount = 0;
+            var voteCount = 0;
             var totalStake = 0L;
             var seedStake = 0L;
 
-            var traversedGraph = bfs.VisitedGraph.TopologicalSort()
-                .Reverse()
-                .ToList();
-
-            foreach (var vertex in traversedGraph)
+            foreach (var blockhash in view.Blocks)
             {
-                // white == not visited
-                if (bfs.VerticesColors[vertex] != GraphColor.White)
+                if (!StateCache.GetBlocks().TryGetValue(blockhash, out var block))
                 {
-                    continue;
+                    throw new Exception($"unknown reference to block ({blockhash})");
                 }
 
-                // If we did not visit blocks and votes they become stale due to
-                // referencing old view
-                if (TryHandleStale(vertex, height, out var stale))
+                toExecute.Add(new Transaction
                 {
-                    stalesAndOrphans.Add(stale);
-                }
+                    TransactionType = TransactionType.STAKE_REWARD,
+                    Value = block.Value,
+                    Data = blockhash,
+                    Timestamp = view.Timestamp
+                });
+
+                blockCount++;
             }
 
-            CleanupOrphans(height, stalesAndOrphans);
+            StateCache.GetBlocks().Clear();
 
-            foreach (var tx in stalesAndOrphans)
+            foreach (var votehash in view.Votes)
             {
-                // mark orphaned tx not visited
-                bfs.VerticesColors[tx.TransactionId] = GraphColor.White;
-                
-                switch (tx.TransactionType)
+                if (!StateCache.GetVotes().TryGetValue(votehash, out var vote))
                 {
-                    case TransactionType.BLOCK:
-                    {
-                        if (StateCache.TryGet(tx.To!, out var to))
-                        {
-                            to.Pending = checked(to.Pending - tx.Value);
-                        }
-
-                        break;
-                    }
-                    case TransactionType.PAYMENT:
-                    {
-                        if (StateCache.TryGet(tx.From!, out var from))
-                        {
-                            from.Balance = checked(from.Balance + tx.Value);
-                        }
-
-                        if (StateCache.TryGet(tx.To!, out var to))
-                        {
-                            to.Pending = checked(to.Pending - tx.Value);
-                        }
-
-                        break;
-                    }
-                    case TransactionType.REG_VALIDATOR:
-                    {
-                        if (StateCache.TryGet(tx.From!, out var from))
-                        {
-                            var stake = Repository.GetStake(tx.From!);
-                            from.Balance = checked(from.Balance + tx.Value - (stake?.Stake ?? 0));
-                        }
-                        break;
-                    }
+                    throw new Exception($"unknown reference to vote ({votehash})");
                 }
+
+                var stakeAddress = vote.PublicKey.ToAddress();
+                var stake = Repository.GetStake(stakeAddress);
+
+                if (stake is null)
+                {
+                    throw new Exception($"not validator ({stakeAddress})");
+                }
+
+                var stakeAmount = stake.Stake;
+
+                if (Constant.SEED_VALIDATORS.Contains(stakeAddress))
+                {
+                    stakeAmount = Constant.MIN_STAKE;
+                    seedStake += stakeAmount;
+                }
+
+                totalStake += stakeAmount;
+
+                voteCount++;
+
+                toExecute.Add(new Transaction
+                {
+                    TransactionType = TransactionType.STAKE_REWARD,
+                    Value = stakeAmount, // Executor will update this to final value!!
+                    Data = votehash,
+                    Timestamp = view.Timestamp,
+                    PublicKey = vote.PublicKey,
+                    Signature = vote.Signature
+                });
             }
 
+            StateCache.GetVotes().Clear();
 
-            foreach (var vertex in traversedGraph)
+            foreach (var txId in view.Transactions)
             {
-                // white == not visited
-                if (bfs.VerticesColors[vertex] == GraphColor.White)
+                if (!StateCache.GetTransactions().Remove(txId, out var tx))
                 {
-                    continue;
+                    throw new Exception($"unknown reference to transaction ({txId})");
                 }
 
-                if (TryHandleExecutable(vertex, ref blockCount, ref voteCount, ref seedStake, ref totalStake, out var tx))
-                {
-                    toExecute.Add(tx);
-                }
+                toExecute.Add(tx);
             }
 
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), totalStake - seedStake, height);
@@ -325,15 +183,14 @@ public abstract class TransactionManager
 
             executor.Execute(toExecute, chainState.CurrentDifficulty);
 
-            chainState.LastHash = view.TransactionId;
-            chainState.Height++;
+            chainState.LastHash = view.GetHash();
+            chainState.Id++;
             chainState.Weight += chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE);
             chainState.Votes += voteCount;
             chainState.Transactions += toExecute.Count;
             chainState.Blocks += blockCount;
             chainState.CurrentDifficulty = CalculateDifficulty(chainState.CurrentDifficulty.ToWork(), blockCount);
 
-            Repository.AddRange(stalesAndOrphans);
             Repository.AddRange(toExecute);
             Repository.SaveState(chainState);
 
@@ -348,13 +205,14 @@ public abstract class TransactionManager
 
             if (shouldVote)
             {
-                var voteParents = GetParentsForVote(view, toExecute);
                 var stake = Repository.GetStake(address);
-                var vote = new Vote(node!.PublicKey, view.TransactionId, stake?.Stake ?? 0, voteParents.ToImmutableList());
+                var vote = new Vote
+                {
+                    ViewHash = view.GetHash(),
+                    PublicKey = node.PublicKey
+                };
 
                 vote.Sign(node.PrivateKey);
-                vote.ExecutionResult = ExecutionResult.PENDING;
-
                 AddVoteInternal(vote, true);
             }
 
@@ -378,7 +236,6 @@ public abstract class TransactionManager
             dbtx.Commit();
 
             StateCache.SetView(view);
-            StateCache.RecreateGraph();
 
             sw.Stop();
             LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
@@ -389,8 +246,7 @@ public abstract class TransactionManager
         {
             LogError(ex, $"{CHAIN_NAME}AddView error");
 
-            StateCache.ClearTransactions();
-            StateCache.ClearLedgers();
+            StateCache.Clear();
 
             StateCache.SetView(Repository.GetLastView()!);
             StateCache.SetChainState(Repository.GetChainState()!);
@@ -405,13 +261,13 @@ public abstract class TransactionManager
     {
         var sw = Stopwatch.StartNew();
         
-        if (!StateCache.TryGet(block.To!, out var to))
+        if (!StateCache.TryGet(block.To, out var to))
         {
-            to = Repository.GetWallet(block.To!);
+            to = Repository.GetWallet(block.To);
 
             if (to is null)
             {
-                to = new Ledger(block.To!);
+                to = new Ledger(block.To);
             }
 
             StateCache.Add(to);
@@ -558,179 +414,6 @@ public abstract class TransactionManager
         return false;
     }
 
-    protected List<SHA256Hash> GetTransactionToValidateInternal()
-    {
-        var hashes = StateCache.GetPendingGraph().Roots()
-            .OrderBy(x => Guid.NewGuid())
-            .ToList();
-
-        Logger.LogDebug($"{CHAIN_NAME}Tip has {hashes.Count} / {StateCache.GetPendingGraph().VertexCount} transactions");
-
-        if (hashes.Count < 2)
-        {
-            foreach (var tx in StateCache.GetTransactions())
-            {
-                if (tx.Value.ExecutionResult == ExecutionResult.STALE || tx.Value.ExecutionResult == ExecutionResult.ORPHAN)
-                {
-                    continue;
-                }
-
-                if (!hashes.Contains(tx.Value.TransactionId))
-                {
-                    hashes.Add(tx.Value.TransactionId);
-                }
-
-                if (hashes.Count >= 2)
-                {
-                    return hashes;
-                }
-            }
-        }
-
-        var chainState = Repository.GetChainState();    
-        
-        if (hashes.Count < 2)
-        {
-            // we should always point at minimum to previous view
-            if (chainState is not null && !hashes.Contains(chainState.LastHash))
-            {
-                hashes.Add(chainState.LastHash);
-            }
-        }
-        
-        if (hashes.Count < 2)
-        {
-            var nextHashes = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
-                .ToList();
-                
-            foreach (var tx in nextHashes)
-            {
-                if (tx.ExecutionResult == ExecutionResult.STALE || tx.ExecutionResult == ExecutionResult.ORPHAN)
-                {
-                    continue;
-                }
-
-                if (!hashes.Contains(tx.TransactionId))
-                {
-                    hashes.Add(tx.TransactionId);
-                }
-                
-                if (hashes.Count >= 2 )
-                {
-                    return hashes;
-                }
-            }
-        }
-        
-        if (hashes.Count < 2)
-        {
-            // should never get this far...
-            var nextHashes = Repository.GetLastNTransctions(2)
-                .Select(x => x.TransactionId)
-                .ToList();
-
-            foreach (var hash in nextHashes)
-            {
-                if (!hashes.Contains(hash))
-                {
-                    hashes.Add(hash);
-                }
-
-                if (hashes.Count >= 2)
-                {
-                    return hashes;
-                }
-            }
-        }
-
-        return hashes;
-    }
-
-    protected List<SHA256Hash> GetTransactionToValidateInternal(int count)
-    {
-        var hashes = StateCache.GetPendingGraph().Roots()
-            .OrderBy(x => Guid.NewGuid())
-            .Take(count)
-            .ToList();
-
-        if (hashes.Count < count)
-        {
-            foreach (var tx in StateCache.GetTransactions())
-            {
-                if (tx.Value.ExecutionResult == ExecutionResult.STALE || tx.Value.ExecutionResult == ExecutionResult.ORPHAN)
-                {
-                    continue;
-                }
-
-                if (!hashes.Contains(tx.Value.TransactionId))
-                {
-                    hashes.Add(tx.Value.TransactionId);
-                }
-
-                if (hashes.Count >= count)
-                {
-                    return hashes;
-                }
-            }
-        }
-        
-        var chainState = Repository.GetChainState();    
-        
-        if (hashes.Count < count)
-        {
-            // we should always point at minimum to previous view
-            if (chainState is not null && !hashes.Contains(chainState.LastHash))
-            {
-                hashes.Add(chainState.LastHash);
-            }
-        }
-        
-        if (hashes.Count < count)
-        {
-            var transactions = Repository.GetTransactionsAtHeight(chainState?.Height ?? 0)
-                .ToList();
-                
-            foreach (var tx in transactions)
-            {
-                if (tx.ExecutionResult == ExecutionResult.STALE || tx.ExecutionResult == ExecutionResult.ORPHAN)
-                {
-                    continue;
-                }
-
-                if (!hashes.Contains(tx.TransactionId))
-                {
-                    hashes.Add(tx.TransactionId);
-                }
-                
-                if (hashes.Count >= count )
-                {
-                    return hashes;
-                }
-            }
-        }
-
-        if (hashes.Count < count)
-        {
-            // should never get this far...
-            var transactions = Repository.GetLastNTransctions(count);
-
-            foreach (var tx in transactions)
-            {
-                if (!hashes.Contains(tx.TransactionId))
-                {
-                    hashes.Add(tx.TransactionId);
-                }
-
-                if (hashes.Count >= count)
-                {
-                    return hashes;
-                }
-            }
-        }
-
-        return hashes;
-    }
-
     protected bool loggingDisabled;
 
     private void LogInformation(string msg)
@@ -761,116 +444,6 @@ public abstract class TransactionManager
     private void LogError(Exception ex, string msg)
     {
         Logger.LogError(ex, msg);
-    }
-
-    private bool TryHandleExecutable(SHA256Hash transactionId, ref int blockCount, ref int voteCount, ref long seedStake, ref long totalStake, [NotNullWhen(true)] out Transaction? tx)
-    {
-        if (!StateCache.Remove(transactionId, out tx))
-        {
-            return false;
-        }
-
-        switch (tx.TransactionType)
-        {
-            case TransactionType.BLOCK:
-                blockCount++;
-                break;
-            case TransactionType.VOTE:
-                voteCount++;
-
-                // Note: votes value must equal to signers stake, this is verified in Verifier
-                var stake = tx.Value;
-
-                if (Constant.SEED_VALIDATORS.Contains(tx.From!))
-                {
-                    stake = Constant.MIN_STAKE;
-                    seedStake += stake;
-                }
-
-                totalStake += stake;
-                break;
-        }
-
-        return true;
-    }
-
-    private bool TryHandleStale(SHA256Hash transactionId, long height, out Transaction tx)
-    {
-        tx = StateCache.GetTransactions()[transactionId];
-
-        switch (tx.TransactionType)
-        {
-            case TransactionType.BLOCK:
-            case TransactionType.VOTE:
-                tx.Height = height;
-                tx.ExecutionResult = ExecutionResult.STALE;
-
-                return StateCache.Remove(tx.TransactionId, out _);
-            default:
-                return false;
-        }
-    }
-
-    private void CleanupOrphans(long height, List<Transaction> stalesAndOrphans)
-    {
-        bool removed = false;
-
-        do foreach (var tx in StateCache.GetTransactions().Values.ToList())
-        {
-            bool orphaned = false;
-
-            foreach (var parent in tx.Parents)
-            {
-                if (!StateCache.Contains(parent) && !Repository.Exists(parent))
-                {
-                    orphaned = true;
-                    break;
-                }
-            }
-
-            if (orphaned && !stalesAndOrphans.Contains(tx))
-            {
-                tx.Height = height;
-                tx.ExecutionResult = ExecutionResult.ORPHAN;
-
-                if (StateCache.Remove(tx.TransactionId, out _))
-                {
-                    stalesAndOrphans.Add(tx);
-                    removed = true;
-                }
-            }
-        } while (removed);
-    }
-
-    private List<SHA256Hash> GetParentsForVote(View view, List<Transaction> toExecute)
-    {
-        // Vote needs to always be child of the view it votes against or it might get stale or executed in wrong order
-        var voteParents = new List<SHA256Hash>() { view.TransactionId };
-
-        foreach (var tx in toExecute)
-        {
-            if (!voteParents.Contains(tx.TransactionId))
-            {
-                voteParents.Add(tx.TransactionId);
-                break;
-            }
-        }
-
-        if (voteParents.Count >= 2)
-        {
-            return voteParents;
-        }
-        
-        foreach (var tx in GetTransactionToValidateInternal(2))
-        {
-            if (!voteParents.Contains(tx))
-            {
-                voteParents.Add(tx);
-                break;
-            }
-        }
-
-        return voteParents;
     }
 
     private Difficulty CalculateDifficulty(BigInteger currentWork, int blockCount)

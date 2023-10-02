@@ -76,4 +76,5 @@ public class Signature : IComparable<Signature>
     }
 
     public static int SIGNATURE_SZ = 64;
+    public static Signature NULL_SIGNATURE = new Signature();
 }

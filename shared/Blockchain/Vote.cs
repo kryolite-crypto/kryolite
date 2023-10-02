@@ -1,62 +1,54 @@
-using Kryolite.Shared.Dto;
+using System.Security.Cryptography;
 using MessagePack;
 using NSec.Cryptography;
-using System.Collections.Immutable;
-using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class Vote : Transaction
+public class Vote
 {
-    public SHA256Hash LastHash { 
-        get => Data ?? SHA256Hash.NULL_HASH;
-        init => Data = value;
+    public SHA256Hash ViewHash { get; init; } = SHA256Hash.NULL_HASH;
+    public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
+    public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
+
+    public SHA256Hash GetHash()
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = new MemoryStream();
+
+        stream.Write(ViewHash);
+        stream.Write(PublicKey);
+
+        stream.Flush();
+        stream.Position = 0;
+
+        return sha256.ComputeHash(stream);
     }
 
-    public Vote()
+    public void Sign(PrivateKey privateKey)
     {
+        var algorithm = new Ed25519();
 
+        using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
+        using var stream = new MemoryStream();
+
+        stream.Write(ViewHash);
+        stream.Write(PublicKey!);
+        stream.Flush();
+
+        Signature = algorithm.Sign(key, stream.ToArray());
     }
 
-    public Vote(PublicKey publicKey, SHA256Hash viewId, long stake, ImmutableList<SHA256Hash> parents)
+    public bool Verify()
     {
-        TransactionType = TransactionType.VOTE;
-        PublicKey = publicKey;
-        Value = stake;
-        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        Parents = parents;
-        Data = viewId;
-        TransactionId = CalculateHash();
-    }
+        var algorithm = new Ed25519();
+        using var stream = new MemoryStream();
 
-    public Vote(TransactionDto tx, ImmutableList<SHA256Hash> parents)
-    {
-        TransactionType = TransactionType.VOTE;
-        PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");
-        To = tx.To;
-        Value = tx.Value;
-        Data = tx.Data;
-        Timestamp = tx.Timestamp;
-        Signature = tx.Signature ?? throw new Exception("vote requires signature");
-        Parents = parents.Distinct().ToImmutableList();
-        TransactionId = CalculateHash();
-    }
+        stream.Write(ViewHash);
+        stream.Write(PublicKey!);
+        stream.Flush();
 
-    public Vote(Transaction tx)
-    {
-        Id = tx.Id;
-        TransactionId = tx.TransactionId;
-        Height = tx.Height;
-        TransactionType = tx.TransactionType;
-        PublicKey = tx.PublicKey ?? throw new Exception("vote requires public key");
-        To = tx.To;
-        Value = tx.Value;
-        Data = tx.Data;
-        Timestamp = tx.Timestamp;
-        Signature = tx.Signature ?? throw new Exception("vote requires signature");
-        ExecutionResult = tx.ExecutionResult;
-        Parents = tx.Parents;
-        Effects = tx.Effects;
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
+        return algorithm.Verify(key, stream.ToArray(), Signature);
     }
 }

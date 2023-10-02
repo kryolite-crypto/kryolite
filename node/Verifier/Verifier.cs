@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
@@ -20,88 +19,150 @@ public class Verifier : IVerifier
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public void Verify(ICollection<Transaction> transactions)
-    {
-        Parallel.ForEach(transactions, tx =>
-        {
-            if (tx.TransactionId == SHA256Hash.NULL_HASH)
-            {
-                tx.TransactionId = tx.CalculateHash();
-            }
-
-            if (StateCache.Contains(tx.TransactionId) || Store.Exists(tx.TransactionId))
-            {
-                Logger.LogDebug($"{tx.TransactionId} already exists");
-                tx.ExecutionResult = ExecutionResult.SUCCESS;
-                return;
-            }
-
-            if (!tx.Verify())
-            {
-                Logger.LogInformation($"{tx.TransactionId} verification failed");
-                tx.ExecutionResult = ExecutionResult.VERIFY_FAILED;
-                return;
-            }
-
-            tx.ExecutionResult = ExecutionResult.VERIFYING;
-        });
-    }
-
-    public bool VerifyTypeOnly(Transaction tx, ConcurrentDictionary<SHA256Hash, Transaction> transactionList)
-    {
-        if (tx.ExecutionResult != ExecutionResult.VERIFYING)
-        {
-            return false;
-        }
-
-        foreach (var parent in tx.Parents)
-        {
-            if (!transactionList.ContainsKey(parent) && !StateCache.Contains(parent) && !Store.Exists(parent))
-            {
-                Logger.LogInformation($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
-                tx.ExecutionResult = ExecutionResult.VERIFY_FAILED;
-                return false;
-            }
-        }
-
-        var success = VerifyByTransactionType(tx);
-        tx.ExecutionResult = success ? ExecutionResult.PENDING : ExecutionResult.VERIFY_FAILED;
-
-        return success;
-    }
-
     public bool Verify(Transaction tx)
     {
-        if (tx.TransactionId == SHA256Hash.NULL_HASH)
+        if (StateCache.GetTransactions().ContainsKey(tx.CalculateHash()) || Store.TransactionExists(tx.CalculateHash()))
         {
-            tx.TransactionId = tx.CalculateHash();
-        }
-
-        if (StateCache.Contains(tx.TransactionId) || Store.Exists(tx.TransactionId))
-        {
-            tx.ExecutionResult = ExecutionResult.SUCCESS;
-            Logger.LogDebug($"{tx.TransactionId} already exists");
-            return true;
+            Logger.LogInformation($"{tx.CalculateHash()} already exists");
+            return false;
         }
 
         if (!tx.Verify())
         {
-            Logger.LogInformation($"{tx.TransactionId} verification failed");
+            Logger.LogInformation($"{tx.CalculateHash()} verification failed");
             return false;
         }
 
-        foreach (var parent in tx.Parents)
+        if (tx.PublicKey is null || tx.PublicKey == PublicKey.NULL_PUBLIC_KEY)
         {
-            if (!StateCache.Contains(parent) && !Store.Exists(parent))
-            {
-                Logger.LogDebug($"Unknown parent reference ({tx.TransactionId} refers to parent {parent})");
-                return false;
-            }
+            Logger.LogInformation("Validator registeration verification failed (reason = null public key)");
+            return false;
+        }
+
+        if (tx.To is null || tx.To == Address.NULL_ADDRESS)
+        {
+            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address not set)");
+            return false;
         }
 
         var success = VerifyByTransactionType(tx);
         tx.ExecutionResult = success ? ExecutionResult.PENDING : ExecutionResult.VERIFY_FAILED;
         return success;
+    }
+
+    public bool Verify(Block block)
+    {
+        if (StateCache.GetBlocks().ContainsKey(block.GetHash()) || Store.BlockExists(block.GetHash()))
+        {
+            Logger.LogInformation($"{block.GetHash()} already exists");
+            return false;
+        }
+
+        if (block.To is null || block.To == Address.NULL_ADDRESS)
+        {
+            Logger.LogInformation("Block verification failed (reason = null to address)");
+            return false;
+        }
+
+        if (block.Value != Constant.BLOCK_REWARD)
+        {
+            Logger.LogInformation($"Block verification failed (reason = invalid reward). Got {block.Value}, required: {Constant.BLOCK_REWARD}");
+            return false;
+        }
+
+        var chainState = StateCache.GetCurrentState();
+
+        if (chainState.LastHash != block.LastHash)
+        {
+            Logger.LogInformation($"Block verification failed (reason = invalid parent hash). Got {block.LastHash}, required: {chainState.LastHash}");
+            return false;
+        }
+
+        if (block.Difficulty != StateCache.GetCurrentState().CurrentDifficulty)
+        {
+            Logger.LogInformation($"Block verification failed (reason = invalid difficulty). Got {block.Difficulty}, required: {StateCache.GetCurrentState().CurrentDifficulty}");
+            return false;
+        }
+
+        if (!block.VerifyNonce())
+        {
+            Logger.LogInformation($"Block verification failed (reason = invalid nonce)");
+            return false;
+        }
+
+        return true;
+    }
+
+    public bool Verify(View view)
+    {
+        var chainState = StateCache.GetCurrentState();
+
+        if (view.Id != chainState.Id + 1)
+        {
+            Logger.LogInformation($"View verification failed (reason = invalid height). Got {view.Id}, required: {chainState.Id + 1}");
+            return false;
+        }
+
+        if (view.LastHash != chainState.LastHash)
+        {
+            Logger.LogInformation("Discarding view #{id} (reason = invalid parent hash)", view.Id);
+            return false;
+        }
+
+        var earliest = StateCache.GetCurrentView().Timestamp + Constant.HEARTBEAT_INTERVAL;
+
+        if (view.Timestamp < earliest)
+        {
+            Logger.LogInformation("Discarding view #{id} (reason = timestamp too early)", view.Id);
+            return false;
+        }
+
+        if (view.Timestamp > DateTimeOffset.UtcNow.AddSeconds(15).ToUnixTimeMilliseconds())
+        {
+            Logger.LogInformation("Discarding view #{id} (reason = timestamp in future", view.Id);
+            return false;
+        }
+
+        if (!view.Verify())
+        {
+            Logger.LogInformation($"{view.GetHash()} verification failed");
+            return false;
+        }
+
+        return true;
+    }
+
+    public bool Verify(Vote vote)
+    {
+        if (vote.PublicKey is null || vote.PublicKey == PublicKey.NULL_PUBLIC_KEY)
+        {
+            Logger.LogInformation("Vote verification failed (reason = null public key)");
+            return false;
+        }
+
+        if (StateCache.GetVotes().ContainsKey(vote.GetHash()) || Store.VoteExists(vote.GetHash()))
+        {
+            Logger.LogInformation($"Vote {vote.GetHash()} already exists");
+            return false;
+        }
+
+        var address = vote.PublicKey.ToAddress();
+
+        if (!Store.IsValidator(address))
+        {
+            Logger.LogInformation($"Vote verification failed (reason = not validator ({address}))");
+            return false;
+        }
+
+        var chainState = StateCache.GetCurrentState();
+
+        if (vote.ViewHash != chainState.LastHash)
+        {
+            Logger.LogInformation($"Vote verification failed (reason = invalid view hash)");
+            return false;
+        }
+
+        return true;
     }
 
     private bool VerifyByTransactionType(Transaction tx)
@@ -110,41 +171,17 @@ public class Verifier : IVerifier
         {
             case TransactionType.PAYMENT:
                 return VerifyPayment(tx);
-            case TransactionType.BLOCK:
-                return VerifyBlock((Block)tx);
-            case TransactionType.VIEW:
-                return VerifyView((View)tx);
             case TransactionType.CONTRACT:
                 return true;
             case TransactionType.REG_VALIDATOR:
                 return VerifyValidatorRegisteration(tx);
-            case TransactionType.VOTE:
-                return VerifyVote((Vote)tx);
             default:
-                throw new ArgumentException($"Invalid transaction type {tx.TransactionType} for {tx.TransactionId}");
+                throw new ArgumentException($"Invalid transaction type {tx.TransactionType} for {tx.CalculateHash()}");
         }
     }
 
     private bool VerifyPayment(Transaction tx)
     {
-        if (tx.PublicKey is null)
-        {
-            Logger.LogInformation("Payment verification failed (reason = null public key)");
-            return false;
-        }
-
-        if (tx.To is null)
-        {
-            Logger.LogInformation("Payment verification failed (reason = null 'to' address)");
-            return false;
-        }
-
-        if (tx.Parents.Distinct().Count() != 2)
-        {
-            Logger.LogInformation($"Payment verification failed (reason = invalid parent reference count {tx.Parents.Distinct().Count()})");
-            return false;
-        }
-
         if (!tx.To.IsContract())
         {
             if (tx.Value == 0)
@@ -163,152 +200,8 @@ public class Verifier : IVerifier
         return true;
     }
 
-    private bool VerifyBlock(Block block)
-    {
-        if (block.To is null)
-        {
-            Logger.LogInformation("Block verification failed (reason = null to address)");
-            return false;
-        }
-
-        if (block.Parents.Distinct().Count()  != 2)
-        {
-            Logger.LogInformation($"Block verification failed (reason = invalid parent reference count {block.Parents.Distinct().Count()})");
-            return false;
-        }
-
-        if (block.Value != Constant.BLOCK_REWARD)
-        {
-            Logger.LogInformation($"Block verification failed (reason = invalid reward). Got {block.Value}, required: {Constant.BLOCK_REWARD}");
-            return false;
-        }
-
-        var view = StateCache.GetCurrentView();
-
-        if (view.TransactionId != block.ParentHash)
-        {
-            Logger.LogInformation($"Block verification failed (reason = invalid parent hash). Got {block.ParentHash}, required: {view.TransactionId}");
-            return false;
-        }
-
-        if (block.Difficulty != StateCache.GetCurrentState().CurrentDifficulty)
-        {
-            Logger.LogInformation($"Block verification failed (reason = invalid difficulty). Got {block.Difficulty}, required: {StateCache.GetCurrentState().CurrentDifficulty}");
-            return false;
-        }
-
-        return true;
-    }
-
-    private bool VerifyView(View view)
-    {
-        if (view.Parents.Distinct().Count() < 2)
-        {
-            Logger.LogInformation($"View verification failed (reason = invalid parent reference count {view.Parents.Distinct().Count()})");
-            return false;
-        }
-
-        var chainState = StateCache.GetCurrentState();
-        var height = view.Height ?? 0;
-
-        if (height != chainState.Height + 1)
-        {
-            if (height > chainState.Height)
-            {
-                Logger.LogInformation($"View verification failed (reason = invalid height). Got {view.Height}, required: {chainState.Height + 1}");
-            }
-            else
-            {
-                Logger.LogInformation($"View verification failed (reason = invalid height). Got {view.Height}, required: {chainState.Height + 1}");
-            }
-            return false;
-        }
-
-        if (view.Value != Constant.VALIDATOR_REWARD)
-        {
-            Logger.LogInformation($"View verification failed (reason = invalid value). Got {view.Value}, required: {Constant.VALIDATOR_REWARD}");
-            return false;
-        }
-
-        if (view.To is not null)
-        {
-            Logger.LogInformation("View verification failed (reason = has recipient address)");
-            return false;
-        }
-
-        if (height > 0)
-        {
-            var earliest = StateCache.GetCurrentView().Timestamp + Constant.HEARTBEAT_INTERVAL;
-
-            if (view.Timestamp < earliest)
-            {
-                Logger.LogInformation("Discarding view #{height} (reason = timestamp too early)", view.Height);
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    private bool VerifyVote(Vote vote)
-    {
-        if (vote.Parents.Distinct().Count() != 2)
-        {
-            Logger.LogInformation($"Vote verification failed (reason = invalid parent reference count {vote.Parents.Distinct().Count()})");
-            return false;
-        }
-
-        if (vote.PublicKey is null)
-        {
-            Logger.LogInformation("Vote verification failed (reason = null public key)");
-            return false;
-        }
-
-        if (!Store.IsValidator(vote.From!))
-        {
-            Logger.LogInformation($"Vote verification failed (reason = not validator ({vote.From}))");
-            return false;
-        }
-
-        var stake = Store.GetStake(vote.From!);
-
-        if (stake?.Stake != vote.Value)
-        {
-            Logger.LogInformation($"Vote verification failed (reason = invalid stake set ({vote.Value} / {stake}))");
-            return false;
-        }
-
-        var view = StateCache.GetCurrentView();
-
-        if (view.TransactionId != (vote.Data ?? SHA256Hash.NULL_HASH))
-        {
-            Logger.LogInformation($"Vote verification failed (reason = invalid parent hash)");
-            return false;
-        }
-
-        return true;
-    }
-
     private bool VerifyValidatorRegisteration(Transaction tx)
     {
-        if (tx.PublicKey is null)
-        {
-            Logger.LogInformation("Validator registeration verification failed (reason = null public key)");
-            return false;
-        }
-
-        if (tx.To is null)
-        {
-            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address not set)");
-            return false;
-        }
-
-        if (tx.Parents.Distinct().Count() != 2)
-        {
-            Logger.LogInformation($"Validator registeration verification failed (reason = invalid parent reference count {tx.Parents.Distinct().Count()})");
-            return false;
-        }
-
         var isValidator = Store.IsValidator(tx.From!);
 
         if (!isValidator && tx.Value < Constant.MIN_STAKE)
@@ -317,7 +210,7 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (isValidator && (tx.Value > 0 && tx.Value < Constant.MIN_STAKE))
+        if (isValidator && tx.Value > 0 && tx.Value < Constant.MIN_STAKE)
         {
             Logger.LogInformation($"Validator registeration verification failed (reason = stake too low {tx.Value})");
             return false;

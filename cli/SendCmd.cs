@@ -105,14 +105,6 @@ public static class SendCmd
                 return;
             }
 
-            var parents = await JsonSerializer.DeserializeAsync<List<SHA256Hash>>(await result.Content.ReadAsStreamAsync(), Program.serializerOpts);
-
-            if (parents is null)
-            {
-                Console.WriteLine("Parent hash download failed");
-                return;
-            }
-
             var lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray)
                 .WithOmitAssemblyVersion(true);
@@ -124,8 +116,7 @@ public static class SendCmd
                 To = to,
                 Value = (long)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null,
-                Parents = parents.ToImmutableList()
+                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
             };
 
             tx.Sign(wallet.PrivateKey);

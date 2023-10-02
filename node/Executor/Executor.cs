@@ -10,17 +10,15 @@ public class Executor
 {
     private IExecutor ContractExecutor { get; }
     private IExecutor TransactionExecutor { get; }
-    private IExecutor VoteExecutor { get; }
     private IExecutor ValidatorRegExecutor { get; }
     private IExecutor ContractInstallerExecutor { get; }
     private IExecutorContext Context { get; }
     private ILogger Logger { get; set; }
 
-    public Executor(IExecutor contractExecutor, IExecutor transactionExecutor, IExecutor voteExecutor, IExecutor validatorRegExecutor, IExecutor contractInstallerExecutor, IExecutorContext context, ILogger logger)
+    public Executor(IExecutor contractExecutor, IExecutor transactionExecutor, IExecutor validatorRegExecutor, IExecutor contractInstallerExecutor, IExecutorContext context, ILogger logger)
     {
         ContractExecutor = contractExecutor ?? throw new ArgumentNullException(nameof(contractExecutor));
         TransactionExecutor = transactionExecutor ?? throw new ArgumentNullException(nameof(transactionExecutor));
-        VoteExecutor = voteExecutor ?? throw new ArgumentNullException(nameof(voteExecutor));
         ValidatorRegExecutor = validatorRegExecutor ?? throw new ArgumentNullException(nameof(validatorRegExecutor));
         ContractInstallerExecutor = contractInstallerExecutor ?? throw new ArgumentNullException(nameof(contractInstallerExecutor));
         Context = context ?? throw new ArgumentNullException(nameof(context));
@@ -38,24 +36,15 @@ public class Executor
 
         foreach (var tx in transactions)
         {
-            if (tx.ExecutionResult != ExecutionResult.PENDING)
-            {
-                throw new Exception($"expected verified transaction but got {tx.ExecutionResult} ({tx.TransactionType})");
-            }
-
-            if (tx.TransactionType != TransactionType.VIEW)
-            {
-                tx.Height = Context.GetHeight();
-            }
-
             switch (tx.TransactionType)
             {
-                case TransactionType.BLOCK:
+                case TransactionType.BLOCK_REWARD:
+                case TransactionType.STAKE_REWARD:
                 case TransactionType.PAYMENT:
-                    if (tx.To is null)
+                    if (tx.TransactionType == TransactionType.STAKE_REWARD)
                     {
-                        // skip
-                        continue;
+                        // tx.Value contains full stake at this pint, update to actual reward
+                        tx.Value = (long)Math.Floor(Constant.VALIDATOR_REWARD * (tx.Value / (double)Context.GetTotalStake()));
                     }
 
                     tx.ExecutionResult = TransactionExecutor.Execute(tx);
@@ -72,17 +61,11 @@ public class Executor
                     }
 
                     break;
-                case TransactionType.VOTE:
-                    tx.ExecutionResult = VoteExecutor.Execute(tx);
-                    break;
                 case TransactionType.REG_VALIDATOR:
                     tx.ExecutionResult = ValidatorRegExecutor.Execute(tx);
                     break;
                 case TransactionType.CONTRACT:
                     tx.ExecutionResult = ContractInstallerExecutor.Execute(tx);
-                    break;
-                case TransactionType.VIEW:
-                    tx.ExecutionResult = ExecutionResult.SUCCESS;
                     break;
             }
         }

@@ -9,14 +9,13 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Lib.AspNetCore.ServerSentEvents;
 using Microsoft.Extensions.Logging;
-using QuikGraph.Algorithms;
 
 namespace Kryolite.Node;
 
 public class StoreManager : TransactionManager, IStoreManager
 {
     private IStoreRepository Repository { get; }
-    private IBufferService<TransactionDto, OutgoingTransactionService> TransactionBuffer { get; }
+    private IMeshNetwork MeshNetwork { get; }
     private IEventBus EventBus { get; }
     private IStateCache StateCache { get; }
     private IVerifier Verifier { get; }
@@ -27,10 +26,10 @@ public class StoreManager : TransactionManager, IStoreManager
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IBufferService<TransactionDto, OutgoingTransactionService> transactionBuffer, IExecutorFactory executorFactory, IWalletManager walletManager, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, verifier, stateCache, executorFactory, logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IExecutorFactory executorFactory, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, verifier, stateCache, executorFactory, logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        TransactionBuffer = transactionBuffer ?? throw new ArgumentNullException(nameof(transactionBuffer));
+        MeshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
@@ -38,35 +37,62 @@ public class StoreManager : TransactionManager, IStoreManager
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public bool Exists(SHA256Hash hash)
+    public bool BlockExists(SHA256Hash blockhash)
     {
         using var _ = rwlock.EnterReadLockEx();
-        return StateCache.Contains(hash) || Repository.Exists(hash);
+        return StateCache.GetBlocks().ContainsKey(blockhash) || Repository.BlockExists(blockhash);
     }
 
-    public bool AddView(View view, bool broadcast, bool castVote, bool isGenesis = false)
+    public bool VoteExists(SHA256Hash votehash)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return StateCache.GetVotes().ContainsKey(votehash) || Repository.VoteExists(votehash);
+    }
+
+    public bool TransactionExists(SHA256Hash hash)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return StateCache.GetTransactions().ContainsKey(hash) || Repository.TransactionExists(hash);
+    }
+
+    public bool AddView(View view, bool broadcast, bool castVote)
     {
         using var _ = rwlock.EnterWriteLockEx();
 
-        if (isGenesis)
-        {
-            // skip verifications for genesis height
-            view.ExecutionResult = ExecutionResult.PENDING;
-        }
-        else if (!Verifier.Verify(view))
+        if (!Verifier.Verify(view))
         {
             return false;
         }
 
-        if (view.ExecutionResult == ExecutionResult.SUCCESS)
+        if (AddViewInternal(view, broadcast, castVote))
         {
+            NotificationService.SendEventAsync("VIEW");
             return true;
         }
 
-        if (AddViewInternal(view, broadcast, castVote))
+        return false;
+    }
+
+    public bool AddBlock(Block block, bool broadcast)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+
+        try
         {
-            NotificationService.SendEventAsync(view.TransactionId.ToString());
-            return true;
+            if (!Verifier.Verify(block))
+            {
+                return false;
+            }
+
+            if (AddBlockInternal(block, broadcast))
+            {
+                NotificationService.SendEventAsync("BLOCK");
+                return true;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "AddBlock error");
         }
 
         return false;
@@ -78,21 +104,23 @@ public class StoreManager : TransactionManager, IStoreManager
 
         try
         {
-            var block = new Block(blocktemplate.To, blocktemplate.Timestamp, blocktemplate.ParentHash, blocktemplate.Difficulty, blocktemplate.Validates, blocktemplate.Solution);
+            var block = new Block
+            {
+                To = blocktemplate.To,
+                Timestamp = blocktemplate.Timestamp,
+                LastHash = blocktemplate.ParentHash,
+                Difficulty = blocktemplate.Difficulty,
+                Nonce = blocktemplate.Solution
+            };
 
             if (!Verifier.Verify(block))
             {
                 return false;
             }
 
-            if (block.ExecutionResult == ExecutionResult.SUCCESS)
-            {
-                return true;
-            }
-
             if (AddBlockInternal(block, broadcast))
             {
-                NotificationService.SendEventAsync(block.TransactionId.ToString());
+                NotificationService.SendEventAsync("BLOCK");
                 return true;
             }
         }
@@ -108,21 +136,16 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterWriteLockEx();
 
-        var tx = txDto.AsTransaction();
+        var tx = new Transaction(txDto);
 
         if (!Verifier.Verify(tx))
         {
             return ExecutionResult.VERIFY_FAILED;
         }
 
-        if (tx.ExecutionResult == ExecutionResult.SUCCESS)
-        {
-            return ExecutionResult.PENDING;
-        }
-
         if(AddTransactionInternal(tx, broadcast))
         {
-            NotificationService.SendEventAsync(tx.TransactionId.ToString());
+            NotificationService.SendEventAsync("TRANSACTION");
         }
 
         return tx.ExecutionResult;
@@ -132,21 +155,16 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterWriteLockEx();
 
-        var tx = txDto.AsTransaction();
+        var tx = new Transaction(txDto);
 
         if (!Verifier.Verify(tx))
         {
             return ExecutionResult.VERIFY_FAILED;
         }
 
-        if (tx.ExecutionResult == ExecutionResult.SUCCESS)
-        {
-            return ExecutionResult.PENDING;
-        }
-
         if(AddValidatorRegInternal(tx, broadcast))
         {
-            NotificationService.SendEventAsync(tx.TransactionId.ToString());
+            NotificationService.SendEventAsync("VALIDATOR_REG");
         }
 
         return tx.ExecutionResult;
@@ -161,24 +179,31 @@ public class StoreManager : TransactionManager, IStoreManager
             return false;
         }
 
-        if (vote.ExecutionResult == ExecutionResult.SUCCESS)
-        {
-            return true;
-        }
-
         if (AddVoteInternal(vote, broadcast))
         {
-            NotificationService.SendEventAsync(vote.TransactionId.ToString());
+            NotificationService.SendEventAsync("VOTE");
             return true;
         }
 
         return false;
     }
 
-    public Genesis? GetGenesis()
+    public List<Block> GetBlocks(List<SHA256Hash> blockhashes)
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetGenesis();
+        return Repository.GetBlocks(blockhashes);
+    }
+
+    public List<Vote> GetVotes(List<SHA256Hash> votehashes)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetVotes(votehashes);
+    }
+
+    public List<Transaction> GetTransactions(List<SHA256Hash> transactionIds)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetTransactions(transactionIds);
     }
 
     public List<Vote> GetVotesAtHeight(long height)
@@ -193,50 +218,31 @@ public class StoreManager : TransactionManager, IStoreManager
         return Repository.GetLastView();
     }
 
-    public List<SHA256Hash> GetTransactionToValidate()
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        return GetTransactionToValidateInternal();
-    }
-
-    public List<SHA256Hash> GetTransactionToValidate(int count)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        return GetTransactionToValidateInternal(count);
-    }
-
-    public bool AddTransactionBatch(List<TransactionDto> transactionList, bool broadcast)
-    {
-        using var _ = rwlock.EnterWriteLockEx();
-
-        if (AddTransactionBatchInternal(transactionList, broadcast, true))
-        {
-            NotificationService.SendEventAsync("BATCH");
-            return true;
-        }
-
-        return false;
-    }
-
     public Blocktemplate GetBlocktemplate(Address wallet)
     {
         using var _ = rwlock.EnterReadLockEx();
 
         var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        var chainState = Repository.GetChainState() ?? throw new Exception("failed to load chainstate");
-        var block = new Block(wallet, timestamp, chainState.LastHash, chainState.CurrentDifficulty, GetTransactionToValidate(2).ToImmutableList(), new SHA256Hash());
+        var chainState = StateCache.GetCurrentState();
+        var block = new Block
+        {
+            To = wallet,
+            Value = Constant.BLOCK_REWARD,
+            Timestamp = timestamp,
+            LastHash = chainState.LastHash,
+            Difficulty = chainState.CurrentDifficulty
+        };
 
         return new Blocktemplate
         {
-            Height = chainState.Height,
+            Height = chainState.Id,
             To = wallet,
+            Value = block.Value,
             Difficulty = chainState.CurrentDifficulty,
-            ParentHash = block.ParentHash,
+            ParentHash = block.LastHash,
             Nonce = block.GetHash(),
-            Timestamp = block.Timestamp,
-            Validates = block.Parents,
-            Data = block.Data ?? Array.Empty<byte>()
+            Timestamp = block.Timestamp
         };
     }
 
@@ -263,7 +269,7 @@ public class StoreManager : TransactionManager, IStoreManager
     public long GetCurrentHeight()
     {
         using var _ = rwlock.EnterReadLockEx();
-        return StateCache.GetCurrentState()?.Height ?? 0;
+        return StateCache.GetCurrentState()?.Id ?? 0;
     }
 
     public List<Transaction> GetLastNTransctions(Address address, int count)
@@ -324,7 +330,7 @@ public class StoreManager : TransactionManager, IStoreManager
             return tx;
         }
 
-        return Repository.Get(hash);
+        return Repository.GetTransaction(hash);
     }
 
     public Ledger? GetLedger(Address address)
@@ -409,19 +415,53 @@ public class StoreManager : TransactionManager, IStoreManager
         return Repository.GetContractTokens(contractAddress);
     }
 
-    public View? GetView(SHA256Hash transactionId)
+    public View? GetView(long height)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetView(height);
+    }
+
+    public View? GetView(SHA256Hash viewHash)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetView(viewHash);
+    }
+
+    public Block? GetBlock(SHA256Hash blockhash)
     {
         using var _ = rwlock.EnterReadLockEx();
 
-        var tx = Repository.Get(transactionId);
-
-        if (tx is null)
+        if (StateCache.GetBlocks().TryGetValue(blockhash, out var block))
         {
-            return null;
+            return block;
         }
 
-        return new View(tx);
+        return Repository.GetBlock(blockhash);
     }
+
+    public Vote? GetVote(SHA256Hash votehash)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+
+        if (StateCache.GetVotes().TryGetValue(votehash, out var vote))
+        {
+            return vote;
+        }
+
+        return Repository.GetVote(votehash);
+    }
+
+    public ICollection<Block> GetPendingBlocks()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return StateCache.GetBlocks().Values;
+    }
+
+    public ICollection<Vote> GetPendingVotes()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return StateCache.GetVotes().Values;
+    }    
 
     public ICollection<Transaction> GetPendingTransactions()
     {
@@ -429,34 +469,17 @@ public class StoreManager : TransactionManager, IStoreManager
         return StateCache.GetTransactions().Values;
     }
 
-    public List<Transaction> GetTransactionsAfterHeight(long height)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-
-        var transactions = Repository.GetTransactionsAfterHeight(height);
-        transactions.AddRange(StateCache.GetTransactions().Values);
-        return transactions;
-    }
-
     public List<Transaction> GetTransactions(int pageNum, int pageSize)
     {
         using var _ = rwlock.EnterReadLockEx();
 
-        var results = new List<Transaction>(pageSize);
-
         var toSkip = pageNum * pageSize;
 
-        var transactions = StateCache.GetPendingGraph().TopologicalSort()
+        var results = StateCache.GetTransactions()
             .Skip(toSkip)
-            .Take(pageSize);
-
-        foreach (var txId in transactions)
-        {
-            if (StateCache.GetTransactions().TryGetValue(txId, out var tx))
-            {
-                results.Add(tx);
-            }
-        }
+            .Take(pageSize)
+            .Select(x => x.Value)
+            .ToList();
 
         toSkip -= results.Count;
 
@@ -466,14 +489,6 @@ public class StoreManager : TransactionManager, IStoreManager
         results.AddRange(Repository.GetTransactions(count, toSkip));
 
         return results;
-    }
-
-    public List<Transaction> GetTransactionsAtHeight(long height)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetTransactionsAtHeight(height)
-            .OrderByDescending(x => x.Height)
-            .ToList();
     }
 
     public List<Validator> GetValidators()
@@ -498,8 +513,7 @@ public class StoreManager : TransactionManager, IStoreManager
 
         Logger.LogInformation("Restoring State");
 
-        StateCache.ClearTransactions();
-        StateCache.ClearLedgers();
+        StateCache.Clear();
 
         // Add pending transactions from new state
         foreach (var tx in newState.GetTransactions())
@@ -525,9 +539,24 @@ public class StoreManager : TransactionManager, IStoreManager
         return true;
     }
 
+    public override void Broadcast(View view)
+    {
+        MeshNetwork.BroadcastAsync(new ViewBroadcast(view.GetHash(), view.LastHash, StateCache.GetCurrentState().Weight));
+    }
+
+    public override void Broadcast(Block block)
+    {
+        MeshNetwork.BroadcastAsync(new BlockBroadcast(block.GetHash()));
+    }
+
+    public override void Broadcast(Vote vote)
+    {
+        MeshNetwork.BroadcastAsync(new VoteBroadcast(vote.GetHash()));
+    }
+
     public override void Broadcast(Transaction tx)
     {
-        TransactionBuffer.Add(new TransactionDto(tx));
+        MeshNetwork.BroadcastAsync(new TransactionBroadcast(tx.CalculateHash()));
     }
 
     public override void Publish(EventBase ev)

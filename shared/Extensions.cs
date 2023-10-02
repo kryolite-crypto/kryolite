@@ -1,8 +1,3 @@
-
-
-using System.Net;
-using System.Net.Sockets;
-
 namespace Kryolite.Shared;
     
 public static class Extensions

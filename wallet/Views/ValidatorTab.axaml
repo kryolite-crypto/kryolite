@@ -1,0 +1,67 @@
+<UserControl    xmlns="https://github.com/avaloniaui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:vm="using:Kryolite.Wallet"
+                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+                mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                x:Class="Kryolite.Wallet.ValidatorTab">
+
+
+    <DockPanel Margin="20">
+        <StackPanel Spacing="20" DockPanel.Dock="Left">
+            <Border BorderBrush="#66ffffff"
+                    BorderThickness="0.51"
+                    CornerRadius="0"
+                    Padding="4">
+                <StackPanel Margin="10" Width="250">
+                    <TextBlock FontWeight="Bold">Validator status</TextBlock>
+                    <TextBlock Margin="0, 20, 0, 0">Address</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Balance, Converter={StaticResource CurrencyConverter}}" />
+                    <TextBlock Margin="0, 20, 0, 0">Status</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Pending, Converter={StaticResource CurrencyConverter}}" />
+                </StackPanel>
+            </Border>
+            <Border BorderBrush="#66ffffff"
+                    BorderThickness="0.51"
+                    CornerRadius="0"
+                    Padding="4">
+                <StackPanel Margin="10" Width="250">
+                    <TextBlock FontWeight="Bold">Balance</TextBlock>
+                    <TextBlock Margin="0, 20, 0, 0">Available</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Balance, Converter={StaticResource CurrencyConverter}}" />
+                    <TextBlock Margin="0, 20, 0, 0">Locked</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Pending, Converter={StaticResource CurrencyConverter}}" />
+                    <TextBlock Margin="0, 20, 0, 0">Total</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Pending, Converter={StaticResource CurrencyConverter}}" />
+                </StackPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal">
+                <Button ToolTip.Tip="Return available funds to wallet">Return funds</Button>
+                <Button ToolTip.Tip="Update available funds to total stake">Set stake</Button>
+            </StackPanel>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Right">
+            <Border BorderBrush="#66ffffff"
+                    BorderThickness="0.51"
+                    CornerRadius="0"
+                    Padding="4"
+                    HorizontalAlignment="Right">
+                <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="450">
+                    <TextBlock FontWeight="Bold" Margin="11, 0, 0, 0">Votes given</TextBlock>
+                    <ListBox Background="Transparent" ItemsSource="{Binding $parent[Window].DataContext.Transactions}">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
+                                    <TextBlock Text="{Binding Timestamp, Converter={StaticResource TimestampConverter}}" Grid.Row="0" Grid.Column="0"/>
+                                    <TextBlock Text="{Binding Amount, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
+                                    <TextBlock Text="{Binding Recipient, Converter={StaticResource AddressConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                                </Grid>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </DockPanel>
+</UserControl>

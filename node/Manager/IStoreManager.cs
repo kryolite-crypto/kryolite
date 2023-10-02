@@ -12,24 +12,30 @@ namespace Kryolite.Node;
 
 public interface IStoreManager
 {
-    bool Exists(SHA256Hash hash);
-    bool AddGenesis(Genesis genesis, View view);
-    bool AddView(View view, bool broadcast, bool castVote, bool isGenesis = false);
+    bool BlockExists(SHA256Hash blockhash);
+    bool VoteExists(SHA256Hash votehash);
+    bool TransactionExists(SHA256Hash hash);
+    bool AddGenesis(View view);
+    bool AddView(View view, bool broadcast, bool castVote);
+    bool AddBlock(Block block, bool broadcast);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
     ExecutionResult AddValidatorReg(TransactionDto txDto, bool broadcast);
     ExecutionResult AddTransaction(TransactionDto tx, bool broadcast);
 
-    Genesis? GetGenesis();
-    View? GetView(SHA256Hash transactionId);
+    View? GetView(long id);
+    View? GetView(SHA256Hash viewHash);
     View? GetLastView();
+    Block? GetBlock(SHA256Hash blockhash);
+    Vote? GetVote(SHA256Hash blockhash);
+    List<Block> GetBlocks(List<SHA256Hash> blockhashes);
+    List<Vote> GetVotes(List<SHA256Hash> votehashes);
+    List<Transaction> GetTransactions(List<SHA256Hash> transactionIds);
     List<Vote> GetVotesAtHeight(long height);
+    ICollection<Block> GetPendingBlocks();
+    ICollection<Vote> GetPendingVotes();
     ICollection<Transaction> GetPendingTransactions();
-    List<Transaction> GetTransactionsAfterHeight(long height);
-    List<Transaction> GetTransactionsAtHeight(long height);
     List<Transaction> GetTransactions(int pageNum, int pageSize);
-    List<SHA256Hash> GetTransactionToValidate();
-    List<SHA256Hash> GetTransactionToValidate(int count);
     List<Transaction> GetLastNTransctions(Address address, int count);
     Blocktemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
@@ -37,10 +43,7 @@ public interface IStoreManager
     ChainState GetChainState();
     ChainState? GetChainStateAt(long height);
     long GetBalance(Address address);
-
-    bool AddTransactionBatch(List<TransactionDto> transactions, bool broadcast);
     void ResetChain();
-
     Contract? GetContract(Address address);
     List<Ledger> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
