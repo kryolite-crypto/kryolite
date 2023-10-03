@@ -34,7 +34,6 @@ public interface IStoreRepository
     void SaveState(ChainState chainState);
     long? GetTimestamp(SHA256Hash transactionId);
     ChainState? GetChainState();
-    ChainState? GetChainStateAt(long height);
     Ledger? GetWallet(Address address);
     List<Transaction> GetLastNTransctions(int count);
     List<Transaction> GetLastNTransctions(Address address, int count);

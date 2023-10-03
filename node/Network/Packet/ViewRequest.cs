@@ -10,7 +10,7 @@ namespace Kryolite.Node;
 public class ViewRequestByHash : IPacket
 {
     [Key(0)]
-    public SHA256Hash ViewHash { get; }
+    public SHA256Hash ViewHash { get; set; }
 
     public ViewRequestByHash(SHA256Hash viewHash)
     {
@@ -22,7 +22,7 @@ public class ViewRequestByHash : IPacket
         using var scope = provider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoRequest>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ViewRequestByHash>>();
 
         logger.LogDebug($"Received ViewRequestByHash from {peer.Uri.ToHostname()}");
 
@@ -47,7 +47,7 @@ public class ViewRequestById : IPacket
         using var scope = provider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoRequest>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<ViewRequestById>>();
 
         logger.LogDebug($"Received ViewRequestById from {peer.Uri.ToHostname()}");
 

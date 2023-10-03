@@ -110,7 +110,8 @@ public class StoreManager : TransactionManager, IStoreManager
                 Timestamp = blocktemplate.Timestamp,
                 LastHash = blocktemplate.ParentHash,
                 Difficulty = blocktemplate.Difficulty,
-                Nonce = blocktemplate.Solution
+                Nonce = blocktemplate.Solution,
+                Value = blocktemplate.Value
             };
 
             if (!Verifier.Verify(block))
@@ -241,7 +242,7 @@ public class StoreManager : TransactionManager, IStoreManager
             Value = block.Value,
             Difficulty = chainState.CurrentDifficulty,
             ParentHash = block.LastHash,
-            Nonce = block.GetHash(),
+            Nonce = block.GetBaseHash(),
             Timestamp = block.Timestamp
         };
     }
@@ -250,12 +251,6 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterReadLockEx();
         return Repository.GetChainState()!;
-    }
-
-    public ChainState? GetChainStateAt(long height)
-    {
-        using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetChainStateAt(height);
     }
 
     public Difficulty GetCurrentDifficulty()

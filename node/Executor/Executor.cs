@@ -38,13 +38,19 @@ public class Executor
         {
             switch (tx.TransactionType)
             {
-                case TransactionType.BLOCK_REWARD:
                 case TransactionType.STAKE_REWARD:
+                
+                    break;
+                case TransactionType.BLOCK_REWARD:
                 case TransactionType.PAYMENT:
                     if (tx.TransactionType == TransactionType.STAKE_REWARD)
                     {
                         // tx.Value contains full stake at this pint, update to actual reward
                         tx.Value = (long)Math.Floor(Constant.VALIDATOR_REWARD * (tx.Value / (double)Context.GetTotalStake()));
+                        
+                        // Update pending since it will be subtracted later on
+                        var wallet = Context.GetOrNewWallet(tx.To);
+                        wallet.Pending += tx.Value;
                     }
 
                     tx.ExecutionResult = TransactionExecutor.Execute(tx);

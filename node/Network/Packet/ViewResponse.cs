@@ -8,7 +8,7 @@ namespace Kryolite.Node;
 public class ViewResponse : IPacket
 {
     [Key(0)]
-    public View? View { get; }
+    public View? View { get; set; }
 
     public ViewResponse(View? view)
     {

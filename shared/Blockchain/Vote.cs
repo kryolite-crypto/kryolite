@@ -7,8 +7,11 @@ namespace Kryolite.Shared.Blockchain;
 [MessagePackObject]
 public class Vote
 {
+    [Key(0)]
     public SHA256Hash ViewHash { get; init; } = SHA256Hash.NULL_HASH;
+    [Key(1)]
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
+    [Key(2)]
     public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
 
     public SHA256Hash GetHash()

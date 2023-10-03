@@ -7,7 +7,7 @@ namespace Kryolite.Node;
 public class TransactionResponse : IPacket
 {
     [Key(0)]
-    public TransactionDto? Transaction { get; }
+    public TransactionDto? Transaction { get; set; }
 
     public TransactionResponse(TransactionDto? transaction)
     {

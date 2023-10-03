@@ -11,7 +11,7 @@ namespace Kryolite.Node;
 public class BlockBroadcast : IPacket
 {
     [Key(0)]
-    public SHA256Hash Blockhash { get; set; } = SHA256Hash.NULL_HASH;
+    public SHA256Hash Blockhash { get; set; }
 
     public BlockBroadcast(SHA256Hash blockhash)
     {

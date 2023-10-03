@@ -10,7 +10,7 @@ namespace Kryolite.Node;
 public class TransactionRequest : IPacket
 {
     [Key(0)]
-    public SHA256Hash TransactionId { get; }
+    public SHA256Hash TransactionId { get; set; }
 
     public TransactionRequest(SHA256Hash transactionId)
     {
@@ -22,7 +22,7 @@ public class TransactionRequest : IPacket
         using var scope = provider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoRequest>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionRequest>>();
 
         logger.LogDebug($"Received TransactionRequest from {peer.Uri.ToHostname()}");
 

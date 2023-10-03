@@ -160,15 +160,25 @@ public class ValidatorService : BackgroundService
 
     private void GenerateView(IStoreManager blockchainManager, View lastView)
     {
+        var lastHash = lastView.GetHash() ?? SHA256Hash.NULL_HASH;
+
         var nextView = new View
         {
             Id = (lastView?.Id ?? 0) + 1L,
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             LastHash = lastView?.GetHash() ?? SHA256Hash.NULL_HASH,
             PublicKey = Node.PublicKey,
-            Blocks = blockchainManager.GetPendingBlocks().Select(x => x.GetHash()).ToList(),
-            Votes = blockchainManager.GetPendingVotes().Select(x => x.GetHash()).ToList(),
-            Transactions = blockchainManager.GetPendingTransactions().Select(x => x.CalculateHash()).ToList()
+            Blocks = blockchainManager.GetPendingBlocks()
+                .Where(x => x.LastHash == lastHash)
+                .Select(x => x.GetHash())
+                .ToList(),
+            Votes = blockchainManager.GetPendingVotes()
+                .Where(x => x.ViewHash == lastHash)
+                .Select(x => x.GetHash())
+                .ToList(),
+            Transactions = blockchainManager.GetPendingTransactions()
+                .Select(x => x.CalculateHash())
+                .ToList()
         };
         
         nextView.Sign(Node.PrivateKey);

@@ -32,6 +32,24 @@ public class Block
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Write(LastHash);
         stream.Write(BitConverter.GetBytes(Difficulty.Value));
+        stream.Write(Nonce);
+
+        stream.Flush();
+        stream.Position = 0;
+
+        return sha256.ComputeHash(stream);
+    }
+
+    public SHA256Hash GetBaseHash()
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = new MemoryStream();
+
+        stream.Write(To);
+        stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(LastHash);
+        stream.Write(BitConverter.GetBytes(Difficulty.Value));
 
         stream.Flush();
         stream.Position = 0;
@@ -41,7 +59,7 @@ public class Block
 
     public bool VerifyNonce()
     {
-        var basehash = GetHash();
+        var basehash = GetBaseHash();
         var concat = new Concat
         {
             Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? new byte[0]).ToArray()

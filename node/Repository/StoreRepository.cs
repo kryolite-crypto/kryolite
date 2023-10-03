@@ -154,7 +154,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Vote> GetVotes(List<SHA256Hash> votehashes)
     {
-        return Storage.GetMany<Vote>("Votes", votehashes.Select(x => x.Buffer).ToArray());
+        return Storage.GetMany<Vote>("Vote", votehashes.Select(x => x.Buffer).ToArray());
     }
 
     public List<Transaction> GetTransactions(List<SHA256Hash> transactionIds)
@@ -220,27 +220,19 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         var view = Storage.Get<View>("View", heightBytes);
 
-        if (view is null)
+        if (view is null || view.Votes.Count == 0)
         {
             return new();
         }
 
         var keys = view.Votes.Select(x => x.Buffer).ToArray();
-        var votes = Storage.GetMany<Vote>("Vote", keys);
-
-        return votes;
+        return Storage.GetMany<Vote>("Vote", keys);
     }
 
     public ChainState? GetChainState()
     {
         var chainKey = new byte[1];
         return Storage.Get<ChainState>("ChainState", chainKey, CurrentTransaction);
-    }
-
-    public ChainState? GetChainStateAt(long height)
-    {
-        var heightKey = BitConverter.GetBytes(height);
-        return Storage.Get<ChainState>("ChainStateHistory", heightKey);
     }
 
     public void SaveState(ChainState chainState)

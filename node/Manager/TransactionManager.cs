@@ -1,8 +1,4 @@
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Immutable;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
@@ -10,12 +6,7 @@ using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Logging;
-using Microsoft.VisualBasic;
-using QuikGraph;
-using QuikGraph.Algorithms;
-using QuikGraph.Algorithms.Search;
 
 namespace Kryolite.Node;
 
@@ -100,8 +91,8 @@ public abstract class TransactionManager
             var height = view.Id;
 
             var toExecute = new List<Transaction>(StateCache.TransactionCount());
-            var blockCount = 0;
-            var voteCount = 0;
+            var blocks = new List<Block>(StateCache.GetBlocks().Count);
+            var votes = new List<Vote>(StateCache.GetVotes().Count);
             var totalStake = 0L;
             var seedStake = 0L;
 
@@ -114,13 +105,13 @@ public abstract class TransactionManager
 
                 toExecute.Add(new Transaction
                 {
-                    TransactionType = TransactionType.STAKE_REWARD,
+                    TransactionType = TransactionType.BLOCK_REWARD,
                     Value = block.Value,
                     Data = blockhash,
                     Timestamp = view.Timestamp
                 });
 
-                blockCount++;
+                blocks.Add(block);
             }
 
             StateCache.GetBlocks().Clear();
@@ -150,8 +141,6 @@ public abstract class TransactionManager
 
                 totalStake += stakeAmount;
 
-                voteCount++;
-
                 toExecute.Add(new Transaction
                 {
                     TransactionType = TransactionType.STAKE_REWARD,
@@ -161,6 +150,8 @@ public abstract class TransactionManager
                     PublicKey = vote.PublicKey,
                     Signature = vote.Signature
                 });
+
+                votes.Add(vote);
             }
 
             StateCache.GetVotes().Clear();
@@ -185,20 +176,18 @@ public abstract class TransactionManager
 
             chainState.LastHash = view.GetHash();
             chainState.Id++;
-            chainState.Weight += chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE);
-            chainState.Votes += voteCount;
+            chainState.Weight += (chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE)) + 1;
+            chainState.Votes += votes.Count;
             chainState.Transactions += toExecute.Count;
-            chainState.Blocks += blockCount;
-            chainState.CurrentDifficulty = CalculateDifficulty(chainState.CurrentDifficulty.ToWork(), blockCount);
+            chainState.Blocks += blocks.Count;
+            chainState.CurrentDifficulty = CalculateDifficulty(chainState.CurrentDifficulty.ToWork(), blocks.Count);
 
+            Repository.AddRange(blocks);
+            Repository.AddRange(votes);
             Repository.AddRange(toExecute);
+            Repository.Add(view);
             Repository.SaveState(chainState);
 
-            if (broadcast)
-            {
-                Broadcast(view);
-            }
-            
             var node = KeyRepository.GetKey();
             var address = node!.PublicKey.ToAddress();
             var shouldVote = castVote && Repository.IsValidator(address);
@@ -237,8 +226,13 @@ public abstract class TransactionManager
 
             StateCache.SetView(view);
 
+            if (broadcast)
+            {
+                Broadcast(view);
+            }
+
             sw.Stop();
-            LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blockCount - voteCount - 1 /* view count */}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {chainState.CurrentDifficulty}]");
+            LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blocks.Count - votes.Count}] [Blocks = {blocks.Count}] [Votes = {votes.Count}] [Next difficulty = {chainState.CurrentDifficulty}]");
 
             return true;
         }
@@ -357,6 +351,8 @@ public abstract class TransactionManager
             {
                 Broadcast(vote);
             }
+
+            Logger.LogDebug("Added vote");
 
             return true;
         }

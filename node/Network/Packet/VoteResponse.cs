@@ -8,7 +8,7 @@ namespace Kryolite.Node;
 public class VoteResponse : IPacket
 {
     [Key(0)]
-    public Vote? Vote { get; }
+    public Vote? Vote { get; set; }
 
     public VoteResponse(Vote? vote)
     {

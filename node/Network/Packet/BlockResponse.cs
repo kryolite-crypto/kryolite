@@ -8,7 +8,7 @@ namespace Kryolite.Node;
 public class BlockResponse : IPacket
 {
     [Key(0)]
-    public Block? Block { get; }
+    public Block? Block { get; set; }
 
     public BlockResponse(Block? block)
     {

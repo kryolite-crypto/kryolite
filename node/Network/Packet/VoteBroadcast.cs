@@ -11,7 +11,7 @@ namespace Kryolite.Node;
 public class VoteBroadcast : IPacket
 {
     [Key(0)]
-    public SHA256Hash Votehash { get; set; } = SHA256Hash.NULL_HASH;
+    public SHA256Hash Votehash { get; set; }
 
     public VoteBroadcast(SHA256Hash votehash)
     {
@@ -41,6 +41,7 @@ public class VoteBroadcast : IPacket
 
         if (result is null || result.Payload is not VoteResponse response || response.Vote is null)
         {
+            Console.WriteLine("voteresponse failed");
             return;
         }
 

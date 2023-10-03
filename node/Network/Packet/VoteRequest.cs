@@ -10,7 +10,7 @@ namespace Kryolite.Node;
 public class VoteRequest : IPacket
 {
     [Key(0)]
-    public SHA256Hash Votehash { get; set; } = SHA256Hash.NULL_HASH;
+    public SHA256Hash Votehash { get; set; }
 
     public VoteRequest(SHA256Hash votehash)
     {
@@ -22,7 +22,7 @@ public class VoteRequest : IPacket
         using var scope = provider.CreateScope();
 
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-        var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoRequest>>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<VoteRequest>>();
 
         logger.LogDebug($"Received VoteRequest from {peer.Uri.ToHostname()}");
 

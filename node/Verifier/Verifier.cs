@@ -29,7 +29,7 @@ public class Verifier : IVerifier
 
         if (!tx.Verify())
         {
-            Logger.LogInformation($"{tx.CalculateHash()} verification failed");
+            Logger.LogInformation($"{tx.CalculateHash()} verification failed (reson = invalid signature)");
             return false;
         }
 
@@ -125,8 +125,38 @@ public class Verifier : IVerifier
 
         if (!view.Verify())
         {
-            Logger.LogInformation($"{view.GetHash()} verification failed");
+            Logger.LogInformation($"{view.GetHash()} verification failed (reson = invalid signature)");
             return false;
+        }
+
+        foreach (var blockhash in view.Blocks)
+        {
+            if (!StateCache.GetBlocks().TryGetValue(blockhash, out var block))
+            {
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = block not found)");
+                return false;
+            }
+
+            if (block.LastHash != chainState.LastHash)
+            {
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = block references finalized view)");
+                return false;
+            }
+        }
+
+        foreach (var votehash in view.Votes)
+        {
+            if (!StateCache.GetVotes().TryGetValue(votehash, out var vote))
+            {
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = vote not found)");
+                return false;
+            }
+
+            if (vote.ViewHash != chainState.LastHash)
+            {
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = vote references finalized view)");
+                return false;
+            }
         }
 
         return true;
@@ -134,15 +164,15 @@ public class Verifier : IVerifier
 
     public bool Verify(Vote vote)
     {
-        if (vote.PublicKey is null || vote.PublicKey == PublicKey.NULL_PUBLIC_KEY)
-        {
-            Logger.LogInformation("Vote verification failed (reason = null public key)");
-            return false;
-        }
-
         if (StateCache.GetVotes().ContainsKey(vote.GetHash()) || Store.VoteExists(vote.GetHash()))
         {
             Logger.LogInformation($"Vote {vote.GetHash()} already exists");
+            return false;
+        }
+
+        if (vote.PublicKey is null || vote.PublicKey == PublicKey.NULL_PUBLIC_KEY)
+        {
+            Logger.LogInformation("Vote verification failed (reason = null public key)");
             return false;
         }
 
@@ -154,11 +184,9 @@ public class Verifier : IVerifier
             return false;
         }
 
-        var chainState = StateCache.GetCurrentState();
-
-        if (vote.ViewHash != chainState.LastHash)
+        if (!vote.Verify())
         {
-            Logger.LogInformation($"Vote verification failed (reason = invalid view hash)");
+            Logger.LogInformation($"Vote verification failed (reason = invalid signature)");
             return false;
         }
 

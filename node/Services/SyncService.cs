@@ -39,7 +39,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
             if (chain is null)
             {
-                Logger.LogDebug("null chain passed to SyncChannel");
+                Logger.LogError("null chain passed to SyncChannel");
                 continue;
             }
 
@@ -48,7 +48,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             if (ok)
             {
                 await chain.Peer.SendAsync(new NodeInfoRequest());
-                return;
+                continue;
             }
 
             ok = await HandleSynchronization(chain.Peer, chain.Height, false);
@@ -56,7 +56,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             if (ok)
             {
                 await chain.Peer.SendAsync(new NodeInfoRequest());
-                return;
+                continue;
             }
             
             using var scope = ServiceProvider.CreateScope();
@@ -71,7 +71,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
     public void Add(Chain item)
     {
-        item.Peer.IsSyncInProgress = true;
         SyncChannel.Writer.TryWrite(item);
     }
 
@@ -79,7 +78,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
     {
         foreach (var item in items)
         {
-            item.Peer.IsSyncInProgress = true;
             SyncChannel.Writer.TryWrite(item);
         }
     }
@@ -155,6 +153,12 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                         Logger.LogError($"Failed to apply transaction to staging");
                         return false;
                     }
+
+                    if (!staging.LoadViewWithoutValidation(view))
+                    {
+                        Logger.LogError($"Failed to apply view to staging");
+                        return false;
+                    }
                 }
 
                 staging.EnableLogging();
@@ -162,17 +166,15 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Id}");
                 Logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
 
-                const int BATCH_SIZE = 100;
-
-                for (var i = commonHeight + 1; i <= height; i += BATCH_SIZE)
+                for (var i = commonHeight + 1; i <= height; i++)
                 {
-                    Logger.LogDebug($"Downloading transactions from {i} to {i + BATCH_SIZE}");
+                    Logger.LogDebug($"Downloading view #{i}");
 
                     var result = await peer.PostAsync(new ViewRequestById(i));
 
                     if (result is null || result.Payload is not ViewResponse response || response.View is null)
                     {
-                        Logger.LogInformation($"View download from {peer.Uri.ToHostname()} failed at height {i} - {i + BATCH_SIZE}");
+                        Logger.LogInformation($"View download from {peer.Uri.ToHostname()} failed at height {i}");
                         break;
                     }
 
@@ -186,7 +188,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                         if (download is null || download.Payload is not BlockResponse blockResponse || blockResponse.Block is null)
                         {
-                            Logger.LogInformation($"Block download from {peer.Uri.ToHostname()} failed at height {i} - {i + BATCH_SIZE}");
+                            Logger.LogInformation($"Block download from {peer.Uri.ToHostname()} failed at height {i}");
                             goto done;
                         }
 
@@ -199,7 +201,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                         if (download is null || download.Payload is not VoteResponse voteResponse || voteResponse.Vote is null)
                         {
-                            Logger.LogInformation($"Vote download from {peer.Uri.ToHostname()} failed at height {i} - {i + BATCH_SIZE}");
+                            Logger.LogInformation($"Vote download from {peer.Uri.ToHostname()} failed at height {i}");
                             goto done;
                         }
 
@@ -212,17 +214,32 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                         if (download is null || download.Payload is not TransactionResponse txResponse || txResponse.Transaction is null)
                         {
-                            Logger.LogInformation($"Transaction download from {peer.Uri.ToHostname()} failed at height {i} - {i + BATCH_SIZE}");
+                            Logger.LogInformation($"Transaction download from {peer.Uri.ToHostname()} failed at height {i}");
                             goto done;
                         }
 
                         transactions.Add(txResponse.Transaction);
                     }
 
-                    staging.LoadBlocks(blocks);
-                    staging.LoadVotes(votes);
-                    staging.LoadTransactions(transactions);
-                    staging.LoadView(response.View);
+                    if (!staging.LoadBlocks(blocks))
+                    {
+                        break;
+                    }
+                    
+                    if (!staging.LoadVotes(votes))
+                    {
+                        break;
+                    }
+
+                    if (!staging.LoadTransactions(transactions))
+                    {
+                        break;
+                    }
+
+                    if (!staging.LoadView(response.View))
+                    {
+                        break;
+                    }
                 }
 
 done:
@@ -277,14 +294,14 @@ done:
 
         foreach (var qHeight in queryHeights)
         {
-            var state = storeManager.GetChainStateAt(Math.Max(qHeight, 0));
+            var view = storeManager.GetView(Math.Max(qHeight, 0));
 
-            if (state is null)
+            if (view is null)
             {
                 continue;
             }
 
-            query.Views.Add(state.LastHash);
+            query.Views.Add(view.GetHash());
 
             if (qHeight <= 0)
             {

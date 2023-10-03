@@ -16,6 +16,8 @@ namespace Kryolite.Node;
 [Union(12, typeof(ViewResponse))]
 [Union(13, typeof(TransactionRequest))]
 [Union(14, typeof(TransactionResponse))]
+[Union(15, typeof(PendingRequest))]
+[Union(16, typeof(PendingResponse))]
 // Broadcasts
 [Union(100, typeof(NodeBroadcast))]
 [Union(101, typeof(ViewBroadcast))]

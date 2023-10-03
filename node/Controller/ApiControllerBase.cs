@@ -387,8 +387,7 @@ public class ApiControllerBase : Controller
     [HttpGet("chainstate")]
     public ChainState GetCurrentChainState()
     {
-        var height = blockchainManager.GetCurrentHeight();
-        return blockchainManager.GetChainStateAt(height - 1) ?? new ChainState();
+        return blockchainManager.GetChainState() ?? new ChainState();
     }
     
     [HttpGet("nodes")]
