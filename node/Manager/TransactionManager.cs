@@ -90,7 +90,7 @@ public abstract class TransactionManager
 
             var height = view.Id;
 
-            var toExecute = new List<Transaction>(StateCache.TransactionCount());
+            var toExecute = new List<Transaction>(StateCache.TransactionCount() + StateCache.GetBlocks().Count + StateCache.GetVotes().Count);
             var blocks = new List<Block>(StateCache.GetBlocks().Count);
             var votes = new List<Vote>(StateCache.GetVotes().Count);
             var totalStake = 0L;
@@ -98,23 +98,38 @@ public abstract class TransactionManager
 
             foreach (var blockhash in view.Blocks)
             {
-                if (!StateCache.GetBlocks().TryGetValue(blockhash, out var block))
+                if (!StateCache.GetBlocks().Remove(blockhash, out var block))
                 {
                     throw new Exception($"unknown reference to block ({blockhash})");
                 }
 
-                toExecute.Add(new Transaction
+                var blockReward = new Transaction
                 {
                     TransactionType = TransactionType.BLOCK_REWARD,
+                    To = block.To,
                     Value = block.Value,
                     Data = blockhash,
                     Timestamp = view.Timestamp
-                });
+                };
+
+                view.Rewards.Add(blockReward.CalculateHash());
+                toExecute.Add(blockReward);
 
                 blocks.Add(block);
             }
 
+            // Reset pending values for orphaned blocks
+            foreach (var entry in StateCache.GetBlocks())
+            {
+                if (StateCache.TryGet(entry.Value.To, out var ledger))
+                {
+                    ledger.Pending = checked (ledger.Pending - entry.Value.Value);
+                }
+            }
+
             StateCache.GetBlocks().Clear();
+
+            LogInformation($"Pending votes: {StateCache.GetVotes().Count}");
 
             foreach (var votehash in view.Votes)
             {
@@ -132,8 +147,9 @@ public abstract class TransactionManager
                 }
 
                 var stakeAmount = stake.Stake;
+                var isSeedValidator = Constant.SEED_VALIDATORS.Contains(stakeAddress);
 
-                if (Constant.SEED_VALIDATORS.Contains(stakeAddress))
+                if (isSeedValidator)
                 {
                     stakeAmount = Constant.MIN_STAKE;
                     seedStake += stakeAmount;
@@ -141,20 +157,23 @@ public abstract class TransactionManager
 
                 totalStake += stakeAmount;
 
-                toExecute.Add(new Transaction
+                if (!isSeedValidator)
                 {
-                    TransactionType = TransactionType.STAKE_REWARD,
-                    Value = stakeAmount, // Executor will update this to final value!!
-                    Data = votehash,
-                    Timestamp = view.Timestamp,
-                    PublicKey = vote.PublicKey,
-                    Signature = vote.Signature
-                });
+                    var voteReward = new Transaction
+                    {
+                        TransactionType = TransactionType.STAKE_REWARD,
+                        To = stake.RewardAddress,
+                        Value = stakeAmount, // Executor will update this to final value!!
+                        Data = votehash,
+                        Timestamp = view.Timestamp
+                    };
+
+                    view.Rewards.Add(voteReward.CalculateHash());
+                    toExecute.Add(voteReward);
+                }
 
                 votes.Add(vote);
             }
-
-            StateCache.GetVotes().Clear();
 
             foreach (var txId in view.Transactions)
             {
@@ -176,7 +195,7 @@ public abstract class TransactionManager
 
             chainState.LastHash = view.GetHash();
             chainState.Id++;
-            chainState.Weight += (chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE)) + 1;
+            chainState.Weight += (chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE)) + chainState.CurrentDifficulty.ToWork();
             chainState.Votes += votes.Count;
             chainState.Transactions += toExecute.Count;
             chainState.Blocks += blocks.Count;
@@ -188,9 +207,12 @@ public abstract class TransactionManager
             Repository.Add(view);
             Repository.SaveState(chainState);
 
+            var isMilestone = view.Id % Constant.VOTE_INTERVAL == 0;
             var node = KeyRepository.GetKey();
             var address = node!.PublicKey.ToAddress();
-            var shouldVote = castVote && Repository.IsValidator(address);
+            var shouldVote = castVote && isMilestone && Repository.IsValidator(address);
+
+            Logger.LogDebug($"Should vote: castVote = {castVote}, isMilestone = {isMilestone}, isvalidator = {Repository.IsValidator(address)}");
 
             if (shouldVote)
             {
@@ -203,6 +225,11 @@ public abstract class TransactionManager
 
                 vote.Sign(node.PrivateKey);
                 AddVoteInternal(vote, true);
+            }
+
+            if (view.Id % Constant.VOTE_INTERVAL == 1)
+            {
+                StateCache.GetVotes().Clear();
             }
 
             Publish(chainState);
@@ -232,7 +259,7 @@ public abstract class TransactionManager
             }
 
             sw.Stop();
-            LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count - blocks.Count - votes.Count}] [Blocks = {blocks.Count}] [Votes = {votes.Count}] [Next difficulty = {chainState.CurrentDifficulty}]");
+            LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count}] [Blocks = {blocks.Count}] [Votes = {votes.Count}] [Next difficulty = {chainState.CurrentDifficulty}]");
 
             return true;
         }
@@ -352,7 +379,7 @@ public abstract class TransactionManager
                 Broadcast(vote);
             }
 
-            Logger.LogDebug("Added vote");
+            LogInformation("Added vote");
 
             return true;
         }

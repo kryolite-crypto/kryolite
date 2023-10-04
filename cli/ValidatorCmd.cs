@@ -105,15 +105,6 @@ public static class ValidatorCmd
 
         using var http = new HttpClient();
 
-        var result = await http.GetAsync($"{node}/chain/tip");
-
-        if (!result.IsSuccessStatusCode)
-        {
-            Console.WriteLine($"Request failed: {result.StatusCode}");
-            Console.WriteLine(result.Content);
-            return;
-        }
-
         var tx = new Transaction
         {
             TransactionType = TransactionType.REG_VALIDATOR,

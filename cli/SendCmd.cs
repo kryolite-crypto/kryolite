@@ -96,15 +96,6 @@ public static class SendCmd
 
             using var http = new HttpClient();
 
-            var result = await http.GetAsync($"{node}/chain/tip");
-
-            if (!result.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Request failed: {result.StatusCode}");
-                Console.WriteLine(result.Content);
-                return;
-            }
-
             var lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray)
                 .WithOmitAssemblyVersion(true);

@@ -28,7 +28,6 @@ public interface IStoreRepository
     View? GetLastView();
     View? GetViewAt(long height);
     List<Transaction> GetTransactionsAtHeight(long height);
-    List<Transaction> GetTransactionsAfterHeight(long height);
     List<Transaction> GetTransactions(int count, int toSkip);
     List<Vote> GetVotesAtHeight(long height);
     void SaveState(ChainState chainState);

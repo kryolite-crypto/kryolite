@@ -17,6 +17,7 @@ public static class Constant
     public const int MAX_BLOCK_TX = 20000;
     public const int MAX_PEERS = 6;
     public const long DECIMAL_MULTIPLIER = 1_000_000;
+    public const int VOTE_INTERVAL = 5;
 
     public static readonly ImmutableArray<Address> SEED_VALIDATORS = ImmutableArray.Create<Address>(
         "kryo:wean6dt2ckvgubhh54ipu7nufdkfpmfx7zq9w2dx7e",

@@ -39,15 +39,13 @@ public class Executor
             switch (tx.TransactionType)
             {
                 case TransactionType.STAKE_REWARD:
-                
-                    break;
                 case TransactionType.BLOCK_REWARD:
                 case TransactionType.PAYMENT:
                     if (tx.TransactionType == TransactionType.STAKE_REWARD)
                     {
-                        // tx.Value contains full stake at this pint, update to actual reward
+                        // tx.Value contains full stake at this point, update to actual reward
                         tx.Value = (long)Math.Floor(Constant.VALIDATOR_REWARD * (tx.Value / (double)Context.GetTotalStake()));
-                        
+
                         // Update pending since it will be subtracted later on
                         var wallet = Context.GetOrNewWallet(tx.To);
                         wallet.Pending += tx.Value;
@@ -62,7 +60,7 @@ public class Executor
 
                     if (tx.ExecutionResult != ExecutionResult.SUCCESS)
                     {
-                        // should only end up here if Contract execution fails
+                        // should only end up here if Contract execution succeeds but refuses to complete transaction
                         TransactionExecutor.Rollback(tx);
                     }
 

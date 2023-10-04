@@ -200,6 +200,24 @@ public class ApiControllerBase : Controller
         return Ok(wallets);
     }
 
+    [HttpGet("view/{hash}")]
+    public IActionResult GetView(string hash)
+    {
+        return Ok(blockchainManager.GetView(hash));
+    }
+
+    [HttpGet("block/{hash}")]
+    public IActionResult GetBlock(string hash)
+    {
+        return Ok(blockchainManager.GetBlock(hash));
+    }
+
+    [HttpGet("vote/{hash}")]
+    public IActionResult GetVote(string hash)
+    {
+        return Ok(blockchainManager.GetVote(hash));
+    }
+
     [HttpGet("tx/{hash}")]
     public IActionResult GetTransactionForHash(string hash)
     {
@@ -228,19 +246,68 @@ public class ApiControllerBase : Controller
     [HttpGet("tx/graph")]
     public IActionResult GetTransactionGraph([FromQuery] long startHeight)
     {
-        /*var transactions = blockchainManager.GetTransactionsAfterHeight(startHeight);
+        var currentHeight = blockchainManager.GetChainState().Id;
+    
+        var types = new Dictionary<SHA256Hash, string>((int)(currentHeight - startHeight));
+        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true);
 
-        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, transactions.Count + 1);
-        var map = new Dictionary<SHA256Hash, Transaction>(transactions.Count + 1);
-
-        var terminatinEdges = new HashSet<SHA256Hash>();
-
-        graph.AddVertexRange(transactions.Select(x => x.TransactionId));
-
-        foreach (var tx in transactions)
+        for (var i = startHeight; i <= currentHeight; i++)
         {
-            map.Add(tx.TransactionId, tx);
-            graph.AddEdge(new (tx., tx.TransactionId ));
+            var view = blockchainManager.GetView(i);
+
+            if (view is not null)
+            {
+                var viewHash = view.GetHash();
+
+                graph.AddVertex(viewHash);
+                types.Add(viewHash, "view");
+
+                if (graph.ContainsVertex(view.LastHash))
+                {
+                    graph.AddEdge(new Edge<SHA256Hash>(view.LastHash, viewHash));
+                }
+
+                var blocks = blockchainManager.GetBlocks(view.Blocks);
+
+                foreach (var block in blocks)
+                {
+                    var blockhash = block.GetHash();
+
+                    if (graph.ContainsVertex(block.LastHash))
+                    {
+                        graph.AddVertex(blockhash);
+                        graph.AddEdge(new Edge<SHA256Hash>(block.LastHash, blockhash));
+                        graph.AddEdge(new Edge<SHA256Hash>(blockhash, viewHash));
+                        types.Add(blockhash, "block");
+                    }
+                }
+
+                var votes = blockchainManager.GetVotes(view.Votes);
+
+                foreach (var vote in votes)
+                {
+                    var votehash = vote.GetHash();
+
+                    if (graph.ContainsVertex(vote.ViewHash))
+                    {
+                        graph.AddVertex(votehash);
+                        graph.AddEdge(new Edge<SHA256Hash>(vote.ViewHash, votehash));
+                        graph.AddEdge(new Edge<SHA256Hash>(votehash, viewHash));
+                        types.Add(votehash, "vote");
+                    }
+                }
+
+                var transactions = blockchainManager.GetTransactions(view.Transactions);
+
+                foreach (var tx in transactions)
+                {
+                    var txid = tx.CalculateHash();
+
+                    graph.AddVertex(txid);
+                    graph.AddEdge(new Edge<SHA256Hash>(viewHash, txid));
+                    types.Add(txid, "tx");
+                }
+            }
         }
 
         var darkslategray4 = new GraphvizColor(byte.MaxValue, 52, 139, 139);
@@ -266,60 +333,37 @@ public class ApiControllerBase : Controller
 
                 algorithm.FormatVertex += (sender, args) =>
                 {
-                    if (terminatinEdges.Contains(args.Vertex))
+                    var stype = types[args.Vertex];
+
+                    args.VertexFormat.Url = $"https://testnet-1.kryolite.io/explorer/{stype}/{args.Vertex}";
+
+                    switch (stype)
                     {
-                        args.VertexFormat.ToolTip = "Not loaded";
-                        args.VertexFormat.Shape = GraphvizVertexShape.Point;
-                        return;
-                    }
-
-                    var tx = map[args.Vertex];
-
-                    args.VertexFormat.Url = $"/explorer/tx/{tx.TransactionId}";
-
-                    switch (tx.TransactionType)
-                    {
-                        case TransactionType.PAYMENT:
-                            args.VertexFormat.ToolTip = $"Transaction";
-                            args.VertexFormat.FillColor = darkslateblue;
-                            args.VertexFormat.StrokeColor = darkslateblue;
+                        case "view":
+                            args.VertexFormat.ToolTip = $"View";
+                            args.VertexFormat.FillColor = deepskyblue3;
+                            args.VertexFormat.StrokeColor = deepskyblue3;
                         break;
-                        case TransactionType.GENESIS:
-                            args.VertexFormat.ToolTip = $"Genesis";
-                            args.VertexFormat.FillColor = GraphvizColor.White;
-                            args.VertexFormat.FontColor = GraphvizColor.Black;
-                        break;
-                        case TransactionType.BLOCK:
+                        case "block":
                             args.VertexFormat.ToolTip = $"Block";
                             args.VertexFormat.FillColor = goldenrod2;
                             args.VertexFormat.StrokeColor = goldenrod2;
                         break;
-                        case TransactionType.VIEW:
-                            args.VertexFormat.ToolTip = $"View #{BitConverter.ToInt64(tx.Data)}";
-                            args.VertexFormat.FillColor = deepskyblue3;
-                            args.VertexFormat.StrokeColor = deepskyblue3;
-                        break;
-                        case TransactionType.VOTE:
+                        case "vote":
                             args.VertexFormat.ToolTip = $"Vote";
                             args.VertexFormat.FillColor = darkslategray4;
                             args.VertexFormat.StrokeColor = darkslategray4;
                         break;
-                        case TransactionType.CONTRACT:
-                            args.VertexFormat.ToolTip = $"Contract";
-                            args.VertexFormat.FillColor = GraphvizColor.White;
-                            args.VertexFormat.FontColor = GraphvizColor.Black;
-                        break;
-                        case TransactionType.REG_VALIDATOR:
-                            args.VertexFormat.ToolTip = $"New Validator";
-                            args.VertexFormat.FillColor = GraphvizColor.White;
-                            args.VertexFormat.FontColor = GraphvizColor.Black;
+                        case "tx":
+                            args.VertexFormat.ToolTip = $"Transaction";
+                            args.VertexFormat.FillColor = darkslateblue;
+                            args.VertexFormat.StrokeColor = darkslateblue;
                         break;
                     }
                 };
             });
 
-        return Ok(dotString);*/
-        return Ok("");
+        return Ok(dotString);
     }
 
     [HttpGet("ledger/{address}")]

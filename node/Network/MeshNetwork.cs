@@ -73,19 +73,27 @@ public class MeshNetwork : IMeshNetwork
 
     public async Task<List<string>> DownloadPeerListAsync(Uri uri)
     {
-        var builder = new UriBuilder(uri);
-        builder.Path = "/peers";
-
-        var result = await HttpClient.GetAsync(builder.Uri);
-
-        if (!result.IsSuccessStatusCode)
+        try
         {
+            var builder = new UriBuilder(uri);
+            builder.Path = "/peers";
+
+            var result = await HttpClient.GetAsync(builder.Uri);
+
+            if (!result.IsSuccessStatusCode)
+            {
+                return new();
+            }
+
+            var content = await result.Content.ReadAsStringAsync();
+
+            return JsonSerializer.Deserialize<List<string>>(content) ?? new();
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Download Peer List from {uri}", uri.ToHostname());
             return new();
         }
-
-        var content = await result.Content.ReadAsStringAsync();
-
-        return JsonSerializer.Deserialize<List<string>>(content) ?? new();
     }
 
     public async Task BroadcastAsync(IPacket packet)

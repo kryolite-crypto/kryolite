@@ -41,7 +41,6 @@ public class VoteBroadcast : IPacket
 
         if (result is null || result.Payload is not VoteResponse response || response.Vote is null)
         {
-            Console.WriteLine("voteresponse failed");
             return;
         }
 

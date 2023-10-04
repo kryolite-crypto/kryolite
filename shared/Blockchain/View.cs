@@ -22,8 +22,10 @@ public class View
     [Key(5)]
     public List<SHA256Hash> Transactions { get; set; } = new();
     [Key(6)]
-    public List<SHA256Hash> Votes { get; set; } = new();
+    public List<SHA256Hash> Rewards { get; set; } = new();
     [Key(7)]
+    public List<SHA256Hash> Votes { get; set; } = new();
+    [Key(8)]
     public List<SHA256Hash> Blocks { get; set; } = new();
 
     public SHA256Hash GetHash()

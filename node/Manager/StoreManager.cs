@@ -135,21 +135,29 @@ public class StoreManager : TransactionManager, IStoreManager
 
     public ExecutionResult AddTransaction(TransactionDto txDto, bool broadcast)
     {
-        using var _ = rwlock.EnterWriteLockEx();
-
-        var tx = new Transaction(txDto);
-
-        if (!Verifier.Verify(tx))
+        try
         {
-            return ExecutionResult.VERIFY_FAILED;
-        }
+            using var _ = rwlock.EnterWriteLockEx();
 
-        if(AddTransactionInternal(tx, broadcast))
+            var tx = new Transaction(txDto);
+
+            if (!Verifier.Verify(tx))
+            {
+                return ExecutionResult.VERIFY_FAILED;
+            }
+
+            if(AddTransactionInternal(tx, broadcast))
+            {
+                NotificationService.SendEventAsync("TRANSACTION");
+            }
+
+            return tx.ExecutionResult;
+        }
+        catch (Exception ex)
         {
-            NotificationService.SendEventAsync("TRANSACTION");
+            Logger.LogError(ex, "AddTransaction");
+            return ExecutionResult.UNKNOWN;
         }
-
-        return tx.ExecutionResult;
     }
 
     public ExecutionResult AddValidatorReg(TransactionDto txDto, bool broadcast)

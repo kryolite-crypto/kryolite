@@ -14,7 +14,7 @@ public class Transaction : EventBase, IComparable<Transaction>
     [Key(1)]
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
     [Key(2)]
-    public Address To { get; init; } = Address.NULL_ADDRESS;
+    public Address To { get; set; } = Address.NULL_ADDRESS;
     [Key(3)]
     public long Value { get; set; }
     [Key(4)]
@@ -31,8 +31,6 @@ public class Transaction : EventBase, IComparable<Transaction>
     [IgnoreMember]
     public Address? From { get => PublicKey.ToAddress(); }
 
-    private SHA256Hash? transactionId;
-
     public Transaction()
     {
 
@@ -41,12 +39,12 @@ public class Transaction : EventBase, IComparable<Transaction>
     public Transaction(TransactionDto tx)
     {
         TransactionType = tx.TransactionType;
-        PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");
+        PublicKey = tx.PublicKey ?? throw new Exception("transaction requires public key");
         To = tx.To;
         Value = tx.Value;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
-        Signature = tx.Signature ?? throw new Exception("payment requires signature");
+        Signature = tx.Signature ?? throw new Exception("transaction requires signature");
     }
 
     public void Sign(PrivateKey privateKey)
@@ -86,11 +84,6 @@ public class Transaction : EventBase, IComparable<Transaction>
 
     public SHA256Hash CalculateHash()
     {
-        if (transactionId is not null)
-        {
-            return transactionId;
-        }
-
         using var sha256 = SHA256.Create();
         using var stream = new MemoryStream();
 
@@ -112,8 +105,7 @@ public class Transaction : EventBase, IComparable<Transaction>
         stream.Flush();
         stream.Position = 0;
 
-        transactionId = sha256.ComputeHash(stream);
-        return transactionId;
+        return sha256.ComputeHash(stream);
     }
 
     public int CompareTo(Transaction? other)

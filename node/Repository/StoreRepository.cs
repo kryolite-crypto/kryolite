@@ -37,7 +37,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public bool TransactionExists(SHA256Hash transactionId)
     {
-        return Storage.Exists("ixTransactionId", transactionId.Buffer);
+        return Storage.Exists("Transaction", transactionId.Buffer);
     }
 
     public View? GetView(long height)
@@ -103,21 +103,26 @@ public class StoreRepository : IStoreRepository, IDisposable
         // Transaction
         Storage.Put("Transaction", transactionId, MessagePackSerializer.Serialize(tx), CurrentTransaction);
 
+        var num = BitConverter.GetBytes(Storage.NextKey());
+        Array.Reverse(num);
+
+        //ixTransactionNum index
+        Storage.Put("ixTransactionNum", num, transactionId.Buffer, CurrentTransaction);
+
         // Address index
         var addrKey = keyMem.Slice(0, 34);
-        BitConverter.GetBytes(Storage.NextKey())
-            .CopyTo(addrKey.Slice(26));
+        num.CopyTo(addrKey.Slice(26));
 
         if (tx.PublicKey is not null)
         {
             tx.From!.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, transactionId, CurrentTransaction);
+            Storage.Put("ixTransactionAddress", addrKey, transactionId.Buffer, CurrentTransaction);
         }
 
         if (tx.To is not null)
         {
             tx.To.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, transactionId, CurrentTransaction);
+            Storage.Put("ixTransactionAddress", addrKey, transactionId.Buffer, CurrentTransaction);
         }
 
         ArrayPool<byte>.Shared.Return(keyBuf);
@@ -186,31 +191,26 @@ public class StoreRepository : IStoreRepository, IDisposable
         var heightBytes = BitConverter.GetBytes(height);
         Array.Reverse(heightBytes);
 
-        var ids = Storage.FindAll("ixTransactionHeight", heightBytes);
+        var view = Storage.Get<View>("View", heightBytes);
 
-        if (ids.Count == 0)
+        if (view is null)
         {
             return new();
         }
 
-        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
-    }
+        var transactions = new List<Transaction>(view.Transactions.Count + view.Rewards.Count);
 
-    public List<Transaction> GetTransactionsAfterHeight(long height)
-    {
-        var heightBytes = BitConverter.GetBytes(height + 1);
-        Array.Reverse(heightBytes);
-
-        var upperBound = new byte[8] { 255, 255, 255, 255, 255, 255, 255, 255 };
-
-        var ids = Storage.FindAll("ixTransactionHeight", heightBytes, upperBound);
-
-        if (ids.Count == 0)
+        if (view.Transactions.Count > 0)
         {
-            return new();
+            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", view.Transactions.Select(x => x.Buffer).ToArray()));
         }
 
-        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+        if (view.Rewards.Count > 0)
+        {
+            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", view.Rewards.Select(x => x.Buffer).ToArray()));
+        }
+
+        return transactions;
     }
 
     public List<Vote> GetVotesAtHeight(long height)
@@ -243,7 +243,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetLastNTransctions(int count)
     {
-        var ids = Storage.FindLast("ixTransactionHeight", count);
+        var ids = Storage.FindLast("ixTransactionNum", count);
         return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 
@@ -251,7 +251,7 @@ public class StoreRepository : IStoreRepository, IDisposable
     {
         var ids = Storage.FindLast("ixTransactionAddress", address, 5);
 
-        if (ids is null)
+        if (ids is null || ids.Count == 0)
         {
             return new();
         }
@@ -515,7 +515,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetTransactions(int pageNum, int pageSize)
     {
-        var ids = Storage.GetRange("ixTransactionHeight", pageNum, pageSize);
+        var ids = Storage.GetRange("ixTransactionNum", pageNum, pageSize);
         return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
     }
 

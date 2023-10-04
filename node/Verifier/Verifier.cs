@@ -144,6 +144,13 @@ public class Verifier : IVerifier
             }
         }
 
+        // Votes are given at (Id % VOTE_INTERVAL), votes will be included in next block
+        if ((view.Id % Constant.VOTE_INTERVAL) != 1 && view.Votes.Count > 0)
+        {
+            Logger.LogInformation($"{view.GetHash()} verification failed (reson = non-milestone view has votes)");
+            return false;
+        }
+
         foreach (var votehash in view.Votes)
         {
             if (!StateCache.GetVotes().TryGetValue(votehash, out var vote))
