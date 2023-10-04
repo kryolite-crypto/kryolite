@@ -38,6 +38,7 @@ public class Executor
         {
             switch (tx.TransactionType)
             {
+                case TransactionType.DEV_FEE:
                 case TransactionType.STAKE_REWARD:
                 case TransactionType.BLOCK_REWARD:
                 case TransactionType.PAYMENT:

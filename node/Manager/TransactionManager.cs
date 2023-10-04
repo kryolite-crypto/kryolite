@@ -189,6 +189,7 @@ public abstract class TransactionManager
             {
                 StateCache.GetVotes().Clear();
 
+                // TODO: maybe we include this in View hash / signature to prevent tampering?
                 var devFee = new Transaction
                 {
                     TransactionType = TransactionType.DEV_FEE,
@@ -198,6 +199,7 @@ public abstract class TransactionManager
                 };
 
                 toExecute.Add(devFee);
+                view.Rewards.Add(devFee.CalculateHash());
             }
 
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), totalStake - seedStake, height);
