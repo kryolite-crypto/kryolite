@@ -50,6 +50,12 @@ public class Executor
                         var wallet = Context.GetOrNewWallet(tx.To);
                         wallet.Pending += tx.Value;
                     }
+                    else if (tx.TransactionType == TransactionType.DEV_FEE)
+                    {
+                        // Update pending since it will be subtracted later on
+                        var wallet = Context.GetOrNewWallet(tx.To);
+                        wallet.Pending += tx.Value;
+                    }
 
                     tx.ExecutionResult = TransactionExecutor.Execute(tx);
 

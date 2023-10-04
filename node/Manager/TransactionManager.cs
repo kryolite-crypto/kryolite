@@ -185,6 +185,21 @@ public abstract class TransactionManager
                 toExecute.Add(tx);
             }
 
+            if (view.Id % Constant.VOTE_INTERVAL == 1)
+            {
+                StateCache.GetVotes().Clear();
+
+                var devFee = new Transaction
+                {
+                    TransactionType = TransactionType.DEV_FEE,
+                    To = Constant.DEV_FEE_ADDRESS,
+                    Value = Constant.DEV_REWARD,
+                    Timestamp = view.Timestamp
+                };
+
+                toExecute.Add(devFee);
+            }
+
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), totalStake - seedStake, height);
             var executor = ExecutorFactory.Create(context);
 
@@ -225,11 +240,6 @@ public abstract class TransactionManager
 
                 vote.Sign(node.PrivateKey);
                 AddVoteInternal(vote, true);
-            }
-
-            if (view.Id % Constant.VOTE_INTERVAL == 1)
-            {
-                StateCache.GetVotes().Clear();
             }
 
             Publish(chainState);
