@@ -79,6 +79,9 @@
               <TabItem Header="Send" VerticalContentAlignment="Center">
                 <vm:SendTab/>
               </TabItem>
+              <!--TabItem Header="Validator" VerticalContentAlignment="Center">
+                <vm:ValidatorTab/>
+              </TabItem-->
             </TabControl>
         </DockPanel>
     </Panel>

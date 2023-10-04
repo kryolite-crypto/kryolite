@@ -73,19 +73,27 @@ public class MeshNetwork : IMeshNetwork
 
     public async Task<List<string>> DownloadPeerListAsync(Uri uri)
     {
-        var builder = new UriBuilder(uri);
-        builder.Path = "/peers";
-
-        var result = await HttpClient.GetAsync(builder.Uri);
-
-        if (!result.IsSuccessStatusCode)
+        try
         {
+            var builder = new UriBuilder(uri);
+            builder.Path = "/peers";
+
+            var result = await HttpClient.GetAsync(builder.Uri);
+
+            if (!result.IsSuccessStatusCode)
+            {
+                return new();
+            }
+
+            var content = await result.Content.ReadAsStringAsync();
+
+            return JsonSerializer.Deserialize<List<string>>(content) ?? new();
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Download Peer List from {uri}", uri.ToHostname());
             return new();
         }
-
-        var content = await result.Content.ReadAsStringAsync();
-
-        return JsonSerializer.Deserialize<List<string>>(content) ?? new();
     }
 
     public async Task BroadcastAsync(IPacket packet)
@@ -270,10 +278,11 @@ public class MeshNetwork : IMeshNetwork
                             var peer = new Peer(client, clientId, uri, ConnectionType.OUT, true, apiLevel);
 
                             _ = AddSocketAsync(client, peer);
+                            _ = Task.Run(() => PeerConnected?.Invoke(peer, new PeerConnectedEventArgs()));
                         }
                         catch (Exception ex)
                         {
-                            logger.LogDebug(ex, "error");
+                            logger.LogInformation(ex, "error");
                         }
                         finally
                         {
@@ -325,12 +334,6 @@ public class MeshNetwork : IMeshNetwork
         var token = tokenSource.Token;
         var buffer = new byte[64 * 1024];
 
-        if (!Peers.TryAdd(peer.ClientId, peer))
-        {
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "already connected", token);
-            return;
-        }
-
         if (peer.ConnectionType == ConnectionType.IN && peer.IsReachable)
         {
             // notify other nodes of this new connection
@@ -338,6 +341,24 @@ public class MeshNetwork : IMeshNetwork
             var msg = new Message(peer.ClientId, discovery);
 
             await BroadcastAsync(msg);
+        }
+
+        if (!Peers.TryAdd(peer.ClientId, peer))
+        {
+            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "already connected", token);
+            return;
+        }
+
+        var handshake = await ReadMessageAsync(webSocket, buffer, token);
+
+        if (handshake is null)
+        {
+            return;
+        }
+
+        if (handshake.MessageType == WebSocketMessageType.Text)
+        {
+            await ReplyHandshakeAsync(webSocket, handshake, token);
         }
 
         _ = Task.Run(() => PeerConnected?.Invoke(peer, new PeerConnectedEventArgs()));
@@ -351,12 +372,6 @@ public class MeshNetwork : IMeshNetwork
 
                 if (message == null)
                 {
-                    continue;
-                }
-
-                if (message.MessageType == WebSocketMessageType.Text)
-                {
-                    await ReplyHandshakeAsync(webSocket, message, token);
                     continue;
                 }
 
@@ -396,8 +411,8 @@ public class MeshNetwork : IMeshNetwork
                     }
                     catch (Exception ex)
                     {
-                        logger.LogDebug(ex, "failed to handle incoming message");
-                        logger.LogDebug(MessagePackSerializer.ConvertToJson(message.Bytes, lz4Options));
+                        logger.LogInformation(ex, "failed to handle incoming message");
+                        logger.LogInformation(MessagePackSerializer.ConvertToJson(message.Bytes, lz4Options));
                     }
                 });
             }
@@ -412,7 +427,7 @@ public class MeshNetwork : IMeshNetwork
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Connection failure");
+            logger.LogInformation(ex, "Connection failure");
         }
 
         Peers.TryRemove(peer.ClientId, out _);

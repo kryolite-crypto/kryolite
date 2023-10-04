@@ -22,14 +22,11 @@ public class Peer : IDisposable
     public DateTime ConnectedSince { get; set; }
     public bool IsReachable { get; set; }
     public int ApiLevel { get; private init; }
-    public DateTime? LastNodeInfo { get; set; }
-    public DateTime? LastChainSync { get; set; }
     public bool IsSyncInProgress { get; set; }
     public ConcurrentDictionary<ulong, TaskCompletionSource<Reply>> ReplyQueue = new();
 
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
-    private System.Timers.Timer Watchdog;
 
     public Peer(WebSocket socket, ulong id, Uri uri, ConnectionType connectionType, bool isReacable, int apiLevel)
     {
@@ -42,15 +39,6 @@ public class Peer : IDisposable
         ConnectedSince = DateTime.UtcNow;
         LastSeen = DateTime.UtcNow;
         ApiLevel = apiLevel;
-
-        Watchdog = new System.Timers.Timer(TimeSpan.FromSeconds(69));
-        Watchdog.Elapsed += async ( sender, e ) => await HandleWatchdog();
-        Watchdog.Start();
-    }
-
-    private async Task HandleWatchdog()
-    {
-        await SendAsync(new NodeInfoRequest());
     }
 
     public async Task<Reply?> PostAsync(IPacket packet, CancellationToken? token = null)

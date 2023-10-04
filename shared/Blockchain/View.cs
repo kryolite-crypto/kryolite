@@ -1,58 +1,121 @@
-﻿using Kryolite.Shared.Dto;
+﻿using System.Collections.ObjectModel;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using MessagePack;
 using NSec.Cryptography;
-using System.Collections.Immutable;
-using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
 [MessagePackObject]
-public class View : Transaction
+public class View
 {
-    public View()
-    {
+    [Key(0)]
+    public long Id { get; set; }
+    [Key(1)]
+    public long Timestamp { get; init; }
+    [Key(2)]
+    public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
+    [Key(3)]
+    public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
+    [Key(4)]
+    public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
+    [Key(5)]
+    public List<SHA256Hash> Transactions { get; set; } = new();
+    [Key(6)]
+    public List<SHA256Hash> Rewards { get; set; } = new();
+    [Key(7)]
+    public List<SHA256Hash> Votes { get; set; } = new();
+    [Key(8)]
+    public List<SHA256Hash> Blocks { get; set; } = new();
 
+    public SHA256Hash GetHash()
+    {
+        using var sha256 = SHA256.Create();
+        using var stream = new MemoryStream();
+
+        stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(LastHash!);
+        stream.Write(PublicKey!);
+
+        foreach (var hash in Transactions.Order())
+        {
+            stream.Write(hash);
+        }
+
+        foreach (var vote in Votes.Order())
+        {
+            stream.Write(vote);
+        }
+
+        foreach (var block in Blocks.Order())
+        {
+            stream.Write(block);
+        }
+
+        stream.Flush();
+        stream.Position = 0;
+
+        return sha256.ComputeHash(stream);
     }
 
-    public View(PublicKey publicKey, long height, ImmutableList<SHA256Hash> parents)
+    public void Sign(PrivateKey privateKey)
     {
-        TransactionType = TransactionType.VIEW;
-        Value = Constant.VALIDATOR_REWARD;
-        Data = BitConverter.GetBytes(height);
-        Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        Height = height;
-        PublicKey = publicKey;
-        Parents = parents;
+        var algorithm = new Ed25519();
+
+        using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
+        using var stream = new MemoryStream();
+
+        stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(LastHash!);
+        stream.Write(PublicKey!);
+
+        foreach (var hash in Transactions.Order())
+        {
+            stream.Write(hash);
+        }
+
+        foreach (var vote in Votes.Order())
+        {
+            stream.Write(vote);
+        }
+
+        foreach (var block in Blocks.Order())
+        {
+            stream.Write(block);
+        }
+
+        stream.Flush();
+
+        Signature = algorithm.Sign(key, stream.ToArray());
     }
 
-    public View(TransactionDto tx, ImmutableList<SHA256Hash> parents)
+    public bool Verify()
     {
-        TransactionType = TransactionType.VIEW;
-        PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
-        To = tx.To;
-        Value = tx.Value;
-        Data = tx.Data;
-        Timestamp = tx.Timestamp;
-        Height = BitConverter.ToInt64(tx.Data);
-        Signature = tx.Signature ?? throw new Exception("view requires signature");
-        Parents = parents.Distinct().ToImmutableList();
-        TransactionId = CalculateHash();
-    }
+        var algorithm = new Ed25519();
+        using var stream = new MemoryStream();
 
-    public View(Transaction tx)
-    {
-        Id = tx.Id;
-        TransactionId = tx.TransactionId;
-        Height = tx.Height;
-        TransactionType = tx.TransactionType;
-        PublicKey = tx.PublicKey ?? throw new Exception("view requires public key");
-        To = tx.To;
-        Value = tx.Value;
-        Data = tx.Data;
-        Timestamp = tx.Timestamp;
-        Signature = tx.Signature ?? throw new Exception("view requires signature");
-        ExecutionResult = tx.ExecutionResult;
-        Parents = tx.Parents;
-        Effects = tx.Effects;
+        stream.Write(BitConverter.GetBytes(Timestamp));
+        stream.Write(LastHash!);
+        stream.Write(PublicKey!);
+
+        foreach (var hash in Transactions.Order())
+        {
+            stream.Write(hash);
+        }
+
+        foreach (var vote in Votes.Order())
+        {
+            stream.Write(vote);
+        }
+
+        foreach (var block in Blocks.Order())
+        {
+            stream.Write(block);
+        }
+
+        stream.Flush();
+
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
+        return algorithm.Verify(key, stream.ToArray(), Signature);
     }
 }

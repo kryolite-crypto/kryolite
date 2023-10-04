@@ -114,6 +114,7 @@ public class MainWindowViewModel : NotifyPropertyChanged
 
         Transactions = Wallets.SelectMany(wallet => wallet.Transactions)
             .OrderByDescending(tx => tx.Timestamp)
+            .DistinctBy(tx => $"{tx.Recipient},{tx.Timestamp},{tx.Amount}")
             .Take(5)
             .ToList();
     }

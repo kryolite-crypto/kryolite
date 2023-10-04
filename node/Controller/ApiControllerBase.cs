@@ -17,14 +17,11 @@ public class ApiControllerBase : Controller
     private readonly INetworkManager networkManager;
     private readonly IMeshNetwork meshNetwork;
 
-    public IBufferService<TransactionDto, IncomingTransactionService> TxBuffer { get; }
-
-    public ApiControllerBase(IStoreManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork, IBufferService<TransactionDto, IncomingTransactionService> txBuffer)
+    public ApiControllerBase(IStoreManager blockchainManager, INetworkManager networkManager, IMeshNetwork meshNetwork)
     {
         this.blockchainManager = blockchainManager ?? throw new ArgumentNullException(nameof(blockchainManager));
         this.networkManager = networkManager ?? throw new ArgumentNullException(nameof(networkManager));
         this.meshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
-        TxBuffer = txBuffer ?? throw new ArgumentNullException(nameof(txBuffer));
     }
 
     [HttpGet("blocktemplate")]
@@ -184,7 +181,12 @@ public class ApiControllerBase : Controller
             throw new Exception("invalid transaction");
         }
 
-        return blockchainManager.AddTransactionBatch(transactions, true);
+        foreach (var tx in transactions)
+        {
+            blockchainManager.AddTransaction(tx, true);
+        }
+
+        return true;
     }
 
     [HttpGet("richlist")]
@@ -198,58 +200,223 @@ public class ApiControllerBase : Controller
         return Ok(wallets);
     }
 
+    [HttpGet("view/{hash}")]
+    public IActionResult GetView(string hash)
+    {
+        var view = blockchainManager.GetView(hash);
+
+        if (view is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            Id = view.Id,
+            Timestamp = view.Timestamp,
+            LastHash = view.LastHash,
+            PublicKey = view.PublicKey,
+            From = view.PublicKey.ToAddress(),
+            Signature = view.Signature,
+            Transactions = view.Transactions,
+            Rewards = view.Rewards,
+            Votes = view.Votes,
+            Blocks = view.Blocks
+        });
+    }
+
+    [HttpGet("block/{hash}")]
+    public IActionResult GetBlock(string hash)
+    {
+        var block = blockchainManager.GetBlock(hash);
+
+        if (block is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            To = block.To,
+            Value = block.Value,
+            Timestamp = block.Timestamp,
+            LastHash = block.LastHash,
+            Difficulty = block.Difficulty.ToString(),
+            Nonce = block.Nonce
+        });
+    }
+
+    [HttpGet("vote/{hash}")]
+    public IActionResult GetVote(string hash)
+    {
+        var vote = blockchainManager.GetVote(hash);
+
+        if (vote is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            ViewHash = vote.ViewHash,
+            PublicKey = vote.PublicKey,
+            Address = vote.PublicKey.ToAddress(),
+            Signature = vote.Signature
+        });
+    }
+
     [HttpGet("tx/{hash}")]
     public IActionResult GetTransactionForHash(string hash)
     {
-        return Ok(blockchainManager.GetTransactionForHash(hash));
+        var tx = blockchainManager.GetTransactionForHash(hash);
+
+        if (tx is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            TransactionId = tx.CalculateHash(),
+            TransactionType = tx.TransactionType,
+            From = tx.From,
+            To = tx.To,
+            Value = tx.Value,
+            Timestamp = tx.Timestamp,
+            Signature = tx.Signature,
+            ExecutionResult = tx.ExecutionResult,
+            Effects = tx.Effects
+        });
     }
 
     [HttpGet("tx/height/{height}")]
     public IActionResult GetTransactions([FromRoute(Name = "height")] long height)
     {
-        return Ok(blockchainManager.GetTransactionsAtHeight(height));
+        var view = blockchainManager.GetView(height);
+
+        if (view is null)
+        {
+            return Ok(new List<Transaction>());
+        }
+
+        var txs = blockchainManager.GetTransactions(view.Transactions).Select(tx => new
+        {
+            TransactionId = tx.CalculateHash(),
+            TransactionType = tx.TransactionType,
+            From = tx.From,
+            To = tx.To,
+            Value = tx.Value,
+            Timestamp = tx.Timestamp,
+            Signature = tx.Signature,
+            ExecutionResult = tx.ExecutionResult,
+            Effects = tx.Effects
+        });
+
+        return Ok(txs);
     }
 
     [HttpGet("tx")]
     public IActionResult GetTransactions([FromQuery(Name = "pageNum")] int pageNum = 0, [FromQuery(Name = "pageSize")] int pageSize = 100)
     {
-        return Ok(blockchainManager.GetTransactions(pageNum, pageSize));
+        var txs = blockchainManager.GetTransactions(pageNum, pageSize).Select(tx => new
+        {
+            TransactionId = tx.CalculateHash(),
+            TransactionType = tx.TransactionType,
+            From = tx.From,
+            To = tx.To,
+            Value = tx.Value,
+            Timestamp = tx.Timestamp,
+            Signature = tx.Signature,
+            ExecutionResult = tx.ExecutionResult,
+            Effects = tx.Effects
+        });
+
+        return Ok(txs);
     }
 
     [HttpGet("tx/graph")]
     public IActionResult GetTransactionGraph([FromQuery] long startHeight)
     {
-        var transactions = blockchainManager.GetTransactionsAfterHeight(startHeight);
+        var currentHeight = blockchainManager.GetChainState().Id;
+    
+        var types = new Dictionary<SHA256Hash, string>((int)(currentHeight - startHeight));
+        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true);
 
-        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true, transactions.Count + 1);
-        var map = new Dictionary<SHA256Hash, Transaction>(transactions.Count + 1);
-
-        var terminatinEdges = new HashSet<SHA256Hash>();
-
-        graph.AddVertexRange(transactions.Select(x => x.TransactionId));
-
-        foreach (var tx in transactions)
+        for (var i = startHeight; i <= currentHeight; i++)
         {
-            map.Add(tx.TransactionId, tx);
+            var view = blockchainManager.GetView(i);
 
-            foreach (var parent in tx.Parents)
+            if (view is not null)
             {
-                if (graph.ContainsVertex(parent))
+                var viewHash = view.GetHash();
+
+                graph.AddVertex(viewHash);
+                types.Add(viewHash, view.Id % 5 == 0 ? "milestone" : "view");
+
+                bool hasConnection = false;
+
+                var blocks = blockchainManager.GetBlocks(view.Blocks);
+
+                foreach (var block in blocks)
                 {
-                    graph.AddEdge(new (parent, tx.TransactionId ));
-                    continue;
+                    var blockhash = block.GetHash();
+
+                    if (graph.ContainsVertex(block.LastHash))
+                    {
+                        graph.AddVertex(blockhash);
+                        graph.AddEdge(new Edge<SHA256Hash>(block.LastHash, blockhash));
+                        graph.AddEdge(new Edge<SHA256Hash>(blockhash, viewHash));
+                        types.Add(blockhash, "block");
+
+                        hasConnection = true;
+                    }
                 }
 
-                graph.AddVertex(parent);
-                terminatinEdges.Add(parent);
-                graph.AddEdge(new (parent, tx.TransactionId));
+                var votes = blockchainManager.GetVotes(view.Votes);
+
+                foreach (var vote in votes)
+                {
+                    var votehash = vote.GetHash();
+
+                    if (graph.ContainsVertex(vote.ViewHash))
+                    {
+                        graph.AddVertex(votehash);
+                        graph.AddEdge(new Edge<SHA256Hash>(vote.ViewHash, votehash));
+                        graph.AddEdge(new Edge<SHA256Hash>(votehash, viewHash));
+                        types.Add(votehash, "vote");
+
+                        hasConnection = true;
+                    }
+                }
+
+                var transactions = blockchainManager.GetTransactions(view.Transactions);
+
+                foreach (var tx in transactions)
+                {
+                    var txid = tx.CalculateHash();
+
+                    graph.AddVertex(txid);
+                    graph.AddEdge(new Edge<SHA256Hash>(viewHash, txid));
+                    types.Add(txid, "tx");
+
+                    hasConnection = true;
+                }
+
+                if (!hasConnection && graph.ContainsVertex(view.LastHash))
+                {
+                    graph.AddEdge(new Edge<SHA256Hash>(view.LastHash, viewHash));
+                }
             }
         }
 
-        var darkslategray4 = new GraphvizColor(byte.MaxValue, 52, 139, 139);
+        var darkslategray1 = new GraphvizColor(byte.MaxValue, 151, 255, 255);
+        var darkslategray3 = new GraphvizColor(byte.MaxValue, 121, 205, 205);
+        var deepskyblue = new GraphvizColor(byte.MaxValue, 0, 191, 255);
+        var deepskyblue2 = new GraphvizColor(byte.MaxValue, 0, 178, 238);
         var deepskyblue3 = new GraphvizColor(byte.MaxValue, 0, 154, 205);
         var darkslateblue = new GraphvizColor(byte.MaxValue, 48, 61, 139);
         var goldenrod2 = new GraphvizColor(byte.MaxValue, 238, 180, 22);
+        var floralwhite = new GraphvizColor(byte.MaxValue, 255, 250, 240);
 
         var dotString = graph.ToGraphviz(algorithm =>
             {
@@ -269,65 +436,42 @@ public class ApiControllerBase : Controller
 
                 algorithm.FormatVertex += (sender, args) =>
                 {
-                    if (terminatinEdges.Contains(args.Vertex))
+                    var stype = types[args.Vertex];
+
+                    args.VertexFormat.Url = $"https://testnet-1.kryolite.io/explorer/{stype}/{args.Vertex}";
+
+                    switch (stype)
                     {
-                        args.VertexFormat.ToolTip = "Not loaded";
-                        args.VertexFormat.Shape = GraphvizVertexShape.Point;
-                        return;
-                    }
-
-                    var tx = map[args.Vertex];
-
-                    args.VertexFormat.Url = $"/explorer/tx/{tx.TransactionId}";
-
-                    switch (tx.TransactionType)
-                    {
-                        case TransactionType.PAYMENT:
-                            args.VertexFormat.ToolTip = $"Transaction";
-                            args.VertexFormat.FillColor = darkslateblue;
-                            args.VertexFormat.StrokeColor = darkslateblue;
+                        case "milestone":
+                            args.VertexFormat.ToolTip = $"View";
+                            args.VertexFormat.FillColor = darkslategray1;
+                            args.VertexFormat.StrokeColor = darkslategray1;
                         break;
-                        case TransactionType.GENESIS:
-                            args.VertexFormat.ToolTip = $"Genesis";
-                            args.VertexFormat.FillColor = GraphvizColor.White;
-                            args.VertexFormat.FontColor = GraphvizColor.Black;
+                        case "view":
+                            args.VertexFormat.ToolTip = $"View";
+                            args.VertexFormat.FillColor = darkslategray1;
+                            args.VertexFormat.StrokeColor = darkslategray1;
                         break;
-                        case TransactionType.BLOCK:
+                        case "block":
                             args.VertexFormat.ToolTip = $"Block";
                             args.VertexFormat.FillColor = goldenrod2;
                             args.VertexFormat.StrokeColor = goldenrod2;
                         break;
-                        case TransactionType.VIEW:
-                            args.VertexFormat.ToolTip = $"View #{BitConverter.ToInt64(tx.Data)}";
-                            args.VertexFormat.FillColor = deepskyblue3;
-                            args.VertexFormat.StrokeColor = deepskyblue3;
-                        break;
-                        case TransactionType.VOTE:
+                        case "vote":
                             args.VertexFormat.ToolTip = $"Vote";
-                            args.VertexFormat.FillColor = darkslategray4;
-                            args.VertexFormat.StrokeColor = darkslategray4;
+                            args.VertexFormat.FillColor = deepskyblue;
+                            args.VertexFormat.StrokeColor = deepskyblue;
                         break;
-                        case TransactionType.CONTRACT:
-                            args.VertexFormat.ToolTip = $"Contract";
-                            args.VertexFormat.FillColor = GraphvizColor.White;
-                            args.VertexFormat.FontColor = GraphvizColor.Black;
-                        break;
-                        case TransactionType.REG_VALIDATOR:
-                            args.VertexFormat.ToolTip = $"New Validator";
-                            args.VertexFormat.FillColor = GraphvizColor.White;
-                            args.VertexFormat.FontColor = GraphvizColor.Black;
+                        case "tx":
+                            args.VertexFormat.ToolTip = $"Transaction";
+                            args.VertexFormat.FillColor = darkslateblue;
+                            args.VertexFormat.StrokeColor = darkslateblue;
                         break;
                     }
                 };
             });
 
         return Ok(dotString);
-    }
-
-    [HttpGet("chain/tip")]
-    public IActionResult GetChainTip()
-    {
-        return Ok(blockchainManager.GetTransactionToValidate(2));
     }
 
     [HttpGet("ledger/{address}")]
@@ -360,7 +504,20 @@ public class ApiControllerBase : Controller
             return BadRequest();
         }
 
-        return Ok(blockchainManager.GetTransactionsForAddress(address));
+        var txs = blockchainManager.GetTransactionsForAddress(address).Select(tx => new
+        {
+            TransactionId = tx.CalculateHash(),
+            TransactionType = tx.TransactionType,
+            From = tx.From,
+            To = tx.To,
+            Value = tx.Value,
+            Timestamp = tx.Timestamp,
+            Signature = tx.Signature,
+            ExecutionResult = tx.ExecutionResult,
+            Effects = tx.Effects
+        });
+
+        return Ok(txs);
     }
 
     [HttpGet("ledger/{address}/tokens")]
@@ -393,10 +550,20 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("chainstate")]
-    public ChainState GetCurrentChainState()
+    public IActionResult GetCurrentChainState()
     {
-        var height = blockchainManager.GetCurrentHeight();
-        return blockchainManager.GetChainStateAt(height - 1) ?? new ChainState();
+        var chainState = blockchainManager.GetChainState();
+
+        return Ok(new
+        {
+            Id = chainState.Id,
+            Weight = chainState.Weight,
+            Blocks = chainState.Blocks,
+            LastHast = chainState.LastHash,
+            CurrentDifficulty = chainState.CurrentDifficulty.ToString(),
+            Votes = chainState.Votes,
+            Transactions = chainState.Transactions
+        });
     }
     
     [HttpGet("nodes")]

@@ -15,10 +15,9 @@ public class ExecutorFactory : IExecutorFactory
     {
         var contractExecutor = new ContractExecutor(context, Logger);
         var transactionExecutor = new TransactionExecutor(context, Logger);
-        var voteExecutor = new VoteExecutor(context, Logger);
         var validatorRegExecutor = new ValidatorRegExecutor(context, Logger);
         var contractInstallerExecutor = new ContractInstallerExecutor(context, Logger);
 
-        return new Executor(contractExecutor, transactionExecutor, voteExecutor, validatorRegExecutor, contractInstallerExecutor, context, Logger);
+        return new Executor(contractExecutor, transactionExecutor, validatorRegExecutor, contractInstallerExecutor, context, Logger);
     }
 }

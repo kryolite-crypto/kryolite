@@ -98,17 +98,32 @@ public class ValidatorService : BackgroundService
             while (!stoppingToken.IsCancellationRequested)
             {
                 using var scope = serviceProvider.CreateScope();
-
                 var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
                 var lastView = blockchainManager.GetLastView() ?? throw new Exception("LastView returned null");
+                
+                var height = lastView.Id - 1; // offset height by one since votes are confirmed at (height % Constant.VOTE_INTERVAL + 1)
+                var slotNumber = (int)(height % Constant.VOTE_INTERVAL);
+                var voteHeight = lastView.Id - slotNumber;
+                var votes = blockchainManager.GetVotesAtHeight(voteHeight);
+                
+                logger.LogDebug($"Loading votes from height {voteHeight} (id = {lastView.Id}, slotNumber = {slotNumber}, voteCount = {votes.Count})");
 
-                var votes = blockchainManager.GetVotesAtHeight(lastView.Height ?? 0);
-                var nextLeader = votes
-                    .Where(x => !Banned.Contains(x.PublicKey))
-                    .MinBy(x => x.Signature)?.PublicKey;
+                PublicKey? nextLeader = null;
+                
+                if (votes.Count > 0)
+                {
+                    nextLeader = votes
+                        .Where(x => !Banned.Contains(x.PublicKey))
+                        .OrderBy(x => x.Signature)
+                        .Select(x => x.PublicKey)
+                        .ElementAtOrDefault(slotNumber % votes.Count);
+                }
 
-                logger.LogInformation("View #{} received {} votes", lastView.Height, votes.Count);
+                if (slotNumber == 0)
+                {
+                    logger.LogInformation("View #{} received {} votes", lastView.Id, votes.Count);
+                }
 
                 if (nextLeader is null)
                 {
@@ -127,14 +142,17 @@ public class ValidatorService : BackgroundService
 
                 var nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
 
-                if (nextView.TransactionId == lastView.TransactionId)
+                if (nextView.Id == lastView.Id)
                 {
                     logger.LogInformation("Leader {publicKey} failed to create view", nextLeader);
                     Banned.Add(nextLeader);
                     continue;
                 }
 
-                Banned.Clear();
+                if (slotNumber == 0)
+                {
+                    Banned.Clear();
+                }
 
                 if(!AllowExecution.IsSet)
                 {
@@ -160,8 +178,26 @@ public class ValidatorService : BackgroundService
 
     private void GenerateView(IStoreManager blockchainManager, View lastView)
     {
-        var height = (lastView?.Height ?? 0) + 1L;
-        var nextView = new View(Node.PublicKey, height, blockchainManager.GetTransactionToValidate().ToImmutableList());
+        var lastHash = lastView.GetHash() ?? SHA256Hash.NULL_HASH;
+
+        var nextView = new View
+        {
+            Id = (lastView?.Id ?? 0) + 1L,
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            LastHash = lastHash,
+            PublicKey = Node.PublicKey,
+            Blocks = blockchainManager.GetPendingBlocks() // TODO: we can get key values from dictionary
+                .Where(x => x.LastHash == lastHash)
+                .Select(x => x.GetHash())
+                .ToList(),
+            Votes = blockchainManager.GetPendingVotes() // TODO: we can get key values from dictionary
+                .Where(x => x.ViewHash == lastHash)
+                .Select(x => x.GetHash())
+                .ToList(),
+            Transactions = blockchainManager.GetPendingTransactions() // TODO: we can get key values from dictionary
+                .Select(x => x.CalculateHash())
+                .ToList()
+        };
         
         nextView.Sign(Node.PrivateKey);
 

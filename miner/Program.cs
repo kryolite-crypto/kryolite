@@ -1,18 +1,12 @@
-﻿using System.Numerics;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using System.Text;
 using Kryolite.Shared;
 using System.CommandLine;
 using System.Net;
 using System.Text.Json;
 using System.Diagnostics;
-using System.Timers;
 using System.CommandLine.Parsing;
-using System.Threading;
-using System;
-using System.Collections.ObjectModel;
 using System.Collections.Concurrent;
-using NSec.Cryptography;
 using System.Runtime.InteropServices;
 using Kryolite.Shared.Blockchain;
 
@@ -157,8 +151,7 @@ public class Program
                                     Solution = bytes,
                                     Timestamp = blocktemplate.Timestamp,
                                     ParentHash = blocktemplate.ParentHash,
-                                    Data = blocktemplate.Data,
-                                    Validates = blocktemplate.Validates
+                                    Value = blocktemplate.Value
                                 };
 
                                 _ = Task.Run(async () => {

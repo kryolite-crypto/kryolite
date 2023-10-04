@@ -28,9 +28,6 @@ public class TransactionVerify
             Value = 1
         };
 
-        tx.Parents.Add(new SHA256Hash());
-        tx.Parents.Add(new SHA256Hash());
-
         tx.Sign(wallet.PrivateKey);
 
         key = NSec.Cryptography.PublicKey.Import(algorithm, wallet.PublicKey, KeyBlobFormat.RawPublicKey);
@@ -48,16 +45,6 @@ public class TransactionVerify
         stream.Write(BitConverter.GetBytes(tx.Value));
         stream.Write(tx.Data);
         stream.Write(BitConverter.GetBytes(tx.Timestamp));
-
-        if (tx.Parents.Count < 2)
-        {
-            throw new Exception("parent hashes not loaded for transaction");
-        }
-
-        foreach (var hash in tx.Parents.Order())
-        {
-            stream.Write(hash);
-        }
 
         stream.Flush();
 

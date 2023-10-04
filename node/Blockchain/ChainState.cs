@@ -13,15 +13,13 @@ public class ChainState : EventBase
     [Key(1)]
     public BigInteger Weight { get; set; } = new BigInteger(0);
     [Key(2)]
-    public long Height { get; set; } = -1;
-    [Key(3)]
     public long Blocks { get; set; }
-    [Key(4)]
+    [Key(3)]
     public SHA256Hash LastHash { get; set; } = new SHA256Hash();
-    [Key(5)]
+    [Key(4)]
     public Difficulty CurrentDifficulty { get; set; }
-    [Key(6)]
+    [Key(5)]
     public long Votes { get; set; }
-    [Key(7)]
+    [Key(6)]
     public long Transactions { get; set; }
 }

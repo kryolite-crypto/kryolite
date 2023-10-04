@@ -1,8 +1,4 @@
-using System.Collections.Immutable;
-using System.Data.Common;
-using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
-using System.Text;
 using Kryolite.EventBus;
 using Kryolite.Shared.Dto;
 using MessagePack;
@@ -14,64 +10,44 @@ namespace Kryolite.Shared.Blockchain;
 public class Transaction : EventBase, IComparable<Transaction>
 {
     [Key(0)]
-    public ulong Id { get; set; }
-    [Key(1)]
-    public SHA256Hash TransactionId { get; set; }
-    [Key(2)]
-    public long? Height { get; set; }
-    [Key(3)]
     public TransactionType TransactionType { get; init; }
+    [Key(1)]
+    public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
+    [Key(2)]
+    public Address To { get; set; } = Address.NULL_ADDRESS;
+    [Key(3)]
+    public long Value { get; set; }
     [Key(4)]
-    public PublicKey? PublicKey {
-        get => pk;
-        init {
-            pk = value;
-            From = pk?.ToAddress() ?? new Address();
-        }
-    }
-
-    [Key(5)]
-    public Address? To { get; init; }
-    [Key(6)]
-    public long Value { get; init; }
-    [Key(7)]
     public byte[]? Data { get; init; }
-    [Key(8)]
+    [Key(5)]
     public long Timestamp { get; init; }
-    [Key(9)]
-    public Signature? Signature { get; set; }
-    [Key(10)]
+    [Key(6)]
+    public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
+    [Key(7)]
     public ExecutionResult ExecutionResult { get; set; }
-    [Key(11)]
-    public ImmutableList<SHA256Hash> Parents { get; init; } = ImmutableList<SHA256Hash>.Empty;
-    [Key(12)]
+    [Key(8)]
     public List<Effect> Effects { get; set; } = new();
 
     [IgnoreMember]
-    [NotNullIfNotNull(nameof(PublicKey))]
-    public Address? From { get; private set; }
-
-    private PublicKey? pk;
+    public Address? From { get => PublicKey.ToAddress(); }
 
     public Transaction()
     {
-        TransactionId = SHA256Hash.NULL_HASH;
+
     }
 
-    public Transaction(TransactionDto tx, ImmutableList<SHA256Hash> parents)
+    public Transaction(TransactionDto tx)
     {
         TransactionType = tx.TransactionType;
-        PublicKey = tx.PublicKey ?? throw new Exception("payment requires public key");
+        PublicKey = tx.PublicKey ?? throw new Exception("transaction requires public key");
         To = tx.To;
         Value = tx.Value;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
-        Signature = tx.Signature ?? throw new Exception("payment requires signature");
-        Parents = parents.Distinct().ToImmutableList();
-        TransactionId = CalculateHash();
+        Signature = tx.Signature ?? throw new Exception("transaction requires signature");
     }
 
-    public virtual void Sign(PrivateKey privateKey)
+    public void Sign(PrivateKey privateKey)
     {
         var algorithm = new Ed25519();
 
@@ -79,56 +55,34 @@ public class Transaction : EventBase, IComparable<Transaction>
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
-        stream.Write(PublicKey ?? throw new Exception("public key required when signing transactions"));
-
-        if (To is not null)
-        {
-            stream.Write(To);
-        }
-        
+        stream.Write(PublicKey);
+        stream.Write(To);
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-
-        foreach (var hash in Parents.Order())
-        {
-            stream.Write(hash);
-        }
-
         stream.Flush();
 
         Signature = algorithm.Sign(key, stream.ToArray());
     }
 
-    public virtual bool Verify()
+    public bool Verify()
     {
         var algorithm = new Ed25519();
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
-        stream.Write(PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
-
-        if (To is not null)
-        {
-            stream.Write(To);
-        }
-
+        stream.Write(PublicKey);
+        stream.Write(To);
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-
-        foreach (var hash in Parents.Order())
-        {
-            stream.Write(hash);
-        }
-
         stream.Flush();
 
         var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, stream.ToArray(), Signature ?? throw new Exception("trying to verify null signature"));
+        return algorithm.Verify(key, stream.ToArray(), Signature);
     }
 
-    public virtual SHA256Hash CalculateHash()
+    public SHA256Hash CalculateHash()
     {
         using var sha256 = SHA256.Create();
         using var stream = new MemoryStream();
@@ -148,12 +102,6 @@ public class Transaction : EventBase, IComparable<Transaction>
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
-
-        foreach (var hash in Parents.Order())
-        {
-            stream.Write(hash);
-        }
-
         stream.Flush();
         stream.Position = 0;
 
@@ -162,6 +110,6 @@ public class Transaction : EventBase, IComparable<Transaction>
 
     public int CompareTo(Transaction? other)
     {
-        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)TransactionId.Buffer, (ReadOnlySpan<byte>)(other?.TransactionId.Buffer ?? new byte[0]));
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)CalculateHash(), (ReadOnlySpan<byte>)(other?.CalculateHash() ?? new byte[0]));
     }
 }

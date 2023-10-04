@@ -7,8 +7,6 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
-using QuikGraph;
-using QuikGraph.Algorithms;
 
 namespace Kryolite.Node;
 
@@ -56,64 +54,99 @@ public class StagingManager : TransactionManager, IDisposable
         return staging;
     }
 
-    public bool LoadTransactions(List<TransactionDto> transactions)
+    public bool LoadView(View view)
     {
-        return AddTransactionBatchInternal(transactions, false, false);
+        if (!Verifier.Verify(view))
+        {
+            return false;
+        }
+
+        return LoadViewWithoutValidation(view);
     }
 
-    public bool LoadTransactionsWithoutValidation(List<Transaction> transactionList)
+    public bool LoadTransactions(List<TransactionDto> transactions)
     {
-        var transactions = transactionList.ToDictionary(x => x.TransactionId, x => x);
-        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>();
+        var toAdd = new List<Transaction>(transactions.Count);
 
-        graph.AddVertexRange(transactionList.Select(x => x.TransactionId));
-
-        foreach (var tx in transactionList)
+        foreach (var txDto in transactions)
         {
-            foreach (var parent in tx.Parents)
+            var tx = new Transaction(txDto);
+
+            if (!Verifier.Verify(tx))
             {
-                if (graph.ContainsVertex(parent))
-                {
-                    graph.AddEdge(new Edge<SHA256Hash>(tx.TransactionId, parent));
-                }
+                return false;
+            }
+
+            toAdd.Add(tx);
+        }
+
+        return LoadTransactionsWithoutValidation(toAdd);
+    }
+
+    public bool LoadBlocks(List<Block> blocks)
+    {
+        foreach (var block in blocks)
+        {
+            if (!Verifier.Verify(block))
+            {
+                return false;
             }
         }
 
-        foreach (var vertex in graph.TopologicalSort().Reverse())
+        return LoadBlocksWithoutValidation(blocks);
+    }
+
+    public bool LoadVotes(List<Vote> votes)
+    {
+        foreach (var vote in votes)
         {
-            var tx = transactions[vertex];
-
-            tx.Id = 0; // These need to be new entities!!!
-            tx.ExecutionResult = ExecutionResult.PENDING;
-
-            bool success = false;
-
-            switch (tx.TransactionType)
+            if (!Verifier.Verify(vote))
             {
-                case TransactionType.BLOCK:
-                    success = AddBlockInternal(new Block(tx), false);
-                    break;
-                case TransactionType.PAYMENT:
-                case TransactionType.CONTRACT:
-                    success = AddTransactionInternal(tx, false);
-                    break;
-                case TransactionType.VIEW:
-                    success = AddViewInternal(new View(tx), false, false);
-                    break;
-                case TransactionType.VOTE:
-                    success = AddVoteInternal(new Vote(tx), false);
-                    break;
-                case TransactionType.REG_VALIDATOR:
-                    success = AddValidatorRegInternal(tx, false);
-                    break;
-                default:
-                    Logger.LogInformation($"{CHAIN_NAME}Unknown transaction type ({tx.TransactionType})");
-                    break;
+                return false;
             }
+        }
 
-            if (!success)
+        return LoadVotesWithoutValidation(votes);
+    }
+
+    public bool LoadViewWithoutValidation(View view)
+    {
+        var ok = AddViewInternal(view, false, false);
+        return ok;
+    }
+
+    public bool LoadTransactionsWithoutValidation(List<Transaction> transactions)
+    {
+        foreach (var tx in transactions)
+        {
+            if (!AddTransactionInternal(tx, false))
             {
-                Logger.LogInformation($"{CHAIN_NAME}Failed to add transaction");
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public bool LoadBlocksWithoutValidation(List<Block> blocks)
+    {
+        foreach (var block in blocks)
+        {
+            if (!AddBlockInternal(block, false))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public bool LoadVotesWithoutValidation(List<Vote> votes)
+    {
+        foreach (var vote in votes)
+        {
+            if (!AddVoteInternal(vote, false))
+            {
                 return false;
             }
         }
@@ -127,6 +160,21 @@ public class StagingManager : TransactionManager, IDisposable
     }
 
     public override void Broadcast(Transaction tx)
+    {
+
+    }
+
+    public override void Broadcast(Block block)
+    {
+
+    }
+
+    public override void Broadcast(Vote vote)
+    {
+
+    }
+
+    public override void Broadcast(View view)
     {
 
     }

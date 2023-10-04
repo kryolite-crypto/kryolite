@@ -69,6 +69,8 @@ public class NetworkManager : INetworkManager
 
     public bool Ban(ulong clientId)
     {
+        using var _ = rwlock.EnterWriteLockEx();
+
         if (Hosts.TryGetValue(clientId, out var host))
         {
             host.Ban();
@@ -86,6 +88,8 @@ public class NetworkManager : INetworkManager
 
     public bool IsBanned(ulong clientId)
     {
+        using var _ = rwlock.EnterReadLockEx();
+
         if (Hosts.TryGetValue(clientId, out var host))
         {
             return host.IsBanned();
@@ -96,6 +100,8 @@ public class NetworkManager : INetworkManager
 
     public bool IsBanned(string url)
     {
+        using var _ = rwlock.EnterReadLockEx();
+
         var host = Hosts.Values.Where(x => x.Url.ToHostname() == url)
             .FirstOrDefault();
 

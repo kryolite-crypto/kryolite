@@ -1,18 +1,11 @@
 using System;
-using System.ComponentModel;
-using System.Linq;
 using System.Reactive.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
-using AvaloniaEdit.Editing;
-using Microsoft.AspNetCore.Components.Forms;
-using Tmds.Linux;
 
 namespace Kryolite.Wallet;
 

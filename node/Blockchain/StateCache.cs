@@ -3,14 +3,14 @@ using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.DependencyInjection;
-using QuikGraph;
 
 namespace Kryolite.Node.Blockchain;
 
 public class StateCache : IStateCache
 {
-    private Dictionary<SHA256Hash, Transaction> PendingCache = new();
-    private AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> PendingGraph = new();
+    private Dictionary<SHA256Hash, Block> Blocks = new();
+    private Dictionary<SHA256Hash, Vote> Votes = new();
+    private Dictionary<SHA256Hash, Transaction> Transactions = new();
 
     private Dictionary<Address, Ledger> LedgerCache = new();
     private View CurrentView;
@@ -31,18 +31,19 @@ public class StateCache : IStateCache
         ChainState =  new ChainState();
     }
 
+    public void Add(Block block)
+    {
+        Blocks.Add(block.GetHash(), block);
+    }
+
+    public void Add(Vote vote)
+    {
+        Votes.Add(vote.GetHash(), vote);
+    }
+
     public void Add(Transaction tx)
     {
-        PendingCache.Add(tx.TransactionId, tx);
-        PendingGraph.AddVertex(tx.TransactionId);
-
-        foreach (var parent in tx.Parents)
-        {
-            if (PendingGraph.ContainsVertex(parent))
-            {
-                PendingGraph.AddEdge(new Edge<SHA256Hash>(tx.TransactionId, parent));
-            }
-        }
+        Transactions.Add(tx.CalculateHash(), tx);
     }
 
     public void Add(Ledger ledger)
@@ -50,20 +51,12 @@ public class StateCache : IStateCache
         LedgerCache.Add(ledger.Address, ledger);
     }
 
-    public void ClearLedgers()
+    public void Clear()
     {
-        LedgerCache = new();
-    }
-
-    public void ClearTransactions()
-    {
-        PendingCache = new();
-        PendingGraph = new();
-    }
-
-    public bool Contains(SHA256Hash hash)
-    {
-        return PendingCache.ContainsKey(hash);
+        Blocks.Clear();
+        Votes.Clear();
+        Transactions.Clear();
+        LedgerCache.Clear();
     }
 
     public bool Contains(Address address)
@@ -78,7 +71,7 @@ public class StateCache : IStateCache
 
     public void EnsureTransactionCapacity(int count)
     {
-        PendingCache.EnsureCapacity(count);
+        Transactions.EnsureCapacity(count);
     }
 
     public ChainState GetCurrentState()
@@ -96,29 +89,29 @@ public class StateCache : IStateCache
         return LedgerCache;
     }
 
-    public AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> GetPendingGraph()
-    {
-        return PendingGraph;
-    }
-
     public IEnumerable<SHA256Hash> GetTransactionIds()
     {
-        return PendingCache.Keys;
+        return Transactions.Keys;
+    }
+
+    public Dictionary<SHA256Hash, Block> GetBlocks()
+    {
+        return Blocks;
+    }
+
+    public Dictionary<SHA256Hash, Vote> GetVotes()
+    {
+        return Votes;
     }
 
     public Dictionary<SHA256Hash, Transaction> GetTransactions()
     {
-        return PendingCache;
+        return Transactions;
     }
 
     public int LedgerCount()
     {
         return LedgerCache.Count;
-    }
-
-    public bool Remove(SHA256Hash id, [MaybeNullWhen(false)]  out Transaction tx)
-    {
-        return PendingCache.Remove(id, out tx);
     }
 
     public void SetChainState(ChainState chainState)
@@ -133,31 +126,11 @@ public class StateCache : IStateCache
 
     public int TransactionCount()
     {
-        return PendingCache.Count;
+        return Transactions.Count;
     }
 
     public bool TryGet(Address address, [MaybeNullWhen(false)] out Ledger ledger)
     {
         return LedgerCache.TryGetValue(address, out ledger);
-    }
-
-    public void RecreateGraph()
-    {
-        PendingGraph = new();
-
-        foreach (var entry in PendingCache)
-        {
-            var tx = entry.Value;
-
-            PendingGraph.AddVertex(tx.TransactionId);
-
-            foreach (var parent in tx.Parents)
-            {
-                if (PendingGraph.ContainsVertex(parent))
-                {
-                    PendingGraph.AddEdge(new Edge<SHA256Hash>(tx.TransactionId, parent));
-                }
-            }
-        }
     }
 }

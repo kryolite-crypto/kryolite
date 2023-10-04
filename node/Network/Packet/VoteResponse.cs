@@ -1,17 +1,18 @@
+using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MessagePack;
 
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class TransactionResponse : IPacket
+public class VoteResponse : IPacket
 {
     [Key(0)]
-    public TransactionDto? Transaction { get; set; }
+    public Vote? Vote { get; set; }
 
-    public TransactionResponse(TransactionDto? transaction)
+    public VoteResponse(Vote? vote)
     {
-        Transaction = transaction;
+        Vote = vote;
     }
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)

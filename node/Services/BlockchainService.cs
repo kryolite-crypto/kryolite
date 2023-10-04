@@ -38,16 +38,15 @@ public class BlockchainService : BackgroundService
             using var scope = ServiceProvider.CreateScope();
             var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
-            var genesis = blockchainManager.GetGenesis();
+            var genesis = blockchainManager.GetView(0L);
 
             if (genesis is null)
             {
                 InitializeGenesisBlock((TransactionManager)blockchainManager, Logger);
             }
 
-            if (genesis != null && !Enumerable.SequenceEqual(genesis.Data ?? new byte[0], GenesisSeed.Buffer))
+            if (genesis is not null && !Enumerable.SequenceEqual(genesis.LastHash.Buffer, GenesisSeed.Buffer))
             {
-                Logger.LogInformation($"{genesis.Id}: {genesis.TransactionType}");
                 Logger.LogInformation("Blockchain Seed has changed, resetting chain...");
                 blockchainManager.ResetChain();
                 InitializeGenesisBlock((TransactionManager)blockchainManager, Logger);
@@ -71,33 +70,13 @@ public class BlockchainService : BackgroundService
 
         var timestamp = new DateTimeOffset(2023, 1, 1, 0, 0, 0, 0, TimeSpan.Zero).ToUnixTimeMilliseconds();
 
-        var genesis = new Genesis {
-            TransactionType = TransactionType.GENESIS,
-            Data = new SHA256Hash(bytes),
+        var genesis = new View {
+            Id = 0,
             Timestamp = timestamp,
-            Height = 0,
-            PublicKey = new PublicKey(),
-            Signature = new Signature()
+            LastHash = new SHA256Hash(bytes)
         };
 
-        genesis.TransactionId = genesis.CalculateHash();
-
-        var view = new View
-        {
-            TransactionType = TransactionType.VIEW,
-            Value = 0,
-            Data = BitConverter.GetBytes(0L),
-            Timestamp = timestamp,
-            Height = 0,
-            PublicKey = new PublicKey(),
-            Signature = new Signature()
-        };
-
-        view.Parents.Add(genesis.TransactionId);
-        view.TransactionId = view.CalculateHash();
-        view.ExecutionResult = ExecutionResult.PENDING;
-
-        if (!blockchainManager.AddGenesis(genesis, view))
+        if (!blockchainManager.AddGenesis(genesis))
         {
             logger.LogError("Failed to initialize Genesis");
         }

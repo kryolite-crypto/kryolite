@@ -96,23 +96,6 @@ public static class SendCmd
 
             using var http = new HttpClient();
 
-            var result = await http.GetAsync($"{node}/chain/tip");
-
-            if (!result.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Request failed: {result.StatusCode}");
-                Console.WriteLine(result.Content);
-                return;
-            }
-
-            var parents = await JsonSerializer.DeserializeAsync<List<SHA256Hash>>(await result.Content.ReadAsStreamAsync(), Program.serializerOpts);
-
-            if (parents is null)
-            {
-                Console.WriteLine("Parent hash download failed");
-                return;
-            }
-
             var lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray)
                 .WithOmitAssemblyVersion(true);
@@ -124,8 +107,7 @@ public static class SendCmd
                 To = to,
                 Value = (long)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null,
-                Parents = parents.ToImmutableList()
+                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
             };
 
             tx.Sign(wallet.PrivateKey);

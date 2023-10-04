@@ -90,13 +90,13 @@ public static class ValidatorCmd
 
         disableCmd.SetHandler(async (node) =>
         {
-            await SendValidatorReg(node, 0, null, configuration);
+            await SendValidatorReg(node, 0, Address.NULL_ADDRESS, configuration);
         }, nodeOption);
 
         return validatorCmd;
     }
 
-    private static async Task SendValidatorReg(string? node, decimal stake, Address? rewardAddress, IConfiguration configuration)
+    private static async Task SendValidatorReg(string? node, decimal stake, Address rewardAddress, IConfiguration configuration)
     {
         node = node ?? await ZeroConf.DiscoverNodeAsync();
 
@@ -105,31 +105,13 @@ public static class ValidatorCmd
 
         using var http = new HttpClient();
 
-        var result = await http.GetAsync($"{node}/chain/tip");
-
-        if (!result.IsSuccessStatusCode)
-        {
-            Console.WriteLine($"Request failed: {result.StatusCode}");
-            Console.WriteLine(result.Content);
-            return;
-        }
-
-        var parents = await JsonSerializer.DeserializeAsync<List<SHA256Hash>>(await result.Content.ReadAsStreamAsync(), Program.serializerOpts);
-
-        if (parents is null)
-        {
-            Console.WriteLine("Parent hash download failed");
-            return;
-        }
-
         var tx = new Transaction
         {
             TransactionType = TransactionType.REG_VALIDATOR,
             PublicKey = keys.PublicKey,
             To = rewardAddress,
             Value = (long)(stake * Constant.DECIMAL_MULTIPLIER),
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Parents = parents.ToImmutableList()
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 
         tx.Sign(keys.PrivateKey);

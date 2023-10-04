@@ -1,12 +1,11 @@
-using System.Collections.Concurrent;
-using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Node;
 
 public interface IVerifier
 {
-    void Verify(ICollection<Transaction> transactionList);
-    bool VerifyTypeOnly(Transaction tx, ConcurrentDictionary<SHA256Hash, Transaction> transactionList);
     bool Verify(Transaction tx);
+    bool Verify(Block block);
+    bool Verify(Vote vote);
+    bool Verify(View view);
 }

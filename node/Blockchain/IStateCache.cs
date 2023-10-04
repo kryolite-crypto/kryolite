@@ -7,13 +7,15 @@ namespace Kryolite.Node.Blockchain;
 
 public interface IStateCache
 {
+    void Add(Block block);
+    void Add(Vote vote);
     void Add(Transaction tx);
-    bool Contains(SHA256Hash hash);
-    bool Remove(SHA256Hash id, [MaybeNullWhen(false)] out Transaction tx);
     int TransactionCount();
     IEnumerable<SHA256Hash> GetTransactionIds();
     Dictionary<SHA256Hash, Transaction> GetTransactions();
-    void ClearTransactions();
+    Dictionary<SHA256Hash, Block> GetBlocks();
+    Dictionary<SHA256Hash, Vote> GetVotes();
+    void Clear();
     void EnsureTransactionCapacity(int count);
 
     void Add(Ledger ledger);
@@ -21,7 +23,6 @@ public interface IStateCache
     bool TryGet(Address address, [MaybeNullWhen(false)] out Ledger ledger);
     int LedgerCount();
     Dictionary<Address, Ledger> GetLedgers();
-    void ClearLedgers();
     void EnsureLedgerCapacity(int count);
 
     void SetChainState(ChainState chainState);
@@ -29,7 +30,4 @@ public interface IStateCache
 
     ChainState GetCurrentState();
     View GetCurrentView();
-
-    AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>> GetPendingGraph();
-    void RecreateGraph();
 }

@@ -1,17 +1,18 @@
+using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MessagePack;
 
 namespace Kryolite.Node;
 
 [MessagePackObject]
-public class TransactionResponse : IPacket
+public class ViewResponse : IPacket
 {
     [Key(0)]
-    public TransactionDto? Transaction { get; set; }
+    public View? View { get; set; }
 
-    public TransactionResponse(TransactionDto? transaction)
+    public ViewResponse(View? view)
     {
-        Transaction = transaction;
+        View = view;
     }
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
