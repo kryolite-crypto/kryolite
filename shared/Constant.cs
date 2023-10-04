@@ -18,8 +18,7 @@ public static class Constant
     public static readonly ImmutableArray<Address> SEED_VALIDATORS = ImmutableArray.Create<Address>(
         "kryo:wean6dt2ckvgubhh54ipu7nufdkfpmfx7zq9w2dx7e",
         "kryo:weamhh4gyqhr5vjuqk5jyx25giceyuuqq4cgrwit6i",
-        "kryo:weacmn6cra2hif5an2858aqedjbz7vsp2r6h2pp3va",
-        "kryo:weaqr9zjggwru75qfgwkw5nhygtwuxv89hrhgnigve"
+        "kryo:weacmn6cra2hif5an2858aqedjbz7vsp2r6h2pp3va"
     );
 
     public static readonly Address DEV_FEE_ADDRESS = "kryo:weabq9evqg43d4q9e9rbcjjq93j9xauu7g2hxwyjne";
