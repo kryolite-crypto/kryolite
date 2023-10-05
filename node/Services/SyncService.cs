@@ -58,14 +58,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 await chain.Peer.SendAsync(new NodeInfoRequest());
                 continue;
             }
-            
-            using var scope = ServiceProvider.CreateScope();
-            var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
-
-            if (networkManager.Ban(chain.Peer.ClientId))
-            {
-                await chain.Peer.DisconnectAsync();
-            }
         }
     }
 
@@ -166,6 +158,8 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Id}");
                 Logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
 
+                bool brokenChain = false;
+
                 for (var i = commonHeight + 1; i <= height; i++)
                 {
                     Logger.LogDebug($"Downloading view #{i}");
@@ -223,26 +217,41 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                     if (!staging.LoadBlocks(blocks))
                     {
+                        brokenChain = true;
                         break;
                     }
                     
                     if (!staging.LoadVotes(votes))
                     {
+                        brokenChain = true;
                         break;
                     }
 
                     if (!staging.LoadTransactions(transactions))
                     {
+                        brokenChain = true;
                         break;
                     }
 
                     if (!staging.LoadView(response.View))
                     {
+                        brokenChain = true;
                         break;
                     }
                 }
 
 done:
+                // If we synchronize from beginning and chain fails, ban client
+                if (!findCommonHeight && brokenChain)
+                {
+                    if(networkManager.Ban(peer.ClientId))
+                    {
+                        await peer.DisconnectAsync();
+                    }
+
+                    return false;
+                }
+
                 newState = staging.GetChainState();
 
                 if (newState is null)
