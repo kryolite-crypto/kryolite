@@ -42,6 +42,12 @@ public class ViewBroadcast : IPacket
 
         var chainState = storeManager.GetChainState();
 
+        if (chainState.LastHash == ViewHash)
+        {
+            // already have this
+            return;
+        }
+
         if (LastHash != chainState.LastHash)
         {
             if (Weight > chainState.Weight)
@@ -131,13 +137,11 @@ public class ViewBroadcast : IPacket
             }
         }
 
-        if (!storeManager.AddView(response.View, false, true))
+        if (!storeManager.AddView(response.View, true, true))
         {
             logger.LogInformation($"[{peer.Uri.ToHostname()}] Failed to apply view");
             await peer.SendAsync(new NodeInfoRequest());
             return;
         }
-
-        args.Rebroadcast = true;
     }
 }

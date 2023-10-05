@@ -45,9 +45,6 @@ public class VoteBroadcast : IPacket
             return;
         }
 
-        if (storeManager.AddVote(response.Vote, false))
-        {
-            args.Rebroadcast = true;
-        }
+        storeManager.AddVote(response.Vote, true);
     }
 }

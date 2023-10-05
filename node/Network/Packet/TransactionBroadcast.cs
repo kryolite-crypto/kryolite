@@ -46,11 +46,6 @@ public class TransactionBroadcast : IPacket
             return;
         }
 
-        var er = storeManager.AddTransaction(response.Transaction, false);
-
-        if (er == ExecutionResult.SUCCESS)
-        {
-            args.Rebroadcast = true;
-        }
+        storeManager.AddTransaction(response.Transaction, true);
     }
 }

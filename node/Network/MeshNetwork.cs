@@ -375,7 +375,7 @@ public class MeshNetwork : IMeshNetwork
                     continue;
                 }
 
-                _ = Task.Run(async () => {
+                _ = Task.Run(() => {
                     try
                     {
                         var messageArgs = new MessageReceivedEventArgs(peer, message);
@@ -403,11 +403,6 @@ public class MeshNetwork : IMeshNetwork
                         }
 
                         MessageReceived?.Invoke(peer, messageArgs);
-
-                        if (messageArgs.Rebroadcast)
-                        {
-                            await BroadcastAsync(message.Bytes.Array!);
-                        }
                     }
                     catch (Exception ex)
                     {
@@ -540,7 +535,6 @@ public class MessageReceivedEventArgs
 {
     public IMessage Message { get; }
     public WebSocketMessageType MessageType { get; }
-    public bool Rebroadcast { get; set; }
 
     public MessageReceivedEventArgs(Peer peer, RawMessage message)
     {

@@ -50,7 +50,7 @@ public class NodeBroadcast : IPacket
 
         if (nodeHost.IsReachable)
         {
-            args.Rebroadcast = true;
+            // TODO: Rebroadcast
         }
     }
 }

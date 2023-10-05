@@ -45,9 +45,6 @@ public class BlockBroadcast : IPacket
             return;
         }
 
-        if (storeManager.AddBlock(response.Block, false))
-        {
-            args.Rebroadcast = true;
-        }
+        storeManager.AddBlock(response.Block, true);
     }
 }
