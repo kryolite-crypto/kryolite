@@ -267,7 +267,9 @@ done:
             var chainState = storeManager.GetChainState();
             Logger.LogInformation($"Staging has height {newState.Id} and weight {newState.Weight}. Compared to local height {chainState.Id} and weight {chainState.Weight}");
 
-            return storeManager.LoadStagingChain("staging", newState, stateCache, events);
+            storeManager.LoadStagingChain("staging", newState, stateCache, events);
+
+            return true;
         }
         catch (Exception ex)
         {

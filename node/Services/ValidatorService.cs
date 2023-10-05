@@ -131,7 +131,7 @@ public class ValidatorService : BackgroundService
                     nextLeader = Node.PublicKey;
                 }
 
-                logger.LogInformation("Next leader is {publicKey}", nextLeader);
+                logger.LogInformation("Next leader is {publicKey}", nextLeader.ToAddress());
 
                 if (nextLeader == Node.PublicKey)
                 {
@@ -144,15 +144,12 @@ public class ValidatorService : BackgroundService
 
                 if (nextView.Id == lastView.Id)
                 {
-                    logger.LogInformation("Leader {publicKey} failed to create view", nextLeader);
+                    logger.LogInformation("Leader {publicKey} failed to create view", nextLeader.ToAddress());
                     Banned.Add(nextLeader);
                     continue;
                 }
 
-                if (slotNumber == 0)
-                {
-                    Banned.Clear();
-                }
+                Banned.Clear();
 
                 if(!AllowExecution.IsSet)
                 {
