@@ -387,7 +387,7 @@ public class MeshNetwork : IMeshNetwork
                                 return;
                             }
 
-                            cache.Set(messageArgs.Message.Id, peer.ClientId, DateTimeOffset.Now.AddMinutes(30));
+                            cache.Set(messageArgs.Message.Id, peer.ClientId, DateTimeOffset.Now.AddMinutes(10));
                         }
 
                         peer.LastSeen = DateTime.UtcNow;
