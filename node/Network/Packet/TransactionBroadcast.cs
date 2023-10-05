@@ -21,15 +21,16 @@ public class TransactionBroadcast : IPacket
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {
-        if (peer.IsSyncInProgress)
-        {
-            return;
-        }
-
         using var scope = serviceProvider.CreateScope();
 
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBroadcast>>();
+
+        if (peer.IsSyncInProgress)
+        {
+            logger.LogDebug("Ignoring TransactionBroadcast, sync in progress");
+            return;
+        }
 
         logger.LogDebug($"Received TransactionBroadcast from {peer.Uri.ToHostname()}");
 
