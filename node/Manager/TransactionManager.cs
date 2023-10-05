@@ -313,11 +313,9 @@ public abstract class TransactionManager
 
         var chainState = StateCache.GetCurrentState();
 
-        chainState.Blocks++;
-
         sw.Stop();
 
-        LogInformation($"{CHAIN_NAME}Added block #{chainState.Blocks} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
+        LogInformation($"{CHAIN_NAME}Added block #{chainState.Blocks + StateCache.GetBlocks().Count} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
 
         if (broadcast)
         {
