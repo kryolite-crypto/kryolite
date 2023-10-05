@@ -4,7 +4,7 @@ set -eEuo pipefail
 STATE=$(curl -fsL https://testnet-1.kryolite.io/chainstate)
 STATE2=$(curl -fsL http://testnet-2.kryolite.io/chainstate)
 
-HEIGHT=$(echo $STATE | jq ".height")
+HEIGHT=$(echo $STATE | jq ".id")
 WEIGHT=$(echo $STATE | jq ".weight" | tr -d '"')
 BLOCKS=$(echo $STATE | jq ".blocks")
 HEALTH=OK

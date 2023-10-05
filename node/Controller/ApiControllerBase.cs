@@ -398,8 +398,6 @@ public class ApiControllerBase : Controller
                     graph.AddVertex(txid);
                     graph.AddEdge(new Edge<SHA256Hash>(viewHash, txid));
                     types.Add(txid, "tx");
-
-                    hasConnection = true;
                 }
 
                 if (!hasConnection && graph.ContainsVertex(view.LastHash))
