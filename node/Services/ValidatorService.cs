@@ -135,6 +135,9 @@ public class ValidatorService : BackgroundService
                 {
                     logger.LogWarning("Leader selection could not determine next leader, assigning self");
                     nextLeader = Node.PublicKey;
+
+                    // TODO: We should have some kind of vote who will create next view
+                    await Task.Delay(Random.Shared.Next(10000));
                 }
 
                 logger.LogInformation("Next leader is {publicKey}", nextLeader.ToAddress());
