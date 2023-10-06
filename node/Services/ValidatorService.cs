@@ -99,6 +99,7 @@ public class ValidatorService : BackgroundService
             {
                 using var scope = serviceProvider.CreateScope();
                 var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+                var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
 
                 var lastView = blockchainManager.GetLastView() ?? throw new Exception("LastView returned null");
                 
@@ -119,7 +120,10 @@ public class ValidatorService : BackgroundService
                         .Select(x => x.PublicKey)
                         .ToList();
 
-                    nextLeader = voters[slotNumber % voters.Count];
+                    if (voters.Count > 0)
+                    {
+                        nextLeader = voters[slotNumber % voters.Count];
+                    }
                 }
 
                 if (slotNumber == 0)
@@ -146,6 +150,9 @@ public class ValidatorService : BackgroundService
 
                 if (nextView.Id == lastView.Id)
                 {
+                    // maybe we were disconnected during view broadcast, try to request it from peers
+                    await meshNetwork.BroadcastAsync(new ViewRequestById(lastView.Id + 1, true));
+
                     logger.LogInformation("Leader {publicKey} failed to create view", nextLeader.ToAddress());
                     Banned.Add(nextLeader);
                     continue;

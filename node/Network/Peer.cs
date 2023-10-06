@@ -104,6 +104,21 @@ public class Peer : IDisposable
         }
     }
 
+    public async Task SendAsync(ulong id, IPacket packet, CancellationToken? token = null)
+    {
+        try
+        {
+            var msg = new Message(id, packet);
+            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, MeshNetwork.lz4Options);
+
+            await SendAsync(bytes,token ?? CancellationToken.None);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
+        }
+    }
+
     public async Task SendAsync(byte[] bytes, CancellationToken? token = null)
     {
         try

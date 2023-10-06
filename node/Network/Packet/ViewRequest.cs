@@ -11,10 +11,19 @@ public class ViewRequestByHash : IPacket
 {
     [Key(0)]
     public SHA256Hash ViewHash { get; set; }
+    [Key(1)]
+    public bool AsyncReply { get; set; }
 
     public ViewRequestByHash(SHA256Hash viewHash)
     {
         ViewHash = viewHash;
+        AsyncReply = false;
+    }
+
+    public ViewRequestByHash(SHA256Hash viewHash, bool asyncReply)
+    {
+        ViewHash = viewHash;
+        AsyncReply = asyncReply;
     }
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
@@ -27,7 +36,14 @@ public class ViewRequestByHash : IPacket
         logger.LogDebug($"Received ViewRequestByHash from {peer.Uri.ToHostname()}");
 
         var view = blockchainManager.GetView(ViewHash);
-        await peer.ReplyAsync(args.Message.Id, new ViewResponse(view));
+
+        if (!AsyncReply)
+        {
+            await peer.ReplyAsync(args.Message.Id, new ViewResponse(view));
+            return;
+        }
+
+        await peer.SendAsync(args.Message.Id, new ViewResponse(view));
     }
 }
 
@@ -35,11 +51,20 @@ public class ViewRequestByHash : IPacket
 public class ViewRequestById : IPacket
 {
     [Key(0)]
-    public long Id { get; }
+    public long Id { get; set; }
+    [Key(1)]
+    public bool AsyncReply { get; set; }
 
     public ViewRequestById(long id)
     {
         Id = id;
+        AsyncReply = false;
+    }
+
+    public ViewRequestById(long id, bool asyncReply)
+    {
+        Id = id;
+        AsyncReply = asyncReply;
     }
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
@@ -52,6 +77,18 @@ public class ViewRequestById : IPacket
         logger.LogDebug($"Received ViewRequestById from {peer.Uri.ToHostname()}");
 
         var view = blockchainManager.GetView(Id);
-        await peer.ReplyAsync(args.Message.Id, new ViewResponse(view));
+
+        if (!AsyncReply)
+        {
+            await peer.ReplyAsync(args.Message.Id, new ViewResponse(view));
+            return;
+        }
+
+        await peer.SendAsync(args.Message.Id, new ViewResponse(view));
     }
+}
+
+public class ResponseType
+{
+
 }
