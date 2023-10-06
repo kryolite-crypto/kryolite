@@ -113,11 +113,13 @@ public class ValidatorService : BackgroundService
                 
                 if (votes.Count > 0)
                 {
-                    nextLeader = votes
+                    var voters = votes
                         .Where(x => !Banned.Contains(x.PublicKey))
                         .OrderBy(x => x.Signature)
                         .Select(x => x.PublicKey)
-                        .ElementAtOrDefault(slotNumber % votes.Count);
+                        .ToList();
+
+                    nextLeader = voters[slotNumber % voters.Count];
                 }
 
                 if (slotNumber == 0)
