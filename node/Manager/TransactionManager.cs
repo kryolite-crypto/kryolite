@@ -331,6 +331,11 @@ public abstract class TransactionManager
 
     protected bool AddTransactionInternal(Transaction tx, bool broadcast)
     {
+        if (tx.TransactionType == TransactionType.REG_VALIDATOR)
+        {
+            return AddValidatorRegInternal(tx, broadcast);
+        }
+
         try
         {
             if (!StateCache.TryGet(tx.From!, out var from))
