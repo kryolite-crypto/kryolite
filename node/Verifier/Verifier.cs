@@ -72,9 +72,9 @@ public class Verifier : IVerifier
 
         var chainState = StateCache.GetCurrentState();
 
-        if (chainState.LastHash != block.LastHash)
+        if (chainState.ViewHash != block.LastHash)
         {
-            Logger.LogInformation($"Block verification failed (reason = invalid parent hash). Got {block.LastHash}, required: {chainState.LastHash}");
+            Logger.LogInformation($"Block verification failed (reason = invalid parent hash). Got {block.LastHash}, required: {chainState.ViewHash}");
             return false;
         }
 
@@ -103,7 +103,7 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (view.LastHash != chainState.LastHash)
+        if (view.LastHash != chainState.ViewHash)
         {
             Logger.LogInformation("Discarding view #{id} (reason = invalid parent hash)", view.Id);
             return false;
@@ -137,7 +137,7 @@ public class Verifier : IVerifier
                 return false;
             }
 
-            if (block.LastHash != chainState.LastHash)
+            if (block.LastHash != chainState.ViewHash)
             {
                 Logger.LogInformation($"{view.GetHash()} verification failed (reson = block references finalized view)");
                 return false;
@@ -159,7 +159,7 @@ public class Verifier : IVerifier
                 return false;
             }
 
-            if (vote.ViewHash != chainState.LastHash)
+            if (vote.ViewHash != chainState.ViewHash)
             {
                 Logger.LogInformation($"{view.GetHash()} verification failed (reson = vote references finalized view)");
                 return false;

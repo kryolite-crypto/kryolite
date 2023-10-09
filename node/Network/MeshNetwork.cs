@@ -105,7 +105,7 @@ public class MeshNetwork : IMeshNetwork
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
-                cache.Set(msg.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+                cache.Set(msg.Id, string.Empty, DateTimeOffset.Now.AddMinutes(5));
             }
 
             await BroadcastAsync(bytes);
@@ -124,7 +124,7 @@ public class MeshNetwork : IMeshNetwork
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
-                cache.Set(msg.Id, string.Empty, DateTimeOffset.Now.AddHours(1));
+                cache.Set(msg.Id, string.Empty, DateTimeOffset.Now.AddMinutes(5));
             }
 
             await BroadcastAsync(bytes);
@@ -387,7 +387,7 @@ public class MeshNetwork : IMeshNetwork
                                 return;
                             }
 
-                            cache.Set(messageArgs.Message.Id, peer.ClientId, DateTimeOffset.Now.AddMinutes(10));
+                            cache.Set(messageArgs.Message.Id, peer.ClientId, DateTimeOffset.Now.AddMinutes(5));
                         }
 
                         peer.LastSeen = DateTime.UtcNow;

@@ -139,6 +139,7 @@ public class ApiControllerBase : Controller
         switch (tx.TransactionType)
         {
             case TransactionType.PAYMENT:
+            case TransactionType.CONTRACT:
                 result = blockchainManager.AddTransaction(tx, true);
                 break;
             case TransactionType.REG_VALIDATOR:
@@ -557,7 +558,7 @@ public class ApiControllerBase : Controller
             Id = chainState.Id,
             Weight = chainState.Weight,
             Blocks = chainState.Blocks,
-            LastHast = chainState.LastHash,
+            LastHast = chainState.ViewHash,
             CurrentDifficulty = chainState.CurrentDifficulty.ToString(),
             Votes = chainState.Votes,
             Transactions = chainState.Transactions

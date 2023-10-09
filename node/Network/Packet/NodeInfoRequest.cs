@@ -22,7 +22,7 @@ public class NodeInfoRequest : IPacket
         {
             Height = chainState.Id,
             Weight = chainState.Weight,
-            LastHash = chainState.LastHash,
+            LastHash = chainState.ViewHash,
             CurrentTime = DateTimeOffset.UtcNow.ToUnixTimeSeconds(),
         };
 

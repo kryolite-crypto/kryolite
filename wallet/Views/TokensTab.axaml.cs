@@ -63,8 +63,6 @@ public partial class TokensTab : UserControl
 
                 foreach (var token in tokens)
                 {
-                    Console.WriteLine(token.TokenId);
-
                     var exists = Model.Tokens
                         .Where(t => t.TokenId == token.TokenId)
                         .FirstOrDefault();

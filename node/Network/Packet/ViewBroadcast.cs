@@ -42,19 +42,30 @@ public class ViewBroadcast : IPacket
 
         var chainState = storeManager.GetChainState();
 
-        if (chainState.LastHash == ViewHash)
+        if (chainState.ViewHash == ViewHash)
         {
             // already have this
             return;
         }
 
-        if (LastHash != chainState.LastHash)
+        // Check that this view extends our current view
+        if (LastHash != chainState.ViewHash)
         {
             if (Weight > chainState.Weight)
             {
                 // REQUEST SYNC
-                logger.LogInformation($"[{peer.Uri.ToHostname()}] Advertised view has more weight");
+                logger.LogDebug($"[{peer.Uri.ToHostname()}] Has more weight. Request sync");
                 await peer.SendAsync(new NodeInfoRequest());
+            }
+            else if (Weight < chainState.Weight)
+            {
+                logger.LogDebug($"[{peer.Uri.ToHostname()}] Has lower weight. Broadcast our current view");
+                var view = storeManager.GetLastView();
+
+                if (view is not null)
+                {
+                    await peer.SendAsync(new ViewBroadcast(chainState.ViewHash, view.LastHash, chainState.Weight));
+                }
             }
 
             return;

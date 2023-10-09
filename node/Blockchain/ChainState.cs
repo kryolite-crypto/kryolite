@@ -15,7 +15,7 @@ public class ChainState : EventBase
     [Key(2)]
     public long Blocks { get; set; }
     [Key(3)]
-    public SHA256Hash LastHash { get; set; } = new SHA256Hash();
+    public SHA256Hash ViewHash { get; set; } = new SHA256Hash();
     [Key(4)]
     public Difficulty CurrentDifficulty { get; set; }
     [Key(5)]

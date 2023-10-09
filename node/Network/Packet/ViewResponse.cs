@@ -31,7 +31,7 @@ public class ViewResponse : IPacket
 
         var chainState = storeManager.GetChainState();
 
-        if (chainState.LastHash != View.LastHash)
+        if (chainState.ViewHash != View.LastHash)
         {
             logger.LogDebug($"Discarding view {View.Id} from {peer.Uri.ToHostname()}, due to invalid LastHash");
             return;

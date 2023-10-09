@@ -51,7 +51,9 @@ public class EventBus : IEventBus
         lock (_lock)
         {
             if (Subscriptions.ContainsKey(ev.GetType()))
+            {
                 subs = Subscriptions[ev.GetType()].ToList();
+            }
         }
 
         foreach (var sub in subs)

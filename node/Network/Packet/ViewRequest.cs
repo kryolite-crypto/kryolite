@@ -84,7 +84,7 @@ public class ViewRequestById : IPacket
             return;
         }
 
-        await peer.SendAsync(args.Message.Id, new ViewResponse(view));
+        await peer.SendAsync(args.Message.Id + 1, new ViewResponse(view));
     }
 }
 

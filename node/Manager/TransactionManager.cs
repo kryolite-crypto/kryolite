@@ -46,7 +46,7 @@ public abstract class TransactionManager
             var chainState = new ChainState
             {
                 Id = 0,
-                LastHash = view.GetHash(),
+                ViewHash = view.GetHash(),
                 CurrentDifficulty = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY).ToDifficulty()
             };
 
@@ -210,7 +210,7 @@ public abstract class TransactionManager
 
             executor.Execute(toExecute, chainState.CurrentDifficulty);
 
-            chainState.LastHash = view.GetHash();
+            chainState.ViewHash = view.GetHash();
             chainState.Id++;
             chainState.Weight += (chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE)) + chainState.CurrentDifficulty.ToWork();
             chainState.Votes += votes.Count;

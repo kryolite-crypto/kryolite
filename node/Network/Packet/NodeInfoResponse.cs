@@ -39,7 +39,7 @@ public class NodeInfoResponse : IPacket
 
         var chainState = blockchainManager.GetChainState();
 
-        if (LastHash != chainState.LastHash)
+        if (LastHash != chainState.ViewHash)
         {
             if (Weight <= chainState.Weight)
             {
@@ -49,7 +49,7 @@ public class NodeInfoResponse : IPacket
                 return;
             }
 
-            logger.LogInformation($"{peer.Uri.ToHostname()}: View ({LastHash}) at height {Height} does not match with local view ({chainState.LastHash}) and remote weight ({Weight}) is higher compared to local ({chainState.Weight}). Performing sync...");
+            logger.LogInformation($"{peer.Uri.ToHostname()}: View ({LastHash}) at height {Height} does not match with local view ({chainState.ViewHash}) and remote weight ({Weight}) is higher compared to local ({chainState.Weight}). Performing sync...");
             syncService.Add(new Chain(peer, Height));
             return;
         }

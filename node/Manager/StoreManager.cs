@@ -239,7 +239,7 @@ public class StoreManager : TransactionManager, IStoreManager
             To = wallet,
             Value = Constant.BLOCK_REWARD,
             Timestamp = timestamp,
-            LastHash = chainState.LastHash,
+            LastHash = chainState.ViewHash,
             Difficulty = chainState.CurrentDifficulty
         };
 

@@ -360,15 +360,15 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Put("Token", id, token, CurrentTransaction);
 
         // ContractAddress_TokenId
-        var tokenIx = keyMem.Slice(58);
-        token.Contract.Buffer.AsReadOnlySpan().CopyTo(tokenIx);
-        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(tokenIx.Slice(26));
+        var tokenIx = keyMem.Slice(0, 58);
+        token.Contract.Buffer.CopyTo(tokenIx);
+        token.TokenId.Buffer.CopyTo(tokenIx.Slice(26));
 
         Storage.Put("ixTokenId", tokenIx, id, CurrentTransaction);
 
         // LedgerAddress_Key
-        var ledgerIx = keyMem.Slice(34);
-        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(ledgerIx);
+        var ledgerIx = keyMem.Slice(0, 34);
+        token.Ledger.Buffer.CopyTo(ledgerIx);
         id.CopyTo(ledgerIx.Slice(26));
 
         Storage.Put("ixTokenLedger", ledgerIx, id, CurrentTransaction);
@@ -387,7 +387,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         if (oldToken is not null)
         {
             // LedgerAddress_Key
-            token.Ledger.Buffer.AsReadOnlySpan().CopyTo(keyMem);
+            token.Ledger.Buffer.CopyTo(keyMem);
             id.CopyTo(keyMem.Slice(26));
 
             Storage.Delete("ixTokenLedger", keyMem, CurrentTransaction);
@@ -415,14 +415,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Delete("Token", id, CurrentTransaction);
 
         // ContractAddress_TokenId
-        var tokenIx = keyMem.Slice(58);
+        var tokenIx = keyMem.Slice(0, 58);
         token.Contract.Buffer.AsReadOnlySpan().CopyTo(tokenIx);
         token.TokenId.Buffer.AsReadOnlySpan().CopyTo(tokenIx.Slice(26));
 
         Storage.Delete("ixTokenId", tokenIx, CurrentTransaction);
 
         // LedgerAddress_Key
-        var ledgerIx = keyMem.Slice(34);
+        var ledgerIx = keyMem.Slice(0, 34);
         token.Ledger.Buffer.AsReadOnlySpan().CopyTo(ledgerIx);
         id.CopyTo(ledgerIx.Slice(26));
 

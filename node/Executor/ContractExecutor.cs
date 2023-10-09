@@ -28,7 +28,8 @@ public class ContractExecutor : IExecutor
                 return ExecutionResult.INVALID_CONTRACT;
             }
 
-            contract.Balance = Context.GetWallet(tx.To)?.Balance ?? 0;
+            var contractLedger = Context.GetOrNewWallet(tx.To);
+            contract.Balance = contractLedger.Balance;
 
             if (contract.CurrentSnapshot is null)
             {
@@ -145,7 +146,7 @@ public class ContractExecutor : IExecutor
                 {
                     wallet.Balance += effect.Value;
 
-                    var balance = checked(contract.Balance - effect.Value);
+                    var balance = contract.Balance - effect.Value;
 
                     if (balance < 0)
                     {
@@ -153,6 +154,7 @@ public class ContractExecutor : IExecutor
                     }
 
                     contract.Balance = balance;
+                    contractLedger.Balance = balance;
                 }
             }
 
