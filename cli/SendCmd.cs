@@ -89,7 +89,7 @@ public static class SendCmd
                     Payload = new CallMethod
                     {
                         Method = contractMethod,
-                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<object[]>(contractParams, Program.serializerOpts)
+                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<string[]>(contractParams, Program.serializerOpts)
                     }
                 };
             }

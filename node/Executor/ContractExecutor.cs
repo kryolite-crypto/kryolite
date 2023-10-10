@@ -81,9 +81,9 @@ public class ContractExecutor : IExecutor
             using var vm = KryoVM.LoadFromSnapshot(code, contract.CurrentSnapshot)
                 .WithContext(vmContext);
 
-            Logger.LogInformation($"Executing contract {contract.Name}:{call.Method}");
+            Logger.LogDebug($"Executing contract {contract.Name}:{call.Method}");
             var ret = vm.CallMethod(methodName, methodParams.ToArray(), out _);
-            Logger.LogInformation($"Contract result = {ret}");
+            Logger.LogDebug($"Contract result = {ret}");
 
             if (ret != 0)
             {
@@ -108,13 +108,13 @@ public class ContractExecutor : IExecutor
 
                         if (result != 0)
                         {
-                            Logger.LogError($"get_token failed for {effect.TokenId}, error code = {result}");
+                            Logger.LogDebug($"get_token failed for {effect.TokenId}, error code = {result}");
                             continue;
                         }
 
                         if (json is null)
                         {
-                            Logger.LogError($"get_token failed for {effect.TokenId}, error = json output null");
+                            Logger.LogDebug($"get_token failed for {effect.TokenId}, error = json output null");
                             continue;
                         }
 
@@ -122,7 +122,7 @@ public class ContractExecutor : IExecutor
 
                         if (tokenBase is null)
                         {
-                            Logger.LogError($"get_token failed for {effect.TokenId}, error = failed to parse json");
+                            Logger.LogDebug($"get_token failed for {effect.TokenId}, error = failed to parse json");
                             continue;
                         }
 
@@ -167,7 +167,6 @@ public class ContractExecutor : IExecutor
         catch (Exception ex)
         {
             Logger.LogError(ex, "Contract failed");
-
             return ExecutionResult.CONTRACT_EXECUTION_FAILED;
         }
     }

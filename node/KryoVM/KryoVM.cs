@@ -244,7 +244,6 @@ public class KryoVM : IDisposable
             {
                 //throw new Exception("unable to transfer, null 'to' address");
                 throw new ExitException(101);
-
             }
 
             var balance = checked(Context!.Balance - value);
@@ -329,7 +328,7 @@ public class KryoVM : IDisposable
 
             var type = mem.GetSpan(type_ptr, type_len);
             var msg = mem.GetSpan(ptr, len);
-            Console.WriteLine("LOG: " + ValueConverter.ConvertToValue(type, msg));
+            Context?.Logger.LogDebug($"LOG: {ValueConverter.ConvertToValue(type, msg)}");
         }));
 
         Linker.Define("env", "__append_event", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
@@ -372,7 +371,7 @@ public class KryoVM : IDisposable
 
             var str = mem.ReadString(ptr, len, Encoding.UTF8);
             Context!.Returns = str;
-            Console.WriteLine("Returns: " + str);
+            Context?.Logger.LogDebug($"Returns {str}");
         }));
 
         Linker.Define("env", "__rand", Function.FromCallback<float>(Store, (Caller caller) => {
