@@ -30,9 +30,6 @@ namespace Kryolite.Wallet
             var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
             var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
 
-            var walletRepository = new WalletRepository(config);
-            walletRepository.Backup();
-
             try
             {
                 if (!Path.Exists(dataDir))
@@ -56,6 +53,9 @@ namespace Kryolite.Wallet
                 }
 
                 Directory.CreateDirectory(dataDir);
+
+                var walletRepository = new WalletRepository(config);
+                walletRepository.Backup();
 
                 var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
 
