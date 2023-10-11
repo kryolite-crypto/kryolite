@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using Avalonia.Data;
 using Kryolite.Shared;
 
@@ -28,7 +29,7 @@ public class SendTabViewModel : NotifyPropertyChanged
     public string? Recipient
     {
         get => recipient; 
-        set => RaisePropertyChanged(ref recipient, value);
+        set => RaisePropertyChanged(ref recipient, new string((value ?? string.Empty).Where(c => Char.IsDigit(c) || Char.IsLetter(c) || c == ':').ToArray()));
     }
 
 
