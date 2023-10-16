@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -44,9 +45,11 @@ public partial class TokensTab : UserControl
             }
         };
 
-        InitializeData();
+        this.AttachedToVisualTree += InitializeData;
 
-        var tokenTransferredBuffer = new BufferBlock<TransferTokenEventArgs>();
+        //InitializeData();
+
+        /*var tokenTransferredBuffer = new BufferBlock<TransferTokenEventArgs>();
 
         tokenTransferredBuffer.AsObservable()
             .Buffer(TimeSpan.FromMilliseconds(1000), 100)
@@ -140,10 +143,10 @@ public partial class TokensTab : UserControl
                 }
             });
 
-        EventBus.Subscribe<ConsumeTokenEventArgs>(e => tokenConsumedBuffer.Post(e));
+        EventBus.Subscribe<ConsumeTokenEventArgs>(e => tokenConsumedBuffer.Post(e));*/
     }
 
-    private void InitializeData()
+    private void InitializeData(object? sender, VisualTreeAttachmentEventArgs e)
     {
         _ = Task.Run(() => {
             var wallets = WalletManager.GetWallets();
