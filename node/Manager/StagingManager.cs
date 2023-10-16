@@ -312,7 +312,7 @@ public class StagingManager : TransactionManager, IDisposable
             Repository.DeleteBlocks(view.Blocks);
             Repository.DeleteVotes(view.Votes);
             Repository.Delete(view);
-            Repository.DeleteState(height);
+            Repository.DeleteState(i);
         }
 
         Repository.UpdateWallets(ledgers.Values);
@@ -320,8 +320,6 @@ public class StagingManager : TransactionManager, IDisposable
         Repository.UpdateTokens(tokens.Values);
 
         dbtx.Commit();
-
-        Console.WriteLine(Repository.GetChainState()?.Id);
 
         StateCache.SetChainState(Repository.GetChainState() ?? new ChainState());
     }
