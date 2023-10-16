@@ -55,4 +55,5 @@ public interface IStoreManager
     Validator? GetStake(Address address);
     List<Validator> GetValidators();
     bool LoadStagingChain(string storeName, ChainState newChain, IStateCache newState, List<EventBase> events);
+    Checkpoint CreateCheckpoint();
 }

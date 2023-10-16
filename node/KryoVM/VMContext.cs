@@ -16,12 +16,12 @@ public class VMContext
     public string? Returns { get; set; }
     public List<EventBase> Events { get; set; } = new ();
 
-    public VMContext(Contract contract, Transaction transaction, Random rand, ILogger logger)
+    public VMContext(Contract contract, Transaction transaction, Random rand, ILogger logger, long balance)
     {
         Contract = contract ?? throw new ArgumentNullException(nameof(contract));
         Transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Rand = rand ?? throw new ArgumentNullException(nameof(Rand));
-        Balance = (long)Contract.Balance;
+        Balance = balance;
     }
 }

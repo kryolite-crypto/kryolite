@@ -3,6 +3,7 @@ using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using MessagePack;
 using Microsoft.Extensions.Configuration;
+using RocksDbSharp;
 using System.Buffers;
 using System.Data;
 
@@ -21,7 +22,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public StoreRepository(string storePath)
     {
-        var storage = new RocksDBStorage(storePath, true);
+        var storage = new RocksDBStorage(storePath);
         Storage = storage ?? throw new ArgumentNullException(nameof(storage));
     }
 
@@ -42,22 +43,19 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public View? GetView(long height)
     {
-        var id = BitConverter.GetBytes(height);
-        Array.Reverse(id);
-
-        return Storage.Get<View>("View", id, CurrentTransaction);
+        return Storage.Get<View>("View", height.ToKey());
     }
 
     public View? GetView(SHA256Hash viewHash)
     {
-        var id = Storage.Get("ixViewHash", viewHash, CurrentTransaction);
+        var id = Storage.Get("ixViewHash", viewHash);
 
         if (id is null)
         {
             return null;
         }
 
-        return Storage.Get<View>("View", id, CurrentTransaction);
+        return Storage.Get<View>("View", id);
     }
 
     public Block? GetBlock(SHA256Hash blockhash)
@@ -72,7 +70,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Transaction? GetTransaction(SHA256Hash transactionId)
     {
-        return Storage.Get<Transaction>("Transaction", transactionId);
+        var key = Storage.Get("ixTransactionId", transactionId.Buffer);
+
+        if (key is null)
+        {
+            return null;
+        }
+
+        return Storage.Get<Transaction>("Transaction", key);
     }
 
     public void Add(Block block)
@@ -82,11 +87,9 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void Add(View view)
     {
-        var id = BitConverter.GetBytes(view.Id);
-        Array.Reverse(id);
-
-        Storage.Put("View", id, MessagePackSerializer.Serialize(view), CurrentTransaction);
-        Storage.Put("ixViewHash", view.GetHash(), id, CurrentTransaction);
+        var key = view.Id.ToKey();
+        Storage.Put("View", key, MessagePackSerializer.Serialize(view), CurrentTransaction);
+        Storage.Put("ixViewHash", view.GetHash(), key, CurrentTransaction);
     }
 
     public void Add(Vote vote)
@@ -96,36 +99,37 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void Add(Transaction tx)
     {
-        var keyBuf = ArrayPool<byte>.Shared.Rent(34);
-        var keyMem = keyBuf.AsSpan();
+        Span<byte> keyBuf = stackalloc byte[34];
         var transactionId = tx.CalculateHash();
 
+        if (tx.Id == 0)
+        {
+            tx.Id = (long)Storage.NextKey();
+        }
+
+        var key = tx.Id.ToKey();
+
         // Transaction
-        Storage.Put("Transaction", transactionId, MessagePackSerializer.Serialize(tx), CurrentTransaction);
+        Storage.Put("Transaction", key, MessagePackSerializer.Serialize(tx), CurrentTransaction);
 
-        var num = BitConverter.GetBytes(Storage.NextKey());
-        Array.Reverse(num);
-
-        //ixTransactionNum index
-        Storage.Put("ixTransactionNum", num, transactionId.Buffer, CurrentTransaction);
+        //ixTransactionId index
+        Storage.Put("ixTransactionId", transactionId.Buffer, key, CurrentTransaction);
 
         // Address index
-        var addrKey = keyMem.Slice(0, 34);
-        num.CopyTo(addrKey.Slice(26));
+        var addrKey = keyBuf.Slice(0, 34);
+        key.CopyTo(addrKey.Slice(26));
 
         if (tx.PublicKey is not null)
         {
             tx.From!.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, transactionId.Buffer, CurrentTransaction);
+            Storage.Put("ixTransactionAddress", addrKey, key, CurrentTransaction);
         }
 
         if (tx.To is not null)
         {
             tx.To.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, transactionId.Buffer, CurrentTransaction);
+            Storage.Put("ixTransactionAddress", addrKey, key, CurrentTransaction);
         }
-
-        ArrayPool<byte>.Shared.Return(keyBuf);
     }
 
     public void AddRange(List<Block> blocks)
@@ -164,7 +168,8 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetTransactions(List<SHA256Hash> transactionIds)
     {
-        return Storage.GetMany<Transaction>("Transaction", transactionIds.Select(x => x.Buffer).ToArray());
+        var keys = Storage.GetMany("ixTransactionId", transactionIds.Select(x => x.Buffer).ToArray());
+        return Storage.GetMany<Transaction>("Transaction", keys);
     }
 
     public View? GetViewAt(long height)
@@ -177,21 +182,15 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public View? GetLastView()
     {
-        var chainKey = new byte[1];
-        var chainState = Storage.Get<ChainState>("ChainState", chainKey);
+        var chainState = Storage.FindLast<ChainState>("ChainState");
 
-        var heightBytes = BitConverter.GetBytes(chainState?.Id ?? 0);
-        Array.Reverse(heightBytes);
-
-        return Storage.Get<View>("View", heightBytes);
+        var heightBytes = chainState?.Id ?? 0;
+        return Storage.Get<View>("View", heightBytes.ToKey());
     }
 
     public List<Transaction> GetTransactionsAtHeight(long height)
     {
-        var heightBytes = BitConverter.GetBytes(height);
-        Array.Reverse(heightBytes);
-
-        var view = Storage.Get<View>("View", heightBytes);
+        var view = Storage.Get<View>("View", height.ToKey());
 
         if (view is null)
         {
@@ -215,10 +214,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Vote> GetVotesAtHeight(long height)
     {
-        var heightBytes = BitConverter.GetBytes(height);
-        Array.Reverse(heightBytes);
-
-        var view = Storage.Get<View>("View", heightBytes);
+        var view = Storage.Get<View>("View", height.ToKey());
 
         if (view is null || view.Votes.Count == 0)
         {
@@ -231,20 +227,17 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public ChainState? GetChainState()
     {
-        var chainKey = new byte[1];
-        return Storage.Get<ChainState>("ChainState", chainKey, CurrentTransaction);
+        return Storage.FindLast<ChainState>("ChainState");
     }
 
     public void SaveState(ChainState chainState)
     {
-        var chainKey = new byte[1];
-        Storage.Put("ChainState", chainKey, chainState, CurrentTransaction);
+        Storage.Put("ChainState", chainState.Id.ToKey(), chainState, CurrentTransaction);
     }
 
     public List<Transaction> GetLastNTransctions(int count)
     {
-        var ids = Storage.FindLast("ixTransactionNum", count);
-        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+        return Storage.FindLast<Transaction>("Transaction", count);
     }
 
     public List<Transaction> GetLastNTransctions(Address address, int count)
@@ -261,7 +254,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Ledger? GetWallet(Address address)
     {
-        return Storage.Get<Ledger>("Ledger", address.Buffer, CurrentTransaction);
+        return Storage.Get<Ledger>("Ledger", address.Buffer);
     }
 
     public void UpdateWallet(Ledger ledger)
@@ -321,16 +314,11 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void AddContractSnapshot(Address contract, long height, byte[] snapshot)
     {
-        var keyBuf = ArrayPool<byte>.Shared.Rent(34);
-        contract.Buffer.CopyTo(keyBuf, 0);
-        
-        var heightBytes = BitConverter.GetBytes(height);
-        Array.Reverse(heightBytes);
-        heightBytes.CopyTo(keyBuf, 26);
+        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
+        contract.Buffer.CopyTo(keyBuf);
+        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
 
         Storage.Put("ContractSnapshot", keyBuf, snapshot, CurrentTransaction);
-        
-        ArrayPool<byte>.Shared.Return(keyBuf);
     }
 
     public void UpdateContract(Contract contract)
@@ -348,8 +336,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void AddToken(Token token)
     {
-        var keyBuf = ArrayPool<byte>.Shared.Rent(84);
-        var keyMem = keyBuf.AsSpan();
+        Span<byte> keyBuf = stackalloc byte[84];
 
         if (token.Id == 0)
         {
@@ -360,26 +347,23 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Put("Token", id, token, CurrentTransaction);
 
         // ContractAddress_TokenId
-        var tokenIx = keyMem.Slice(0, 58);
+        var tokenIx = keyBuf.Slice(0, 58);
         token.Contract.Buffer.CopyTo(tokenIx);
         token.TokenId.Buffer.CopyTo(tokenIx.Slice(26));
 
         Storage.Put("ixTokenId", tokenIx, id, CurrentTransaction);
 
         // LedgerAddress_Key
-        var ledgerIx = keyMem.Slice(0, 34);
+        var ledgerIx = keyBuf.Slice(0, 34);
         token.Ledger.Buffer.CopyTo(ledgerIx);
         id.CopyTo(ledgerIx.Slice(26));
 
         Storage.Put("ixTokenLedger", ledgerIx, id, CurrentTransaction);
-
-        ArrayPool<byte>.Shared.Return(keyBuf);
     }
 
     public void UpdateToken(Token token)
     {
-        var keyBuf = ArrayPool<byte>.Shared.Rent(34);
-        var keyMem = keyBuf.AsSpan();
+        Span<byte> keyBuf = stackalloc byte[34];
 
         var id = BitConverter.GetBytes(token.Id);
         var oldToken = Storage.Get<Token>("Token", id);
@@ -387,13 +371,11 @@ public class StoreRepository : IStoreRepository, IDisposable
         if (oldToken is not null)
         {
             // LedgerAddress_Key
-            token.Ledger.Buffer.CopyTo(keyMem);
-            id.CopyTo(keyMem.Slice(26));
+            token.Ledger.Buffer.CopyTo(keyBuf);
+            id.CopyTo(keyBuf.Slice(26));
 
-            Storage.Delete("ixTokenLedger", keyMem, CurrentTransaction);
+            Storage.Delete("ixTokenLedger", keyBuf, CurrentTransaction);
         }
-
-        ArrayPool<byte>.Shared.Return(keyBuf);
 
         AddToken(token);
     }
@@ -408,27 +390,24 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void DeleteToken(Token token)
     {
-        var keyBuf = ArrayPool<byte>.Shared.Rent(84);
-        var keyMem = keyBuf.AsSpan();
+        Span<byte> keyBuf = stackalloc byte[84];
 
         var id = BitConverter.GetBytes(token.Id);
         Storage.Delete("Token", id, CurrentTransaction);
 
         // ContractAddress_TokenId
-        var tokenIx = keyMem.Slice(0, 58);
+        var tokenIx = keyBuf.Slice(0, 58);
         token.Contract.Buffer.AsReadOnlySpan().CopyTo(tokenIx);
         token.TokenId.Buffer.AsReadOnlySpan().CopyTo(tokenIx.Slice(26));
 
         Storage.Delete("ixTokenId", tokenIx, CurrentTransaction);
 
         // LedgerAddress_Key
-        var ledgerIx = keyMem.Slice(0, 34);
+        var ledgerIx = keyBuf.Slice(0, 34);
         token.Ledger.Buffer.AsReadOnlySpan().CopyTo(ledgerIx);
         id.CopyTo(ledgerIx.Slice(26));
 
         Storage.Delete("ixTokenLedger", ledgerIx, CurrentTransaction);
-
-        ArrayPool<byte>.Shared.Return(keyBuf);
     }
 
     public List<Transaction> GetTransactions(Address address)
@@ -445,14 +424,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         contract.Buffer.CopyTo(id, 0);
         tokenId.Buffer.CopyTo(id, 26);
 
-        var key = Storage.Get("ixTokenId", id, CurrentTransaction);
+        var key = Storage.Get("ixTokenId", id);
 
         if (key is null)
         {
             return null;
         }
 
-        return Storage.Get<Token>("Token", key, CurrentTransaction);
+        return Storage.Get<Token>("Token", key);
     }
 
     public List<Token> GetTokens(Address ledger)
@@ -478,7 +457,7 @@ public class StoreRepository : IStoreRepository, IDisposable
             return true;
         }
 
-        var stake = Storage.Get<Validator>("Validator", address.Buffer, CurrentTransaction);
+        var stake = Storage.FindLast<Validator>("Validator", address.Buffer);
 
         if (stake == null)
         {
@@ -490,17 +469,23 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Validator? GetStake(Address address)
     {
-        return Storage.Get<Validator>("Validator", address.Buffer, CurrentTransaction);
+        return Storage.FindLast<Validator>("Validator", address.Buffer);
     }
 
-    public void SetStake(Address address, Validator stake)
+    public void SetStake(Address address, Validator stake, long height)
     {
-        Storage.Put("Validator", address.Buffer, stake, CurrentTransaction);
+        Span<byte> keyBuf = stackalloc byte[address.Buffer.Length + sizeof(long)];
+        address.Buffer.CopyTo(keyBuf);
+        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
+        Storage.Put("Validator", keyBuf, stake, CurrentTransaction);
     }
 
-    public void DeleteValidator(Address address)
+    public void DeleteStake(Address address, long height)
     {
-        Storage.Delete("Validator", address.Buffer, CurrentTransaction);
+        Span<byte> keyBuf = stackalloc byte[address.Buffer.Length + sizeof(long)];
+        address.Buffer.CopyTo(keyBuf);
+        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
+        Storage.Delete("Validator", keyBuf, CurrentTransaction);
     }
 
     public List<Validator> GetValidators()
@@ -509,14 +494,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         return validators
             .Where(x => Constant.SEED_VALIDATORS.Contains(x.NodeAddress) || x.Stake >= Constant.MIN_STAKE)
+            .DistinctBy(x => x.NodeAddress)
             .OrderByDescending(x => x.Stake)
             .ToList();
     }
 
     public List<Transaction> GetTransactions(int pageNum, int pageSize)
     {
-        var ids = Storage.GetRange("ixTransactionNum", pageNum, pageSize);
-        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+        return Storage.GetRange<Transaction>("Transaction", pageNum, pageSize);
     }
 
     private ITransaction? _currentTransaction;
@@ -548,18 +533,16 @@ public class StoreRepository : IStoreRepository, IDisposable
         var dataDir = Configuration?.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         
         var activeStore = Path.Combine(dataDir, $"store");
-        var newStore = Path.Combine(dataDir, $"store.{storeName}");
-        var backupStore = Path.Combine(dataDir, $"store.bak");
+        var stagingStore = Path.Combine(dataDir, $"store.{storeName}");
 
         Storage.Close();
 
-        if (Directory.Exists(backupStore))
+        if (Directory.Exists(activeStore))
         {
-            Directory.Delete(backupStore, true);
+            Directory.Delete(activeStore, true);
         }
 
-        Directory.Move(activeStore, backupStore);
-        Directory.Move(newStore, activeStore);
+        Directory.Move(stagingStore, activeStore);
 
         Storage.Open(activeStore);
     }
@@ -573,4 +556,97 @@ public class StoreRepository : IStoreRepository, IDisposable
     {
 
     }
+
+    public Checkpoint CreateCheckpoint()
+    {
+        return Storage.CreateCheckpoint();
+    }
+
+    public void DeleteBlock(SHA256Hash blockhash)
+    {
+        Storage.Delete("Block", blockhash, CurrentTransaction);
+    }
+
+    public void DeleteVote(SHA256Hash votehash)
+    {
+        Storage.Put("Vote", votehash, CurrentTransaction);
+    }
+
+    public void DeleteBlocks(List<SHA256Hash> blockhashes)
+    {
+        foreach (var blockhash in blockhashes)
+        {
+            DeleteBlock(blockhash);
+        }
+    }
+
+    public void DeleteVotes(List<SHA256Hash> votehashes)
+    {
+        foreach (var votehash in votehashes)
+        {
+            DeleteVote(votehash);
+        }
+    }
+
+    public void Delete(View view)
+    {
+        var key = view.Id.ToKey();
+        Storage.Delete("View", key, CurrentTransaction);
+        Storage.Delete("ixViewHash", view.GetHash(), CurrentTransaction);
+    }
+
+    public void Delete(Transaction tx)
+    {
+        Span<byte> keyBuf = stackalloc byte[34];
+        var transactionId = tx.CalculateHash();
+
+        var key = tx.Id.ToKey();
+
+        // Transaction
+        Storage.Delete("Transaction", key, CurrentTransaction);
+
+        // transactionId
+        Storage.Delete("ixTransactionId", transactionId.Buffer, CurrentTransaction);
+
+        // Address index
+        var addrKey = keyBuf.Slice(0, 34);
+        key.CopyTo(addrKey.Slice(26));
+
+        if (tx.PublicKey is not null)
+        {
+            tx.From!.Buffer.CopyTo(addrKey);
+            Storage.Delete("ixTransactionAddress", addrKey, CurrentTransaction);
+        }
+
+        if (tx.To is not null)
+        {
+            tx.To.Buffer.CopyTo(addrKey);
+            Storage.Delete("ixTransactionAddress", addrKey, CurrentTransaction);
+        }
+    }
+
+    public void DeleteContract(Address contract)
+    {
+        Storage.Delete("Contract", contract.Buffer, CurrentTransaction);
+    }
+
+    public void DeleteContractCode(Address contract)
+    {
+        Storage.Delete("ContractCode", contract.Buffer, CurrentTransaction);
+    }
+
+    public void DeleteContractSnapshot(Address contract, long height)
+    {
+        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
+        contract.Buffer.CopyTo(keyBuf);
+        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
+
+        Storage.Delete("ContractSnapshot", keyBuf, CurrentTransaction);
+    }
+
+    public void DeleteState(long height)
+    {
+        Storage.Delete("ChainState", height.ToKey(), CurrentTransaction);
+    }
+
 }

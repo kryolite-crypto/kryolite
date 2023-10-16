@@ -24,7 +24,7 @@ public class ValidatorRegExecutor : IExecutor
         stake.RewardAddress = tx.To;
         stake.Stake = tx.Value;
 
-        Context.GetRepository().SetStake(tx.From!, stake);
+        Context.GetRepository().SetStake(tx.From!, stake, Context.GetHeight());
         Context.AddEvent(stake.Stake >= Constant.MIN_STAKE ? 
             new ValidatorEnable(tx.From!) :
             new ValidatorDisable(tx.From!)

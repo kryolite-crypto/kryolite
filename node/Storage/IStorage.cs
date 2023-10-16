@@ -12,10 +12,10 @@ public interface IStorage
     ulong GetCurrentKey();
     ulong NextKey(ITransaction? transaction = null);
 
-    bool Exists(string ixName, byte[] key, ITransaction? transaction = null);
+    bool Exists(string ixName, byte[] key);
 
-    byte[]? Get(string ixName, byte[] key, ITransaction? transaction = null);
-    T? Get<T>(string ixName, byte[] key, ITransaction? transaction = null);
+    byte[]? Get(string ixName, byte[] key);
+    T? Get<T>(string ixName, byte[] key);
 
     byte[][] GetMany(string ixName, byte[][] keys);
     List<T> GetMany<T>(string ixName, byte[][] keys);
@@ -32,9 +32,12 @@ public interface IStorage
     List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix, ReadOnlySpan<byte> upperBound);
     List<T> FindAll<T>(string ixName, ReadOnlySpan<byte> keyPrefix);
 
+    T? FindLast<T>(string ixName);
+    byte[]? FindLast(string ixName);
     T? FindLast<T>(string ixName, ReadOnlySpan<byte> keyPrefix);
     byte[]? FindLast(string ixName, ReadOnlySpan<byte> keyPrefix);
     List<byte[]> FindLast(string ixName, int count);
+    List<T> FindLast<T>(string ixName, int count);
     List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix , int count);
 
     List<T> GetAll<T>(string ixName);
@@ -45,4 +48,5 @@ public interface IStorage
     ITransaction BeginTransaction();
     RocksDb Open(string storePath);
     void Close();
+    Checkpoint CreateCheckpoint();
 }

@@ -12,7 +12,7 @@ public class Effect
     [Key(2)]
     public long Value { get; set; }
     [Key(3)]
-    public Address? Contract { get; set; }
+    public Address Contract { get; set; }
     [Key(4)]
     public SHA256Hash? TokenId { get; set; }
     [Key(5)]
@@ -22,6 +22,7 @@ public class Effect
     {
         From = Address.NULL_ADDRESS;
         To = Address.NULL_ADDRESS;
+        Contract = Address.NULL_ADDRESS;
     }
 
     public Effect(Address contract, Address from, Address to, long value, SHA256Hash? tokenId = null, bool consumeToken = false)

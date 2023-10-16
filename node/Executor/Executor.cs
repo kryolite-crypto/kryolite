@@ -38,7 +38,7 @@ public class Executor
         {
             switch (tx.TransactionType)
             {
-                case TransactionType.DEV_FEE:
+                case TransactionType.DEV_REWARD:
                 case TransactionType.STAKE_REWARD:
                 case TransactionType.BLOCK_REWARD:
                 case TransactionType.PAYMENT:
@@ -51,7 +51,7 @@ public class Executor
                         var wallet = Context.GetOrNewWallet(tx.To);
                         wallet.Pending += tx.Value;
                     }
-                    else if (tx.TransactionType == TransactionType.DEV_FEE)
+                    else if (tx.TransactionType == TransactionType.DEV_REWARD)
                     {
                         // Update pending since it will be subtracted later on
                         var wallet = Context.GetOrNewWallet(tx.To);

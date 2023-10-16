@@ -22,6 +22,8 @@ public class Block
     [Key(5)]
     public SHA256Hash Nonce { get; set; } = SHA256Hash.NULL_HASH;
 
+    private bool _isVerified = false;
+
     public SHA256Hash GetHash()
     {
         using var sha256 = SHA256.Create();
@@ -59,6 +61,11 @@ public class Block
 
     public bool VerifyNonce()
     {
+        if (_isVerified)
+        {
+            return true;
+        }
+
         var basehash = GetBaseHash();
         var concat = new Concat
         {
@@ -70,6 +77,12 @@ public class Block
         var target = Difficulty.ToTarget();
         var result = hash.ToBigInteger();
 
-        return result.CompareTo(target) <= 0;
+        if(result.CompareTo(target) <= 0)
+        {
+            _isVerified = true;
+            return true;
+        }
+
+        return false;
     }
 }

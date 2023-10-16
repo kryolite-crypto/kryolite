@@ -18,10 +18,8 @@ public class Contract
     [Key(2)]
     public string Name { get; set; }
     [Key(3)]
-    public long Balance { get; set; }
-    [Key(4)]
     public int? EntryPoint { get; set; }
-    [Key(5)]
+    [Key(4)]
     public ContractManifest Manifest { get; set; }
 
     [IgnoreMember]

@@ -11,10 +11,27 @@ public class ViewResponse : IPacket
 {
     [Key(0)]
     public View? View { get; set; }
+    [Key(1)]
+    public List<Block> Blocks { get; set; }
+    [Key(2)]
+    public List<Vote> Votes { get; set; }
+    [Key(3)]
+    public List<TransactionDto> Transactions { get; set; }
 
     public ViewResponse(View? view)
     {
         View = view;
+        Blocks = new();
+        Votes = new();
+        Transactions = new();
+    }
+
+    public ViewResponse(View? view, List<Block> blocks, List<Vote> votes, List<TransactionDto> transactions)
+    {
+        View = view;
+        Blocks = blocks;
+        Votes = votes;
+        Transactions = transactions;
     }
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
@@ -109,5 +126,17 @@ public class ViewResponse : IPacket
         {
             logger.LogDebug($"[{peer.Uri.ToHostname()}] Failed to apply view");
         }
+    }
+}
+
+[MessagePackObject]
+public class ViewRangeResponse : IPacket
+{
+    [Key(0)]
+    public List<ViewResponse> Views { get; set; } = new();
+
+    public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
+    {
+        throw new NotImplementedException();
     }
 }

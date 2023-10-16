@@ -39,7 +39,7 @@ public class ContractInstallerExecutor : IExecutor
             return ExecutionResult.DUPLICATE_CONTRACT;
         }
 
-        var vmContext = new VMContext(contract, tx, Context.GetRand(), Logger);
+        var vmContext = new VMContext(contract, tx, Context.GetRand(), Logger, 0);
 
         using var vm = KryoVM.LoadFromCode(newContract.Code)
             .WithContext(vmContext);

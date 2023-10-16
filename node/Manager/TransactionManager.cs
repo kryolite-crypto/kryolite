@@ -59,7 +59,7 @@ public abstract class TransactionManager
                     RewardAddress = Address.NULL_ADDRESS
                 };
 
-                Repository.SetStake(validator, stake);
+                Repository.SetStake(validator, stake, 0);
             }
 
             StateCache.SetChainState(chainState);
@@ -82,12 +82,11 @@ public abstract class TransactionManager
 
     protected bool AddViewInternal(View view, bool broadcast, bool castVote)
     {
+        var sw = Stopwatch.StartNew();
         using var dbtx = Repository.BeginTransaction();
 
         try
         {
-            var sw = Stopwatch.StartNew();
-
             var height = view.Id;
 
             var toExecute = new List<Transaction>(StateCache.TransactionCount() + StateCache.GetBlocks().Count + StateCache.GetVotes().Count);
@@ -129,7 +128,9 @@ public abstract class TransactionManager
 
             StateCache.GetBlocks().Clear();
 
-            LogInformation($"Pending votes: {StateCache.GetVotes().Count}");
+            Logger.LogDebug($"Pending votes: {StateCache.GetVotes().Count}");
+
+            var chainState = StateCache.GetCurrentState();
 
             foreach (var votehash in view.Votes)
             {
@@ -192,7 +193,7 @@ public abstract class TransactionManager
                 // TODO: maybe we include this in View hash / signature to prevent tampering?
                 var devFee = new Transaction
                 {
-                    TransactionType = TransactionType.DEV_FEE,
+                    TransactionType = TransactionType.DEV_REWARD,
                     To = Constant.DEV_FEE_ADDRESS,
                     Value = Constant.DEV_REWARD,
                     Timestamp = view.Timestamp
@@ -204,9 +205,6 @@ public abstract class TransactionManager
 
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), totalStake - seedStake, height);
             var executor = ExecutorFactory.Create(context);
-
-            var lastState = Repository.GetChainState();
-            var chainState = StateCache.GetCurrentState();
 
             executor.Execute(toExecute, chainState.CurrentDifficulty);
 
@@ -296,13 +294,7 @@ public abstract class TransactionManager
         
         if (!StateCache.TryGet(block.To, out var to))
         {
-            to = Repository.GetWallet(block.To);
-
-            if (to is null)
-            {
-                to = new Ledger(block.To);
-            }
-
+            to = Repository.GetWallet(block.To) ?? new Ledger(block.To);
             StateCache.Add(to);
         }
 
@@ -347,7 +339,7 @@ public abstract class TransactionManager
             if (from.Balance < tx.Value)
             {
                 tx.ExecutionResult = ExecutionResult.TOO_LOW_BALANCE;
-                LogInformation($"{CHAIN_NAME}AddTransaction rejected (reason = too low balance)");
+                LogInformation($"{CHAIN_NAME}AddTransaction rejected (reason = too low balance, balance = {from.Balance}, value = {tx.Value})");
                 return false;
             }
 
@@ -394,7 +386,7 @@ public abstract class TransactionManager
                 Broadcast(vote);
             }
 
-            LogInformation("Added vote");
+            Logger.LogDebug("Added vote");
 
             return true;
         }

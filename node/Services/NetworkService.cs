@@ -178,49 +178,57 @@ public class NetworkService : BackgroundService
 
     private async Task<List<string>> DownloadPeerList()
     {
-        Logger.LogInformation("Resolving peers from testnet.kryolite.io");
-
-        var result = await LookupClient.QueryAsync("testnet.kryolite.io", QueryType.TXT);
-
-        if (result.HasError)
+        try
         {
-            throw new InvalidOperationException(result.ErrorMessage);
-        }
+            Logger.LogInformation("Resolving peers from testnet.kryolite.io");
 
-        var peers = new List<Uri>();
+            var result = await LookupClient.QueryAsync("testnet.kryolite.io", QueryType.TXT);
 
-        foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
-        {
-            Logger.LogInformation($"Peer: {txtRecord}");
-
-            var uriBuilder = new UriBuilder(txtRecord);
-            peers.Add(uriBuilder.Uri);
-        }
-
-        var ret = new List<string>(peers.Select(x => x.ToHostname()));
-
-        foreach (var peer in peers)
-        {
-            var list = await MeshNetwork.DownloadPeerListAsync(peer);
-
-            if (list.Count > 0)
+            if (result.HasError)
             {
-                Logger.LogInformation($"Downloaded {list.Count} peers from {peer.ToHostname()}");
-
-                foreach (var url in list)
-                {
-                    // Convert to uri to make sure it is valid, wel also want to have string ending with / to be consistent
-                    if (Uri.TryCreate(url, new UriCreationOptions(), out var uri))
-                    {
-                        ret.Add(uri.ToHostname());
-                    }
-                }
-
-                break;
+                throw new InvalidOperationException(result.ErrorMessage);
             }
-        }
 
-        return ret.Distinct().OrderBy(x => Guid.NewGuid()).ToList();
+            var peers = new List<Uri>();
+
+            foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
+            {
+                Logger.LogInformation($"Peer: {txtRecord}");
+
+                var uriBuilder = new UriBuilder(txtRecord);
+                peers.Add(uriBuilder.Uri);
+            }
+
+            var ret = new List<string>(peers.Select(x => x.ToHostname()));
+
+            foreach (var peer in peers)
+            {
+                var list = await MeshNetwork.DownloadPeerListAsync(peer);
+
+                if (list.Count > 0)
+                {
+                    Logger.LogInformation($"Downloaded {list.Count} peers from {peer.ToHostname()}");
+
+                    foreach (var url in list)
+                    {
+                        // Convert to uri to make sure it is valid, wel also want to have string ending with / to be consistent
+                        if (Uri.TryCreate(url, new UriCreationOptions(), out var uri))
+                        {
+                            ret.Add(uri.ToHostname());
+                        }
+                    }
+
+                    break;
+                }
+            }
+
+            return ret.Distinct().OrderBy(x => Guid.NewGuid()).ToList();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to download peer list");
+            return new();
+        }
     }
 
     private async Task DiscoverPeers()

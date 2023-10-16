@@ -27,9 +27,13 @@ public class Transaction : EventBase, IComparable<Transaction>
     public ExecutionResult ExecutionResult { get; set; }
     [Key(8)]
     public List<Effect> Effects { get; set; } = new();
+    [Key(9)]
+    public long Id { get; set; }
 
     [IgnoreMember]
     public Address? From { get => PublicKey.ToAddress(); }
+
+    private bool _isVerified = false;
 
     public Transaction()
     {
@@ -67,6 +71,11 @@ public class Transaction : EventBase, IComparable<Transaction>
 
     public bool Verify()
     {
+        if (_isVerified)
+        {
+            return true;
+        }
+
         var algorithm = new Ed25519();
         using var stream = new MemoryStream();
 
@@ -79,7 +88,14 @@ public class Transaction : EventBase, IComparable<Transaction>
         stream.Flush();
 
         var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, stream.ToArray(), Signature);
+        
+        if(algorithm.Verify(key, stream.ToArray(), Signature))
+        {
+            _isVerified = true;
+            return true;
+        }
+
+        return false;
     }
 
     public SHA256Hash CalculateHash()

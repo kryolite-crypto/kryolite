@@ -42,14 +42,20 @@ namespace Kryolite.Wallet
                     Console.WriteLine("Performing full resync");
                     var storeDir = Path.Join(dataDir, "store");
 
-                    Directory.Delete(storeDir, true);
+                    if (Path.Exists(storeDir))
+                    {
+                        Directory.Delete(storeDir, true);
+                    }
                 }
 
                 if (args.Contains("--force-recreate"))
                 {
                     var renamedTarget = $"{dataDir}-{DateTimeOffset.Now:yyyyMMddhhmmss}";
-                    Directory.Move(dataDir, renamedTarget);
-                    Console.WriteLine($"Rename {dataDir} to {renamedTarget}");
+                    if (Path.Exists(dataDir))
+                    {
+                        Directory.Move(dataDir, renamedTarget);
+                        Console.WriteLine($"Rename {dataDir} to {renamedTarget}");
+                    }
                 }
 
                 Directory.CreateDirectory(dataDir);

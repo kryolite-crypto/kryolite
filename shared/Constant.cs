@@ -5,7 +5,7 @@ namespace Kryolite.Shared;
 public static class Constant
 {
     public const string NETWORK_NAME = "TYTYRI-1";
-    public const int API_LEVEL = 3;
+    public const int API_LEVEL = 4;
     public const int MIN_API_LEVEL = 3;
 
     public const int HEARTBEAT_INTERVAL = 60;

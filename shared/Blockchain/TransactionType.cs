@@ -7,5 +7,5 @@ public enum TransactionType : byte
     STAKE_REWARD,
     CONTRACT,
     REG_VALIDATOR,
-    DEV_FEE
+    DEV_REWARD
 }

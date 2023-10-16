@@ -9,6 +9,7 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Lib.AspNetCore.ServerSentEvents;
 using Microsoft.Extensions.Logging;
+using RocksDbSharp;
 
 namespace Kryolite.Node;
 
@@ -284,12 +285,6 @@ public class StoreManager : TransactionManager, IStoreManager
     public long GetBalance(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-
-        if (address.IsContract())
-        {
-            return Repository.GetContract(address)?.Balance ?? 0;
-        }
-
         return Repository.GetWallet(address)?.Balance ?? 0;
     }
 
@@ -361,6 +356,8 @@ public class StoreManager : TransactionManager, IStoreManager
             throw new Exception(ExecutionResult.CONTRACT_SNAPSHOT_MISSING.ToString());
         }
 
+        var balance = GetBalance(address);
+
         var methodName = $"{call.Method}";
         var method = contract.Manifest.Methods
             .Where(x => x.Name == methodName)
@@ -383,16 +380,14 @@ public class StoreManager : TransactionManager, IStoreManager
             methodParams.AddRange(call.Params);
         }
 
-        var vmContext = new VMContext(contract, new Transaction { To = address }, Random.Shared, Logger);
+        var vmContext = new VMContext(contract, new Transaction { To = address }, Random.Shared, Logger, balance);
 
         var code = Repository.GetContractCode(contract.Address);
 
         using var vm = KryoVM.LoadFromSnapshot(code, snapshot)
             .WithContext(vmContext);
 
-        Console.WriteLine($"Executing contract {contract.Name}:{call.Method}");
         var ret = vm.CallMethod(methodName, methodParams.ToArray(), out var json);
-        Console.WriteLine($"Contract result = {ret}");
 
         return json;
     }
@@ -498,6 +493,12 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterReadLockEx();
         return Repository.GetValidators();
+    }
+
+    public Checkpoint CreateCheckpoint()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.CreateCheckpoint();
     }
 
     public bool LoadStagingChain(string storeName, ChainState newChain, IStateCache newState, List<EventBase> events)

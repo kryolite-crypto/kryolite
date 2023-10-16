@@ -14,6 +14,8 @@ public class Vote
     [Key(2)]
     public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
 
+    private bool _isVerified = false;
+
     public SHA256Hash GetHash()
     {
         using var sha256 = SHA256.Create();
@@ -44,6 +46,11 @@ public class Vote
 
     public bool Verify()
     {
+        if (_isVerified)
+        {
+            return true;
+        }
+
         var algorithm = new Ed25519();
         using var stream = new MemoryStream();
 
@@ -52,6 +59,13 @@ public class Vote
         stream.Flush();
 
         var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
-        return algorithm.Verify(key, stream.ToArray(), Signature);
+        
+        if (algorithm.Verify(key, stream.ToArray(), Signature))
+        {
+            _isVerified = true;
+            return true;
+        }
+
+        return false;
     }
 }

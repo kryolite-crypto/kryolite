@@ -29,7 +29,6 @@ public class ContractExecutor : IExecutor
             }
 
             var contractLedger = Context.GetOrNewWallet(tx.To);
-            contract.Balance = contractLedger.Balance;
 
             if (contract.CurrentSnapshot is null)
             {
@@ -74,7 +73,7 @@ public class ContractExecutor : IExecutor
                 methodParams.AddRange(call.Params);
             }
 
-            var vmContext = new VMContext(contract, tx, Context.GetRand(), Logger);
+            var vmContext = new VMContext(contract, tx, Context.GetRand(), Logger, contractLedger.Balance);
 
             var code = Context.GetRepository().GetContractCode(contract.Address);
 
@@ -146,14 +145,13 @@ public class ContractExecutor : IExecutor
                 {
                     wallet.Balance += effect.Value;
 
-                    var balance = contract.Balance - effect.Value;
+                    var balance = contractLedger.Balance - effect.Value;
 
                     if (balance < 0)
                     {
                         return ExecutionResult.TOO_LOW_BALANCE;
                     }
 
-                    contract.Balance = balance;
                     contractLedger.Balance = balance;
                 }
             }

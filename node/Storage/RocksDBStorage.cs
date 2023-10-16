@@ -3,6 +3,7 @@ using MessagePack;
 using Microsoft.Extensions.Configuration;
 using RocksDbSharp;
 using System.Numerics;
+using System.Runtime.InteropServices;
 
 namespace Kryolite.Node.Storage;
 
@@ -11,22 +12,19 @@ internal class RocksDBStorage : IStorage
     private RocksDb Database { get; set; }
     private Dictionary<string, ColumnFamilyHandle>  ColumnFamilies { get; } = new();
     private ulong CurrentKey = 0;
+    private string StorePath;
 
-    public RocksDBStorage(IConfiguration configuration)
+    public unsafe RocksDBStorage(IConfiguration configuration)
     {
         var dataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-        var storePath = Path.Combine(dataDir, "store");
+        StorePath = Path.Combine(dataDir, "store");
 
-        Database = Open(storePath);
+        Database = Open(StorePath);
     }
 
-    public RocksDBStorage(string storePath, bool forceDelete)
+    public RocksDBStorage(string storePath)
     {
-        if (forceDelete && Directory.Exists(storePath))
-        {
-            Directory.Delete(storePath, true);
-        }
-
+        StorePath = storePath;
         Database = Open(storePath);
     }
 
@@ -35,17 +33,11 @@ internal class RocksDBStorage : IStorage
         var options = new DbOptions()
             .SetCreateIfMissing(true)
             .SetWalDir(storePath)
-            .SetLevelCompactionDynamicLevelBytes(true)
-            .SetBytesPerSync(1048576)
-            .SetMaxBackgroundCompactions(Environment.ProcessorCount)
-            .SetSoftPendingCompactionBytesLimit(49392123904)
-            .SetHardPendingCompactionBytesLimit(98784247808)
             .SetKeepLogFileNum(1);
 
         var opts = new ColumnFamilyOptions()
             .SetCreateIfMissing(true)
-            .SetCreateMissingColumnFamilies(true)
-            .IncreaseParallelism(4);
+            .SetCreateMissingColumnFamilies(true);
 
         if (!Directory.Exists(storePath))
         {
@@ -66,7 +58,7 @@ internal class RocksDBStorage : IStorage
                 db.CreateColumnFamily(opts, "ixViewHash");
                 db.CreateColumnFamily(opts, "ixTokenId");
                 db.CreateColumnFamily(opts, "ixTokenLedger");
-                db.CreateColumnFamily(opts, "ixTransactionNum");
+                db.CreateColumnFamily(opts, "ixTransactionId");
                 db.CreateColumnFamily(opts, "ixTransactionAddress");
             }
         }
@@ -88,11 +80,13 @@ internal class RocksDBStorage : IStorage
             { "ixViewHash", opts },
             { "ixTokenId", opts },
             { "ixTokenLedger", opts },
-            { "ixTransactionNum", opts },
+            { "ixTransactionId", opts },
             { "ixTransactionAddress", opts }
         };
 
         Database = RocksDb.Open(options, storePath, families);
+
+        ColumnFamilies.Clear();
 
         ColumnFamilies.Add("Key", Database.GetColumnFamily("Key"));
         ColumnFamilies.Add("Block", Database.GetColumnFamily("Block"));
@@ -109,7 +103,7 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ixViewHash", Database.GetColumnFamily("ixViewHash"));
         ColumnFamilies.Add("ixTokenId", Database.GetColumnFamily("ixTokenId"));
         ColumnFamilies.Add("ixTokenLedger", Database.GetColumnFamily("ixTokenLedger"));
-        ColumnFamilies.Add("ixTransactionNum", Database.GetColumnFamily("ixTransactionNum"));
+        ColumnFamilies.Add("ixTransactionId", Database.GetColumnFamily("ixTransactionId"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
 
         CurrentKey = InitializeKey();
@@ -128,55 +122,23 @@ internal class RocksDBStorage : IStorage
         return new RocksDBTransaction(Database, this);
     }
 
-    public bool Exists(string ixName, byte[] key, ITransaction? transaction = null)
+    public bool Exists(string ixName, byte[] key)
     {
         var ix = ColumnFamilies[ixName];
-
-        if (transaction is not null)
-        {
-            var res = transaction.GetConnection().Get(key, ix);
-
-            if (res is not null)
-            {
-                return true;
-            }
-        }
-
         return Database.HasKey(key, ix);
     }
 
-    public byte[]? Get(string ixName, byte[] key, ITransaction? transaction = null)
+    public byte[]? Get(string ixName, byte[] key)
     {
         var ix = ColumnFamilies[ixName];
-
-        if (transaction is not null)
-        {
-            var res = transaction.GetConnection().Get(key, ix);
-
-            if (res is not null)
-            {
-                return res;
-            }
-        }
-
         return Database.Get(key, ix) ?? default;
     }
 
-    public T? Get<T>(string ixName, byte[] key, ITransaction? transaction = null)
+    public T? Get<T>(string ixName, byte[] key)
     {
         byte[] result;
 
         var ix = ColumnFamilies[ixName];
-
-        if (transaction is not null)
-        {
-            var res = transaction.GetConnection().Get(key, ix);
-
-            if (res is not null)
-            {
-                return MessagePackSerializer.Deserialize<T>(res);
-            }
-        }
 
         result = Database.Get(key, ix);
 
@@ -443,6 +405,30 @@ internal class RocksDBStorage : IStorage
         return results;
     }
 
+    public List<T> FindLast<T>(string ixName, int count)
+    {
+        var ix = ColumnFamilies[ixName];
+        using var iterator = Database.NewIterator(ix);
+
+        iterator.SeekToLast();
+
+        var results = new List<T>(Math.Max(count, 0));
+
+        while (iterator.Valid())
+        {
+            results.Add(MessagePackSerializer.Deserialize<T>(iterator.Value()));
+
+            if (results.Count == count)
+            {
+                break;
+            }
+
+            iterator.Prev();
+        }
+
+        return results;
+    }
+
     public List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix, int count)
     {
         var ix = ColumnFamilies[ixName];
@@ -476,6 +462,44 @@ internal class RocksDBStorage : IStorage
         }
 
         return results;
+    }
+
+    public T? FindLast<T>(string ixName)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        var readOptions = new ReadOptions();
+        readOptions.SetPrefixSameAsStart(true);
+
+        using var iterator = Database.NewIterator(ix, readOptions);
+
+        iterator.SeekToLast();
+
+        if (!iterator.Valid())
+        {
+            return default(T);
+        }
+
+        return MessagePackSerializer.Deserialize<T>(iterator.Value());
+    }
+
+    public byte[]? FindLast(string ixName)
+    {
+        var ix = ColumnFamilies[ixName];
+
+        var readOptions = new ReadOptions();
+        readOptions.SetPrefixSameAsStart(true);
+
+        using var iterator = Database.NewIterator(ix, readOptions);
+
+        iterator.SeekToLast();
+
+        if (!iterator.Valid())
+        {
+            return null;
+        }
+
+        return iterator.Value();
     }
 
     public T? FindLast<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
@@ -673,8 +697,7 @@ internal class RocksDBStorage : IStorage
 
         var opts = new ColumnFamilyOptions()
             .SetCreateIfMissing(true)
-            .SetCreateMissingColumnFamilies(true)
-            .IncreaseParallelism(4);
+            .SetCreateMissingColumnFamilies(true);
 
         Database.CreateColumnFamily(opts, "Key");
         Database.CreateColumnFamily(opts, "Block");
@@ -712,5 +735,20 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ixTokenLedger", Database.GetColumnFamily("ixTokenLedger"));
         ColumnFamilies.Add("ixTransactionNum", Database.GetColumnFamily("ixTransactionNum"));
         ColumnFamilies.Add("ixTransactionAddress", Database.GetColumnFamily("ixTransactionAddress"));
+    }
+
+    public Checkpoint CreateCheckpoint()
+    {
+        var stagingDirectory = StorePath + ".staging";
+
+        if (Directory.Exists(stagingDirectory))
+        {
+            Directory.Delete(stagingDirectory, true);
+        }
+
+        var checkpoint = Database.Checkpoint();
+        checkpoint.Save(stagingDirectory);
+
+        return checkpoint;
     }
 }

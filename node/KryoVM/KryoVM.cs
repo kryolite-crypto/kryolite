@@ -109,7 +109,7 @@ public class KryoVM : IDisposable
         var ctrPtr = (int?)ctr.GetValue() ?? throw new Exception("Context global ptr not found");
         memory.WriteBuffer(ctrPtr, Context.Contract.Address);
         memory.WriteBuffer(ctrPtr + 26, Context.Contract.Owner);
-        memory.WriteInt64(ctrPtr + 52, (long)Context.Contract.Balance);
+        memory.WriteInt64(ctrPtr + 52, (long)Context.Balance);
 
         var tx = Instance.GetGlobal("_TRANSACTION") ?? throw new Exception("Transaction global not found");
         var txPtr = (int?)tx.GetValue() ?? throw new Exception("Transaction global ptr not found");

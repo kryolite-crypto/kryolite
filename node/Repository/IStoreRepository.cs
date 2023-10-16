@@ -1,6 +1,7 @@
 ﻿using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using RocksDbSharp;
 using System.Numerics;
 
 namespace Kryolite.Node.Repository;
@@ -59,10 +60,21 @@ public interface IStoreRepository
     ITransaction BeginTransaction();
     bool IsValidator(Address address);
     Validator? GetStake(Address address);
-    void SetStake(Address address, Validator stake);
-    void DeleteValidator(Address address);
+    void SetStake(Address address, Validator stake, long height);
+    void DeleteStake(Address address, long height);
     List<Validator> GetValidators();
     void Reset();
     void ReplaceDbFrom(string storeName);
     void Close();
+    Checkpoint CreateCheckpoint();
+    void DeleteBlock(SHA256Hash blockhash);
+    void DeleteVote(SHA256Hash votehash);
+    void DeleteBlocks(List<SHA256Hash> blockhashes);
+    void DeleteVotes(List<SHA256Hash> votehashes);
+    void Delete(View view);
+    void Delete(Transaction tx);
+    void DeleteContract(Address contract);
+    void DeleteContractCode(Address contract);
+    void DeleteContractSnapshot(Address contract, long height);
+    void DeleteState(long height);
 }

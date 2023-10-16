@@ -28,6 +28,8 @@ public class Peer : IDisposable
     private WebSocket Socket { get; }
     private SemaphoreSlim _lock = new SemaphoreSlim(1);
 
+    public bool SupportsRangeDownload => ApiLevel >= 4;
+
     public Peer(WebSocket socket, ulong id, Uri uri, ConnectionType connectionType, bool isReacable, int apiLevel)
     {
         Socket = socket ?? throw new ArgumentNullException(nameof(socket));

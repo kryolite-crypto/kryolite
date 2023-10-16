@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Wasmtime;
@@ -150,20 +151,20 @@ public static class Extensions
         return contract;
     }
 
-   public static Token? TryGetToken(this Dictionary<SHA256Hash, Token> tokens, Address contract, SHA256Hash tokenId, IStoreRepository repository)
+   public static Token? TryGetToken(this Dictionary<(Address, SHA256Hash), Token> tokens, Address contract, SHA256Hash tokenId, IStoreRepository repository)
     {
         if (tokenId == SHA256Hash.NULL_HASH)
         {
             return null;
         }
 
-        if (!tokens.TryGetValue(tokenId, out var token))
+        if (!tokens.TryGetValue((contract, tokenId), out var token))
         {
             token = repository.GetToken(contract, tokenId);
 
             if (token is not null)
             {
-                tokens.Add(tokenId, token);
+                tokens.Add((contract, tokenId), token);
             }
         }
 
