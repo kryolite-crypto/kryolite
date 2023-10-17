@@ -282,7 +282,7 @@ public class StoreManager : TransactionManager, IStoreManager
         return Repository.GetLastNTransctions(address, count);
     }
 
-    public long GetBalance(Address address)
+    public ulong GetBalance(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
         return Repository.GetWallet(address)?.Balance ?? 0;

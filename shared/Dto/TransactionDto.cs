@@ -21,7 +21,7 @@ public class TransactionDto : EventBase
     [Required]
     public Address To { get; init; } = Address.NULL_ADDRESS;
     [Key(3)]
-    public long Value { get; init; }
+    public ulong Value { get; init; }
     [Key(4)]
     public byte[]? Data { get; init; }
     [Key(5)]

@@ -12,7 +12,7 @@ public class Block
     [Key(0)]
     public Address To { get; set; } = Address.NULL_ADDRESS;
     [Key(1)]
-    public long Value { get; init; }
+    public ulong Value { get; init; }
     [Key(2)]
     public long Timestamp { get; init; }
     [Key(3)]

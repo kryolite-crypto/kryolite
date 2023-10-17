@@ -9,9 +9,9 @@ public class Ledger : EventBase
     [Key(0)]
     public Address Address { get; set; }
     [Key(1)]
-    public long Balance { get; set; }
+    public ulong Balance { get; set; }
     [IgnoreMember]
-    public long Pending { get; set; }
+    public ulong Pending { get; set; }
 
     public Ledger()
     {

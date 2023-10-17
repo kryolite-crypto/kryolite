@@ -39,7 +39,7 @@ public class ApiControllerBase : Controller
     }
 
     [HttpGet("balance")]
-    public long GetBalance([BindRequired, FromQuery] string wallet)
+    public ulong GetBalance([BindRequired, FromQuery] string wallet)
     {
         if (!ModelState.IsValid) {
             throw new Exception("invalid parameter (address)");

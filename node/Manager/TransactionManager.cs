@@ -93,8 +93,8 @@ public abstract class TransactionManager
             var toExecute = new List<Transaction>(StateCache.TransactionCount() + StateCache.GetBlocks().Count + StateCache.GetVotes().Count);
             var blocks = new List<Block>(StateCache.GetBlocks().Count);
             var votes = new List<Vote>(StateCache.GetVotes().Count);
-            var totalStake = 0L;
-            var seedStake = 0L;
+            var totalStake = 0UL;
+            var seedStake = 0UL;
 
             foreach (var blockhash in view.Blocks)
             {
@@ -154,10 +154,10 @@ public abstract class TransactionManager
                 if (isSeedValidator)
                 {
                     stakeAmount = Constant.MIN_STAKE;
-                    seedStake += stakeAmount;
+                    seedStake = checked(seedStake + stakeAmount);
                 }
 
-                totalStake += stakeAmount;
+                totalStake = checked(totalStake + stakeAmount);
 
                 if (!isSeedValidator)
                 {

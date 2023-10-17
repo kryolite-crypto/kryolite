@@ -106,7 +106,7 @@ public partial class MainWindow : Window
                 var tm = new TransactionModel
                 {
                     Recipient = x.To!,
-                    Amount = isRecipient ? x.Value : x.Value * -1,
+                    Amount = isRecipient ? (long)x.Value : -(long)x.Value,
                     Timestamp = x.Timestamp
                 };
 
@@ -146,7 +146,7 @@ public partial class MainWindow : Window
                             var tm = new TransactionModel
                             {
                                 Recipient = isSender ? x.From! : x.To!,
-                                Amount = isSender ? x.Value * -1 : x.Value,
+                                Amount = isSender ? -(long)x.Value : (long)x.Value,
                                 Timestamp = x.Timestamp
                             };
 
@@ -157,7 +157,7 @@ public partial class MainWindow : Window
                     toAdd.Add(wm);
                 }
 
-                var balance = toAdd.Sum(x => x.Balance ?? 0);
+                var balance = toAdd.Sum(x => (long)(x.Balance ?? 0));
 
                 var transactions = toAdd
                     .SelectMany(wallet => wallet.Transactions)

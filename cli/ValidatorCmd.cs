@@ -110,7 +110,7 @@ public static class ValidatorCmd
             TransactionType = TransactionType.REG_VALIDATOR,
             PublicKey = keys.PublicKey,
             To = rewardAddress,
-            Value = (long)(stake * Constant.DECIMAL_MULTIPLIER),
+            Value = (ulong)(stake * Constant.DECIMAL_MULTIPLIER),
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 

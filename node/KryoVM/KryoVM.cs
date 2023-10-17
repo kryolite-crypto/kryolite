@@ -238,6 +238,11 @@ public class KryoVM : IDisposable
                 return;
             }
 
+            if (value < 0)
+            {
+                throw new Exception("__transfer: negative value");
+            }
+
             var addr = memory.ReadAddress(address);
 
             if (addr is null) 
@@ -246,7 +251,7 @@ public class KryoVM : IDisposable
                 throw new ExitException(101);
             }
 
-            var balance = checked(Context!.Balance - value);
+            var balance = checked(Context!.Balance - (ulong)value);
 
             if (balance < 0)
             {
@@ -255,7 +260,7 @@ public class KryoVM : IDisposable
             }
 
             Context!.Balance = balance;
-            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, addr, value));
+            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, addr, (ulong)value));
         }));
 
         Linker.Define("env", "__approval", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {

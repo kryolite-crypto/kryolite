@@ -202,6 +202,13 @@ public class StagingManager : TransactionManager, IDisposable
                 continue;
             }
 
+            var rewards = Repository.GetTransactions(view.Rewards);
+
+            foreach (var tx in rewards)
+            {
+                RollbackTransaction(height, ledgers, contracts, tokens, tx);
+            }
+
             var transactions = Repository.GetTransactions(view.Transactions);
 
             // Rollback in reverse order
@@ -209,109 +216,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in transactions)
             {
-                var from = tx.From ?? Address.NULL_ADDRESS;
-                var to = tx.To ?? Address.NULL_ADDRESS;
-
-                var sender = ledgers.TryGetWallet(from, Repository) ?? new Ledger();
-                var recipient = ledgers.TryGetWallet(to, Repository) ?? new Ledger();
-                var contract = to.IsContract() ? contracts.TryGetContract(to, Repository) : null;
-
-                switch (tx.TransactionType)
-                {
-                    case TransactionType.BLOCK_REWARD:
-                    case TransactionType.STAKE_REWARD:
-                    case TransactionType.DEV_REWARD:
-                    {
-                        checked
-                        {
-                            recipient.Balance -= tx.Value;
-                        }
-                    }
-                    break;
-                    case TransactionType.PAYMENT:
-                    {
-                        checked
-                        {
-                            sender.Balance += tx.Value;
-                            recipient.Balance -= tx.Value;
-                        }
-                    }
-                    break;
-                    case TransactionType.CONTRACT:
-                    {
-                        checked
-                        {
-                            sender.Balance += tx.Value;
-                            recipient.Balance -= tx.Value;
-                        }
-
-                        Repository.DeleteContractSnapshot(to, height);
-                        Repository.DeleteContractCode(to);
-                        Repository.DeleteContract(to);
-
-                        contracts.Remove(to);
-                    }
-                    break;
-                    case TransactionType.REG_VALIDATOR:
-                    {
-                        checked
-                        {
-                            sender.Balance += tx.Value;
-                        }
-
-                        Repository.DeleteStake(from, height);
-                    }
-                    break;
-                }
-
-                if (contract is not null)
-                {
-                    foreach (var effect in tx.Effects)
-                    {
-                        var eRecipient = ledgers.TryGetWallet(effect.To, Repository);
-
-                        recipient.Balance = checked(recipient.Balance + effect.Value);
-
-                        if (eRecipient is not null)
-                        {
-                            eRecipient.Balance = checked(recipient.Balance - effect.Value);
-                        }
-
-                        if (effect.TokenId is null)
-                        {
-                            continue;
-                        }
-
-                        var token = tokens.TryGetToken(effect.Contract, effect.TokenId, Repository);
-
-                        if (token is null)
-                        {
-                            continue;
-                        }
-
-                        // revert token consume
-                        if (effect.ConsumeToken)
-                        {
-                            token.IsConsumed = false;
-                            continue;
-                        }
-
-                        // if effect originates from contract it was minted
-                        if (effect.From == effect.Contract)
-                        {
-                            Repository.DeleteToken(token);
-                            tokens.Remove((token.Contract, token.TokenId));
-                            continue;
-                        }
-
-                        // this is a transfer, update owner
-                        token.Ledger = effect.From;
-                    }
-
-                    Repository.DeleteContractSnapshot(to, height);
-                }
-
-                Repository.Delete(tx);
+                RollbackTransaction(height, ledgers, contracts, tokens, tx);
             }
 
             Repository.DeleteBlocks(view.Blocks);
@@ -327,6 +232,105 @@ public class StagingManager : TransactionManager, IDisposable
         dbtx.Commit();
 
         StateCache.SetChainState(Repository.GetChainState() ?? new ChainState());
+    }
+
+    private void RollbackTransaction(long height, Dictionary<Address, Ledger> ledgers, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, Transaction tx)
+    {
+        var from = tx.From ?? Address.NULL_ADDRESS;
+        var to = tx.To ?? Address.NULL_ADDRESS;
+
+        var sender = ledgers.TryGetWallet(from, Repository) ?? new Ledger();
+        var recipient = ledgers.TryGetWallet(to, Repository) ?? new Ledger();
+        var contract = to.IsContract() ? contracts.TryGetContract(to, Repository) : null;
+
+        switch (tx.TransactionType)
+        {
+            case TransactionType.BLOCK_REWARD:
+            case TransactionType.STAKE_REWARD:
+            case TransactionType.DEV_REWARD:
+                checked
+                {
+                    recipient.Balance -= tx.Value;
+                }
+                break;
+            case TransactionType.PAYMENT:
+                checked
+                {
+                    sender.Balance += tx.Value;
+                    recipient.Balance -= tx.Value;
+                }
+                break;
+            case TransactionType.CONTRACT:
+                checked
+                {
+                    sender.Balance += tx.Value;
+                    recipient.Balance -= tx.Value;
+                }
+
+                Repository.DeleteContractSnapshot(to, height);
+                Repository.DeleteContractCode(to);
+                Repository.DeleteContract(to);
+
+                contracts.Remove(to);
+                break;
+            case TransactionType.REG_VALIDATOR:
+                checked
+                {
+                    sender.Balance += tx.Value;
+                }
+
+                Repository.DeleteStake(from, height);
+                break;
+        }
+
+        if (contract is not null)
+        {
+            foreach (var effect in tx.Effects)
+            {
+                var eRecipient = ledgers.TryGetWallet(effect.To, Repository);
+
+                recipient.Balance = checked(recipient.Balance + effect.Value);
+
+                if (eRecipient is not null)
+                {
+                    eRecipient.Balance = checked(recipient.Balance - effect.Value);
+                }
+
+                if (effect.TokenId is null)
+                {
+                    continue;
+                }
+
+                var token = tokens.TryGetToken(effect.Contract, effect.TokenId, Repository);
+
+                if (token is null)
+                {
+                    continue;
+                }
+
+                // revert token consume
+                if (effect.ConsumeToken)
+                {
+                    token.IsConsumed = false;
+                    continue;
+                }
+
+                // if effect originates from contract it was minted
+                if (effect.From == effect.Contract)
+                {
+                    Repository.DeleteToken(token);
+                    tokens.Remove((token.Contract, token.TokenId));
+                    continue;
+                }
+
+                // this is a transfer, update owner
+                token.Ledger = effect.From;
+            }
+
+            Repository.DeleteContractSnapshot(to, height);
+        }
+
+        Repository.Delete(tx);
     }
 
     public ITransaction BeginTransaction()

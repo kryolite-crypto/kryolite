@@ -105,7 +105,7 @@ public static class SendCmd
                 TransactionType = TransactionType.PAYMENT,
                 PublicKey = wallet.PublicKey,
                 To = to,
-                Value = (long)(amount * Constant.DECIMAL_MULTIPLIER),
+                Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
             };

@@ -12,11 +12,11 @@ public class VMContext
     public ILogger Logger { get; }
     public Random Rand { get; set; }
     public List<object> EventData { get; set; } = new ();
-    public long Balance { get; set; }
+    public ulong Balance { get; set; }
     public string? Returns { get; set; }
     public List<EventBase> Events { get; set; } = new ();
 
-    public VMContext(Contract contract, Transaction transaction, Random rand, ILogger logger, long balance)
+    public VMContext(Contract contract, Transaction transaction, Random rand, ILogger logger, ulong balance)
     {
         Contract = contract ?? throw new ArgumentNullException(nameof(contract));
         Transaction = transaction ?? throw new ArgumentNullException(nameof(transaction));

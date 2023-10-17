@@ -32,7 +32,7 @@ public class Executor
             return;
         }
 
-        Context.SetRand(Context.GetTotalStake());
+        Context.SetRand((long)Context.GetTotalStake());
 
         foreach (var tx in transactions)
         {
@@ -45,7 +45,7 @@ public class Executor
                     if (tx.TransactionType == TransactionType.STAKE_REWARD)
                     {
                         // tx.Value contains full stake at this point, update to actual reward
-                        tx.Value = (long)Math.Floor(Constant.VALIDATOR_REWARD * (tx.Value / (double)Context.GetTotalStake()));
+                        tx.Value = (ulong)Math.Floor(Constant.VALIDATOR_REWARD * (tx.Value / (double)Context.GetTotalStake()));
 
                         // Update pending since it will be subtracted later on
                         var wallet = Context.GetOrNewWallet(tx.To);

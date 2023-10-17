@@ -16,7 +16,7 @@ public interface IExecutorContext
     void SetRand(long seed);
 
     View GetLastView();
-    public long GetTotalStake();
+    public ulong GetTotalStake();
     public long GetHeight();
 
     Contract? GetContract(Address? address);

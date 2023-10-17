@@ -10,8 +10,8 @@ namespace Kryolite.Wallet;
 public class WalletModel : NotifyPropertyChanged
 {
     private string? description;
-    private long? balance;
-    private long? pending;
+    private ulong? balance;
+    private ulong? pending;
 
     public Address Address { get; set; } = new Address();
     public PublicKey PublicKey { get; set; } = new PublicKey();
@@ -24,13 +24,13 @@ public class WalletModel : NotifyPropertyChanged
     }
 
 
-    public long? Balance { 
+    public ulong? Balance { 
         get => balance;
         set => RaisePropertyChanged(ref balance, value);
     }
 
 
-    public long? Pending
+    public ulong? Pending
     {
         get => pending;
         set => RaisePropertyChanged(ref pending, value);

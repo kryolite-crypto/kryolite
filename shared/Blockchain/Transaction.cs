@@ -16,7 +16,7 @@ public class Transaction : EventBase, IComparable<Transaction>
     [Key(2)]
     public Address To { get; set; } = Address.NULL_ADDRESS;
     [Key(3)]
-    public long Value { get; set; }
+    public ulong Value { get; set; }
     [Key(4)]
     public byte[]? Data { get; init; }
     [Key(5)]

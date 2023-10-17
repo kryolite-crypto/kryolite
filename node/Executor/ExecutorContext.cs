@@ -10,14 +10,14 @@ public class ExecutorContext : IExecutorContext
     public IStoreRepository Repository { get; }
     private Dictionary<Address, Ledger> Wallets { get; }
     public View View { get; }
-    private long TotalStake { get; }
+    private ulong TotalStake { get; }
     private long Height { get; }
     private Dictionary<Address, Contract> Contracts { get; } = new();
     private Dictionary<(Address contract, SHA256Hash tokenId), Token> Tokens { get; } = new();
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
 
-    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, View view, long totalStake, long height)
+    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, View view, ulong totalStake, long height)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
@@ -31,7 +31,7 @@ public class ExecutorContext : IExecutorContext
         return Rand;
     }
 
-    public long GetTotalStake()
+    public ulong GetTotalStake()
     {
         return TotalStake;
     }

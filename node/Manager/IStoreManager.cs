@@ -41,7 +41,7 @@ public interface IStoreManager
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
-    long GetBalance(Address address);
+    ulong GetBalance(Address address);
     void ResetChain();
     Contract? GetContract(Address address);
     List<Ledger> GetRichList(int count);

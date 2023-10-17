@@ -65,7 +65,7 @@ public partial class SendTab : UserControl
                 TransactionType = TransactionType.PAYMENT,
                 PublicKey = Model.SelectedWallet.PublicKey,
                 To = Model.Recipient,
-                Value = (long)(decimal.Parse(Model.Amount) * 1000000),
+                Value = (ulong)(decimal.Parse(Model.Amount) * 1000000),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Data = payload
             };

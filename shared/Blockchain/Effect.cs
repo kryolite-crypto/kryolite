@@ -10,7 +10,7 @@ public class Effect
     [Key(1)]
     public Address To { get; set; }
     [Key(2)]
-    public long Value { get; set; }
+    public ulong Value { get; set; }
     [Key(3)]
     public Address Contract { get; set; }
     [Key(4)]
@@ -25,7 +25,7 @@ public class Effect
         Contract = Address.NULL_ADDRESS;
     }
 
-    public Effect(Address contract, Address from, Address to, long value, SHA256Hash? tokenId = null, bool consumeToken = false)
+    public Effect(Address contract, Address from, Address to, ulong value, SHA256Hash? tokenId = null, bool consumeToken = false)
     {
         From = from ?? throw new ArgumentNullException(nameof(from));
         To = to ?? throw new ArgumentNullException(nameof(to));
