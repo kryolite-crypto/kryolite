@@ -204,6 +204,9 @@ public class StagingManager : TransactionManager, IDisposable
 
             var rewards = Repository.GetTransactions(view.Rewards);
 
+            // Rollback in reverse order
+            rewards.Reverse();
+
             foreach (var tx in rewards)
             {
                 RollbackTransaction(height, ledgers, contracts, tokens, tx);

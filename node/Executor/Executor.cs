@@ -25,7 +25,7 @@ public class Executor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public void Execute(IEnumerable<Transaction> transactions, Difficulty currentDifficulty)
+    public void Execute(IEnumerable<Transaction> transactions, View view)
     {
         if (transactions.Count() == 0)
         {
@@ -50,12 +50,20 @@ public class Executor
                         // Update pending since it will be subtracted later on
                         var wallet = Context.GetOrNewWallet(tx.To);
                         wallet.Pending += tx.Value;
+
+                        view.Rewards.Add(tx.CalculateHash());
                     }
                     else if (tx.TransactionType == TransactionType.DEV_REWARD)
                     {
                         // Update pending since it will be subtracted later on
                         var wallet = Context.GetOrNewWallet(tx.To);
                         wallet.Pending += tx.Value;
+
+                        view.Rewards.Add(tx.CalculateHash());
+                    }
+                    else if (tx.TransactionType == TransactionType.BLOCK_REWARD)
+                    {
+                        view.Rewards.Add(tx.CalculateHash());
                     }
 
                     tx.ExecutionResult = TransactionExecutor.Execute(tx);

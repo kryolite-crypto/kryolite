@@ -112,7 +112,6 @@ public abstract class TransactionManager
                     Timestamp = view.Timestamp
                 };
 
-                view.Rewards.Add(blockReward.CalculateHash());
                 toExecute.Add(blockReward);
 
                 blocks.Add(block);
@@ -170,7 +169,6 @@ public abstract class TransactionManager
                         Timestamp = view.Timestamp
                     };
 
-                    view.Rewards.Add(voteReward.CalculateHash());
                     toExecute.Add(voteReward);
                 }
 
@@ -201,13 +199,12 @@ public abstract class TransactionManager
                 };
 
                 toExecute.Add(devFee);
-                view.Rewards.Add(devFee.CalculateHash());
             }
 
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetCurrentView(), totalStake - seedStake, height);
             var executor = ExecutorFactory.Create(context);
 
-            executor.Execute(toExecute, chainState.CurrentDifficulty);
+            executor.Execute(toExecute, view);
 
             chainState.ViewHash = view.GetHash();
             chainState.Id++;

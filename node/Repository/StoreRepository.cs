@@ -168,6 +168,11 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetTransactions(List<SHA256Hash> transactionIds)
     {
+        if (transactionIds.Count == 0)
+        {
+            return new();
+        }
+
         var keys = Storage.GetMany("ixTransactionId", transactionIds.Select(x => x.Buffer).ToArray());
         return Storage.GetMany<Transaction>("Transaction", keys);
     }
