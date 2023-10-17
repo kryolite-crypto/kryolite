@@ -534,10 +534,7 @@ public class StoreManager : TransactionManager, IStoreManager
         StateCache.SetView(newState.GetCurrentView());
         StateCache.SetChainState(newState.GetCurrentState());
 
-        foreach (var ev in events)
-        {
-            EventBus.Publish(ev);
-        }
+        EventBus.Publish(events);
 
         Logger.LogInformation("Chain restored from staging");
         return true;
@@ -566,5 +563,10 @@ public class StoreManager : TransactionManager, IStoreManager
     public override void Publish(EventBase ev)
     {
         EventBus.Publish(ev);
+    }
+
+    public override void Publish(List<EventBase> events)
+    {
+        EventBus.Publish(events);
     }
 }

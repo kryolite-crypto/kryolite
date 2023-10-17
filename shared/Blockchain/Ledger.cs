@@ -1,4 +1,3 @@
-using System.Data.Common;
 using Kryolite.EventBus;
 using MessagePack;
 

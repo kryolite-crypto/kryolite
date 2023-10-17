@@ -44,7 +44,7 @@ public class EventBus : IEventBus
         }
     }
 
-    public void Publish<TEvent>(TEvent ev) where TEvent : EventBase
+    public async Task Publish<TEvent>(TEvent ev) where TEvent : EventBase
     {
         var subs = new List<ISubscription>();
 
@@ -58,7 +58,15 @@ public class EventBus : IEventBus
 
         foreach (var sub in subs)
         {
-            _ = Task.Run(() => sub.Publish(ev));
+            await Task.Run(() => sub.Publish(ev));
+        }
+    }
+
+    public async Task Publish<TEvent>(List<TEvent> events) where TEvent : EventBase
+    {
+        foreach (var ev in events)
+        {
+            await Publish(ev);
         }
     }
 

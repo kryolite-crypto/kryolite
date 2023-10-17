@@ -157,6 +157,11 @@ public class StagingManager : TransactionManager, IDisposable
         Events.Add(ev);
     }
 
+    public override void Publish(List<EventBase> events)
+    {
+        Events.AddRange(events);
+    }
+
     public void DisableLogging()
     {
         loggingDisabled = true;

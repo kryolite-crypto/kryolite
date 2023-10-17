@@ -35,6 +35,7 @@ public abstract class TransactionManager
     public abstract void Broadcast(Vote vote);
 
     public abstract void Publish(EventBase ev);
+    public abstract void Publish(List<EventBase> events);
     public abstract string CHAIN_NAME { get; }
 
     public bool AddGenesis(View view)
@@ -242,7 +243,16 @@ public abstract class TransactionManager
                 AddVoteInternal(vote, true);
             }
 
+            dbtx.Commit();
+
+            if (broadcast)
+            {
+                Broadcast(view);
+            }
+
             Publish(chainState);
+            Publish(StateCache.GetLedgers().Values.Select(x => (EventBase)x).ToList());
+            Publish(context.GetEvents());
 
             foreach (var ledger in StateCache.GetLedgers().Values)
             {
@@ -250,23 +260,9 @@ public abstract class TransactionManager
                 {
                     StateCache.GetLedgers().Remove(ledger.Address);
                 }
-
-                Publish(ledger);
             }
-
-            foreach (var ev in context.GetEvents())
-            {
-                Publish(ev);
-            }
-
-            dbtx.Commit();
 
             StateCache.SetView(view);
-
-            if (broadcast)
-            {
-                Broadcast(view);
-            }
 
             sw.Stop();
             LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count}] [Blocks = {blocks.Count}] [Votes = {votes.Count}] [Next difficulty = {chainState.CurrentDifficulty}]");
