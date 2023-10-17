@@ -49,6 +49,8 @@ public class ViewRequestByHash : IPacket
         var view = blockchainManager.GetView(ViewHash);
         var response = new ViewResponse(view);
 
+        view?.Rewards.Clear();
+
         if (IncludeAll && view is not null)
         {
             response.Blocks = blockchainManager.GetBlocks(view.Blocks);
@@ -108,6 +110,8 @@ public class ViewRequestById : IPacket
         var view = blockchainManager.GetView(Id);
         var response = new ViewResponse(view);
 
+        view?.Rewards.Clear();
+
         if (IncludeAll && view is not null)
         {
             response.Blocks = blockchainManager.GetBlocks(view.Blocks);
@@ -158,6 +162,8 @@ public class ViewRequestByRange : IPacket
             {
                 break;
             }
+
+            view.Rewards.Clear();
 
             var response = new ViewResponse(view)
             {

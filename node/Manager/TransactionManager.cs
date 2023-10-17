@@ -88,6 +88,9 @@ public abstract class TransactionManager
 
         try
         {
+            // make sure there are no leftover rewards from other nodes
+            view.Rewards.Clear();
+
             var height = view.Id;
 
             var toExecute = new List<Transaction>(StateCache.TransactionCount() + StateCache.GetBlocks().Count + StateCache.GetVotes().Count);
