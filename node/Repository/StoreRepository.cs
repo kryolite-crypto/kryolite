@@ -201,12 +201,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         if (view.Transactions.Count > 0)
         {
-            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", view.Transactions.Select(x => x.Buffer).ToArray()));
+            var keys = Storage.GetMany("ixTransactionId", view.Transactions.Select(x => x.Buffer).ToArray());
+            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", keys));
         }
 
         if (view.Rewards.Count > 0)
         {
-            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", view.Rewards.Select(x => x.Buffer).ToArray()));
+            var keys = Storage.GetMany("ixTransactionId", view.Rewards.Select(x => x.Buffer).ToArray());
+            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", keys));
         }
 
         return transactions;
