@@ -46,6 +46,7 @@ public interface IStoreManager
     Contract? GetContract(Address address);
     List<Ledger> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
+    List<Transaction> GetTransactionsAtHeight(long height);
     Transaction? GetTransactionForHash(SHA256Hash hash);
     Ledger? GetLedger(Address address);
     string? CallContractMethod(Address address, CallMethod call);

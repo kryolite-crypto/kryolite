@@ -226,6 +226,31 @@ public class ApiControllerBase : Controller
         });
     }
 
+    [HttpGet("view/height/{height}")]
+    public IActionResult GetView(long height)
+    {
+        var view = blockchainManager.GetView(height);
+
+        if (view is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(new
+        {
+            Id = view.Id,
+            Timestamp = view.Timestamp,
+            LastHash = view.LastHash,
+            PublicKey = view.PublicKey,
+            From = view.PublicKey.ToAddress(),
+            Signature = view.Signature,
+            Transactions = view.Transactions,
+            Rewards = view.Rewards,
+            Votes = view.Votes,
+            Blocks = view.Blocks
+        });
+    }
+
     [HttpGet("block/{hash}")]
     public IActionResult GetBlock(string hash)
     {
@@ -293,14 +318,7 @@ public class ApiControllerBase : Controller
     [HttpGet("tx/height/{height}")]
     public IActionResult GetTransactions([FromRoute(Name = "height")] long height)
     {
-        var view = blockchainManager.GetView(height);
-
-        if (view is null)
-        {
-            return Ok(new List<Transaction>());
-        }
-
-        var txs = blockchainManager.GetTransactions(view.Transactions).Select(tx => new
+        var txs = blockchainManager.GetTransactionsAtHeight(height).Select(tx => new
         {
             TransactionId = tx.CalculateHash(),
             TransactionType = tx.TransactionType,

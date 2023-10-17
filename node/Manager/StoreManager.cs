@@ -501,6 +501,12 @@ public class StoreManager : TransactionManager, IStoreManager
         return Repository.CreateCheckpoint();
     }
 
+    public List<Transaction> GetTransactionsAtHeight(long height)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetTransactionsAtHeight(height);
+    }
+
     public bool LoadStagingChain(string storeName, ChainState newChain, IStateCache newState, List<EventBase> events)
     {
         using var _ = rwlock.EnterWriteLockEx();
