@@ -11,6 +11,7 @@ using System.Net.Sockets;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Reflection;
 using Kryolite.Node.Repository;
+using Kryolite.Shared;
 
 namespace Kryolite.Daemon;
 
@@ -45,7 +46,9 @@ internal class Program
             Directory.CreateDirectory(dataDir);
         }
 
-        if (args.Contains("--resync"))
+        var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
+
+        if (args.Contains("--resync") || !Path.Exists(versionPath))
         {
             Console.WriteLine("Performing full resync");
             var storeDir = Path.Join(dataDir, "store");

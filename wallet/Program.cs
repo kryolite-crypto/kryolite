@@ -12,6 +12,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Linq;
+using Kryolite.Shared;
 
 namespace Kryolite.Wallet
 {
@@ -37,7 +38,9 @@ namespace Kryolite.Wallet
                     Directory.CreateDirectory(dataDir);
                 }
 
-                if (args.Contains("--resync"))
+                var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
+
+                if (args.Contains("--resync") || !Path.Exists(versionPath))
                 {
                     Console.WriteLine("Performing full resync");
                     var storeDir = Path.Join(dataDir, "store");

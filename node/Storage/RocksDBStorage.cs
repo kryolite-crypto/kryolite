@@ -14,12 +14,19 @@ internal class RocksDBStorage : IStorage
     private ulong CurrentKey = 0;
     private string StorePath;
 
-    public unsafe RocksDBStorage(IConfiguration configuration)
+    public RocksDBStorage(IConfiguration configuration)
     {
         var dataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         StorePath = Path.Combine(dataDir, "store");
 
         Database = Open(StorePath);
+
+        var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
+
+        if (!File.Exists(versionPath))
+        {
+            File.WriteAllText(versionPath, Constant.STORE_VERSION);
+        }
     }
 
     public RocksDBStorage(string storePath)
