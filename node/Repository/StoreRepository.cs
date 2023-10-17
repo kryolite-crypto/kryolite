@@ -571,7 +571,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void DeleteVote(SHA256Hash votehash)
     {
-        Storage.Put("Vote", votehash, CurrentTransaction);
+        Storage.Delete("Vote", votehash, CurrentTransaction);
     }
 
     public void DeleteBlocks(List<SHA256Hash> blockhashes)
