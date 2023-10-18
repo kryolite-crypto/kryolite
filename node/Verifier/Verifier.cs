@@ -39,12 +39,6 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (tx.To is null || tx.To == Address.NULL_ADDRESS)
-        {
-            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address not set)");
-            return false;
-        }
-
         var success = VerifyByTransactionType(tx);
         tx.ExecutionResult = success ? ExecutionResult.PENDING : ExecutionResult.VERIFY_FAILED;
         return success;
@@ -207,7 +201,7 @@ public class Verifier : IVerifier
             case TransactionType.PAYMENT:
                 return VerifyPayment(tx);
             case TransactionType.CONTRACT:
-                return true;
+                return VerifyContract(tx);
             case TransactionType.REG_VALIDATOR:
                 return VerifyValidatorRegisteration(tx);
             default:
@@ -217,6 +211,12 @@ public class Verifier : IVerifier
 
     private bool VerifyPayment(Transaction tx)
     {
+        if (tx.To is null || tx.To == Address.NULL_ADDRESS)
+        {
+            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address not set)");
+            return false;
+        }
+
         if (!tx.To.IsContract())
         {
             if (tx.Value == 0)
@@ -230,6 +230,18 @@ public class Verifier : IVerifier
                 Logger.LogInformation("Payment verification failed (reason = extra data payload)");
                 return false;
             }
+        }
+
+        return true;
+    }
+
+    private bool VerifyContract(Transaction tx)
+    {
+        // TODO: Actually verify to address points to the contract address
+        if (tx.To is null || tx.To == Address.NULL_ADDRESS || !tx.To.IsContract())
+        {
+            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address not set)");
+            return false;
         }
 
         return true;
@@ -255,6 +267,13 @@ public class Verifier : IVerifier
         if (Constant.SEED_VALIDATORS.Contains(tx.From!))
         {
             Logger.LogInformation($"Validator registeration verification failed (reason = sender is seed validator)");
+            return false;
+        }
+
+        // If we are setting stake we need to have recipient address
+        if (tx.Value >= Constant.MIN_STAKE && (tx.To is null || tx.To == Address.NULL_ADDRESS))
+        {
+            Logger.LogInformation($"Validator registeration verification failed (reason = reward recipient not set)");
             return false;
         }
 
