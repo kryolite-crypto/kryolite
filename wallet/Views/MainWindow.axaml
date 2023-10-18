@@ -14,7 +14,8 @@
         Title="Kryolite Wallet"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
-        ExtendClientAreaToDecorationsHint="True">
+        ExtendClientAreaToDecorationsHint="True"
+        Icon="/Assets/kryolite.png">
     <NativeMenu.Menu>
         <NativeMenu>
             <NativeMenuItem Header="File">
@@ -56,7 +57,7 @@
         <DockPanel>
             <Panel DockPanel.Dock="Top">
                 <NativeMenuBar Width="180" HorizontalAlignment="Left"/>
-                <TextBlock Text="Kryolite Wallet" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                <TextBlock IsVisible="{Binding IsWindows}" Text="Kryolite Wallet" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
             </Panel>
 
             <DockPanel DockPanel.Dock="Bottom">

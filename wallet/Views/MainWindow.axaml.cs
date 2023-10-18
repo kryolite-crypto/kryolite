@@ -6,15 +6,12 @@ using Avalonia.Threading;
 using System.Threading.Tasks.Dataflow;
 using System.Collections.ObjectModel;
 using System.Linq;
-using Avalonia;
 using System.Collections.Generic;
 using System.Reactive.Linq;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
-using System.Diagnostics;
 using Kryolite.Shared;
 using System.Collections.Concurrent;
-using Avalonia.Logging;
 using Kryolite.EventBus;
 
 namespace Kryolite.Wallet;

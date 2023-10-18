@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.Collections.Generic;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared;
+using System.Runtime.InteropServices;
 
 namespace Kryolite.Wallet;
 
@@ -18,6 +19,8 @@ public class MainWindowViewModel : NotifyPropertyChanged
     private long pending;
     private List<TransactionModel> transactions = new List<TransactionModel>();
     private ObservableCollection<WalletModel> wallets = new ObservableCollection<WalletModel>();
+
+    public bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
 
     public long Blocks
     {
