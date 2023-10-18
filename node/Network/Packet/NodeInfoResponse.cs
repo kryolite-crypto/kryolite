@@ -33,9 +33,18 @@ public class NodeInfoResponse : IPacket
         if (peer.IsSyncInProgress)
         {
             // Do not request chain sync if previous sync is ongoing
-            logger.LogInformation($"Sync in progress {peer.Uri.ToHostname()}");
+            logger.LogDebug($"Sync in progress {peer.Uri.ToHostname()}");
             return;
         }
+
+        if (peer.IsForked && blockchainManager.GetView(LastHash) is null)
+        {
+            // do not sync from peers marked as forked
+            logger.LogDebug($"Ignore peer due to fork {peer.Uri.ToHostname()}");
+            return;
+        }
+
+        peer.IsForked = false;
 
         var chainState = blockchainManager.GetChainState();
 

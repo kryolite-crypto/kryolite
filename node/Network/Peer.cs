@@ -23,6 +23,7 @@ public class Peer : IDisposable
     public bool IsReachable { get; set; }
     public int ApiLevel { get; private init; }
     public bool IsSyncInProgress { get; set; }
+    public bool IsForked { get; set; }
     public ConcurrentDictionary<ulong, TaskCompletionSource<Reply>> ReplyQueue = new();
 
     private WebSocket Socket { get; }

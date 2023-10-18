@@ -109,12 +109,15 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                 Logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
 
                 var i = commonHeight + 1;
+                var brokenChain = false;
 
                 while(true)
                 {
                     if (peer.SupportsRangeDownload)
                     {
-                        if(await DownloadViewRange(peer, i, staging))
+                        (var completed, brokenChain) = await DownloadViewRange(peer, i, staging);
+
+                        if(completed)
                         {
                             break;
                         }
@@ -123,13 +126,20 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                     }
                     else
                     {
-                        if(await DownloadView(peer, i, staging))
+                        (var completed, brokenChain) = await DownloadView(peer, i, staging);
+
+                        if(completed)
                         {
                             break;
                         }
 
                         i++;
                     }
+                }
+
+                if (brokenChain)
+                {
+                    peer.IsForked = true;
                 }
 
                 newState = staging.GetChainState();
@@ -215,13 +225,13 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         return heightResponse.CommonHeight;
     }
 
-    private async Task<bool> DownloadViewRange(Peer peer, long id, StagingManager staging)
+    private async Task<(bool Completed, bool BrokenChain)> DownloadViewRange(Peer peer, long id, StagingManager staging)
     {
         var result = await peer.PostAsync(new ViewRequestByRange(id, BATCH_SIZE));
 
         if (result is null || result.Payload is not ViewRangeResponse responses)
         {
-            return true;
+            return (true, false);
         }
 
         var pResult = Parallel.ForEach(responses.Views.SelectMany(x => x.Blocks), (block, state) =>
@@ -234,7 +244,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
         if (!pResult.IsCompleted)
         {
-            return true;
+            return (true, true);
         }
 
         pResult = Parallel.ForEach(responses.Views.SelectMany(x => x.Votes), (vote, state) =>
@@ -247,44 +257,44 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
         if (!pResult.IsCompleted)
         {
-            return true;
+            return (true, true);
         }
 
         foreach (var response in responses.Views)
         {
             if (!staging.LoadBlocks(response.Blocks))
             {
-                return true;
+                return (true, true);
             }
             
             if (!staging.LoadVotes(response.Votes))
             {
-                return true;
+                return (true, true);
             }
 
             if (!staging.LoadTransactions(response.Transactions))
             {
-                return true;
+                return (true, true);
             }
 
             if (!staging.LoadView(response.View!))
             {
-                return true;
+                return (true, true);
             }
         }
 
         // if count is less than batch size we found the tip of chain!
-        return responses.Views.Count < BATCH_SIZE;
+        return (responses.Views.Count < BATCH_SIZE, false);
     }
 
-    private async Task<bool> DownloadView(Peer peer, long id, StagingManager staging)
+    private async Task<(bool Completed, bool BrokenChain)> DownloadView(Peer peer, long id, StagingManager staging)
     {
         var result = await peer.PostAsync(new ViewRequestById(id, false, true));
 
         if (result is null || result.Payload is not ViewResponse response || response.View is null)
         {
             Logger.LogDebug($"Found tip of chain at height {id - 1}");
-            return true;
+            return (true, false);
         }
 
         if (response.Blocks is null)
@@ -307,25 +317,25 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         
         if (!staging.LoadBlocks(response.Blocks))
         {
-            return true;
+            return (true, true);
         }
         
         if (!staging.LoadVotes(response.Votes))
         {
-            return true;
+            return (true, true);
         }
 
         if (!staging.LoadTransactions(response.Transactions))
         {
-            return true;
+            return (true, true);
         }
 
         if (!staging.LoadView(response.View))
         {
-            return true;
+            return (true, true);
         }
 
-        return false;
+        return (false, false);
     }
 
     public async Task DownloadBlocks(Peer peer, ViewResponse response)

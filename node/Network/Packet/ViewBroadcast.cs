@@ -38,6 +38,14 @@ public class ViewBroadcast : IPacket
             return;
         }
 
+        if (peer.IsForked && storeManager.GetView(LastHash) is null)
+        {
+            logger.LogDebug("Ignoring ViewBroadcast, peer has fork");
+            return;
+        }
+
+        peer.IsForked = false;
+
         logger.LogDebug($"Received ViewBroadcast from {peer.Uri.ToHostname()}");
 
         var chainState = storeManager.GetChainState();
