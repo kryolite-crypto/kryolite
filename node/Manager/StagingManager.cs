@@ -209,7 +209,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in rewards)
             {
-                RollbackTransaction(height, ledgers, contracts, tokens, tx);
+                RollbackTransaction(i, ledgers, contracts, tokens, tx);
             }
 
             var transactions = Repository.GetTransactions(view.Transactions);
@@ -219,7 +219,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in transactions)
             {
-                RollbackTransaction(height, ledgers, contracts, tokens, tx);
+                RollbackTransaction(i, ledgers, contracts, tokens, tx);
             }
 
             Repository.DeleteBlocks(view.Blocks);
@@ -239,12 +239,29 @@ public class StagingManager : TransactionManager, IDisposable
 
     private void RollbackTransaction(long height, Dictionary<Address, Ledger> ledgers, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, Transaction tx)
     {
+        if (tx.ExecutionResult != ExecutionResult.SUCCESS)
+        {
+            // failed contract execution has already refunded this tx
+            return;
+        }
+
         var from = tx.From ?? Address.NULL_ADDRESS;
         var to = tx.To ?? Address.NULL_ADDRESS;
 
         var sender = ledgers.TryGetWallet(from, Repository) ?? new Ledger();
         var recipient = ledgers.TryGetWallet(to, Repository) ?? new Ledger();
         var contract = to.IsContract() ? contracts.TryGetContract(to, Repository) : null;
+
+        if (contract is not null)
+        {
+            // Note: effects need to be rolled back before transaction
+            foreach (var effect in tx.Effects)
+            {
+                RollbackEffect(effect, recipient, ledgers, tokens);
+            }
+
+            Repository.DeleteContractSnapshot(to, height);
+        }
 
         switch (tx.TransactionType)
         {
@@ -277,63 +294,60 @@ public class StagingManager : TransactionManager, IDisposable
                 contracts.Remove(to);
                 break;
             case TransactionType.REG_VALIDATOR:
+                Repository.DeleteStake(from, height);
+                var newStake = Repository.GetStakeAtHeight(from, height);
+
                 checked
                 {
                     sender.Balance += tx.Value;
+                    sender.Balance -= newStake?.Stake ?? 0;
                 }
-
-                Repository.DeleteStake(from, height);
                 break;
         }
 
-        if (contract is not null)
+        Repository.Delete(tx);
+    }
+
+    private void RollbackEffect(Effect effect, Ledger recipient, Dictionary<Address, Ledger> ledgers, Dictionary<(Address, SHA256Hash), Token> tokens)
+    {
+        var eRecipient = ledgers.TryGetWallet(effect.To, Repository);
+
+        recipient.Balance = checked(recipient.Balance + effect.Value);
+
+        if (eRecipient is not null)
         {
-            foreach (var effect in tx.Effects)
-            {
-                var eRecipient = ledgers.TryGetWallet(effect.To, Repository);
-
-                recipient.Balance = checked(recipient.Balance + effect.Value);
-
-                if (eRecipient is not null)
-                {
-                    eRecipient.Balance = checked(recipient.Balance - effect.Value);
-                }
-
-                if (effect.TokenId is null)
-                {
-                    continue;
-                }
-
-                var token = tokens.TryGetToken(effect.Contract, effect.TokenId, Repository);
-
-                if (token is null)
-                {
-                    continue;
-                }
-
-                // revert token consume
-                if (effect.ConsumeToken)
-                {
-                    token.IsConsumed = false;
-                    continue;
-                }
-
-                // if effect originates from contract it was minted
-                if (effect.From == effect.Contract)
-                {
-                    Repository.DeleteToken(token);
-                    tokens.Remove((token.Contract, token.TokenId));
-                    continue;
-                }
-
-                // this is a transfer, update owner
-                token.Ledger = effect.From;
-            }
-
-            Repository.DeleteContractSnapshot(to, height);
+            eRecipient.Balance = checked(eRecipient.Balance - effect.Value);
         }
 
-        Repository.Delete(tx);
+        if (effect.TokenId is null)
+        {
+            return;
+        }
+
+        var token = tokens.TryGetToken(effect.Contract, effect.TokenId, Repository);
+
+        if (token is null)
+        {
+            return;
+        }
+
+        // revert token consume
+        if (effect.ConsumeToken)
+        {
+            token.IsConsumed = false;
+            return;
+        }
+
+        // if effect originates from contract it was minted
+        if (effect.From == effect.Contract)
+        {
+            Repository.DeleteToken(token);
+            tokens.Remove((token.Contract, token.TokenId));
+            return;
+        }
+
+        // this is a transfer, update owner
+        token.Ledger = effect.From;
     }
 
     public ITransaction BeginTransaction()

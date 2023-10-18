@@ -38,8 +38,8 @@ public interface IStorage
     byte[]? FindLast(string ixName, ReadOnlySpan<byte> keyPrefix);
     List<byte[]> FindLast(string ixName, int count);
     List<T> FindLast<T>(string ixName, int count);
-    List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix , int count);
-
+    List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix, int count);
+    Iterator GetIterator(string ixName, ReadOptions? readOpts = null);
     List<T> GetAll<T>(string ixName);
     List<byte[]> GetRange(string ixName, int count, int toSkip);
     List<T> GetRange<T>(string ixName, int count, int toSkip);

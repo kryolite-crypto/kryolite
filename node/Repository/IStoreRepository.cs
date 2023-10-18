@@ -60,6 +60,7 @@ public interface IStoreRepository
     ITransaction BeginTransaction();
     bool IsValidator(Address address);
     Validator? GetStake(Address address);
+    Validator? GetStakeAtHeight(Address address, long height);
     void SetStake(Address address, Validator stake, long height);
     void DeleteStake(Address address, long height);
     List<Validator> GetValidators();

@@ -581,6 +581,12 @@ internal class RocksDBStorage : IStorage
         return results;
     }
 
+    public Iterator GetIterator(string ixName, ReadOptions? readOpts = null)
+    {
+        var ix = ColumnFamilies[ixName];
+        return Database.NewIterator(ix, readOpts);
+    }
+
     public ulong GetCurrentKey()
     {
         return CurrentKey;

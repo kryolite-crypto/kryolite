@@ -94,7 +94,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
 
                 if (findCommonHeight)
                 {
-                    commonHeight = await FindCommonHeight(staging, peer);
+                    // commonHeight = await FindCommonHeight(staging, peer);
                 }
 
                 var stagingHeight = staging.GetChainState()?.Id;

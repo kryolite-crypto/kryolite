@@ -479,9 +479,41 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.FindLast<Validator>("Validator", address.Buffer);
     }
 
+    public Validator? GetStakeAtHeight(Address address, long height)
+    {
+        var key = new byte[Address.ADDRESS_SZ + sizeof(long)];
+        address.Buffer.CopyTo(key, 0);
+        height.ToKey().CopyTo(key, Address.ADDRESS_SZ);
+
+        var lowerBound = new byte[Address.ADDRESS_SZ + sizeof(long)];
+        address.Buffer.CopyTo(lowerBound, 0);
+
+        var opts = new ReadOptions();
+        opts.SetIterateLowerBound(lowerBound);
+        opts.SetIterateUpperBound(key);
+
+        using var iterator = Storage.GetIterator("Validator", opts);
+
+        iterator.SeekForPrev(key);
+
+        if (!iterator.Valid())
+        {
+            return null;
+        }
+
+        var addr = (Address)iterator.Key()[0..Address.ADDRESS_SZ];
+
+        if (addr != address)
+        {
+            return null;
+        }
+
+        return MessagePackSerializer.Deserialize<Validator>(iterator.Value());
+    }
+
     public void SetStake(Address address, Validator stake, long height)
     {
-        Span<byte> keyBuf = stackalloc byte[address.Buffer.Length + sizeof(long)];
+        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
         address.Buffer.CopyTo(keyBuf);
         height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
         Storage.Put("Validator", keyBuf, stake, CurrentTransaction);
@@ -489,7 +521,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void DeleteStake(Address address, long height)
     {
-        Span<byte> keyBuf = stackalloc byte[address.Buffer.Length + sizeof(long)];
+        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
         address.Buffer.CopyTo(keyBuf);
         height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
         Storage.Delete("Validator", keyBuf, CurrentTransaction);
@@ -497,11 +529,25 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Validator> GetValidators()
     {
-        var validators = Storage.GetAll<Validator>("Validator");
+        var validators = new Dictionary<Address, Validator>();
 
-        return validators
-            .Where(x => Constant.SEED_VALIDATORS.Contains(x.NodeAddress) || x.Stake >= Constant.MIN_STAKE)
-            .DistinctBy(x => x.NodeAddress)
+        using var iterator = Storage.GetIterator("Validator");
+
+        iterator.SeekToLast();
+
+        while (iterator.Valid())
+        {
+            var addr = (Address)iterator.Key().AsSpan().Slice(0, Address.ADDRESS_SZ);
+
+            if (!validators.ContainsKey(addr))
+            {
+                validators.Add(addr, MessagePackSerializer.Deserialize<Validator>(iterator.Value()));
+            }
+
+            iterator.Prev();
+        }
+
+        return validators.Values
             .OrderByDescending(x => x.Stake)
             .ToList();
     }
