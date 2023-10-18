@@ -513,6 +513,10 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void SetStake(Address address, Validator stake, long height)
     {
+        if (address != stake.NodeAddress)
+        {
+            Console.WriteLine("SAVING STAKE WITH WRONG ADDRESS");
+        }
         Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
         address.Buffer.CopyTo(keyBuf);
         height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
@@ -541,7 +545,16 @@ public class StoreRepository : IStoreRepository, IDisposable
 
             if (!validators.ContainsKey(addr))
             {
-                validators.Add(addr, MessagePackSerializer.Deserialize<Validator>(iterator.Value()));
+                var validator = MessagePackSerializer.Deserialize<Validator>(iterator.Value());
+                validators.Add(addr, validator);
+
+                if (addr != validators[addr].NodeAddress)
+                {
+                    Console.WriteLine("Address mismatch");
+                    Console.WriteLine(addr);
+                    Console.WriteLine(validator.NodeAddress);
+                    Console.WriteLine(validators[addr].NodeAddress);
+                }
             }
 
             iterator.Prev();

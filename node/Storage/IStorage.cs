@@ -29,7 +29,6 @@ public interface IStorage
 
     List<byte[]> FindAll(string ixName);
     List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix);
-    List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix, ReadOnlySpan<byte> upperBound);
     List<T> FindAll<T>(string ixName, ReadOnlySpan<byte> keyPrefix);
 
     T? FindLast<T>(string ixName);
