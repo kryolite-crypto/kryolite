@@ -575,4 +575,10 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         EventBus.Publish(events);
     }
+
+    public List<Transaction> GetVotesForAddress(Address address, int count)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetVotesForAddress(address, count);
+    }
 }

@@ -20,9 +20,12 @@ public class ValidatorRegExecutor : IExecutor
     public ExecutionResult Execute(Transaction tx)
     {
         var stake = Context.GetRepository().GetStake(tx.From!) ?? new Validator { NodeAddress = tx.From! };
+        var ledger = Context.GetOrNewWallet(stake.NodeAddress);
 
-        stake.RewardAddress = tx.To;
+        ledger.Balance = checked (ledger.Balance + stake.Stake - tx.Value);
+
         stake.Stake = tx.Value;
+        stake.RewardAddress = tx.To;
 
         Context.GetRepository().SetStake(tx.From!, stake, Context.GetHeight());
         Context.AddEvent(stake.Stake >= Constant.MIN_STAKE ? 

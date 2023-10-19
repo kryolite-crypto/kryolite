@@ -54,6 +54,7 @@ public interface IStoreRepository
     void UpdateTokens(IEnumerable<Token> tokens);
     void DeleteToken(Token token);
     List<Transaction> GetTransactions(Address address);
+    List<Transaction> GetVotesForAddress(Address address, int count);
     Token? GetToken(Address contract, SHA256Hash tokenId);
     List<Token> GetTokens(Address from);
     List<Token> GetContractTokens(Address contractAddress);

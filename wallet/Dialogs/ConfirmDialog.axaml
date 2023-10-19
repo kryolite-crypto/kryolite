@@ -3,17 +3,16 @@
         xmlns:vm="using:Kryolite.Wallet"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d"
-        Width="600"
-        Height="400"
-		    x:DataType="vm:LogViewerDialogViewModel"
-        x:Class="Kryolite.Wallet.LogViewerDialog"
-        Title="Log Viewer"
+        x:Class="Kryolite.Wallet.ConfirmDialog"
+        Title="Confirm"
+        SizeToContent="WidthAndHeight"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
-        ExtendClientAreaToDecorationsHint="True">
+        ExtendClientAreaToDecorationsHint="True"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/kryolite.png">
     <Panel>
         <ExperimentalAcrylicBorder IsHitTestVisible="False">
             <ExperimentalAcrylicBorder.Material>
@@ -24,17 +23,12 @@
                     MaterialOpacity="0.65" />
             </ExperimentalAcrylicBorder.Material>
         </ExperimentalAcrylicBorder>
-
-        <DockPanel>
-            <Panel DockPanel.Dock="Top">
-                <TextBlock Margin="0, 6, 0, 6" Text="Log Viewer" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
-            </Panel>
-          <AvaloniaEdit:TextEditor Name="LogBox"
-                         IsReadOnly="True"
-                         FontFamily="Andale Mono,Consolas,Monospace"
-                         FontSize="12"
-                         TextChanged="ScrollToBottom"
-                         DockPanel.Dock="Bottom"/>
+        <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5, 5, 5, 5" Spacing="10">
+                <Button Width="60" HorizontalContentAlignment="Center" Click="Ok">Ok</Button>
+                <Button Width="60" HorizontalContentAlignment="Center" Click="Cancel">Cancel</Button>
+            </StackPanel>
+            <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center" x:Name="TextContainer" Margin="10, 20, 20, 20" DockPanel.Dock="Top" />
         </DockPanel>
     </Panel>
 </Window>

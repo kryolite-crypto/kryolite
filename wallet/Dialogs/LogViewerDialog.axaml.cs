@@ -62,7 +62,7 @@ public partial class LogViewerDialog : Window
         };
     }
 
-    public void ScrollToBottom(object? sender, EventArgs args)
+    public void ScrollToBottom(object sender, EventArgs args)
     {
         if (sender is not TextEditor logBox)
         {

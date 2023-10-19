@@ -74,15 +74,15 @@
               <TabItem Header="Addresses" VerticalContentAlignment="Center">
                 <vm:AddressesTab/>
               </TabItem>
-              <TabItem Header="Tokens" VerticalContentAlignment="Center">
-                <vm:TokensTab/>
-              </TabItem>
               <TabItem Header="Send" VerticalContentAlignment="Center">
                 <vm:SendTab/>
               </TabItem>
-              <!--TabItem Header="Validator" VerticalContentAlignment="Center">
+              <TabItem Header="Tokens" VerticalContentAlignment="Center">
+                <vm:TokensTab/>
+              </TabItem>
+              <TabItem Header="Validator" VerticalContentAlignment="Center">
                 <vm:ValidatorTab/>
-              </TabItem-->
+              </TabItem>
             </TabControl>
         </DockPanel>
     </Panel>

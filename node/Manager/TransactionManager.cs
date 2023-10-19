@@ -166,6 +166,7 @@ public abstract class TransactionManager
                     var voteReward = new Transaction
                     {
                         TransactionType = TransactionType.STAKE_REWARD,
+                        PublicKey = vote.PublicKey,
                         To = stake.RewardAddress,
                         Value = stakeAmount, // Executor will update this to final value!!
                         Data = votehash,
@@ -416,11 +417,6 @@ public abstract class TransactionManager
             {
                 LogInformation($"{CHAIN_NAME}AddValidatorReg rejected (reason = too low balance)");
                 return false;
-            }
-
-            checked
-            {
-                from.Balance = balance - tx.Value;
             }
 
             StateCache.Add(tx);

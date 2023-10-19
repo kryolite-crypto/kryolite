@@ -613,6 +613,52 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Open(activeStore);
     }
 
+    public List<Transaction> GetVotesForAddress(Address address, int count)
+    {
+        var key = new byte[Address.ADDRESS_SZ + sizeof(long)];
+        Array.Fill(key, (byte)255);
+        address.Buffer.CopyTo(key, 0);
+
+        var lowerBound = new byte[Address.ADDRESS_SZ + sizeof(long)];
+        address.Buffer.CopyTo(lowerBound, 0);
+
+        var opts = new ReadOptions();
+        opts.SetIterateLowerBound(lowerBound);
+
+        using var iterator = Storage.GetIterator("ixTransactionAddress", opts);
+
+        iterator.SeekForPrev(key);
+
+        var results = new List<Transaction>(count);
+
+        while (iterator.Valid())
+        {
+            var id = iterator.Value();
+            var tx = Storage.Get<Transaction>("Transaction", id);
+
+            iterator.Prev();
+
+            if (tx is null)
+            {
+                continue;
+            }
+
+            if (tx.TransactionType != TransactionType.STAKE_REWARD)
+            {
+                continue;
+            }
+
+            results.Add(tx);
+
+            if (results.Count >= count)
+            {
+                break;
+            }
+        }
+
+        return results;
+    }
+
     public void Close()
     {
         Storage.Close();

@@ -17,10 +17,12 @@ public static class ValidatorCmd
         var validatorCmd = new Command("validator", "Manage Validator service");
         var statusCmd = new Command("status", "Query validator status");
         var enableCmd = new Command("enable", "Enable validator");
+        var updateCmd = new Command("enable", "Update stake or reward address");
         var disableCmd = new Command("disable", "Disable validator");
 
         validatorCmd.AddCommand(statusCmd);
         validatorCmd.AddCommand(enableCmd);
+        validatorCmd.AddCommand(updateCmd);
         validatorCmd.AddCommand(disableCmd);
 
         var stakeArg = new Argument<decimal>(name: "STAKE", description: "Amount to stake")
@@ -88,6 +90,11 @@ public static class ValidatorCmd
             await SendValidatorReg(node, stake, rewardAddress, configuration);
         }, nodeOption, stakeArg, rewardAddressArg);
 
+        updateCmd.SetHandler(async (node, stake, rewardAddress) =>
+        {
+            await SendValidatorReg(node, stake, rewardAddress, configuration);
+        }, nodeOption, stakeArg, rewardAddressArg);
+
         disableCmd.SetHandler(async (node) =>
         {
             await SendValidatorReg(node, 0, Address.NULL_ADDRESS, configuration);
@@ -98,7 +105,7 @@ public static class ValidatorCmd
 
     private static async Task SendValidatorReg(string? node, decimal stake, Address rewardAddress, IConfiguration configuration)
     {
-        node = node ?? await ZeroConf.DiscoverNodeAsync();
+        node ??= await ZeroConf.DiscoverNodeAsync();
 
         var repository = new KeyRepository(configuration);
         var keys = repository.GetKey();

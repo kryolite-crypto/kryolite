@@ -1,0 +1,41 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Kryolite.Wallet"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        mc:Ignorable="d"
+        Width="600"
+        Height="400"
+		    x:DataType="vm:LogViewerDialogViewModel"
+        x:Class="Kryolite.Wallet.LogViewerDialog"
+        Title="Log Viewer"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        Icon="/Assets/kryolite.png">
+    <Panel>
+        <ExperimentalAcrylicBorder IsHitTestVisible="False">
+            <ExperimentalAcrylicBorder.Material>
+                <ExperimentalAcrylicMaterial
+                    BackgroundSource="Digger"
+                    TintColor="Black"
+                    TintOpacity="0.8"
+                    MaterialOpacity="0.65" />
+            </ExperimentalAcrylicBorder.Material>
+        </ExperimentalAcrylicBorder>
+
+        <DockPanel>
+            <Panel DockPanel.Dock="Top">
+                <TextBlock Margin="0, 6, 0, 6" Text="Log Viewer" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+            </Panel>
+          <AvaloniaEdit:TextEditor Name="LogBox"
+                         IsReadOnly="True"
+                         FontFamily="Andale Mono,Consolas,Monospace"
+                         FontSize="12"
+                         TextChanged="ScrollToBottom"
+                         DockPanel.Dock="Bottom"/>
+        </DockPanel>
+    </Panel>
+</Window>

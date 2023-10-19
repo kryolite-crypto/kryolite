@@ -32,6 +32,7 @@ public interface IStoreManager
     List<Vote> GetVotes(List<SHA256Hash> votehashes);
     List<Transaction> GetTransactions(List<SHA256Hash> transactionIds);
     List<Vote> GetVotesAtHeight(long height);
+    List<Transaction> GetVotesForAddress(Address address, int count);
     ICollection<Block> GetPendingBlocks();
     ICollection<Vote> GetPendingVotes();
     ICollection<Transaction> GetPendingTransactions();

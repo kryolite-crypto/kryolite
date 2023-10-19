@@ -13,6 +13,7 @@ using Kryolite.Node;
 using Kryolite.Shared;
 using System.Collections.Concurrent;
 using Kryolite.EventBus;
+using Avalonia;
 
 namespace Kryolite.Wallet;
 
@@ -40,13 +41,13 @@ public partial class MainWindow : Window
         AvaloniaXamlLoader.Load(this);
 
 #if DEBUG
-        // this.AttachDevTools();
+        this.AttachDevTools();
 #endif
         Wallets = new (WalletManager.GetWallets());
 
         DataContext = Model;
 
-        this.Opened += OnInitialized;
+        Opened += OnInitialized;
 
         Model.ViewLogClicked += (object? sender, EventArgs args) => {
             var dialog = new LogViewerDialog();
