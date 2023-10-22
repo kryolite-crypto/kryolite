@@ -160,6 +160,15 @@ public class Verifier : IVerifier
             }
         }
 
+        foreach (var tx in view.Transactions)
+        {
+            if (!StateCache.GetTransactions().ContainsKey(tx))
+            {
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = tx not found)");
+                return false;
+            }
+        }
+
         return true;
     }
 

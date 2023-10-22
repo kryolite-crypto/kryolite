@@ -370,7 +370,7 @@ public class ApiControllerBase : Controller
                 var viewHash = view.GetHash();
 
                 graph.AddVertex(viewHash);
-                types.Add(viewHash, view.Id % 5 == 0 ? "milestone" : "view");
+                types.TryAdd(viewHash, view.Id % 5 == 0 ? "milestone" : "view");
 
                 bool hasConnection = false;
 
@@ -385,7 +385,7 @@ public class ApiControllerBase : Controller
                         graph.AddVertex(blockhash);
                         graph.AddEdge(new Edge<SHA256Hash>(block.LastHash, blockhash));
                         graph.AddEdge(new Edge<SHA256Hash>(blockhash, viewHash));
-                        types.Add(blockhash, "block");
+                        types.TryAdd(blockhash, "block");
 
                         hasConnection = true;
                     }
@@ -402,7 +402,7 @@ public class ApiControllerBase : Controller
                         graph.AddVertex(votehash);
                         graph.AddEdge(new Edge<SHA256Hash>(vote.ViewHash, votehash));
                         graph.AddEdge(new Edge<SHA256Hash>(votehash, viewHash));
-                        types.Add(votehash, "vote");
+                        types.TryAdd(votehash, "vote");
 
                         hasConnection = true;
                     }
@@ -416,7 +416,7 @@ public class ApiControllerBase : Controller
 
                     graph.AddVertex(txid);
                     graph.AddEdge(new Edge<SHA256Hash>(viewHash, txid));
-                    types.Add(txid, "tx");
+                    types.TryAdd(txid, "tx");
                 }
 
                 if (!hasConnection && graph.ContainsVertex(view.LastHash))
