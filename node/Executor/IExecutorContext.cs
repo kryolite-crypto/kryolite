@@ -1,12 +1,9 @@
-﻿using Kryolite.EventBus;
+﻿using System.Diagnostics.CodeAnalysis;
+using Kryolite.EventBus;
+using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Kryolite.Node.Executor;
 
@@ -35,4 +32,10 @@ public interface IExecutorContext
     void Save();
 
     void AddEvent(EventBase ev);
+    bool TryGetValidator(Address address, [NotNullWhen(true)]out Validator? validator);
+    void AddValidator(Validator validator);
+
+    ValidatorCache Validators { get; }
+    WalletCache Ledger { get; }
+    Transfer Transfer { get; }
 }

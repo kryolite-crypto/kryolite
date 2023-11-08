@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Xml.Linq;
 using MessagePack;
 
 namespace Kryolite.Shared;
@@ -37,6 +36,7 @@ public record struct Difficulty
 public static class DifficultyExtensions
 {
     public readonly static BigInteger TARGET_MAX = new BigInteger(new byte[32] {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}, true, true);
+    public readonly static BigInteger TARGET_MIN = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
 
     public static BigInteger ToTarget(this Difficulty difficulty)
     {
@@ -74,5 +74,17 @@ public static class DifficultyExtensions
             b2 = bytes[1],
             b3 = bytes[0]
         };
+    }
+
+    public static Difficulty AdjustDifficulty(this Difficulty currentDifficulty, int blockCount)
+    {
+        var currentTarget = currentDifficulty.ToWork();
+        var totalWork = currentTarget * blockCount;
+        var maxChange = TARGET_MIN * 4;
+
+        var delta = BigInteger.Max(totalWork - currentTarget, -maxChange);
+        var newTarget = currentTarget + BigInteger.Min(delta, maxChange);
+
+        return BigInteger.Max(TARGET_MIN, newTarget).ToDifficulty();
     }
 }

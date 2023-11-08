@@ -161,25 +161,6 @@ public class StoreManager : TransactionManager, IStoreManager
         }
     }
 
-    public ExecutionResult AddValidatorReg(TransactionDto txDto, bool broadcast)
-    {
-        using var _ = rwlock.EnterWriteLockEx();
-
-        var tx = new Transaction(txDto);
-
-        if (!Verifier.Verify(tx))
-        {
-            return ExecutionResult.VERIFY_FAILED;
-        }
-
-        if(AddValidatorRegInternal(tx, broadcast))
-        {
-            NotificationService.SendEventAsync("VALIDATOR_REG");
-        }
-
-        return tx.ExecutionResult;
-    }
-
     public bool AddVote(Vote vote, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
@@ -238,7 +219,7 @@ public class StoreManager : TransactionManager, IStoreManager
         var block = new Block
         {
             To = wallet,
-            Value = Constant.BLOCK_REWARD,
+            Value = RewardCalculator.BlockReward(chainState.Id),
             Timestamp = timestamp,
             LastHash = chainState.ViewHash,
             Difficulty = chainState.CurrentDifficulty
@@ -335,12 +316,12 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterReadLockEx();
 
-        if (StateCache.TryGet(address, out var ledger))
+        if (StateCache.GetLedgers().TryGetWallet(address, Repository, out var ledger))
         {
             return ledger;
         }
 
-        return Repository.GetWallet(address);
+        return null;
     }
     
     public string? CallContractMethod(Address address, CallMethod call)

@@ -5,7 +5,8 @@
                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                 xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                x:Class="Kryolite.Wallet.SendTab">
+                x:Class="Kryolite.Wallet.SendTab"
+                x:DataType="vm:SendTabViewModel">
 
   <UserControl.Styles>
     <Style Selector="vm|GroupBox">
@@ -47,7 +48,7 @@
               <Border Grid.Row="0"
                 BorderBrush="{TemplateBinding BorderBrush}"
                 BorderThickness="0, 0.51, 0, 0"
-                Margin="{Binding Width, ElementName=HeaderContent, Path=Bounds, Converter={StaticResource WidthToMarginConverter}}"/>
+                Margin="{ReflectionBinding Width, ElementName=HeaderContent, Path=Bounds, Converter={StaticResource WidthToMarginConverter}}"/>
               
               <Border Grid.Row="1"
                       Margin="0,-9,0,0"
@@ -88,13 +89,13 @@
                     <Setter Property="Margin" Value="0, 0, 0, 0"/>
                 </Style>
             </StackPanel.Styles-->
-        <ComboBox Width="420" ItemsSource="{Binding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
+        <ComboBox Width="420" ItemsSource="{ReflectionBinding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
           <ComboBox.ItemTemplate>
             <DataTemplate>
               <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">
-                <TextBlock Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" Grid.Row="0" Grid.Column="0"/>
-                <TextBlock Text="{Binding Description}" IsVisible="{Binding Description, Converter={StaticResource NotEmptyConverter}}" Grid.Row="1" Grid.Column="0"/>
-                <TextBlock Text="{Binding Address, Converter={StaticResource AddressConverter}}" IsVisible="{Binding Description, Converter={StaticResource EmptyConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                <TextBlock Text="{ReflectionBinding Balance, Converter={StaticResource CurrencyConverter}}" Grid.Row="0" Grid.Column="0"/>
+                <TextBlock Text="{ReflectionBinding Description}" IsVisible="{ReflectionBinding Description, Converter={StaticResource NotEmptyConverter}}" Grid.Row="1" Grid.Column="0"/>
+                <TextBlock Text="{ReflectionBinding Address, Converter={StaticResource AddressConverter}}" IsVisible="{ReflectionBinding Description, Converter={StaticResource EmptyConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
               </Grid>
             </DataTemplate>
           </ComboBox.ItemTemplate>

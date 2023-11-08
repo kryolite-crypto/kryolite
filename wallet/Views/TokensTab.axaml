@@ -5,7 +5,8 @@
              xmlns:vm="using:Kryolite.Wallet"
              xmlns:material="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="Kryolite.Wallet.TokensTab">
+             x:Class="Kryolite.Wallet.TokensTab"
+             x:DataType="vm:TokensTabViewModel">
   <DockPanel Margin="20">
     <DataGrid Name="TokensGrid" ItemsSource="{Binding Tokens}" AutoGenerateColumns="False" DockPanel.Dock="Top">
       <DataGrid.Styles>

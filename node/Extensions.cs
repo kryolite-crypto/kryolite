@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
@@ -111,63 +112,99 @@ public static class Extensions
         return IsLinkLocal() || IsClassA() || IsClassB() || IsClassC();
     }
 
-    public static Ledger? TryGetWallet(this Dictionary<Address, Ledger> ledger, Address address, IStoreRepository repository)
+    public static bool TryGetWallet(this Dictionary<Address, Ledger> ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Ledger? wallet)
     {
+        wallet = null;
+
         if (address == Address.NULL_ADDRESS)
         {
-            return null;
+            return false;
         }
 
-        if (!ledger.TryGetValue(address, out var wallet))
+        if (!ledger.TryGetValue(address, out wallet))
         {
             wallet = repository.GetWallet(address);
 
-            if (wallet is not null)
+            if (wallet is null)
             {
-                ledger.Add(address, wallet);
+                return false;
             }
+
+            ledger.Add(address, wallet);
         }
 
-        return wallet;
+        return true;
     }
 
-   public static Contract? TryGetContract(this Dictionary<Address, Contract> ledger, Address address, IStoreRepository repository)
+   public static bool TryGetContract(this Dictionary<Address, Contract> ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Contract? contract)
     {
+        contract = null;
+
         if (address == Address.NULL_ADDRESS)
         {
-            return null;
+            return false;
         }
 
-        if (!ledger.TryGetValue(address, out var contract))
+        if (!ledger.TryGetValue(address, out contract))
         {
             contract = repository.GetContract(address);
 
-            if (contract is not null)
+            if (contract is null)
             {
-                ledger.Add(address, contract);
+                return false;
             }
+
+            ledger.Add(address, contract);
         }
 
-        return contract;
+        return true;
     }
 
-   public static Token? TryGetToken(this Dictionary<(Address, SHA256Hash), Token> tokens, Address contract, SHA256Hash tokenId, IStoreRepository repository)
+    public static bool TryGetToken(this Dictionary<(Address, SHA256Hash), Token> tokens, Address contract, SHA256Hash tokenId, IStoreRepository repository, [NotNullWhen(true)] out Token? token)
     {
+        token = null;
+
         if (tokenId == SHA256Hash.NULL_HASH)
         {
-            return null;
+            return false;
         }
 
-        if (!tokens.TryGetValue((contract, tokenId), out var token))
+        if (!tokens.TryGetValue((contract, tokenId), out token))
         {
             token = repository.GetToken(contract, tokenId);
 
-            if (token is not null)
+            if (token is null)
             {
-                tokens.Add((contract, tokenId), token);
+                return false;
             }
+
+            tokens.Add((contract, tokenId), token);
         }
 
-        return token;
+        return true;
+    }
+
+    public static bool TryGetValidator(this Dictionary<Address, Validator> validators, Address address, IStoreRepository repository, [NotNullWhen(true)] out Validator? validator)
+    {
+        validator = null;
+
+        if (address == Address.NULL_ADDRESS)
+        {
+            return false;
+        }
+
+        if (!validators.TryGetValue(address, out validator))
+        {
+            validator = repository.GetStake(address);
+
+            if (validator is null)
+            {
+                return false;
+            }
+
+            validators.Add(address, validator);
+        }
+
+        return true;
     }
 }

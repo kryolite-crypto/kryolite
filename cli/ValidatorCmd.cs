@@ -17,7 +17,7 @@ public static class ValidatorCmd
         var validatorCmd = new Command("validator", "Manage Validator service");
         var statusCmd = new Command("status", "Query validator status");
         var enableCmd = new Command("enable", "Enable validator");
-        var updateCmd = new Command("enable", "Update stake or reward address");
+        var updateCmd = new Command("update", "Update reward address");
         var disableCmd = new Command("disable", "Disable validator");
 
         validatorCmd.AddCommand(statusCmd);
@@ -25,18 +25,13 @@ public static class ValidatorCmd
         validatorCmd.AddCommand(updateCmd);
         validatorCmd.AddCommand(disableCmd);
 
-        var stakeArg = new Argument<decimal>(name: "STAKE", description: "Amount to stake")
-        {
-            
-        };
-
         var rewardAddressArg = new Argument<string>(name: "ADDRESS", description: "Address to receive stake rewards")
         {
             
         };
 
-        enableCmd.AddArgument(stakeArg);
         enableCmd.AddArgument(rewardAddressArg);
+        updateCmd.AddArgument(rewardAddressArg);
 
         statusCmd.SetHandler(async (node) =>
         {
@@ -85,25 +80,25 @@ public static class ValidatorCmd
             Console.WriteLine(JsonSerializer.Serialize(answer, Program.serializerOpts));
         }, nodeOption);
 
-        enableCmd.SetHandler(async (node, stake, rewardAddress) =>
+        enableCmd.SetHandler(async (node, rewardAddress) =>
         {
-            await SendValidatorReg(node, stake, rewardAddress, configuration);
-        }, nodeOption, stakeArg, rewardAddressArg);
+            await SendValidatorReg(node, TransactionType.REGISTER_VALIDATOR, rewardAddress, configuration);
+        }, nodeOption, rewardAddressArg);
 
-        updateCmd.SetHandler(async (node, stake, rewardAddress) =>
+        updateCmd.SetHandler(async (node, rewardAddress) =>
         {
-            await SendValidatorReg(node, stake, rewardAddress, configuration);
-        }, nodeOption, stakeArg, rewardAddressArg);
+            await SendValidatorReg(node, TransactionType.REGISTER_VALIDATOR, rewardAddress, configuration);
+        }, nodeOption, rewardAddressArg);
 
         disableCmd.SetHandler(async (node) =>
         {
-            await SendValidatorReg(node, 0, Address.NULL_ADDRESS, configuration);
+            await SendValidatorReg(node, TransactionType.DEREGISTER_VALIDATOR, Address.NULL_ADDRESS, configuration);
         }, nodeOption);
 
         return validatorCmd;
     }
 
-    private static async Task SendValidatorReg(string? node, decimal stake, Address rewardAddress, IConfiguration configuration)
+    private static async Task SendValidatorReg(string? node, TransactionType txType, Address? rewardAddress, IConfiguration configuration)
     {
         node ??= await ZeroConf.DiscoverNodeAsync();
 
@@ -114,10 +109,10 @@ public static class ValidatorCmd
 
         var tx = new Transaction
         {
-            TransactionType = TransactionType.REG_VALIDATOR,
+            TransactionType = txType,
             PublicKey = keys.PublicKey,
-            To = rewardAddress,
-            Value = (ulong)(stake * Constant.DECIMAL_MULTIPLIER),
+            To = rewardAddress ?? Address.NULL_ADDRESS,
+            Value = 0,
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 

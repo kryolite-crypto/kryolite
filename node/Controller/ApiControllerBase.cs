@@ -140,10 +140,9 @@ public class ApiControllerBase : Controller
         {
             case TransactionType.PAYMENT:
             case TransactionType.CONTRACT:
+            case TransactionType.REGISTER_VALIDATOR:
+            case TransactionType.DEREGISTER_VALIDATOR:
                 result = blockchainManager.AddTransaction(tx, true);
-                break;
-            case TransactionType.REG_VALIDATOR:
-                result = blockchainManager.AddValidatorReg(tx, true);
                 break;
             default:
                 throw new Exception("invalid transaction type");

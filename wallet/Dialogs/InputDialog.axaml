@@ -1,0 +1,36 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Kryolite.Wallet"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        mc:Ignorable="d"
+        x:Class="Kryolite.Wallet.InputDialog"
+        x:DataType="vm:InputModel"
+        Title="{Binding Title}"
+        SizeToContent="WidthAndHeight"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowStartupLocation="CenterScreen"
+        Icon="/Assets/kryolite.png">
+    <Panel>
+        <ExperimentalAcrylicBorder IsHitTestVisible="False">
+            <ExperimentalAcrylicBorder.Material>
+                <ExperimentalAcrylicMaterial
+                    BackgroundSource="Digger"
+                    TintColor="Black"
+                    TintOpacity="0.8"
+                    MaterialOpacity="0.65" />
+            </ExperimentalAcrylicBorder.Material>
+        </ExperimentalAcrylicBorder>
+        <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5, 5, 5, 5" Spacing="10">
+                <Button Width="60" HorizontalContentAlignment="Center" Click="Ok">Ok</Button>
+                <Button Width="60" HorizontalContentAlignment="Center" Click="Cancel">Cancel</Button>
+            </StackPanel>
+            <TextBlock Text="{Binding Description}" HorizontalAlignment="Left" VerticalAlignment="Center" Margin="10, 20, 10, 0" DockPanel.Dock="Top" />
+            <TextBox Text="{Binding Input}" MinWidth="400" HorizontalAlignment="Stretch" VerticalAlignment="Center" Margin="10, 5, 10, 0" DockPanel.Dock="Top" />
+        </DockPanel>
+    </Panel>
+</Window>

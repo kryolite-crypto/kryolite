@@ -1,7 +1,4 @@
-﻿using Kryolite.Shared.Dto;
-using MessagePack;
-using System.Collections.Immutable;
-using System.Reactive;
+﻿using MessagePack;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
@@ -72,7 +69,7 @@ public class Block
             Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? new byte[0]).ToArray()
         };
 
-        var hash = Grasshopper.Hash(LastHash, concat);
+        var hash = Grasshopper.Hash(concat);
 
         var target = Difficulty.ToTarget();
         var result = hash.ToBigInteger();

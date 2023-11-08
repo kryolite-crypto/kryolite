@@ -40,32 +40,17 @@ public class Executor
             {
                 case TransactionType.DEV_REWARD:
                 case TransactionType.STAKE_REWARD:
+                        var wallet = Context.GetOrNewWallet(tx.To);
+                        wallet.Pending += tx.Value;
+
+                        view.Rewards.Add(tx.CalculateHash());
+
+                        goto case TransactionType.PAYMENT;
                 case TransactionType.BLOCK_REWARD:
+                        view.Rewards.Add(tx.CalculateHash());
+
+                        goto case TransactionType.PAYMENT;
                 case TransactionType.PAYMENT:
-                    if (tx.TransactionType == TransactionType.STAKE_REWARD)
-                    {
-                        // tx.Value contains full stake at this point, update to actual reward
-                        tx.Value = (ulong)Math.Floor(Constant.VALIDATOR_REWARD * (tx.Value / (double)Context.GetTotalStake()));
-
-                        // Update pending since it will be subtracted later on
-                        var wallet = Context.GetOrNewWallet(tx.To);
-                        wallet.Pending += tx.Value;
-
-                        view.Rewards.Add(tx.CalculateHash());
-                    }
-                    else if (tx.TransactionType == TransactionType.DEV_REWARD)
-                    {
-                        // Update pending since it will be subtracted later on
-                        var wallet = Context.GetOrNewWallet(tx.To);
-                        wallet.Pending += tx.Value;
-
-                        view.Rewards.Add(tx.CalculateHash());
-                    }
-                    else if (tx.TransactionType == TransactionType.BLOCK_REWARD)
-                    {
-                        view.Rewards.Add(tx.CalculateHash());
-                    }
-
                     tx.ExecutionResult = TransactionExecutor.Execute(tx);
 
                     if (tx.To.IsContract())
@@ -80,7 +65,7 @@ public class Executor
                     }
 
                     break;
-                case TransactionType.REG_VALIDATOR:
+                case TransactionType.REGISTER_VALIDATOR:
                     tx.ExecutionResult = ValidatorRegExecutor.Execute(tx);
                     break;
                 case TransactionType.CONTRACT:

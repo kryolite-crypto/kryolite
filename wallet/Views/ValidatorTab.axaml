@@ -5,7 +5,8 @@
                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                 xmlns:material="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                x:Class="Kryolite.Wallet.ValidatorTab">
+                x:Class="Kryolite.Wallet.ValidatorTab"
+                x:DataType="vm:ValidatorViewModel">
 
     <DockPanel Margin="20">
         <StackPanel Spacing="20" DockPanel.Dock="Left">
@@ -40,7 +41,6 @@
             </Border>
             <StackPanel Orientation="Horizontal" Spacing="5">
                 <Button Content="{Binding ActionText}" Click="SetValidatorState"/>
-                <Button ToolTip.Tip="Update stake" Click="SetStake">Update stake</Button>
                 <Button ToolTip.Tip="Return funds to selected wallet" Click="ReturnFunds">Return funds</Button>
             </StackPanel>
         </StackPanel>

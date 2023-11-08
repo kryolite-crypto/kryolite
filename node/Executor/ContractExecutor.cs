@@ -141,19 +141,12 @@ public class ContractExecutor : IExecutor
                     token.IsConsumed = effect.ConsumeToken;
                 }
 
-                checked
+                if (!Context.Transfer.From(tx.To, effect.Value, out var executionResult, out _))
                 {
-                    wallet.Balance += effect.Value;
-
-                    var balance = contractLedger.Balance - effect.Value;
-
-                    if (balance < 0)
-                    {
-                        return ExecutionResult.TOO_LOW_BALANCE;
-                    }
-
-                    contractLedger.Balance = balance;
+                    return executionResult;
                 }
+
+                Context.Transfer.To(effect.To, effect.Value, out _);
             }
 
             Context.AddEvents(vmContext.Events);

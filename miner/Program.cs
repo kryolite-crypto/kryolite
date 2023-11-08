@@ -85,23 +85,12 @@ public class Program
                 var observer = new BlockingCollection<Blocktemplate>();
 
                 jobQueue.Add(observer);
-
                 new Thread(() => {
+
                     while (true)
                     {
                         var blocktemplate = observer.Take();
                         var token = TokenSource.Token;
-
-                        Grasshopper.GetBlockFeatures(blocktemplate.ParentHash, out var expSz, out var sboxSz, out var rounds);
-
-                        var mem = Marshal.AllocHGlobal(sboxSz);
-
-                        Span<byte> scratchpad = null;
-                        
-                        unsafe
-                        {
-                            scratchpad = new Span<byte>(mem.ToPointer(), sboxSz);
-                        }
 
                         using var sha256 = SHA256.Create();
 
@@ -123,7 +112,7 @@ public class Program
                         {
                             Random.Shared.NextBytes(nonce);
 
-                            var sha256Hash = Grasshopper.Hash(concat, scratchpad, expSz, sboxSz, rounds);
+                            var sha256Hash = Grasshopper.Hash(concat);
                             var result = sha256Hash.ToBigInteger();
 
                             if (result.CompareTo(target) <= 0)
@@ -190,8 +179,6 @@ public class Program
                                 Thread.Sleep(throttle.Value);
                             }
                         }
-
-                        Marshal.FreeHGlobal(mem);
                     }
                 }).UnsafeStart();
             }
@@ -259,9 +246,7 @@ public class Program
             restart = false;
             current = blocktemplate;
 
-            Grasshopper.GetBlockFeatures(current!.ParentHash, out var expSz, out var sboxSz, out var rounds);
-
-            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate?.Height}, diff = {blocktemplate?.Difficulty} [maxrounds = {rounds}, memarea = {sboxSz}, expsize = {expSz}]");
+            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate?.Height}, diff = {blocktemplate?.Difficulty}");
 
             TokenSource.Cancel();
             TokenSource = new CancellationTokenSource();
@@ -284,7 +269,6 @@ public class Program
         for (int x = 0; x < threads; x++)
         {
             var t = new Thread(() => {
-                var scratchpad = (new byte[Grasshopper.MAX_MEM_SZ]).AsSpan();
                 var token = stokenSource.Token;
                 var test = new byte[64];
                 var concat = new Concat()
@@ -296,9 +280,7 @@ public class Program
                 {
                     Random.Shared.NextBytes(concat.Buffer);
 
-                    Grasshopper.GetBlockFeatures(SHA256.HashData(concat.Buffer), out var expSz, out var sboxSz, out var rounds);
-
-                    var result = Grasshopper.Hash(concat, scratchpad, expSz, sboxSz, rounds);
+                    var result = Grasshopper.Hash(concat);
                     Interlocked.Increment(ref done);
                 }
             });

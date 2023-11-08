@@ -13,6 +13,8 @@ using System.Globalization;
 using System.Text;
 using System.Linq;
 using Kryolite.Shared;
+using MessagePack;
+using MessagePack.Resolvers;
 
 namespace Kryolite.Wallet
 {

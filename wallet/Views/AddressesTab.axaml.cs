@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using Kryolite.Node;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -16,7 +17,7 @@ namespace Kryolite.Wallet;
 public partial class AddressesTab : UserControl
 {
     private IWalletManager WalletManager;
-    private AddressesTabViewModel Model = new();
+    private AddressesTabViewModel Model;
 
     public AddressesTab()
     {
@@ -25,6 +26,7 @@ public partial class AddressesTab : UserControl
 
         AvaloniaXamlLoader.Load(this);
 
+        Model = new();
         DataContext = Model;
 
         var walletGrid = this.FindControl<DataGrid>("WalletsGrid");

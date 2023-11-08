@@ -2,9 +2,11 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net7.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
@@ -12,6 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="acryptohashnet" Version="2.0.0" />
+    <PackageReference Include="AdvancedDLSupport" Version="3.2.0" />
     <PackageReference Include="BenchmarkDotNet" Version="0.13.7" />
     <PackageReference Include="SimpleBase" Version="4.0.0" />
   </ItemGroup>

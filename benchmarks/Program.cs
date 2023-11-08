@@ -1,4 +1,4 @@
 ﻿using BenchmarkDotNet.Running;
 using Kryolite.Benchmarks;
 
-BenchmarkRunner.Run<TransactionVerify>();
+BenchmarkRunner.Run<GrasshopperHash>();

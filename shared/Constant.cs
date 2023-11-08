@@ -10,11 +10,13 @@ public static class Constant
     public const int MIN_API_LEVEL = 3;
 
     public const int HEARTBEAT_INTERVAL = 60;
-    public const byte STARTING_DIFFICULTY = 8;
+    public const byte STARTING_DIFFICULTY = 10;
+    public const int DIFFICULTY_LOOKBACK = 100;
     public const string ADDR_PREFIX = "kryo:";
     public const int MAX_PEERS = 6;
     public const long DECIMAL_MULTIPLIER = 1_000_000;
     public const int VOTE_INTERVAL = 5;
+    public const int EPOCH_LENGTH = 5;
 
     public static readonly ImmutableArray<Address> SEED_VALIDATORS = ImmutableArray.Create<Address>(
         "kryo:wean6dt2ckvgubhh54ipu7nufdkfpmfx7zq9w2dx7e",
@@ -26,7 +28,6 @@ public static class Constant
 
     // Placeholder
     public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;
-    public const long VALIDATOR_REWARD = 1000 * DECIMAL_MULTIPLIER;
+    public const ulong VALIDATOR_REWARD = 1000 * DECIMAL_MULTIPLIER;
     public const long BLOCK_REWARD = 1000 * DECIMAL_MULTIPLIER;
-    public const long DEV_REWARD = 50 * DECIMAL_MULTIPLIER;
 }

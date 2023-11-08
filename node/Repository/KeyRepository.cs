@@ -1,5 +1,6 @@
 using Kryolite.Shared;
 using MessagePack;
+using MessagePack.Resolvers;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node.Repository;
