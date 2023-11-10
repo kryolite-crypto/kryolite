@@ -486,11 +486,6 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void SetStake(Address address, Validator stake)
     {
-        if (address != stake.NodeAddress)
-        {
-            Console.WriteLine("SAVING STAKE WITH WRONG ADDRESS");
-        }
-
         Storage.Put("Validator", address.Buffer, stake, CurrentTransaction);
     }
 

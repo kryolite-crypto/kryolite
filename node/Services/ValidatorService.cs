@@ -18,7 +18,6 @@ public class ValidatorService : BackgroundService
     private readonly StartupSequence startup;
 
     private Wallet Node { get; set; }
-    private ManualResetEventSlim AllowExecution { get; set; } = new(true);
     private IEventBus EventBus { get; }
 
     public ValidatorService(IServiceProvider serviceProvider, IKeyRepository keyRepository, IEventBus eventBus, ILogger<ValidatorService> logger, StartupSequence startup)
@@ -36,12 +35,10 @@ public class ValidatorService : BackgroundService
         try
         {
             await Task.Run(() => startup.Application.Wait(stoppingToken));
-
             var task = StartValidator(stoppingToken);
 
             if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey.ToAddress()))
             {
-                AllowExecution.Set();
                 await task;
                 return;
             }
@@ -52,7 +49,7 @@ public class ValidatorService : BackgroundService
                     return;
                 }
 
-                AllowExecution.Set();
+                logger.LogInformation("Validator     [ACTIVE]");
             });
 
             EventBus.Subscribe<ValidatorDisable>(validator => {
@@ -61,7 +58,7 @@ public class ValidatorService : BackgroundService
                     return;
                 }
 
-                AllowExecution.Reset();
+                logger.LogInformation("Validator     [INACTIVE]");
             });
 
             using var scope = serviceProvider.CreateScope();
@@ -69,7 +66,11 @@ public class ValidatorService : BackgroundService
 
             if (repository.IsValidator(Node.Address))
             {
-                AllowExecution.Set();
+                logger.LogInformation("Validator     [ACTIVE]");
+            }
+            else
+            {
+                logger.LogInformation("Validator     [INACTIVE]");
             }
 
             await task;
@@ -90,9 +91,6 @@ public class ValidatorService : BackgroundService
     {
         try
         {
-            await Task.Run(() => AllowExecution.Wait(stoppingToken));
-            logger.LogInformation("Validator     [ACTIVE]");
-
             await SynchronizeViewGenerator(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -163,14 +161,7 @@ public class ValidatorService : BackgroundService
 
                 Banned.Clear();
 
-                if(!AllowExecution.IsSet)
-                {
-                    logger.LogInformation("Validator     [INACTIVE]");
-                    await Task.Run(() => AllowExecution.Wait(stoppingToken));
-                    logger.LogInformation("Validator     [ACTIVE]");
-
-                    nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
-                }
+                nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
 
                 await SynchronizeViewGenerator(nextView, stoppingToken);
             }

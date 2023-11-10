@@ -26,11 +26,11 @@ public class DeregisterValidatorExecutor : IExecutor
 
         var ledger = Context.GetOrNewWallet(validator.NodeAddress);
 
-        validator.Stake = 0;
-
         ledger.Balance = validator.Stake;
         ledger.Pending = checked(ledger.Pending - validator.Stake);
         ledger.Locked = false;
+
+        validator.Stake = 0;
 
         Context.AddEvent(new ValidatorDisable(tx.From!));
         return ExecutionResult.SUCCESS;

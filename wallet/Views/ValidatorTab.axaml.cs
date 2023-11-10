@@ -118,6 +118,7 @@ public partial class ValidatorTab : UserControl
 
             if (recipient == Address.NULL_ADDRESS)
             {
+                Console.WriteLine("NULL_RECIPIENT (invalid address?)");
                 return;
             }
 
@@ -155,11 +156,6 @@ public partial class ValidatorTab : UserControl
                 return Address.NULL_ADDRESS;
             }
 
-            if (address == Model.RewardAddress)
-            {
-                return Address.NULL_ADDRESS;
-            }
-
             return address;
         }
         catch (Exception ex)
@@ -189,7 +185,7 @@ public partial class ValidatorTab : UserControl
             {
                 From = key.Address.ToString(),
                 Min = 0,
-                Max = Model.Available,
+                Max = Model.Total,
                 Amount = (Model.Available / Constant.DECIMAL_MULTIPLIER).ToString(),
                 RecipientDescription = "Recipient"
             };
@@ -227,7 +223,7 @@ public partial class ValidatorTab : UserControl
 
             tx.Sign(key.PrivateKey);
 
-            storeManager.AddTransaction(new TransactionDto(tx), true);
+            Console.WriteLine(storeManager.AddTransaction(new TransactionDto(tx), true));
         }
         catch (Exception ex)
         {
@@ -255,7 +251,7 @@ public partial class ValidatorTab : UserControl
 
             tx.Sign(key.PrivateKey);
 
-            storeManager.AddTransaction(new TransactionDto(tx), true);
+            Console.WriteLine(storeManager.AddTransaction(new TransactionDto(tx), true));
         }
         catch (Exception ex)
         {
