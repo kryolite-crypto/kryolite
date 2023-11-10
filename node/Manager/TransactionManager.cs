@@ -196,7 +196,10 @@ public abstract class TransactionManager
             chainState.Votes += votes.Count;
             chainState.Transactions += toExecute.Count;
             chainState.Blocks += blocks.Count;
-            chainState.CurrentDifficulty = chainState.CurrentDifficulty.AdjustDifficulty(blocks.Count);
+
+            var lastView = Repository.GetView(chainState.Id - 1);
+            var lastState = Repository.GetChainState(chainState.Id - 1);
+            chainState.CurrentDifficulty = chainState.CurrentDifficulty.ScaleDifficulty(blocks.Count, lastState?.CalculateWork(lastView?.Blocks.Count ?? 0) ?? 0);
 
             Repository.AddRange(blocks);
             Repository.AddRange(votes);
@@ -474,12 +477,6 @@ public abstract class TransactionManager
             if (!StateCache.GetLedgers().TryGetWallet(tx.From!, Repository, out var from))
             {
                 tx.ExecutionResult = ExecutionResult.UNKNOWN;
-                return false;
-            }
-
-            if (from.Balance < Constant.MIN_STAKE)
-            {
-                tx.ExecutionResult = ExecutionResult.TOO_LOW_BALANCE;
                 return false;
             }
 

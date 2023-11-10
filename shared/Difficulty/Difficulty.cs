@@ -76,10 +76,10 @@ public static class DifficultyExtensions
         };
     }
 
-    public static Difficulty AdjustDifficulty(this Difficulty currentDifficulty, int blockCount)
+    public static Difficulty ScaleDifficulty(this Difficulty difficulty, int blocks, BigInteger previousTarget)
     {
-        var currentTarget = currentDifficulty.ToWork();
-        var totalWork = currentTarget * blockCount;
+        var currentTarget = difficulty.ToWork();
+        var totalWork = (currentTarget * blocks) + previousTarget;
         var maxChange = TARGET_MIN * 4;
 
         var delta = BigInteger.Max(totalWork - currentTarget, -maxChange);

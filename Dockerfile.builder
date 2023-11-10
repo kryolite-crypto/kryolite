@@ -8,7 +8,7 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir /ghjk && cd /ghjk \
   && curl -Lsf https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh \
   && chmod +x ./dotnet-install.sh \
-  && ./dotnet-install.sh --channel 7.0 \
+  && ./dotnet-install.sh --channel 8.0 \
   && rm -rf /ghjk
 
 WORKDIR /build
