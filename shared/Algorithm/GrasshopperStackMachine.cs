@@ -1,20 +1,20 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Text;
 
 namespace Kryolite.Shared.Algorithm;
 
-public class GrasshopperStackMachine
+public unsafe class GrasshopperStackMachine
 {
     public long Checksum { get; private set; }
 
     private long[] _locals = new long[17];
-    private Stack<long> _evaluation = new Stack<long>(8);
+    private long[] _stack = new long[16];
+    private int _stackPtr = 0;
     private List<(Op Op, int I32, long I64)> _operations = new (8192 * 2);
 
     public void Reset()
     {
-        Array.Clear(_locals);
+        _stackPtr = 0;
         _operations.Clear();
     }
 
@@ -50,7 +50,7 @@ public class GrasshopperStackMachine
                     break;
                 case Op.StLoc:
                     {
-                        var a = _evaluation.Pop();
+                        var a = Pop();
                         _locals[ins.I32] = a;
 
                         Checksum += a;
@@ -63,96 +63,96 @@ public class GrasshopperStackMachine
                     Push(ins.I64);
                     break;
                 case Op.Dup:
-                    Push(_evaluation.Peek());
+                    Push(Peek());
                     break;
                 case Op.Add:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push(a + b);
                     }
                     break;
                 case Op.Sub:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push(a - b);
                     }
                     break;
                 case Op.Mul:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push(a * b);
                     }
                     break;
                 case Op.And:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push(a & b);
                     }
                     break;
                 case Op.Not:
                     {
-                        var a = _evaluation.Pop();
+                        var a = Pop();
                         Push(~a);
                     }
                     break;
                 case Op.Or:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push(a | b);
                     }
                     break;
                 case Op.Xor:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push(a ^ b);
                     }
                     break;
                 case Op.Rotl:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push((long)BitOperations.RotateLeft((ulong)a, (int)b));
                     }
                     break;
                 case Op.Rotr:
                     {
-                        var a = _evaluation.Pop();
-                        var b = _evaluation.Pop();
+                        var b = Pop();
+                        var a = Pop();
 
                         Push((long)BitOperations.RotateRight((ulong)a, (int)b));
                     }
                     break;
                 case Op.ShrUn:
                     {
-                        var a = (ulong)_evaluation.Pop();
-                        var b = (int)_evaluation.Pop();
+                        var b = (int)Pop();
+                        var a = (ulong)Pop();
 
                         Push((long)(a >> b));
                     }
                     break;
                 case Op.Shl:
                     {
-                        var a = (ulong)_evaluation.Pop();
-                        var b = (int)_evaluation.Pop();
+                        var b = (int)Pop();
+                        var a = (ulong)Pop();
 
                         Push((long)(a << b));
                     }
                     break;
                 case Op.Ret:
-                    return _evaluation.Pop();
+                    return Pop();
             }
         }
 
@@ -184,9 +184,22 @@ public class GrasshopperStackMachine
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Push(long value)
     {
         Checksum += value;
-        _evaluation.Push(value);
+        _stack[_stackPtr++] = value;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private long Pop()
+    {
+        return _stack[--_stackPtr];
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private long Peek()
+    {
+        return _stack[_stackPtr - 1];
     }
 }
