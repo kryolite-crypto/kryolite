@@ -79,7 +79,6 @@ public class SendTabViewModel : NotifyPropertyChanged
         set => RaisePropertyChanged(ref method, value);
     }
 
-
     public ObservableCollection<string> Addresses
     {
         get => addresses; 

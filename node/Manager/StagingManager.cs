@@ -235,6 +235,11 @@ public class StagingManager : TransactionManager, IDisposable
         Repository.UpdateWallets(ledgers.Values);
         Repository.UpdateContracts(contracts.Values);
         Repository.UpdateTokens(tokens.Values);
+        
+        foreach (var validator in validators.Values)
+        {
+            Repository.SetStake(validator.NodeAddress, validator);
+        }
 
         dbtx.Commit();
 

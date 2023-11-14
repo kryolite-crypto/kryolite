@@ -12,6 +12,10 @@ using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Reflection;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Node.Blockchain;
+using Kryolite.EventBus;
+using Kryolite.Shared.Dto;
+using Microsoft.AspNetCore.Authorization.Infrastructure;
 
 namespace Kryolite.Daemon;
 
@@ -93,17 +97,115 @@ internal class Program
 
         await app.StartAsync();
 
-        var logger = app.Services.GetService<ILogger<Program>>();
+        var logger = app.Services.GetRequiredService<ILogger<Program>>();
         var addresses = app.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
 
         foreach (var address in addresses)
         {
-            logger!.LogInformation($"Now listening on {address}");
+            logger.LogInformation($"Now listening on {address}");
         }
 
-        app.Services.GetService<StartupSequence>()!
+        app.Services.GetRequiredService<StartupSequence>()
             .Application.Set();
 
+        if (args.Contains("--test-rollback-rebuild"))
+        {
+            TestRollbackRebuild(app);
+        }
+
         await app.WaitForShutdownAsync();
+    }
+
+    private static void TestRollbackRebuild(IWebHost app)
+    {
+        using var scope = app.Services.CreateScope();
+        var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+        var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+
+        var height = storeManager.GetChainState().Id;
+
+        Console.WriteLine($"Starting forced rollback - rebuild from height {0} to {height}");
+
+        using (var checkpoint = storeManager.CreateCheckpoint())
+        using (var staging = StagingManager.Open("staging", configuration, loggerFactory))
+        {
+            staging.RollbackTo(0);
+
+            for (var i = 1; i <= height; i++)
+            {
+                var view = storeManager.GetView(i);
+
+                if (view is null)
+                {
+                    Console.WriteLine($"Failed to query view at {i}");
+                    return;
+                }
+
+                var blocks = storeManager.GetBlocks(view.Blocks);
+                var votes = storeManager.GetVotes(view.Votes);
+                var transactions = storeManager.GetTransactions(view.Transactions);
+
+                if (!staging.LoadBlocks(blocks))
+                {
+                    Console.WriteLine($"Failed to apply blocks at {i}");
+                    return;
+                }
+
+                if (!staging.LoadVotes(votes))
+                {
+                    Console.WriteLine($"Failed to apply votes at {i}");
+                    return;
+                }
+
+                if (!staging.LoadTransactions(transactions.Select(x => new TransactionDto(x)).ToList()))
+                {
+                    Console.WriteLine($"Failed to apply transactions at {i}");
+                    return;
+                }
+
+                if (!staging.LoadView(view))
+                {
+                    Console.WriteLine($"Failed to apply view at {i}");
+                    return;
+                }
+            }
+
+            Console.WriteLine("Forced rollback rebuild was success");
+            Console.WriteLine("Verifying ledger");
+
+            var ledger = storeManager.GetRichList(1000);
+
+            foreach (var wallet in ledger)
+            {
+                var other = staging.Repository.GetWallet(wallet.Address);
+
+                if (wallet.Balance != other?.Balance)
+                {
+                    Console.WriteLine($"Balance mismatch on wallet {wallet.Address}");
+                }
+            }
+
+            Console.WriteLine("Verifying validators");
+
+            var validators = storeManager.GetValidators();
+
+            foreach (var validator in validators)
+            {
+                var other = staging.Repository.GetStake(validator.NodeAddress);
+
+                if (validator.Stake != other?.Stake)
+                {
+                    Console.WriteLine($"Stake mismatch on validator {validator.NodeAddress}");
+                }
+
+                if (validator.RewardAddress != other!.RewardAddress)
+                {
+                    Console.WriteLine($"RewardAddress mismatch on validator {validator.NodeAddress}");
+                }
+            }
+
+            Console.WriteLine("Verification complete");
+        }
     }
 }
