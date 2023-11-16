@@ -1,9 +1,7 @@
-using System.Collections.Immutable;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
-using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -27,7 +25,7 @@ public class StoreManager : TransactionManager, IStoreManager
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IExecutorFactory executorFactory, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, verifier, stateCache, executorFactory, logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IExecutorFactory executorFactory, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, executorFactory, logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         MeshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));

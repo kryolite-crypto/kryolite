@@ -16,15 +16,13 @@ public abstract class TransactionManager
     private IExecutorFactory ExecutorFactory { get; }
     private IStoreRepository Repository { get; }
     private IKeyRepository KeyRepository { get; }
-    private IVerifier Verifier { get; }
     private IStateCache StateCache { get; }
     private ILogger Logger { get; }
 
-    public TransactionManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, IExecutorFactory executorFactory, ILogger logger)
+    public TransactionManager(IStoreRepository repository, IKeyRepository keyRepository, IStateCache stateCache, IExecutorFactory executorFactory, ILogger logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         KeyRepository = keyRepository ?? throw new ArgumentNullException(nameof(keyRepository));
-        Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
         ExecutorFactory = executorFactory ?? throw new ArgumentNullException(nameof(executorFactory));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
