@@ -115,7 +115,6 @@ public class Startup
                 .AddHostedService<MDNSService>()
                 .AddSingleton<IBufferService<Chain, SyncService>, SyncService>()
                 .AddHostedService(p => (SyncService)p.GetRequiredService<IBufferService<Chain, SyncService>>())
-                .AddSingleton<StartupSequence>()
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddSingleton<IEventBus, EventBus.EventBus>()
                 .AddRouting()

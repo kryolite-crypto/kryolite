@@ -23,12 +23,9 @@ public class NetworkService : BackgroundService
     private INetworkManager NetworkManager { get; }
     private ILogger<NetworkService> Logger { get; }
     private ILookupClient LookupClient { get; }
-    private StartupSequence Startup { get; }
+    private readonly TaskCompletionSource _source = new();
 
-    private readonly MulticastService mdns;
-    private readonly ServiceDiscovery serviceDiscovery;
-
-    public NetworkService(IServiceProvider serviceProvider)
+    public NetworkService(IServiceProvider serviceProvider, IHostApplicationLifetime lifetime)
     {
         ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         Server = serviceProvider.GetRequiredService<IServer>();
@@ -36,13 +33,9 @@ public class NetworkService : BackgroundService
         Configuration = serviceProvider.GetRequiredService<IConfiguration>();
         Logger = serviceProvider.GetRequiredService<ILogger<NetworkService>>();
         LookupClient = serviceProvider.GetRequiredService<ILookupClient>();
-        Startup = serviceProvider.GetRequiredService<StartupSequence>();
-
         NetworkManager = serviceProvider.CreateScope().ServiceProvider.GetRequiredService<INetworkManager>();
 
-        MulticastService.IncludeLoopbackInterfaces = true;
-        mdns = new MulticastService();
-        serviceDiscovery = new ServiceDiscovery(mdns);
+        lifetime.ApplicationStarted.Register(() => _source.SetResult());
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -159,10 +152,7 @@ public class NetworkService : BackgroundService
             }
         };
 
-        Logger.LogInformation("Network       [UP]");
-
-        await Task.Run(() => Startup.Application.Wait(stoppingToken));
-
+        await _source.Task;
         await DiscoverPeers();
 
         NetworkChange.NetworkAvailabilityChanged += new
@@ -303,25 +293,26 @@ public class NetworkService : BackgroundService
 
     private async void NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
     {
-        Logger.LogInformation("Network status changed, new status: {}", e.IsAvailable);
-
-        if (e.IsAvailable)
+        if (!e.IsAvailable)
         {
-            Logger.LogInformation($"Network connected, restoring peer connections");
+            Logger.LogInformation("Network disconnected");
+            return;
+        }
 
-            var peers = NetworkManager.GetHosts()
-                .Where(x => x.IsReachable)
-                .OrderBy(x => Guid.NewGuid())
-                .ToList();
+        Logger.LogInformation($"Network connected, restoring peer connections");
 
-            foreach (var peer in peers)
+        var peers = NetworkManager.GetHosts()
+            .Where(x => x.IsReachable)
+            .OrderBy(x => Guid.NewGuid())
+            .ToList();
+
+        foreach (var peer in peers)
+        {
+            await MeshNetwork.ConnectToAsync(peer.Url);
+
+            if (MeshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
             {
-                await MeshNetwork.ConnectToAsync(peer.Url);
-
-                if (MeshNetwork.GetPeers().Count >= Constant.MAX_PEERS)
-                {
-                    break;
-                }
+                break;
             }
         }
     }

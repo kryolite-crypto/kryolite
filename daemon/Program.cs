@@ -106,9 +106,6 @@ internal class Program
             logger.LogInformation($"Now listening on {address}");
         }
 
-        app.Services.GetRequiredService<StartupSequence>()
-            .Application.Set();
-
         await app.WaitForShutdownAsync();
     }
 

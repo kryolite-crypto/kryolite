@@ -15,26 +15,26 @@ public class ValidatorService : BackgroundService
 {
     private readonly IServiceProvider serviceProvider;
     private readonly ILogger<ValidatorService> logger;
-    private readonly StartupSequence startup;
 
     private Wallet Node { get; set; }
     private IEventBus EventBus { get; }
+    private readonly TaskCompletionSource _source = new();
 
-    public ValidatorService(IServiceProvider serviceProvider, IKeyRepository keyRepository, IEventBus eventBus, ILogger<ValidatorService> logger, StartupSequence startup)
+    public ValidatorService(IServiceProvider serviceProvider, IKeyRepository keyRepository, IEventBus eventBus, ILogger<ValidatorService> logger, IHostApplicationLifetime lifetime)
     {
         this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
         Node = keyRepository.GetKey();
+        lifetime.ApplicationStarted.Register(() => _source.SetResult());
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
-            await Task.Run(() => startup.Application.Wait(stoppingToken));
+            await _source.Task;
             var task = StartValidator(stoppingToken);
 
             if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey.ToAddress()))

@@ -13,8 +13,6 @@ using System.Globalization;
 using System.Text;
 using System.Linq;
 using Kryolite.Shared;
-using MessagePack;
-using MessagePack.Resolvers;
 
 namespace Kryolite.Wallet
 {
@@ -84,9 +82,6 @@ namespace Kryolite.Wallet
                 ServiceCollection = Host.Services;
 
                 Host.Start();
-
-                ServiceCollection.GetService<StartupSequence>()?
-                    .Application.Set();
 
                 var logger = Host.Services.GetService<ILogger<Program>>();
                 var addresses = Host.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
