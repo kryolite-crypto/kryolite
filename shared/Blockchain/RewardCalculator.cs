@@ -5,7 +5,7 @@ public static class RewardCalculator
     // private static int VIEWS_IN_YEAR = 500_000;
     // private static int FAIR_PERIOD = 1440; // 1 day
     private static readonly int VIEWS_IN_YEAR = 10_000;
-    private static readonly int FAIR_PERIOD = 5;
+    private static readonly int FAIR_PERIOD = 600;
     private static readonly double STEP_REDUCE = 100 * Constant.DECIMAL_MULTIPLIER;
 
     public static ulong BlockReward(long height)
