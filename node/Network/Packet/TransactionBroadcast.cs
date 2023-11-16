@@ -32,7 +32,7 @@ public class TransactionBroadcast : IPacket
             return;
         }
 
-        logger.LogDebug($"Received TransactionBroadcast from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received TransactionBroadcast from {hostname}", peer.Uri.ToHostname());
 
         if (storeManager.TransactionExists(TransactionId))
         {

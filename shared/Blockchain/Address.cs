@@ -17,10 +17,7 @@ public class Address
 
     public Address(byte[] buffer)
     {
-        if (buffer is null)
-        {
-            throw new ArgumentNullException(nameof(buffer));
-        }
+        ArgumentNullException.ThrowIfNull(buffer);
 
         if (buffer.Length != ADDRESS_SZ)
         {
@@ -35,9 +32,9 @@ public class Address
     public override string ToString() => Constant.ADDR_PREFIX + Base32.Kryolite.Encode(Buffer);
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
     public static implicit operator byte[] (Address address) => address.Buffer;
-    public static implicit operator Address(byte[] buffer) => new Address(buffer);
-    public static implicit operator Address(Span<byte> buffer) => new Address(buffer.ToArray());
-    public static implicit operator Address(string address) => new Address(Base32.Kryolite.Decode(address.Split(':').Last()));
+    public static implicit operator Address(byte[] buffer) => new(buffer);
+    public static implicit operator Address(Span<byte> buffer) => new(buffer.ToArray());
+    public static implicit operator Address(string address) => new(Base32.Kryolite.Decode(address.Split(':').Last()));
 
     public override bool Equals(object? obj) 
     {
@@ -71,13 +68,15 @@ public class Address
 
     public static bool IsValid(string address)
     {
-        if (!address.StartsWith(Constant.ADDR_PREFIX)) {
+        if (!address.StartsWith(Constant.ADDR_PREFIX))
+        {
             return false;
         }
 
         var bytes = Base32.Kryolite.Decode(address.Split(':').Last());
-        
-        if (bytes.Length != 26) {
+
+        if (bytes.Length != 26)
+        {
             return false;
         }
 
@@ -85,13 +84,12 @@ public class Address
         var addr = bytes.Take(22).ToList();
         addr.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
 
-        using var sha256 = SHA256.Create();
-        var h1 = sha256.ComputeHash(addr.ToArray());
-        var h2 = sha256.ComputeHash(h1);
+        var h1 = SHA256.HashData(addr.ToArray());
+        var h2 = SHA256.HashData(h1);
 
         return Enumerable.SequenceEqual(h2.Take(4).ToArray(), checksum);
     }
 
-    public static int ADDRESS_SZ = 26;
-    public static Address NULL_ADDRESS = new Address();
+    public const int ADDRESS_SZ = 26;
+    public static readonly Address NULL_ADDRESS = new();
 }

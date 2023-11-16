@@ -30,7 +30,7 @@ public class NodeBroadcast : IPacket
         var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
 
-        logger.LogInformation($"Received NodeBroadcast from {peer.Uri.ToHostname()}");
+        logger.LogInformation("Received NodeBroadcast from {hostname}", peer.Uri.ToHostname());
 
         var uri = new Uri(Url);
 

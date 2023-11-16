@@ -6,16 +6,11 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-using System.Net.Sockets;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Reflection;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
-using Kryolite.Node.Blockchain;
-using Kryolite.EventBus;
 using Kryolite.Shared.Dto;
-using Microsoft.AspNetCore.Authorization.Infrastructure;
 
 namespace Kryolite.Daemon;
 
@@ -95,6 +90,12 @@ internal class Program
             .UseStartup<Startup>()
             .Build();
 
+        if (args.Contains("--test-rollback-rebuild"))
+        {
+            TestRollbackRebuild(app);
+            return;
+        }
+
         await app.StartAsync();
 
         var logger = app.Services.GetRequiredService<ILogger<Program>>();
@@ -107,11 +108,6 @@ internal class Program
 
         app.Services.GetRequiredService<StartupSequence>()
             .Application.Set();
-
-        if (args.Contains("--test-rollback-rebuild"))
-        {
-            TestRollbackRebuild(app);
-        }
 
         await app.WaitForShutdownAsync();
     }
@@ -171,7 +167,7 @@ internal class Program
                 }
             }
 
-            Console.WriteLine("Forced rollback rebuild was success");
+            Console.WriteLine("Forced rollback rebuild done");
             Console.WriteLine("Verifying ledger");
 
             var ledger = storeManager.GetRichList(1000);

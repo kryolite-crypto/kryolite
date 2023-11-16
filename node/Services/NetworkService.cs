@@ -1,20 +1,15 @@
 using System.Net.NetworkInformation;
-using System.Numerics;
 using System.Reactive.Linq;
 using System.Timers;
 using DnsClient;
 using Kryolite.EventBus;
 using Kryolite.Shared;
-using Kryolite.Shared.Dto;
 using Makaretu.Dns;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using QuikGraph;
-using QuikGraph.Algorithms;
-using QuikGraph.Algorithms.Search;
 using static Kryolite.Node.NetworkManager;
 
 namespace Kryolite.Node;
@@ -72,7 +67,7 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            Logger.LogInformation($"{peer.Uri.ToHostname()} connected");
+            Logger.LogInformation("{hostname} connected", peer.Uri.ToHostname());
 
             var nodeHost = new NodeHost(peer.Uri)
             {
@@ -85,7 +80,7 @@ public class NetworkService : BackgroundService
 
             if (peer.ConnectionType == ConnectionType.OUT)
             {
-                Logger.LogInformation($"Send NodeInfoRequest");
+                Logger.LogInformation("Send NodeInfoRequest");
                 await peer.SendAsync(new NodeInfoRequest());
             }
         };
@@ -96,7 +91,7 @@ public class NetworkService : BackgroundService
                 return;
             }
 
-            Logger.LogInformation($"{peer.Uri.ToHostname()} disconnected");
+            Logger.LogInformation("{hostname} disconnected", peer.Uri.ToHostname());
 
             var peerCount = MeshNetwork.GetPeers().Count;
 
@@ -152,7 +147,7 @@ public class NetworkService : BackgroundService
 
                 if (args.Message.Payload is not IPacket packet) 
                 {
-                    Logger.LogWarning("Invalid payload type received {}", args.Message.Payload?.GetType());
+                    Logger.LogWarning("Invalid payload type received {packet}", args.Message.Payload?.GetType());
                     return;
                 }
 
@@ -160,7 +155,7 @@ public class NetworkService : BackgroundService
             }
             catch (Exception ex)
             {
-                Logger.LogWarning(ex, "Error while handling packet {}", args.Message.Payload?.GetType());
+                Logger.LogWarning(ex, "Error while handling packet {packet}", args.Message.Payload?.GetType());
             }
         };
 
@@ -193,7 +188,7 @@ public class NetworkService : BackgroundService
 
             foreach (var txtRecord in result.Answers.TxtRecords().SelectMany(x => x.Text))
             {
-                Logger.LogInformation($"Peer: {txtRecord}");
+                Logger.LogInformation("Peer: {txtRecord}", txtRecord);
 
                 var uriBuilder = new UriBuilder(txtRecord);
                 peers.Add(uriBuilder.Uri);
@@ -207,7 +202,7 @@ public class NetworkService : BackgroundService
 
                 if (list.Count > 0)
                 {
-                    Logger.LogInformation($"Downloaded {list.Count} peers from {peer.ToHostname()}");
+                    Logger.LogInformation("Downloaded {count} peers from {hostname}", list.Count, peer.ToHostname());
 
                     foreach (var url in list)
                     {
@@ -252,7 +247,7 @@ public class NetworkService : BackgroundService
         {
             if (!Uri.TryCreate(url, new UriCreationOptions(), out var peerUri))
             {
-                Logger.LogWarning("Invalid uri format {}", url);
+                Logger.LogWarning("Invalid uri format \"{url}\"", url);
                 continue;
             }
 
@@ -282,7 +277,7 @@ public class NetworkService : BackgroundService
         var inPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.IN);
         var outPeers = peers.Values.Where(x => x.ConnectionType == ConnectionType.OUT);
 
-        Logger.LogInformation($"Connected to {peers.Count} peers [in = {inPeers.Count()}, out = {outPeers.Count()}]");
+        Logger.LogInformation("Connected to {count} peers [in = {in}, out = {out}]", peers.Count, inPeers.Count(), outPeers.Count());
     }
 
     private void HostCleanup(object? sender, ElapsedEventArgs e)
@@ -300,7 +295,7 @@ public class NetworkService : BackgroundService
         {
             if(!Connection.TestConnection(host.Url))
             {
-                Logger.LogDebug($"Host {host.Url} not reachable, removing host");
+                Logger.LogDebug("Host {url} not reachable, removing host", host.Url);
                 NetworkManager.RemoveHost(host);
             }
         }
@@ -308,7 +303,7 @@ public class NetworkService : BackgroundService
 
     private async void NetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
     {
-        Logger.LogInformation($"Network status changed, new status: {e.IsAvailable}");
+        Logger.LogInformation("Network status changed, new status: {}", e.IsAvailable);
 
         if (e.IsAvailable)
         {

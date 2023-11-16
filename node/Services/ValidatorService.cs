@@ -106,7 +106,12 @@ public class ValidatorService : BackgroundService
                 var voteHeight = lastView.Id - slotNumber;
                 var votes = blockchainManager.GetVotesAtHeight(voteHeight);
                 
-                logger.LogDebug($"Loading votes from height {voteHeight} (id = {lastView.Id}, slotNumber = {slotNumber}, voteCount = {votes.Count})");
+                logger.LogDebug("Loading votes from height {voteHeight} (id = {id}, slotNumber = {slotNumber}, voteCount = {voteCount})",
+                    voteHeight,
+                    lastView.Id,
+                    slotNumber,
+                    votes.Count
+                );
 
                 PublicKey? nextLeader = null;
                 
@@ -126,7 +131,7 @@ public class ValidatorService : BackgroundService
 
                 if (slotNumber == 0)
                 {
-                    logger.LogInformation("View #{} received {} votes", lastView.Id, votes.Count);
+                    logger.LogInformation("View #{id} received {count} votes", lastView.Id, votes.Count);
                 }
 
                 if (nextLeader is null)

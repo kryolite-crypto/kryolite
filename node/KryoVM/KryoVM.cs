@@ -247,7 +247,6 @@ public class KryoVM : IDisposable
 
             if (addr is null) 
             {
-                //throw new Exception("unable to transfer, null 'to' address");
                 throw new ExitException(101);
             }
 
@@ -255,7 +254,6 @@ public class KryoVM : IDisposable
 
             if (balance < 0)
             {
-                //throw new Exception("unable to transfer, contract balance negative");
                 throw new ExitException(102);
             }
 

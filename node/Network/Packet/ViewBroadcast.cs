@@ -46,7 +46,7 @@ public class ViewBroadcast : IPacket
 
         peer.IsForked = false;
 
-        logger.LogDebug($"Received ViewBroadcast from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received ViewBroadcast from {hostname}", peer.Uri.ToHostname());
 
         var chainState = storeManager.GetChainState();
 
@@ -62,12 +62,12 @@ public class ViewBroadcast : IPacket
             if (Weight > chainState.Weight)
             {
                 // REQUEST SYNC
-                logger.LogDebug($"[{peer.Uri.ToHostname()}] Has more weight. Request sync");
+                logger.LogDebug("[{hostname}] Has more weight. Request sync", peer.Uri.ToHostname());
                 await peer.SendAsync(new NodeInfoRequest());
             }
             else if (Weight < chainState.Weight)
             {
-                logger.LogDebug($"[{peer.Uri.ToHostname()}] Has lower weight. Broadcast our current view");
+                logger.LogDebug("[{hostname}] Has lower weight. Broadcast our current view", peer.Uri.ToHostname());
                 var view = storeManager.GetLastView();
 
                 if (view is not null)
@@ -83,7 +83,7 @@ public class ViewBroadcast : IPacket
 
         if (result is null || result.Payload is not ViewResponse response || response.View is null)
         {
-            logger.LogInformation($"[{peer.Uri.ToHostname()}] ViewRequest failed");
+            logger.LogInformation("[{hostname}] ViewRequest failed", peer.Uri.ToHostname());
             await peer.SendAsync(new NodeInfoRequest());
             return;
         }

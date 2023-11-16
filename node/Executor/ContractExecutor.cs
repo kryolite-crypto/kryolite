@@ -80,9 +80,9 @@ public class ContractExecutor : IExecutor
             using var vm = KryoVM.LoadFromSnapshot(code, contract.CurrentSnapshot)
                 .WithContext(vmContext);
 
-            Logger.LogDebug($"Executing contract {contract.Name}:{call.Method}");
+            Logger.LogDebug("Executing contract {contractName}:{methodName}", contract.Name, call.Method);
             var ret = vm.CallMethod(methodName, methodParams.ToArray(), out _);
-            Logger.LogDebug($"Contract result = {ret}");
+            Logger.LogDebug("Contract result = {result}", ret);
 
             if (ret != 0)
             {
@@ -107,13 +107,13 @@ public class ContractExecutor : IExecutor
 
                         if (result != 0)
                         {
-                            Logger.LogDebug($"get_token failed for {effect.TokenId}, error code = {result}");
+                            Logger.LogDebug("get_token failed for {tokenId}, error code = {result}", effect.TokenId, result);
                             continue;
                         }
 
                         if (json is null)
                         {
-                            Logger.LogDebug($"get_token failed for {effect.TokenId}, error = json output null");
+                            Logger.LogDebug("get_token failed for {tokenId}, error = json output null", effect.TokenId);
                             continue;
                         }
 
@@ -121,7 +121,7 @@ public class ContractExecutor : IExecutor
 
                         if (tokenBase is null)
                         {
-                            Logger.LogDebug($"get_token failed for {effect.TokenId}, error = failed to parse json");
+                            Logger.LogDebug("get_token failed for {tokenId}, error = failed to parse json", effect.TokenId);
                             continue;
                         }
 

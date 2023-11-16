@@ -156,7 +156,7 @@ public class StoreManager : TransactionManager, IStoreManager
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "AddTransaction");
+            Logger.LogError(ex, "AddTransaction error");
             return ExecutionResult.UNKNOWN;
         }
     }

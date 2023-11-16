@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.Sockets;
 using Zeroconf;
 
 namespace Kryolite.Shared;

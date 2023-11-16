@@ -8,5 +8,5 @@ namespace Kryolite.Shared;
 
 public static class Base32
 {
-    public static SimpleBase.Base32 Kryolite = new SimpleBase.Base32(new SimpleBase.Base32Alphabet("abcdefghijkmnpqrstuvwxyz23456789"));
+    public static readonly SimpleBase.Base32 Kryolite = new(new SimpleBase.Base32Alphabet("abcdefghijkmnpqrstuvwxyz23456789"));
 }

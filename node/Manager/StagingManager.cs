@@ -194,7 +194,7 @@ public class StagingManager : TransactionManager, IDisposable
 
         for (var i = height; i > targetHeight; i--)
         {
-            Logger.LogInformation($"Rolling back height {i}");
+            Logger.LogInformation("Rolling back height {height}", i);
 
             var view = GetView(i);
 

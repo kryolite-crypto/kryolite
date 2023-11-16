@@ -10,8 +10,6 @@ namespace Kryolite;
 
 public static class Extensions
 {
-
-
     public static async Task<T> WithTimeout<T>(this Task<T> task, TimeSpan timeout)
     {
         if (task == await Task.WhenAny(task, Task.Delay(timeout)))
@@ -20,16 +18,6 @@ public static class Extensions
         }
 
         throw new TimeoutException();
-    }
-
-    public static ReadOnlySpan<T> AsReadOnlySpan<T>(this T[] array)
-    {
-        return array;
-    }
-
-    public static Task<bool> WaitOneAsync(this ManualResetEvent manualResetEvent)
-    {
-        return Task.Run(() => manualResetEvent.WaitOne());
     }
 
     public static Address ReadAddress(this Memory memory, int address)
@@ -80,11 +68,7 @@ public static class Extensions
         // IPv6
         if (ip.AddressFamily == AddressFamily.InterNetworkV6)
         {
-            return ip.IsIPv6LinkLocal ||
-#if NET6_0
-                    ip.IsIPv6UniqueLocal ||
-#endif
-                    ip.IsIPv6SiteLocal;
+            return ip.IsIPv6LinkLocal || ip.IsIPv6UniqueLocal || ip.IsIPv6SiteLocal;
         }
 
         throw new NotSupportedException($"IP address family {ip.AddressFamily} is not supported, expected only IPv4 (InterNetwork) or IPv6 (InterNetworkV6).");
@@ -112,7 +96,7 @@ public static class Extensions
         return IsLinkLocal() || IsClassA() || IsClassB() || IsClassC();
     }
 
-    public static bool TryGetWallet(this Dictionary<Address, Ledger> ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Ledger? wallet)
+    public static bool TryGetWallet(this WalletCache ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Ledger? wallet)
     {
         wallet = null;
 
@@ -184,7 +168,7 @@ public static class Extensions
         return true;
     }
 
-    public static bool TryGetValidator(this Dictionary<Address, Validator> validators, Address address, IStoreRepository repository, [NotNullWhen(true)] out Validator? validator)
+    public static bool TryGetValidator(this ValidatorCache validators, Address address, IStoreRepository repository, [NotNullWhen(true)] out Validator? validator)
     {
         validator = null;
 

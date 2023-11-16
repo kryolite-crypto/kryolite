@@ -59,11 +59,11 @@ public class UPnPService : BackgroundService
 
             foreach (var device in devices)
             {
-                logger.LogInformation($"UPnP: External IP = {await device.GetExternalIPAsync()}");
+                logger.LogInformation("UPnP: External IP = {ip}", await device.GetExternalIPAsync());
 
                 foreach (var port in ports)
                 {
-                    logger.LogInformation($"UPnP: Mapping port TCP {port}:{port}");
+                    logger.LogInformation("UPnP: Mapping port TCP {port}:{port}", port, port);
 
                     var mapping = new Mapping(Protocol.Tcp, port, port);
                     await device.CreatePortMapAsync(mapping);
@@ -79,7 +79,7 @@ public class UPnPService : BackgroundService
         }
         catch (MappingException mEx)
         {
-            logger.LogError($"UPnP mapping error: {mEx.Message}");
+            logger.LogError("UPnP mapping error: {message}", mEx.Message);
         }
         catch (Exception ex)
         {
@@ -109,7 +109,7 @@ public class UPnPService : BackgroundService
                 }
                 catch (Exception ex)
                 {
-                    logger.LogError($"Failed to delete UPnP mapping {mapping.PublicPort}: {ex.Message}");
+                    logger.LogError("Failed to delete UPnP mapping {publicPort}: {message}", mapping.PublicPort, ex.Message);
                 }
             }
         }

@@ -75,7 +75,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex)
         {
-            LogError(ex, $"{CHAIN_NAME}AddGenesis error");
+            Logger.LogError(ex, "{CHAIN_NAME}AddGenesis error", CHAIN_NAME);
             dbtx.Rollback();
         }
 
@@ -132,7 +132,7 @@ public abstract class TransactionManager
 
             StateCache.GetBlocks().Clear();
 
-            Logger.LogDebug($"Pending votes: {StateCache.GetVotes().Count}");
+            Logger.LogDebug("Pending votes: {voteCount}", StateCache.GetVotes().Count);
 
             var chainState = StateCache.GetCurrentState();
 
@@ -144,13 +144,7 @@ public abstract class TransactionManager
                 }
 
                 var stakeAddress = vote.PublicKey.ToAddress();
-                var stake = Repository.GetStake(stakeAddress);
-
-                if (stake is null)
-                {
-                    throw new Exception($"not validator ({stakeAddress})");
-                }
-
+                var stake = Repository.GetStake(stakeAddress) ?? throw new Exception($"not validator ({stakeAddress})");
                 var stakeAmount = stake.Stake;
                 var isSeedValidator = Constant.SEED_VALIDATORS.Contains(stakeAddress);
 
@@ -211,8 +205,6 @@ public abstract class TransactionManager
             var address = node!.PublicKey.ToAddress();
             var shouldVote = castVote && view.IsMilestone() && Repository.IsValidator(address);
 
-            Logger.LogDebug($"Should vote: castVote = {castVote}, isMilestone = {view.IsMilestone()}, isvalidator = {Repository.IsValidator(address)}");
-
             if (shouldVote)
             {
                 var validator = Repository.GetStake(address) ?? throw new Exception("failed to load stake for current node, corrupted Validator index?");
@@ -259,13 +251,21 @@ public abstract class TransactionManager
             StateCache.SetView(view);
 
             sw.Stop();
-            LogInformation($"{CHAIN_NAME}Added view #{height} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [Transactions = {toExecute.Count}] [Blocks = {blocks.Count}] [Votes = {votes.Count}] [Next difficulty = {chainState.CurrentDifficulty}]");
+            Logger.LogInformation("{CHAIN_NAME}Added view #{height} in {duration}ms [Transactions = {txCount}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {nextDifficulty}]",
+                CHAIN_NAME,
+                height,
+                sw.Elapsed.TotalMilliseconds,
+                toExecute.Count,
+                blocks.Count,
+                votes.Count,
+                chainState.CurrentDifficulty
+            );
 
             return true;
         }
         catch (Exception ex)
         {
-            LogError(ex, $"{CHAIN_NAME}AddView error");
+            Logger.LogError(ex, "{CHAIN_NAME}AddView error", CHAIN_NAME);
 
             StateCache.Clear();
 
@@ -374,7 +374,12 @@ public abstract class TransactionManager
 
         sw.Stop();
 
-        LogInformation($"{CHAIN_NAME}Added block #{chainState.Blocks + StateCache.GetBlocks().Count} in {sw.Elapsed.TotalNanoseconds / 1000000}ms [diff = {block.Difficulty}]");
+        Logger.LogInformation("{CHAIN_NAME}Added block #{blockNumber} in {duration}ms [diff = {difficulty}]",
+            CHAIN_NAME,
+            chainState.Blocks + StateCache.GetBlocks().Count,
+            sw.Elapsed.TotalMilliseconds,
+            block.Difficulty
+        );
 
         if (broadcast)
         {
@@ -425,7 +430,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex) 
         {
-            LogError(ex, $"{CHAIN_NAME}AddTransaction error");
+            Logger.LogError(ex, "{CHAIN_NAME}AddTransaction error", CHAIN_NAME);
         }
 
         return false;
@@ -464,7 +469,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex) 
         {
-            LogError(ex, $"{CHAIN_NAME}AddValidatorRegisteration error");
+            Logger.LogError(ex, "{CHAIN_NAME}AddValidatorRegisteration error", CHAIN_NAME);
         }
 
         return false;
@@ -502,7 +507,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex) 
         {
-            LogError(ex, $"{CHAIN_NAME}AddValidatorDeregisteration error");
+            Logger.LogError(ex, "{CHAIN_NAME}AddValidatorDeregisteration error", CHAIN_NAME);
         }
 
         return false;
@@ -525,41 +530,11 @@ public abstract class TransactionManager
         }
         catch (Exception ex)
         {
-            LogError(ex, $"{CHAIN_NAME}AddVote error.");
+            Logger.LogError(ex, "{CHAIN_NAME}AddVote error.", CHAIN_NAME);
         }
 
         return false;
     }
 
     protected bool loggingDisabled;
-
-    private void LogInformation(string msg)
-    {
-        if (loggingDisabled)
-        {
-            return;
-        }
-
-        Logger.LogInformation(msg);
-    }
-
-    private void LogInformation(Exception ex, string msg)
-    {
-        if (loggingDisabled)
-        {
-            return;
-        }
-
-        Logger.LogInformation(ex, msg);
-    }
-
-    private void LogError(string msg)
-    {
-        Logger.LogError(msg);
-    }
-
-    private void LogError(Exception ex, string msg)
-    {
-        Logger.LogError(ex, msg);
-    }
 }

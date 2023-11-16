@@ -409,14 +409,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         // ContractAddress_TokenId
         var tokenIx = keyBuf.Slice(0, 58);
-        token.Contract.Buffer.AsReadOnlySpan().CopyTo(tokenIx);
-        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(tokenIx.Slice(26));
+        token.Contract.Buffer.AsSpan().CopyTo(tokenIx);
+        token.TokenId.Buffer.AsSpan().CopyTo(tokenIx.Slice(26));
 
         Storage.Delete("ixTokenId", tokenIx, CurrentTransaction);
 
         // LedgerAddress_Key
         var ledgerIx = keyBuf.Slice(0, 34);
-        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(ledgerIx);
+        token.Ledger.Buffer.AsSpan().CopyTo(ledgerIx);
         id.CopyTo(ledgerIx.Slice(26));
 
         Storage.Delete("ixTokenLedger", ledgerIx, CurrentTransaction);

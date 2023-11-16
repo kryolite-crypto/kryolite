@@ -24,7 +24,7 @@ public class TransactionRequest : IPacket
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionRequest>>();
 
-        logger.LogDebug($"Received TransactionRequest from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received TransactionRequest from {hostname}", peer.Uri.ToHostname());
 
         var tx = blockchainManager.GetTransactionForHash(TransactionId);
 

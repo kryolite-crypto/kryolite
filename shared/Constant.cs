@@ -4,14 +4,13 @@ namespace Kryolite.Shared;
 
 public static class Constant
 {
-    public const string STORE_VERSION = "2";
-    public const string NETWORK_NAME = "TYTYRI-1";
+    public const string STORE_VERSION = "3";
+    public const string NETWORK_NAME = "TYTYRI-2";
     public const int API_LEVEL = 4;
     public const int MIN_API_LEVEL = 3;
 
     public const int HEARTBEAT_INTERVAL = 60;
     public const byte STARTING_DIFFICULTY = 10;
-    public const int DIFFICULTY_LOOKBACK = 100;
     public const string ADDR_PREFIX = "kryo:";
     public const int MAX_PEERS = 6;
     public const long DECIMAL_MULTIPLIER = 1_000_000;

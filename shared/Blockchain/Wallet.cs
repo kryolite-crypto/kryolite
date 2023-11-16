@@ -41,23 +41,4 @@ public class Wallet
 
         return wallet;
     }
-
-    public static Wallet Read(DbDataReader reader)
-    {
-        var wallet = new Wallet();
-
-        wallet.Address = reader.GetString(0);
-        if (!reader.IsDBNull(1))
-        {
-            wallet.Description = reader.GetString(1);
-        }
-        wallet.PublicKey = reader.GetString(2);
-
-        var t = reader.GetFieldType(3);
-        using var ms = new MemoryStream();
-        reader.GetStream(3).CopyTo(ms);
-        wallet.PrivateKey = ms.ToArray();
-
-        return wallet;
-    }
 }

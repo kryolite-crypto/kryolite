@@ -1,10 +1,6 @@
-using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
-using System.Net;
-using System.Net.Sockets;
 using System.Net.WebSockets;
-using System.Reflection;
 using System.Text;
 using System.Text.Json;
 using Kryolite.Shared;
@@ -27,15 +23,14 @@ public class MeshNetwork : IMeshNetwork
     public static event EventHandler<int>? ConnectedChanged;
 
     private ConcurrentDictionary<ulong, Peer> Peers = new();
-    private MemoryCache cache = new MemoryCache(new MemoryCacheOptions());
+    private readonly MemoryCache cache = new(new MemoryCacheOptions());
 
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
-    private readonly SemaphoreSlim cLock = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim cLock = new(1, 1);
 
     private readonly IServer server;
     private readonly IConfiguration configuration;
     private readonly ILogger<MeshNetwork> logger;
-    private readonly StartupSequence startup;
     
     public static MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray);
@@ -45,14 +40,11 @@ public class MeshNetwork : IMeshNetwork
     private CancellationTokenSource tokenSource = new CancellationTokenSource();
 
     private HttpClient HttpClient { get;  } = new HttpClient();
-    public MeshNetwork(IServer server, IConfiguration configuration, ILogger<MeshNetwork> logger, StartupSequence startup)
+    public MeshNetwork(IServer server, IConfiguration configuration, ILogger<MeshNetwork> logger)
     {
-        logger.LogInformation("Initializing WebSocket server");
-
         this.server = server ?? throw new ArgumentNullException(nameof(server));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
         var path = Path.Join(BlockchainService.DATA_PATH, "node.id");
 
@@ -66,8 +58,6 @@ public class MeshNetwork : IMeshNetwork
             serverId = ulong.Parse(File.ReadAllText(path));
         }
 
-        logger.LogInformation($"node.id = {serverId}");
-
         networkName = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
     }
 
@@ -75,8 +65,10 @@ public class MeshNetwork : IMeshNetwork
     {
         try
         {
-            var builder = new UriBuilder(uri);
-            builder.Path = "/peers";
+            var builder = new UriBuilder(uri)
+            {
+                Path = "/peers"
+            };
 
             var result = await HttpClient.GetAsync(builder.Uri);
 
@@ -145,7 +137,7 @@ public class MeshNetwork : IMeshNetwork
             }
             catch (Exception ex)
             {
-                logger.LogDebug(ex, $"Broadcast failed for {peer.Value.Uri.ToHostname()}");
+                logger.LogDebug(ex, "Broadcast failed for {hostname}", peer.Value.Uri.ToHostname());
             }
         });
     }
@@ -256,21 +248,21 @@ public class MeshNetwork : IMeshNetwork
 
                             if (clientId == serverId)
                             {
-                                logger.LogDebug($"Cancel connection to {targetUri.Uri}, self connection");
+                                logger.LogDebug("Cancel connection to {targetUri}, self connection", targetUri.Uri);
                                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                                 return false;
                             }
 
                             if (Peers.ContainsKey(clientId))
                             {
-                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, already connected");
+                                logger.LogDebug("Cancel connection to {targetUri}, already connected", targetUri.Uri);
                                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                                 return false;
                             }
 
                             if (apiLevel < Constant.MIN_API_LEVEL)
                             {
-                                logger.LogInformation($"Cancel connection to {targetUri.Uri}, unsupported apilevel: {apiLevel}");
+                                logger.LogDebug("Cancel connection to {targetUri}, unsupported apilevel: {apiLevel}", targetUri.Uri, apiLevel);
                                 await client.CloseAsync(WebSocketCloseStatus.NormalClosure, "", token);
                                 return false;
                             }
@@ -295,11 +287,11 @@ public class MeshNetwork : IMeshNetwork
                 {
                     if (wsEx.WebSocketErrorCode == WebSocketError.NotAWebSocket)
                     {
-                        logger.LogDebug($"Error connecting to {uri.ToHostname()}: Node is unreachable or offline");
+                        logger.LogDebug("Error connecting to {hostname}: Node is unreachable or offline", uri.ToHostname());
                     }
                     else
                     {
-                        logger.LogDebug($"Error connecting to {uri.ToHostname()}: {wsEx.Message}");
+                        logger.LogDebug("Error connecting to {hostname}: {error}", uri.ToHostname(), wsEx.Message);
                     }
                 }
 
@@ -310,7 +302,7 @@ public class MeshNetwork : IMeshNetwork
         }
         catch (ConnectionClosedException ccEx)
         {
-            logger.LogInformation($"{uri.ToHostname()} rejected connection, reason: {ccEx.CloseStatus}, {ccEx.Reason}");
+            logger.LogInformation("{hostname} rejected connection, reason: {closeStatus}, {reason}", uri.ToHostname(), ccEx.CloseStatus, ccEx.Reason);
         }
         catch (TaskCanceledException tcEx)
         {
@@ -325,7 +317,7 @@ public class MeshNetwork : IMeshNetwork
             logger.LogInformation(ex, "Unknown error with websocket connection");
         }
 
-        logger.LogInformation($"Error connecting to {uri.ToHostname()}");
+        logger.LogInformation("Error connecting to {hostname}", uri.ToHostname());
         return false;
     }
 
@@ -407,14 +399,13 @@ public class MeshNetwork : IMeshNetwork
                     catch (Exception ex)
                     {
                         logger.LogInformation(ex, "failed to handle incoming message");
-                        logger.LogInformation(MessagePackSerializer.ConvertToJson(message.Bytes, lz4Options));
                     }
                 });
             }
         }
         catch (ConnectionClosedException ccEx)
         {
-            logger.LogInformation($"{peer.Uri.ToHostname()} closed connection, reason: {ccEx.CloseStatus}, {ccEx.Reason}");
+            logger.LogInformation("{hostname} closed connection, reason: {closeStatus}, {reason}", peer.Uri.ToHostname(), ccEx.CloseStatus, ccEx.Reason);
         }
         catch (WebSocketException wEx)
         {

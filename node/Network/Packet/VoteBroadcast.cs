@@ -31,7 +31,7 @@ public class VoteBroadcast : IPacket
             return;
         }
 
-        logger.LogDebug($"Received VoteBroadcast from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received VoteBroadcast from {hostname}", peer.Uri.ToHostname());
 
         if (storeManager.VoteExists(Votehash))
         {

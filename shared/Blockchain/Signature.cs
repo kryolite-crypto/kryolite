@@ -32,8 +32,8 @@ public class Signature : IComparable<Signature>
     public static implicit operator byte[] (Signature signature) => signature.Buffer;
     public static implicit operator Span<byte> (Signature signature) => signature.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Signature signature) => signature.Buffer;
-    public static implicit operator Signature(byte[] buffer) => new Signature { Buffer = buffer };
-    public static implicit operator Signature(string signature) => new Signature { Buffer = Base32.Kryolite.Decode(signature) };
+    public static implicit operator Signature(byte[] buffer) => new(buffer);
+    public static implicit operator Signature(string signature) => new(Base32.Kryolite.Decode(signature));
 
     public override bool Equals(object? obj) 
     {
@@ -42,12 +42,12 @@ public class Signature : IComparable<Signature>
 
     public static bool operator ==(Signature a, Signature b)
     {
-        if (System.Object.ReferenceEquals(a, b))
+        if (ReferenceEquals(a, b))
         {
             return true;
         }
 
-        if (((object)a == null) || ((object)b == null))
+        if ((a is null) || (b is null))
         {
             return false;
         }
@@ -72,9 +72,9 @@ public class Signature : IComparable<Signature>
 
     public int CompareTo(Signature? other)
     {
-        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? new byte[0]));
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? []));
     }
 
-    public static int SIGNATURE_SZ = 64;
-    public static Signature NULL_SIGNATURE = new Signature();
+    public const int SIGNATURE_SZ = 64;
+    public static readonly Signature NULL_SIGNATURE = new();
 }

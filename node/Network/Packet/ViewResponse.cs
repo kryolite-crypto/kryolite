@@ -50,7 +50,7 @@ public class ViewResponse : IPacket
 
         if (chainState.ViewHash != View.LastHash)
         {
-            logger.LogDebug($"Discarding view {View.Id} from {peer.Uri.ToHostname()}, due to invalid LastHash");
+            logger.LogDebug("Discarding view {id} from {hostname}, due to invalid LastHash", View.Id, peer.Uri.ToHostname());
             return;
         }
 
@@ -62,14 +62,12 @@ public class ViewResponse : IPacket
 
                 if (blockResult is null || blockResult.Payload is not BlockResponse blockResponse || blockResponse.Block is null)
                 {
-                    logger.LogInformation($"[{peer.Uri.ToHostname()}] blockresult");
                     await peer.SendAsync(new NodeInfoRequest());
                     return;
                 }
 
                 if (!storeManager.AddBlock(blockResponse.Block, true))
                 {
-                    logger.LogInformation($"[{peer.Uri.ToHostname()}] addblock");
                     await peer.SendAsync(new NodeInfoRequest());
                     return;
                 }
@@ -84,14 +82,12 @@ public class ViewResponse : IPacket
 
                 if (voteResult is null || voteResult.Payload is not VoteResponse voteResponse || voteResponse.Vote is null)
                 {
-                    logger.LogInformation($"[{peer.Uri.ToHostname()}] voteresult");
                     await peer.SendAsync(new NodeInfoRequest());
                     return;
                 }
 
                 if (!storeManager.AddVote(voteResponse.Vote, true))
                 {
-                    logger.LogInformation($"[{peer.Uri.ToHostname()}] addvote");
                     await peer.SendAsync(new NodeInfoRequest());
                     return;
                 }
@@ -106,7 +102,6 @@ public class ViewResponse : IPacket
 
                 if (txResult is null || txResult.Payload is not TransactionResponse txResponse || txResponse.Transaction is null)
                 {
-                    logger.LogInformation($"[{peer.Uri.ToHostname()}] txresult");
                     await peer.SendAsync(new NodeInfoRequest());
                     return;
                 }
@@ -115,7 +110,6 @@ public class ViewResponse : IPacket
 
                 if (exr != ExecutionResult.SUCCESS)
                 {
-                    logger.LogInformation($"[{peer.Uri.ToHostname()}] addtransaction");
                     await peer.SendAsync(new NodeInfoRequest());
                     return;
                 }
@@ -124,7 +118,7 @@ public class ViewResponse : IPacket
 
         if (!storeManager.AddView(View, true, true))
         {
-            logger.LogDebug($"[{peer.Uri.ToHostname()}] Failed to apply view");
+            logger.LogDebug("[{hostname}] Failed to apply view", peer.Uri.ToHostname());
         }
     }
 }

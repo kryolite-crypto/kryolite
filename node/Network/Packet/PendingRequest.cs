@@ -16,7 +16,7 @@ public class PendingRequest : IPacket
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<BlockRequest>>();
 
-        logger.LogInformation($"PendingRequest from {peer.Uri.ToHostname()}");
+        logger.LogInformation("PendingRequest from {hostname}", peer.Uri.ToHostname());
 
         await peer.ReplyAsync(args.Message.Id, new PendingResponse(
             blockchainManager.GetPendingBlocks().ToList(),

@@ -18,16 +18,16 @@ public class HeightRequest : IPacket
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
 
-        logger.LogDebug($"Received HeightRequest from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received HeightRequest from {hostname}", peer.Uri.ToHostname());
 
         foreach (var hash in Views)
         {
-            logger.LogDebug($"Searching for View with hash {hash}");
+            logger.LogDebug("Searching for View with hash {hash}", hash);
             var view = storeManager.GetView(hash);
 
             if (view is not null)
             {
-                logger.LogDebug($"Found common height at {view.Id}");
+                logger.LogDebug("Found common height at {height}", view.Id);
                 await peer.ReplyAsync(args.Message.Id, new HeightResponse(view.Id));
                 return;
             }

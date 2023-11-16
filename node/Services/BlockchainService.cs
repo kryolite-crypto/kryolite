@@ -52,7 +52,7 @@ public class BlockchainService : BackgroundService
                 InitializeGenesisBlock((TransactionManager)blockchainManager, Logger);
             }
 
-            Logger.LogInformation($"Blockchain    [UP][{Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
+            Logger.LogInformation("Blockchain    [UP][{networkName}]", Configuration.GetValue<string?>("NetworkName") ?? "MAINNET");
 
         }
         catch (Exception ex)
