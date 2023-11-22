@@ -80,6 +80,9 @@
               <TabItem Header="Tokens" VerticalContentAlignment="Center">
                 <vm:TokensTab/>
               </TabItem>
+              <TabItem Header="Mining" VerticalContentAlignment="Center">
+                <vm:MiningTab/>
+              </TabItem>
               <TabItem Header="Validator" VerticalContentAlignment="Center">
                 <vm:ValidatorTab/>
               </TabItem>

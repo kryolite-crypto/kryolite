@@ -72,23 +72,6 @@
 
     <DockPanel Margin="20">
       <StackPanel Spacing="20">
-        <!--StackPanel.Styles>
-                <Style Selector="TextBox.floating">
-                    <Setter Property="Margin" Value="0, -18, 0, 0"/>
-                </Style>
-                <Style Selector="TextBox.floating ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Margin" Value="0, 18, 0, 0"/>
-                </Style>
-                <Style Selector="TextBox.floating TextBlock#PART_FloatingWatermark">
-                    <Setter Property="Margin" Value="0, -18, 0, 0"/>
-                    <Setter Property="Padding" Value="5, 0, 5, 0"/>
-                    <Setter Property="Background" Value="Gray"/>
-                    <Setter Property="HorizontalAlignment" Value="Left"/>
-                </Style>
-                <Style Selector="TextBox.floating ContentControl#InlineDataValidationContentControl > ContentPresenter">
-                    <Setter Property="Margin" Value="0, 0, 0, 0"/>
-                </Style>
-            </StackPanel.Styles-->
         <ComboBox Width="420" ItemsSource="{ReflectionBinding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
           <ComboBox.ItemTemplate>
             <DataTemplate>
