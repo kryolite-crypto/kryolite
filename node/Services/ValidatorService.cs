@@ -19,6 +19,7 @@ public class ValidatorService : BackgroundService
     private Wallet Node { get; set; }
     private IEventBus EventBus { get; }
     private readonly TaskCompletionSource _source = new();
+    private TaskCompletionSource _enableValidator = new();
 
     public ValidatorService(IServiceProvider serviceProvider, IKeyRepository keyRepository, IEventBus eventBus, ILogger<ValidatorService> logger, IHostApplicationLifetime lifetime)
     {
@@ -39,6 +40,7 @@ public class ValidatorService : BackgroundService
 
             if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey.ToAddress()))
             {
+                _enableValidator.SetResult();
                 await task;
                 return;
             }
@@ -49,6 +51,7 @@ public class ValidatorService : BackgroundService
                     return;
                 }
 
+                _enableValidator.SetResult();
                 logger.LogInformation("Validator     [ACTIVE]");
             });
 
@@ -58,6 +61,7 @@ public class ValidatorService : BackgroundService
                     return;
                 }
 
+                _enableValidator = new();
                 logger.LogInformation("Validator     [INACTIVE]");
             });
 
@@ -66,10 +70,12 @@ public class ValidatorService : BackgroundService
 
             if (repository.IsValidator(Node.Address))
             {
+                _enableValidator.SetResult();
                 logger.LogInformation("Validator     [ACTIVE]");
             }
             else
             {
+                _enableValidator = new();
                 logger.LogInformation("Validator     [INACTIVE]");
             }
 
@@ -91,6 +97,7 @@ public class ValidatorService : BackgroundService
     {
         try
         {
+            await _enableValidator.Task.WaitAsync(stoppingToken);
             await SynchronizeViewGenerator(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -140,7 +147,8 @@ public class ValidatorService : BackgroundService
                     nextLeader = Node.PublicKey;
 
                     // TODO: We should have some kind of vote who will create next view
-                    await Task.Delay(Random.Shared.Next(10000));
+                    // this could create temporary chain splits
+                    await Task.Delay(Random.Shared.Next(30000), stoppingToken);
                 }
 
                 logger.LogInformation("Next leader is {publicKey}", nextLeader.ToAddress());
@@ -165,6 +173,8 @@ public class ValidatorService : BackgroundService
                 }
 
                 Banned.Clear();
+
+                await _enableValidator.Task.WaitAsync(stoppingToken);
 
                 nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
 

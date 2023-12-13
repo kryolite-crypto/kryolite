@@ -122,6 +122,15 @@ public class Verifier : IVerifier
             return false;
         }
 
+        var address = view.PublicKey.ToAddress();
+        var validator = Store.GetStake(address);
+
+        if (validator is null)
+        {
+            Logger.LogInformation($"View verification failed (reason = view generator not validator ({address}))");
+            return false;
+        }
+
         if (!view.Verify())
         {
             Logger.LogInformation($"{view.GetHash()} verification failed (reson = invalid signature)");
