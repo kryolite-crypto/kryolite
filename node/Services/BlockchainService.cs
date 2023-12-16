@@ -15,13 +15,11 @@ public class BlockchainService : BackgroundService
     private SHA256Hash GenesisSeed;
 
     public IServiceProvider ServiceProvider { get; }
-    public StartupSequence Startup { get; }
     private ILogger<BlockchainService> Logger { get; }
     public IConfiguration Configuration { get; }
 
-    public BlockchainService(IServiceProvider serviceProvider, StartupSequence startup, ILogger<BlockchainService> logger, IConfiguration configuration) {
+    public BlockchainService(IServiceProvider serviceProvider, ILogger<BlockchainService> logger, IConfiguration configuration) {
         ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        Startup = startup ?? throw new ArgumentNullException(nameof(startup));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
 
@@ -52,8 +50,7 @@ public class BlockchainService : BackgroundService
                 InitializeGenesisBlock((TransactionManager)blockchainManager, Logger);
             }
 
-            Logger.LogInformation($"Blockchain    [UP][{Configuration.GetValue<string?>("NetworkName") ?? "MAINNET"}]");
-
+            Logger.LogInformation("Blockchain    [UP][{networkName}]", Constant.NETWORK_NAME);
         }
         catch (Exception ex)
         {

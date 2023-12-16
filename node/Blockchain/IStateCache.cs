@@ -20,9 +20,9 @@ public interface IStateCache
 
     void Add(Ledger ledger);
     bool Contains(Address address);
-    bool TryGet(Address address, [MaybeNullWhen(false)] out Ledger ledger);
     int LedgerCount();
-    Dictionary<Address, Ledger> GetLedgers();
+    WalletCache GetLedgers();
+    ValidatorCache GetValidators();
     void EnsureLedgerCapacity(int count);
 
     void SetChainState(ChainState chainState);

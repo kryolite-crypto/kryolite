@@ -83,9 +83,6 @@ namespace Kryolite.Wallet
 
                 Host.Start();
 
-                ServiceCollection.GetService<StartupSequence>()?
-                    .Application.Set();
-
                 var logger = Host.Services.GetService<ILogger<Program>>();
                 var addresses = Host.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
 

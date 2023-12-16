@@ -12,6 +12,9 @@ public class ChainState : EventBase
     public long Id {  get; set; }
     [Key(1)]
     public BigInteger Weight { get; set; } = new BigInteger(0);
+    /// <summary>
+    /// Total blocks in chain
+    /// </summary>
     [Key(2)]
     public long Blocks { get; set; }
     [Key(3)]
@@ -22,4 +25,9 @@ public class ChainState : EventBase
     public long Votes { get; set; }
     [Key(6)]
     public long Transactions { get; set; }
+
+    public BigInteger CalculateWork(long blocks)
+    {
+        return CurrentDifficulty.ToWork() * blocks;
+    }
 }

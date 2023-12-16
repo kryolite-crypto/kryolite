@@ -1,9 +1,7 @@
-using System.Collections.Immutable;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
-using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -27,7 +25,7 @@ public class StoreManager : TransactionManager, IStoreManager
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IExecutorFactory executorFactory, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, verifier, stateCache, executorFactory, logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IExecutorFactory executorFactory, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, executorFactory, logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         MeshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
@@ -156,28 +154,9 @@ public class StoreManager : TransactionManager, IStoreManager
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "AddTransaction");
+            Logger.LogError(ex, "AddTransaction error");
             return ExecutionResult.UNKNOWN;
         }
-    }
-
-    public ExecutionResult AddValidatorReg(TransactionDto txDto, bool broadcast)
-    {
-        using var _ = rwlock.EnterWriteLockEx();
-
-        var tx = new Transaction(txDto);
-
-        if (!Verifier.Verify(tx))
-        {
-            return ExecutionResult.VERIFY_FAILED;
-        }
-
-        if(AddValidatorRegInternal(tx, broadcast))
-        {
-            NotificationService.SendEventAsync("VALIDATOR_REG");
-        }
-
-        return tx.ExecutionResult;
     }
 
     public bool AddVote(Vote vote, bool broadcast)
@@ -238,7 +217,7 @@ public class StoreManager : TransactionManager, IStoreManager
         var block = new Block
         {
             To = wallet,
-            Value = Constant.BLOCK_REWARD,
+            Value = RewardCalculator.BlockReward(chainState.Id),
             Timestamp = timestamp,
             LastHash = chainState.ViewHash,
             Difficulty = chainState.CurrentDifficulty
@@ -335,12 +314,12 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterReadLockEx();
 
-        if (StateCache.TryGet(address, out var ledger))
+        if (StateCache.GetLedgers().TryGetWallet(address, Repository, out var ledger))
         {
             return ledger;
         }
 
-        return Repository.GetWallet(address);
+        return null;
     }
     
     public string? CallContractMethod(Address address, CallMethod call)

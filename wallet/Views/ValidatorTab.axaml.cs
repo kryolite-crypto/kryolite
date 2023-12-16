@@ -94,25 +94,45 @@ public partial class ValidatorTab : UserControl
         });
     }
 
-    public void SetValidatorState(object? sender, RoutedEventArgs args)
+    public async void SetValidatorState(object? sender, RoutedEventArgs args)
     {
+        if(TopLevel.GetTopLevel(this) is not Window window)
+        {
+            return;
+        }
+
         if (Model.Status == "Enabled")
         {
-            DisableValidator();
+            var ok = await ConfirmDialog.Show("Disable validator and unlock stake?", window);
+
+            if (!ok)
+            {
+                return;
+            }
+
+            SetValidatorState(TransactionType.DEREGISTER_VALIDATOR, Address.NULL_ADDRESS);
         }
         else
         {
-            SetStake(sender, args);
+            var recipient = await SelectRecipient();
+
+            if (recipient == Address.NULL_ADDRESS)
+            {
+                Console.WriteLine("NULL_RECIPIENT (invalid address?)");
+                return;
+            }
+
+            SetValidatorState(TransactionType.REGISTER_VALIDATOR, recipient);
         }
     }
 
-    public async void SetStake(object? sender, RoutedEventArgs args)
+    public async Task<Address> SelectRecipient()
     {        
         try
         {
             if(TopLevel.GetTopLevel(this) is not Window window)
             {
-                return;
+                return Address.NULL_ADDRESS;
             }
 
             using var scope = Program.ServiceCollection.CreateScope();
@@ -122,60 +142,26 @@ public partial class ValidatorTab : UserControl
 
             var key = keyRepository.GetKey();
 
-            var model = new TransferModel
-            {
-                From = key.Address.ToString(),
-                To = Model.RewardAddress?.ToString() ?? null,
-                Min = Constant.MIN_STAKE,
-                Max = Model.Total,
-                Amount = (Model.Locked / Constant.DECIMAL_MULTIPLIER).ToString(),
-                RecipientDescription = "Stake reward address"
-            };
+            var title = "Select address for stake rewards";
+            var description = "Address for stake rewards";
+            var address = await InputDialog.Show(title, description, window);
 
-            var title = Model.Status == "Disabled" ? "Set Stake" : "Update Stake";
-            var result = await SetStakeDialog.Show(title, model, window);
-
-            if (result is null || result.To is null)
+            if (address is null)
             {
-                return;
+                return Address.NULL_ADDRESS;
             }
 
-            if (!decimal.TryParse(result.Amount, out var amount))
+            if (!Address.IsValid(address))
             {
-                return;
+                return Address.NULL_ADDRESS;
             }
 
-            if (result.To == Model.RewardAddress && amount == Model.Locked)
-            {
-                return;
-            }
-
-            if (!Address.IsValid(result.To))
-            {
-                return;
-            }
-
-            if ((amount * Constant.DECIMAL_MULTIPLIER) < Constant.MIN_STAKE)
-            {
-                return;
-            }
-
-            var tx = new Transaction
-            {
-                TransactionType = TransactionType.REG_VALIDATOR,
-                PublicKey = key.PublicKey,
-                To = result.To,
-                Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
-                Timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds()
-            };
-
-            tx.Sign(key.PrivateKey);
-
-            storeManager.AddTransaction(new TransactionDto(tx), true);
+            return address;
         }
         catch (Exception ex)
         {
             Console.WriteLine(ex);
+            return Address.NULL_ADDRESS;
         }
     }
 
@@ -199,7 +185,7 @@ public partial class ValidatorTab : UserControl
             {
                 From = key.Address.ToString(),
                 Min = 0,
-                Max = Model.Available,
+                Max = Model.Total,
                 Amount = (Model.Available / Constant.DECIMAL_MULTIPLIER).ToString(),
                 RecipientDescription = "Recipient"
             };
@@ -237,7 +223,7 @@ public partial class ValidatorTab : UserControl
 
             tx.Sign(key.PrivateKey);
 
-            storeManager.AddTransaction(new TransactionDto(tx), true);
+            Console.WriteLine(storeManager.AddTransaction(new TransactionDto(tx), true));
         }
         catch (Exception ex)
         {
@@ -245,22 +231,10 @@ public partial class ValidatorTab : UserControl
         }
     }
 
-    private async void DisableValidator()
+    private void SetValidatorState(TransactionType transactionType, Address rewardRecipient)
     {
         try
         {
-            if(TopLevel.GetTopLevel(this) is not Window window)
-            {
-                return;
-            }
-
-            var result = await ConfirmDialog.Show("Disable validator and unlock stake?", window);
-
-            if (!result)
-            {
-                return;
-            }
-
             using var scope = Program.ServiceCollection.CreateScope();
             var keyRepository = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
@@ -268,15 +242,16 @@ public partial class ValidatorTab : UserControl
 
             var tx = new Transaction
             {
-                TransactionType = TransactionType.REG_VALIDATOR,
+                TransactionType = transactionType,
                 PublicKey = key.PublicKey,
+                To = rewardRecipient,
                 Value = 0,
                 Timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds()
             };
 
             tx.Sign(key.PrivateKey);
 
-            storeManager.AddTransaction(new TransactionDto(tx), true);
+            Console.WriteLine(storeManager.AddTransaction(new TransactionDto(tx), true));
         }
         catch (Exception ex)
         {

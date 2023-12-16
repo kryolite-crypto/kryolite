@@ -1,8 +1,7 @@
-using System.Runtime.InteropServices;
-using System.Xml;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
+using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
@@ -23,7 +22,7 @@ public class StagingManager : TransactionManager, IDisposable
 
     public override string CHAIN_NAME => "[STAGING] ";
 
-    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, IExecutorFactory executorFactory, ILoggerFactory loggerFactory) : base(repository, keyRepository, verifier, stateCache, executorFactory, loggerFactory.CreateLogger("TransactionManager"))
+    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, IExecutorFactory executorFactory, ILoggerFactory loggerFactory) : base(repository, keyRepository, stateCache, executorFactory, loggerFactory.CreateLogger("TransactionManager"))
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
@@ -187,13 +186,15 @@ public class StagingManager : TransactionManager, IDisposable
         var height = GetHeight();
         using var dbtx = Repository.BeginTransaction();
 
-        var ledgers = new Dictionary<Address, Ledger>();
+        var ledgers = new WalletCache();
         var contracts = new Dictionary<Address, Contract>();
         var tokens = new Dictionary<(Address, SHA256Hash), Token>();
+        var validators = new ValidatorCache();
+        var transfer = new Transfer(Repository, ledgers, validators);
 
         for (var i = height; i > targetHeight; i--)
         {
-            Logger.LogInformation($"Rolling back height {i}");
+            Logger.LogInformation("Rolling back height {height}", i);
 
             var view = GetView(i);
 
@@ -209,7 +210,10 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in rewards)
             {
-                RollbackTransaction(i, ledgers, contracts, tokens, tx);
+                if (tx.ExecutionResult == ExecutionResult.SUCCESS)
+                {
+                    RollbackTransaction(i, tx, transfer, ledgers, contracts, tokens, validators);
+                }
             }
 
             var transactions = Repository.GetTransactions(view.Transactions);
@@ -219,7 +223,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in transactions)
             {
-                RollbackTransaction(i, ledgers, contracts, tokens, tx);
+                RollbackTransaction(i, tx, transfer, ledgers, contracts, tokens, validators);
             }
 
             Repository.DeleteBlocks(view.Blocks);
@@ -231,13 +235,18 @@ public class StagingManager : TransactionManager, IDisposable
         Repository.UpdateWallets(ledgers.Values);
         Repository.UpdateContracts(contracts.Values);
         Repository.UpdateTokens(tokens.Values);
+        
+        foreach (var validator in validators.Values)
+        {
+            Repository.SetStake(validator.NodeAddress, validator);
+        }
 
         dbtx.Commit();
 
         StateCache.SetChainState(Repository.GetChainState() ?? new ChainState());
     }
 
-    private void RollbackTransaction(long height, Dictionary<Address, Ledger> ledgers, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, Transaction tx)
+    private void RollbackTransaction(long height, Transaction tx, Transfer transfer, WalletCache ledgers, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, ValidatorCache validators)
     {
         if (tx.ExecutionResult != ExecutionResult.SUCCESS)
         {
@@ -248,16 +257,18 @@ public class StagingManager : TransactionManager, IDisposable
         var from = tx.From ?? Address.NULL_ADDRESS;
         var to = tx.To ?? Address.NULL_ADDRESS;
 
-        var sender = ledgers.TryGetWallet(from, Repository) ?? new Ledger();
-        var recipient = ledgers.TryGetWallet(to, Repository) ?? new Ledger();
-        var contract = to.IsContract() ? contracts.TryGetContract(to, Repository) : null;
+        if (!ledgers.TryGetWallet(from, Repository, out var sender))
+        {
+            sender = new Ledger();
+        }
 
-        if (contract is not null)
+        if (to.IsContract() && contracts.TryGetContract(to, Repository, out var contract))
         {
             // Note: effects need to be rolled back before transaction
             foreach (var effect in tx.Effects)
             {
-                RollbackEffect(effect, recipient, ledgers, tokens);
+                transfer.From(effect.To, effect.Value, out _, out _);
+                RollbackToken(effect, tokens);
             }
 
             Repository.DeleteContractSnapshot(to, height);
@@ -268,24 +279,15 @@ public class StagingManager : TransactionManager, IDisposable
             case TransactionType.BLOCK_REWARD:
             case TransactionType.STAKE_REWARD:
             case TransactionType.DEV_REWARD:
-                checked
-                {
-                    recipient.Balance -= tx.Value;
-                }
+                transfer.From(to, tx.Value, out _, out _);
                 break;
             case TransactionType.PAYMENT:
-                checked
-                {
-                    sender.Balance += tx.Value;
-                    recipient.Balance -= tx.Value;
-                }
+                transfer.From(to, tx.Value, out _, out _);
+                transfer.To(from, tx.Value, out _);
                 break;
             case TransactionType.CONTRACT:
-                checked
-                {
-                    sender.Balance += tx.Value;
-                    recipient.Balance -= tx.Value;
-                }
+                transfer.From(to, tx.Value, out _, out _);
+                transfer.To(from, tx.Value, out _);
 
                 Repository.DeleteContractSnapshot(to, height);
                 Repository.DeleteContractCode(to);
@@ -293,14 +295,33 @@ public class StagingManager : TransactionManager, IDisposable
 
                 contracts.Remove(to);
                 break;
-            case TransactionType.REG_VALIDATOR:
-                Repository.DeleteStake(from, height);
-                var newStake = Repository.GetStakeAtHeight(from, height);
-
-                checked
+            case TransactionType.REGISTER_VALIDATOR:
                 {
-                    sender.Balance += tx.Value;
-                    sender.Balance -= newStake?.Stake ?? 0;
+                    if (!validators.TryGetValidator(from, Repository, out var validator))
+                    {
+                        throw new Exception("missing validator entry");
+                    }
+
+                    sender.Balance = validator.Stake;
+                    sender.Locked = false;
+                    validator.Stake = 0;
+
+                    Events.Add(new ValidatorDisable(from));
+                }
+
+                break;
+            case TransactionType.DEREGISTER_VALIDATOR:
+                {
+                    if (!validators.TryGetValidator(from, Repository, out var validator))
+                    {
+                        throw new Exception("missing validator entry");
+                    }
+
+                    validator.Stake = sender.Balance;
+                    sender.Balance = 0;
+                    sender.Locked = true;
+
+                    Events.Add(new ValidatorEnable(from));
                 }
                 break;
         }
@@ -308,25 +329,14 @@ public class StagingManager : TransactionManager, IDisposable
         Repository.Delete(tx);
     }
 
-    private void RollbackEffect(Effect effect, Ledger recipient, Dictionary<Address, Ledger> ledgers, Dictionary<(Address, SHA256Hash), Token> tokens)
+    private void RollbackToken(Effect effect, Dictionary<(Address, SHA256Hash), Token> tokens)
     {
-        var eRecipient = ledgers.TryGetWallet(effect.To, Repository);
-
-        recipient.Balance = checked(recipient.Balance + effect.Value);
-
-        if (eRecipient is not null)
-        {
-            eRecipient.Balance = checked(eRecipient.Balance - effect.Value);
-        }
-
         if (effect.TokenId is null)
         {
             return;
         }
 
-        var token = tokens.TryGetToken(effect.Contract, effect.TokenId, Repository);
-
-        if (token is null)
+        if (!tokens.TryGetToken(effect.Contract, effect.TokenId, Repository, out var token))
         {
             return;
         }

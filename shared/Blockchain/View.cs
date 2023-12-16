@@ -118,4 +118,19 @@ public class View
         var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
         return algorithm.Verify(key, stream.ToArray(), Signature);
     }
+
+    public bool ShouldClearVotes()
+    {
+        return Id % Constant.VOTE_INTERVAL == 1;
+    }
+
+    public bool IsEpoch()
+    {
+        return Id % Constant.EPOCH_LENGTH == 0;
+    }
+
+    public bool IsMilestone()
+    {
+        return Id % Constant.VOTE_INTERVAL == 0;
+    }
 }

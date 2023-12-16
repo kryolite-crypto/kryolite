@@ -17,10 +17,7 @@ public class SHA256Hash : IComparable<SHA256Hash>
 
     public SHA256Hash(byte[] buffer)
     {
-        if (buffer is null)
-        {
-            throw new ArgumentNullException(nameof(buffer));
-        }
+        ArgumentNullException.ThrowIfNull(buffer);
 
         if (buffer.Length != HASH_SZ)
         {
@@ -33,9 +30,9 @@ public class SHA256Hash : IComparable<SHA256Hash>
     public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (SHA256Hash hash) => hash.Buffer;
     public static implicit operator ReadOnlySpan<byte> (SHA256Hash hash) => hash.Buffer;
-    public static implicit operator SHA256Hash(byte[] buffer) => new SHA256Hash { Buffer = buffer };
-    public static implicit operator SHA256Hash(string hash) => new SHA256Hash(Base32.Kryolite.Decode(hash));
-    public static implicit operator SHA256Hash(Span<byte> buffer) => new SHA256Hash(buffer.ToArray());
+    public static implicit operator SHA256Hash(byte[] buffer) => new(buffer);
+    public static implicit operator SHA256Hash(string hash) => new(Base32.Kryolite.Decode(hash));
+    public static implicit operator SHA256Hash(Span<byte> buffer) => new(buffer.ToArray());
 
     public override bool Equals(object? obj) 
     {
@@ -69,12 +66,12 @@ public class SHA256Hash : IComparable<SHA256Hash>
 
     public int CompareTo(SHA256Hash? other)
     {
-        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? new byte[0]));
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? []));
     }
 
-    public static int HASH_SZ = 32;
+    public const int HASH_SZ = 32;
 
-    public static SHA256Hash NULL_HASH = new SHA256Hash();
+    public static readonly SHA256Hash NULL_HASH = new();
 }
 
 public static class SHA256HashExtensions

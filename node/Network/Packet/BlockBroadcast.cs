@@ -31,7 +31,7 @@ public class BlockBroadcast : IPacket
             return;
         }
 
-        logger.LogDebug($"Received BlockBroadcast from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received BlockBroadcast from {hostname}", peer.Uri.ToHostname());
 
         if (storeManager.BlockExists(Blockhash))
         {

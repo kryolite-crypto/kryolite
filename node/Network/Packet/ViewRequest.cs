@@ -44,7 +44,7 @@ public class ViewRequestByHash : IPacket
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<ViewRequestByHash>>();
 
-        logger.LogDebug($"Received ViewRequestByHash from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received ViewRequestByHash from {hostname}", peer.Uri.ToHostname());
 
         var view = blockchainManager.GetView(ViewHash);
         var response = new ViewResponse(view);

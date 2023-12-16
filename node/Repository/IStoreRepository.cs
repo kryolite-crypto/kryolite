@@ -34,6 +34,7 @@ public interface IStoreRepository
     void SaveState(ChainState chainState);
     long? GetTimestamp(SHA256Hash transactionId);
     ChainState? GetChainState();
+    ChainState? GetChainState(long height);
     Ledger? GetWallet(Address address);
     List<Transaction> GetLastNTransctions(int count);
     List<Transaction> GetLastNTransctions(Address address, int count);
@@ -61,9 +62,8 @@ public interface IStoreRepository
     ITransaction BeginTransaction();
     bool IsValidator(Address address);
     Validator? GetStake(Address address);
-    Validator? GetStakeAtHeight(Address address, long height);
-    void SetStake(Address address, Validator stake, long height);
-    void DeleteStake(Address address, long height);
+    void SetStake(Address address, Validator stake);
+    void DeleteStake(Address address);
     List<Validator> GetValidators();
     void Reset();
     void ReplaceDbFrom(string storeName);

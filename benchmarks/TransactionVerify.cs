@@ -53,8 +53,5 @@ public class TransactionVerify
     }
 
     [Benchmark]
-    public void TxVerify() => tx.Verify();
-
-    [Benchmark]
     public void Verify() => algorithm.Verify(key, data, signature ?? throw new Exception("trying to verify null signature"));
 }

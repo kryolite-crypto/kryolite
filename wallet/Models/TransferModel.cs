@@ -6,7 +6,7 @@ using Kryolite.Shared;
 
 namespace Kryolite.Wallet;
 
-public class TransferModel : NotifyPropertyChanged, INotifyDataErrorInfo
+public class TransferModel : NotifyPropertyChanged
 {
     private string? from;
     private string? to;
@@ -22,44 +22,45 @@ public class TransferModel : NotifyPropertyChanged, INotifyDataErrorInfo
         set => RaisePropertyChanged(ref from, value);
     }
 
-    private string? _addressError = null;
     public string? To
     {
         get => to;
-        set {
-            RaisePropertyChanged(ref to, value);
-
-            if (to is null || !Address.IsValid(to))
+        set => RaisePropertyChanged(ref to, value, () => {
+            if (value is null)
             {
-                _addressError = "Invalid address";
+                return "Recipient is required";
             }
-            else
+            
+            if (!Address.IsValid(value))
             {
-                _addressError = null;
+                return "Invalid address";
             }
 
-            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(To)));
-        }
+            return null;
+        });
     }
 
-    private string? _amountError = null;
     public string Amount
     {
         get => amount;
-        set {
-            RaisePropertyChanged(ref amount, value);
-
-            if (!decimal.TryParse(value, out var dec) || dec < (min / Constant.DECIMAL_MULTIPLIER) || dec > (max / Constant.DECIMAL_MULTIPLIER))
+        set => RaisePropertyChanged(ref amount, value, () => {
+            if (value is null)
             {
-                _amountError = $"Amount must be between {min / Constant.DECIMAL_MULTIPLIER} and {max / Constant.DECIMAL_MULTIPLIER}";
-            }
-            else
-            {
-                _amountError = null;
+                return "Amount required";
             }
 
-            ErrorsChanged?.Invoke(this, new DataErrorsChangedEventArgs(nameof(Amount)));
-        }
+            if (!decimal.TryParse(value, out var dec))
+            {
+                return "Invalid value";
+            }
+            
+            if (dec < (min / Constant.DECIMAL_MULTIPLIER) || dec > (max / Constant.DECIMAL_MULTIPLIER))
+            {
+                return $"Amount must be between {min / Constant.DECIMAL_MULTIPLIER} and {max / Constant.DECIMAL_MULTIPLIER}";
+            }
+
+            return null;
+        });
     }
 
     public List<WalletModel> Wallets
@@ -85,16 +86,4 @@ public class TransferModel : NotifyPropertyChanged, INotifyDataErrorInfo
         get => recipientDescription;
         set => RaisePropertyChanged(ref recipientDescription, value);
     }
-
-    public bool HasErrors => false;
-
-    public event EventHandler<DataErrorsChangedEventArgs>? ErrorsChanged;
-
-    public IEnumerable GetErrors(string? propertyName) =>
-        propertyName switch
-        {
-            nameof(To) => new[] { _addressError },
-            nameof(Amount) => new[] { _amountError },
-            _ => new string[0]
-        };
 }

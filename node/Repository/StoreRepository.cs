@@ -237,6 +237,11 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.FindLast<ChainState>("ChainState");
     }
 
+    public ChainState? GetChainState(long height)
+    {
+        return Storage.Get<ChainState>("ChainState", height.ToKey());
+    }
+
     public void SaveState(ChainState chainState)
     {
         Storage.Put("ChainState", chainState.Id.ToKey(), chainState, CurrentTransaction);
@@ -404,14 +409,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         // ContractAddress_TokenId
         var tokenIx = keyBuf.Slice(0, 58);
-        token.Contract.Buffer.AsReadOnlySpan().CopyTo(tokenIx);
-        token.TokenId.Buffer.AsReadOnlySpan().CopyTo(tokenIx.Slice(26));
+        token.Contract.Buffer.AsSpan().CopyTo(tokenIx);
+        token.TokenId.Buffer.AsSpan().CopyTo(tokenIx.Slice(26));
 
         Storage.Delete("ixTokenId", tokenIx, CurrentTransaction);
 
         // LedgerAddress_Key
         var ledgerIx = keyBuf.Slice(0, 34);
-        token.Ledger.Buffer.AsReadOnlySpan().CopyTo(ledgerIx);
+        token.Ledger.Buffer.AsSpan().CopyTo(ledgerIx);
         id.CopyTo(ledgerIx.Slice(26));
 
         Storage.Delete("ixTokenLedger", ledgerIx, CurrentTransaction);
@@ -464,7 +469,7 @@ public class StoreRepository : IStoreRepository, IDisposable
             return true;
         }
 
-        var stake = Storage.FindLast<Validator>("Validator", address.Buffer);
+        var stake = Storage.Get<Validator>("Validator", address.Buffer);
 
         if (stake == null)
         {
@@ -476,59 +481,17 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Validator? GetStake(Address address)
     {
-        return Storage.FindLast<Validator>("Validator", address.Buffer);
+        return Storage.Get<Validator>("Validator", address.Buffer);
     }
 
-    public Validator? GetStakeAtHeight(Address address, long height)
+    public void SetStake(Address address, Validator stake)
     {
-        var key = new byte[Address.ADDRESS_SZ + sizeof(long)];
-        address.Buffer.CopyTo(key, 0);
-        height.ToKey().CopyTo(key, Address.ADDRESS_SZ);
-
-        var lowerBound = new byte[Address.ADDRESS_SZ + sizeof(long)];
-        address.Buffer.CopyTo(lowerBound, 0);
-
-        var opts = new ReadOptions();
-        opts.SetIterateLowerBound(lowerBound);
-        opts.SetIterateUpperBound(key);
-
-        using var iterator = Storage.GetIterator("Validator", opts);
-
-        iterator.SeekForPrev(key);
-
-        if (!iterator.Valid())
-        {
-            return null;
-        }
-
-        var addr = (Address)iterator.Key()[0..Address.ADDRESS_SZ];
-
-        if (addr != address)
-        {
-            return null;
-        }
-
-        return MessagePackSerializer.Deserialize<Validator>(iterator.Value());
+        Storage.Put("Validator", address.Buffer, stake, CurrentTransaction);
     }
 
-    public void SetStake(Address address, Validator stake, long height)
+    public void DeleteStake(Address address)
     {
-        if (address != stake.NodeAddress)
-        {
-            Console.WriteLine("SAVING STAKE WITH WRONG ADDRESS");
-        }
-        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
-        address.Buffer.CopyTo(keyBuf);
-        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
-        Storage.Put("Validator", keyBuf, stake, CurrentTransaction);
-    }
-
-    public void DeleteStake(Address address, long height)
-    {
-        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
-        address.Buffer.CopyTo(keyBuf);
-        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
-        Storage.Delete("Validator", keyBuf, CurrentTransaction);
+        Storage.Delete("Validator", address.Buffer, CurrentTransaction);
     }
 
     public List<Validator> GetValidators()
@@ -547,14 +510,6 @@ public class StoreRepository : IStoreRepository, IDisposable
             {
                 var validator = MessagePackSerializer.Deserialize<Validator>(iterator.Value());
                 validators.Add(addr, validator);
-
-                if (addr != validators[addr].NodeAddress)
-                {
-                    Console.WriteLine("Address mismatch");
-                    Console.WriteLine(addr);
-                    Console.WriteLine(validator.NodeAddress);
-                    Console.WriteLine(validators[addr].NodeAddress);
-                }
             }
 
             iterator.Prev();

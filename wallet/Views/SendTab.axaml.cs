@@ -15,16 +15,19 @@ using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 using System.Collections.Immutable;
+using Avalonia.VisualTree;
 
 namespace Kryolite.Wallet;
 
 public partial class SendTab : UserControl
 {
-    private SendTabViewModel Model = new();
+    private SendTabViewModel Model;
 
     public SendTab()
     {
         AvaloniaXamlLoader.Load(this);
+        
+        Model = new();
         DataContext = Model;
 
         Model.SendTransactionClicked += (object? sender, EventArgs args) => {

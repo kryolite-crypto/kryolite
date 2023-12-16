@@ -24,7 +24,7 @@ public class BlockRequest : IPacket
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<BlockRequest>>();
 
-        logger.LogDebug($"Received BlockRequest from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received BlockRequest from {hostname}", peer.Uri.ToHostname());
 
         var block = blockchainManager.GetBlock(Blockhash);
         await peer.ReplyAsync(args.Message.Id, new BlockResponse(block));

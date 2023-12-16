@@ -1,0 +1,136 @@
+<UserControl    xmlns="https://github.com/avaloniaui"
+                xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                xmlns:vm="using:Kryolite.Wallet"
+                xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+                mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                x:Class="Kryolite.Wallet.MiningTab"
+                x:DataType="vm:MiningTabModel"
+                xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit">
+  <UserControl.Styles>
+    <Style Selector="vm|GroupBox">
+      <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush}" />
+      <Setter Property="BorderBrush" Value="#66ffffff" />
+      <Setter Property="FontSize" Value="{DynamicResource FontSizeNormal}" />
+      <Setter Property="Foreground" Value="{DynamicResource ThemeForegroundBrush}" />
+      <Setter Property="Padding" Value="4" />
+      <Setter Property="Margin" Value="1" />
+      <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate>
+            <Grid x:Name="GroupBoxRoot">
+              <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+              </Grid.RowDefinitions>
+              <Border Grid.Row="0"
+                HorizontalAlignment="Left"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="0, 0.51, 0, 0"
+                Margin="0, 8, 0, 0"
+                Width="5"/>
+              <ContentControl Grid.Row="0"
+                Name="HeaderContent"
+                Margin="10,0,0,0"
+                Content="{TemplateBinding Header}"
+                ContentTemplate="{TemplateBinding HeaderTemplate}"
+                HorizontalAlignment="Left"
+                FontFamily="{TemplateBinding FontFamily}"
+                FontSize="{TemplateBinding FontSize}"
+                FontWeight="{TemplateBinding FontWeight}"
+                Foreground="#FFFFFFFF"
+                UseLayoutRounding="False"
+                ZIndex="1"/>
+
+              <Border Grid.Row="0"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="0, 0.51, 0, 0"
+                Margin="{ReflectionBinding Width, ElementName=HeaderContent, Path=Bounds, Converter={StaticResource WidthToMarginConverter}}"/>
+              
+              <Border Grid.Row="1"
+                      Margin="0,-9,0,0"
+                      Padding="5,15,5,5"
+                      BorderThickness="0.51, 0, 0.51, 0.51"
+                      Background="Transparent"
+                      BorderBrush="{TemplateBinding BorderBrush}"
+                      UseLayoutRounding="True">
+                  <ContentPresenter Margin="{TemplateBinding Padding}"
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    Cursor="{TemplateBinding Cursor}"
+                                    UseLayoutRounding="False" />
+                </Border>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </UserControl.Styles>
+
+    <DockPanel Margin="20">
+      <Border BorderBrush="#66ffffff" BorderThickness="0.51" CornerRadius="0" Padding="4" HorizontalAlignment="Stretch" DockPanel.Dock="Bottom">
+        <AvaloniaEdit:TextEditor
+                        Name="LogBox"
+                        IsReadOnly="True"
+                        FontFamily="Andale Mono,Consolas,Monospace"
+                        FontSize="12"
+                        Height="180"
+                        TextChanged="ScrollToBottom"
+                        />
+      </Border>
+      <StackPanel DockPanel.Dock="Left">
+        <Border BorderBrush="#66ffffff" BorderThickness="0.51" CornerRadius="0" Padding="4" HorizontalAlignment="Stretch">
+          <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="300" Height="220">
+              <TextBlock FontWeight="Bold" Margin="0, 0, 0, 0">Setup</TextBlock>
+              <ComboBox Width="420" ItemsSource="{ReflectionBinding $parent[Window].DataContext.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet for mining">
+                <ComboBox.ItemTemplate>
+                  <DataTemplate>
+                    <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">
+                      <TextBlock Text="{ReflectionBinding Balance, Converter={StaticResource CurrencyConverter}}" Grid.Row="0" Grid.Column="0"/>
+                      <TextBlock Text="{ReflectionBinding Description}" IsVisible="{ReflectionBinding Description, Converter={StaticResource NotEmptyConverter}}" Grid.Row="1" Grid.Column="0"/>
+                      <TextBlock Text="{ReflectionBinding Address, Converter={StaticResource AddressConverter}}" IsVisible="{ReflectionBinding Description, Converter={StaticResource EmptyConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                    </Grid>
+                  </DataTemplate>
+                </ComboBox.ItemTemplate>
+              </ComboBox>
+              <StackPanel Orientation="Horizontal">
+                <StackPanel>
+                  <TextBlock Text="Threads"/>
+                  <TextBox Width="60" Text="{Binding Threads}" HorizontalAlignment="Left"/>
+                </StackPanel>
+                <Button Content="{Binding ActionText}" Margin="10, 20, 0, 0" IsEnabled="{Binding SelectedWallet, Converter={StaticResource NotNullConverter}}" Click="SetMiningState" />
+              </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <StackPanel DockPanel.Dock="Right">
+        <Border BorderBrush="#66ffffff" BorderThickness="0.51" CornerRadius="0" Padding="4" HorizontalAlignment="Right">
+          <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="300" Height="220">
+            <TextBlock FontWeight="Bold">Stats</TextBlock>
+            <StackPanel>
+              <TextBlock>Hashrate</TextBlock>
+              <TextBlock Text="{Binding Hashrate}" FontWeight="Bold"/>
+            </StackPanel>
+            <StackPanel>
+              <TextBlock>Current difficulty</TextBlock>
+              <TextBlock Text="{Binding CurrentDifficulty}" FontWeight="Bold"/>
+            </StackPanel>
+            <StackPanel>
+              <TextBlock>Blocks found</TextBlock>
+              <TextBlock Text="{Binding BlocksFound}" FontWeight="Bold"/>
+            </StackPanel>
+            <StackPanel>
+              <TextBlock>Total earned</TextBlock>
+              <TextBlock Text="{Binding TotalEarned, Converter={StaticResource CurrencyConverter}}}" FontWeight="Bold"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </StackPanel>
+
+      <!---->
+    </DockPanel>
+  </UserControl>

@@ -13,6 +13,10 @@ public class Vote
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
     [Key(2)]
     public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
+    [Key(3)]
+    public ulong Stake { get; set; }
+    [Key(4)]
+    public Address RewardAddress { get; set; } = Address.NULL_ADDRESS;
 
     private bool _isVerified = false;
 
@@ -23,6 +27,8 @@ public class Vote
 
         stream.Write(ViewHash);
         stream.Write(PublicKey);
+        stream.Write(BitConverter.GetBytes(Stake));
+        stream.Write(RewardAddress.Buffer);
 
         stream.Flush();
         stream.Position = 0;
@@ -39,6 +45,8 @@ public class Vote
 
         stream.Write(ViewHash);
         stream.Write(PublicKey!);
+        stream.Write(BitConverter.GetBytes(Stake));
+        stream.Write(RewardAddress.Buffer);
         stream.Flush();
 
         Signature = algorithm.Sign(key, stream.ToArray());
@@ -56,6 +64,8 @@ public class Vote
 
         stream.Write(ViewHash);
         stream.Write(PublicKey!);
+        stream.Write(BitConverter.GetBytes(Stake));
+        stream.Write(RewardAddress.Buffer);
         stream.Flush();
 
         var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);

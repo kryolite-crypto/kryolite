@@ -1,4 +1,6 @@
-﻿using Kryolite.EventBus;
+﻿using System.Diagnostics.CodeAnalysis;
+using Kryolite.EventBus;
+using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -8,7 +10,6 @@ namespace Kryolite.Node.Executor;
 public class ExecutorContext : IExecutorContext
 {
     public IStoreRepository Repository { get; }
-    private Dictionary<Address, Ledger> Wallets { get; }
     public View View { get; }
     private ulong TotalStake { get; }
     private long Height { get; }
@@ -17,13 +18,19 @@ public class ExecutorContext : IExecutorContext
     private List<EventBase> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
 
-    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, View view, ulong totalStake, long height)
+    public ValidatorCache Validators { get; private set; }
+    public WalletCache Ledger { get; private set; }
+    public Transfer Transfer { get; private set; }
+
+    public ExecutorContext(IStoreRepository repository, WalletCache wallets, ValidatorCache validators, View view, ulong totalStake, long height)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        Wallets = wallets ?? throw new ArgumentNullException(nameof(wallets));
+        Ledger = wallets ?? throw new ArgumentNullException(nameof(wallets));
+        Validators = validators ?? throw new ArgumentNullException(nameof(validators));
         View = view ?? throw new ArgumentNullException(nameof(view));
         TotalStake = totalStake;
         Height = height;
+        Transfer = new Transfer(Repository, Ledger, Validators);
     }
 
     public Random GetRand()
@@ -80,7 +87,7 @@ public class ExecutorContext : IExecutorContext
             throw new ArgumentNullException(nameof(address));
         }
 
-        if (!Wallets.TryGetValue(address, out var wallet))
+        if (!Ledger.TryGetValue(address, out var wallet))
         {
             wallet = Repository.GetWallet(address);
 
@@ -89,7 +96,7 @@ public class ExecutorContext : IExecutorContext
                 return null;
             }
 
-            Wallets.Add(address, wallet);
+            Ledger.Add(address, wallet);
         }
 
         return wallet;
@@ -102,7 +109,7 @@ public class ExecutorContext : IExecutorContext
             throw new ArgumentNullException(nameof(address));
         }
 
-        if (!Wallets.TryGetValue(address, out var wallet))
+        if (!Ledger.TryGetValue(address, out var wallet))
         {
             wallet = Repository.GetWallet(address);
 
@@ -111,7 +118,7 @@ public class ExecutorContext : IExecutorContext
                 wallet = new Ledger(address);
             }
 
-            Wallets.Add(address, wallet);
+            Ledger.Add(address, wallet);
         }
 
         return wallet;
@@ -171,13 +178,42 @@ public class ExecutorContext : IExecutorContext
             Repository.AddContractSnapshot(contract.Value.Address, Height, contract.Value.CurrentSnapshot);
         }
 
-        Repository.UpdateWallets(Wallets.Values);
+        Repository.UpdateWallets(Ledger.Values);
         Repository.UpdateContracts(Contracts.Values);
         Repository.UpdateTokens(Tokens.Values);
+
+        foreach (var validator in Validators.Values)
+        {
+            Repository.SetStake(validator.NodeAddress, validator);
+        }
     }
 
     public long GetHeight()
     {
         return Height;
+    }
+
+    public bool TryGetValidator(Address address, [NotNullWhen(true)] out Validator? validator)
+    {
+        if (!Validators.ContainsKey(address))
+        {
+            var stake = Repository.GetStake(address);
+
+            if (stake is null)
+            {
+                validator = null;
+                return false;
+            }
+
+            Validators.Add(address, stake);
+        }
+
+        validator = Validators[address];
+        return true;
+    }
+
+    public void AddValidator(Validator validator)
+    {
+        Validators.Add(validator.NodeAddress, validator);
     }
 }

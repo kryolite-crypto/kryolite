@@ -15,33 +15,32 @@ public class ValidatorService : BackgroundService
 {
     private readonly IServiceProvider serviceProvider;
     private readonly ILogger<ValidatorService> logger;
-    private readonly StartupSequence startup;
 
     private Wallet Node { get; set; }
-    private ManualResetEventSlim AllowExecution { get; set; } = new(true);
     private IEventBus EventBus { get; }
+    private readonly TaskCompletionSource _source = new();
+    private TaskCompletionSource _enableValidator = new();
 
-    public ValidatorService(IServiceProvider serviceProvider, IKeyRepository keyRepository, IEventBus eventBus, ILogger<ValidatorService> logger, StartupSequence startup)
+    public ValidatorService(IServiceProvider serviceProvider, IKeyRepository keyRepository, IEventBus eventBus, ILogger<ValidatorService> logger, IHostApplicationLifetime lifetime)
     {
         this.serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
         Node = keyRepository.GetKey();
+        lifetime.ApplicationStarted.Register(() => _source.SetResult());
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
-            await Task.Run(() => startup.Application.Wait(stoppingToken));
-
+            await _source.Task;
             var task = StartValidator(stoppingToken);
 
             if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey.ToAddress()))
             {
-                AllowExecution.Set();
+                _enableValidator.SetResult();
                 await task;
                 return;
             }
@@ -52,7 +51,8 @@ public class ValidatorService : BackgroundService
                     return;
                 }
 
-                AllowExecution.Set();
+                _enableValidator.SetResult();
+                logger.LogInformation("Validator     [ACTIVE]");
             });
 
             EventBus.Subscribe<ValidatorDisable>(validator => {
@@ -61,7 +61,8 @@ public class ValidatorService : BackgroundService
                     return;
                 }
 
-                AllowExecution.Reset();
+                _enableValidator = new();
+                logger.LogInformation("Validator     [INACTIVE]");
             });
 
             using var scope = serviceProvider.CreateScope();
@@ -69,7 +70,13 @@ public class ValidatorService : BackgroundService
 
             if (repository.IsValidator(Node.Address))
             {
-                AllowExecution.Set();
+                _enableValidator.SetResult();
+                logger.LogInformation("Validator     [ACTIVE]");
+            }
+            else
+            {
+                _enableValidator = new();
+                logger.LogInformation("Validator     [INACTIVE]");
             }
 
             await task;
@@ -90,9 +97,7 @@ public class ValidatorService : BackgroundService
     {
         try
         {
-            await Task.Run(() => AllowExecution.Wait(stoppingToken));
-            logger.LogInformation("Validator     [ACTIVE]");
-
+            await _enableValidator.Task.WaitAsync(stoppingToken);
             await SynchronizeViewGenerator(stoppingToken);
 
             while (!stoppingToken.IsCancellationRequested)
@@ -108,7 +113,12 @@ public class ValidatorService : BackgroundService
                 var voteHeight = lastView.Id - slotNumber;
                 var votes = blockchainManager.GetVotesAtHeight(voteHeight);
                 
-                logger.LogDebug($"Loading votes from height {voteHeight} (id = {lastView.Id}, slotNumber = {slotNumber}, voteCount = {votes.Count})");
+                logger.LogDebug("Loading votes from height {voteHeight} (id = {id}, slotNumber = {slotNumber}, voteCount = {voteCount})",
+                    voteHeight,
+                    lastView.Id,
+                    slotNumber,
+                    votes.Count
+                );
 
                 PublicKey? nextLeader = null;
                 
@@ -128,7 +138,7 @@ public class ValidatorService : BackgroundService
 
                 if (slotNumber == 0)
                 {
-                    logger.LogInformation("View #{} received {} votes", lastView.Id, votes.Count);
+                    logger.LogInformation("View #{id} received {count} votes", lastView.Id, votes.Count);
                 }
 
                 if (nextLeader is null)
@@ -137,7 +147,8 @@ public class ValidatorService : BackgroundService
                     nextLeader = Node.PublicKey;
 
                     // TODO: We should have some kind of vote who will create next view
-                    await Task.Delay(Random.Shared.Next(10000));
+                    // this could create temporary chain splits
+                    await Task.Delay(Random.Shared.Next(30000), stoppingToken);
                 }
 
                 logger.LogInformation("Next leader is {publicKey}", nextLeader.ToAddress());
@@ -163,14 +174,9 @@ public class ValidatorService : BackgroundService
 
                 Banned.Clear();
 
-                if(!AllowExecution.IsSet)
-                {
-                    logger.LogInformation("Validator     [INACTIVE]");
-                    await Task.Run(() => AllowExecution.Wait(stoppingToken));
-                    logger.LogInformation("Validator     [ACTIVE]");
+                await _enableValidator.Task.WaitAsync(stoppingToken);
 
-                    nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
-                }
+                nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
 
                 await SynchronizeViewGenerator(nextView, stoppingToken);
             }

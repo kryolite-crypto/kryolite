@@ -5,13 +5,14 @@
                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                 xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                x:Class="Kryolite.Wallet.AddressesTab">
+                x:Class="Kryolite.Wallet.AddressesTab"
+                x:DataType="vm:AddressesTabViewModel">
 
     <DockPanel Margin="20">
         <StackPanel Margin="0, 20, 0, 0" Orientation="Horizontal" DockPanel.Dock="Bottom">
             <Button Command="{Binding OnNewAddressCommand}">New Address</Button>
         </StackPanel>
-        <DataGrid Name="WalletsGrid" ItemsSource="{Binding $parent[Window].DataContext.Wallets}" AutoGenerateColumns="False" DockPanel.Dock="Top">
+        <DataGrid Name="WalletsGrid" ItemsSource="{ReflectionBinding $parent[Window].DataContext.Wallets}" AutoGenerateColumns="False" DockPanel.Dock="Top">
             <DataGrid.Styles>
                 <Style Selector="DataGridColumnHeader">
                     <Setter Property="Background" Value="Transparent"/>
@@ -23,9 +24,9 @@
                 </ContextMenu>
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
-                <DataGridTextColumn Header="Description" Binding="{Binding Description}"/>
-                <DataGridTextColumn Header="Address" Binding="{Binding Address, Converter={StaticResource AddressConverter}}" IsReadOnly="True"/>
-                <DataGridTextColumn Header="Balance" Binding="{Binding Balance, Converter={StaticResource CurrencyConverter}}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Description" Binding="{ReflectionBinding Description}"/>
+                <DataGridTextColumn Header="Address" Binding="{ReflectionBinding Address, Converter={StaticResource AddressConverter}}" IsReadOnly="True"/>
+                <DataGridTextColumn Header="Balance" Binding="{ReflectionBinding Balance, Converter={StaticResource CurrencyConverter}}" IsReadOnly="True"/>
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>

@@ -6,6 +6,7 @@ public enum TransactionType : byte
     BLOCK_REWARD,
     STAKE_REWARD,
     CONTRACT,
-    REG_VALIDATOR,
-    DEV_REWARD
+    REGISTER_VALIDATOR,
+    DEV_REWARD,
+    DEREGISTER_VALIDATOR
 }

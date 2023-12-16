@@ -15,26 +15,28 @@ public class MDNSService : BackgroundService
     private readonly IServer server;
     private readonly IConfiguration configuration;
     private readonly ILogger<UPnPService> logger;
-    private readonly StartupSequence startup;
     private readonly MulticastService mdns;
     private readonly ServiceDiscovery serviceDiscovery;
+    private readonly TaskCompletionSource _source = new();
 
-    public MDNSService(IServer server, IConfiguration configuration, ILogger<UPnPService> logger, StartupSequence startup)
+    public MDNSService(IServer server, IConfiguration configuration, ILogger<UPnPService> logger, IHostApplicationLifetime lifetime)
     {
         this.server = server ?? throw new ArgumentNullException(nameof(server));
         this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        this.startup = startup ?? throw new ArgumentNullException(nameof(startup));
 
+        MulticastService.IncludeLoopbackInterfaces = true;
         mdns = new MulticastService();
         serviceDiscovery = new ServiceDiscovery(mdns);
+
+        lifetime.ApplicationStarted.Register(() => _source.SetResult());
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         try
         {
-            await Task.Run(() => startup.Application.Wait());
+            await _source.Task;
             var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
 
             var nameBytes = Guid.NewGuid().ToString()

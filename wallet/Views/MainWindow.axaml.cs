@@ -38,14 +38,14 @@ public partial class MainWindow : Window
         MeshNetwork = Program.ServiceCollection.GetService<IMeshNetwork>() ?? throw new ArgumentNullException(nameof(IMeshNetwork));
         EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IEventBus));
 
+        Wallets = new (WalletManager.GetWallets());
+        DataContext = Model;
+
         AvaloniaXamlLoader.Load(this);
 
 #if DEBUG
         this.AttachDevTools();
 #endif
-        Wallets = new (WalletManager.GetWallets());
-
-        DataContext = Model;
 
         Opened += OnInitialized;
 

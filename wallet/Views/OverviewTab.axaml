@@ -5,9 +5,8 @@
                 xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                 xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                x:Class="Kryolite.Wallet.OverviewTab">
-
-
+                x:Class="Kryolite.Wallet.OverviewTab"
+                x:DataType="vm:OverviewTabViewModel">
     <DockPanel Margin="20">
         <StackPanel Spacing="20" DockPanel.Dock="Left">
             <Border BorderBrush="#66ffffff"
@@ -17,9 +16,9 @@
                 <StackPanel Margin="10" Width="250">
                     <TextBlock FontWeight="Bold">Balance</TextBlock>
                     <TextBlock Margin="0, 20, 0, 0">Available</TextBlock>
-                    <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Balance, Converter={StaticResource CurrencyConverter}}" />
+                    <TextBlock FontWeight="Bold" Text="{ReflectionBinding $parent[Window].DataContext.Balance, Converter={StaticResource CurrencyConverter}}" />
                     <TextBlock Margin="0, 20, 0, 0">Pending</TextBlock>
-                    <TextBlock FontWeight="Bold" Text="{Binding $parent[Window].DataContext.Pending, Converter={StaticResource CurrencyConverter}}" />
+                    <TextBlock FontWeight="Bold" Text="{ReflectionBinding $parent[Window].DataContext.Pending, Converter={StaticResource CurrencyConverter}}" />
                 </StackPanel>
             </Border>
         </StackPanel>
@@ -31,13 +30,13 @@
                     HorizontalAlignment="Right">
                 <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="450">
                     <TextBlock FontWeight="Bold" Margin="11, 0, 0, 0">Recent Transactions</TextBlock>
-                    <ListBox Background="Transparent" ItemsSource="{Binding $parent[Window].DataContext.Transactions}">
+                    <ListBox Background="Transparent" ItemsSource="{ReflectionBinding $parent[Window].DataContext.Transactions}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
                                 <Grid ColumnDefinitions="Auto, Auto" RowDefinitions="Auto,Auto">
-                                    <TextBlock Text="{Binding Timestamp, Converter={StaticResource TimestampConverter}}" Grid.Row="0" Grid.Column="0"/>
-                                    <TextBlock Text="{Binding Amount, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
-                                    <TextBlock Text="{Binding Recipient, Converter={StaticResource AddressConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                                    <TextBlock Text="{ReflectionBinding Timestamp, Converter={StaticResource TimestampConverter}}" Grid.Row="0" Grid.Column="0"/>
+                                    <TextBlock Text="{ReflectionBinding Amount, Converter={StaticResource CurrencyConverter}}" TextAlignment="Right" Grid.Row="0" Grid.Column="1"/>
+                                    <TextBlock Text="{ReflectionBinding Recipient, Converter={StaticResource AddressConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
                                 </Grid>
                             </DataTemplate>
                         </ListBox.ItemTemplate>

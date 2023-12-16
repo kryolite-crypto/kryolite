@@ -12,7 +12,8 @@ public class StateCache : IStateCache
     private Dictionary<SHA256Hash, Vote> Votes = new();
     private Dictionary<SHA256Hash, Transaction> Transactions = new();
 
-    private Dictionary<Address, Ledger> LedgerCache = new();
+    private WalletCache LedgerCache = new();
+    private ValidatorCache Validators = new();
     private View CurrentView;
     private ChainState ChainState;
 
@@ -84,9 +85,14 @@ public class StateCache : IStateCache
         return CurrentView;
     }
 
-    public Dictionary<Address, Ledger> GetLedgers()
+    public WalletCache GetLedgers()
     {
         return LedgerCache;
+    }
+
+    public ValidatorCache GetValidators()
+    {
+        return Validators;
     }
 
     public IEnumerable<SHA256Hash> GetTransactionIds()
@@ -127,10 +133,5 @@ public class StateCache : IStateCache
     public int TransactionCount()
     {
         return Transactions.Count;
-    }
-
-    public bool TryGet(Address address, [MaybeNullWhen(false)] out Ledger ledger)
-    {
-        return LedgerCache.TryGetValue(address, out ledger);
     }
 }

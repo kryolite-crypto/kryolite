@@ -24,7 +24,7 @@ public class VoteRequest : IPacket
         var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<VoteRequest>>();
 
-        logger.LogDebug($"Received VoteRequest from {peer.Uri.ToHostname()}");
+        logger.LogDebug("Received VoteRequest from {hostname}", peer.Uri.ToHostname());
 
         var vote = blockchainManager.GetVote(Votehash);
 

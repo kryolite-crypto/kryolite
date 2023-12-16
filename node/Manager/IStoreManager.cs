@@ -20,7 +20,6 @@ public interface IStoreManager
     bool AddBlock(Block block, bool broadcast);
     bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
-    ExecutionResult AddValidatorReg(TransactionDto txDto, bool broadcast);
     ExecutionResult AddTransaction(TransactionDto tx, bool broadcast);
 
     View? GetView(long id);

@@ -28,19 +28,19 @@ public class NodeInfoResponse : IPacket
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeInfoResponse>>();
         var syncService = scope.ServiceProvider.GetRequiredService<IBufferService<Chain, SyncService>>();
 
-        logger.LogInformation($"NodeInfoResponse from {peer.Uri.ToHostname()}");
+        logger.LogInformation("NodeInfoResponse from {hostname}", peer.Uri.ToHostname());
 
         if (peer.IsSyncInProgress)
         {
             // Do not request chain sync if previous sync is ongoing
-            logger.LogDebug($"Sync in progress {peer.Uri.ToHostname()}");
+            logger.LogDebug("Sync in progress {hostname}", peer.Uri.ToHostname());
             return;
         }
 
         if (peer.IsForked && blockchainManager.GetView(LastHash) is null)
         {
             // do not sync from peers marked as forked
-            logger.LogDebug($"Ignore peer due to fork {peer.Uri.ToHostname()}");
+            logger.LogDebug("Ignore peer due to fork {hostname}", peer.Uri.ToHostname());
             return;
         }
 
@@ -58,7 +58,15 @@ public class NodeInfoResponse : IPacket
                 return;
             }
 
-            logger.LogInformation($"{peer.Uri.ToHostname()}: View ({LastHash}) at height {Height} does not match with local view ({chainState.ViewHash}) and remote weight ({Weight}) is higher compared to local ({chainState.Weight}). Performing sync...");
+            logger.LogInformation("{hostname}: View ({lastHash}) at height {height} does not match with local view ({viewHash}) and remote weight ({remoteWeight}) is higher compared to local ({localWeight}). Performing sync...",
+                peer.Uri.ToHostname(),
+                LastHash,
+                Height,
+                chainState.ViewHash,
+                Weight,
+                chainState.Weight
+            );
+
             syncService.Add(new Chain(peer, Height));
             return;
         }

@@ -21,15 +21,17 @@ public class Verifier : IVerifier
 
     public bool Verify(Transaction tx)
     {
-        if (StateCache.GetTransactions().ContainsKey(tx.CalculateHash()) || Store.TransactionExists(tx.CalculateHash()))
+        var hash = tx.CalculateHash();
+
+        if (StateCache.GetTransactions().ContainsKey(hash) || Store.TransactionExists(hash))
         {
-            Logger.LogInformation($"{tx.CalculateHash()} already exists");
+            Logger.LogInformation($"{hash} already exists");
             return false;
         }
 
         if (!tx.Verify())
         {
-            Logger.LogInformation($"{tx.CalculateHash()} verification failed (reson = invalid signature)");
+            Logger.LogInformation($"{hash} verification failed (reson = invalid signature)");
             return false;
         }
 
@@ -46,9 +48,11 @@ public class Verifier : IVerifier
 
     public bool Verify(Block block)
     {
-        if (StateCache.GetBlocks().ContainsKey(block.GetHash()) || Store.BlockExists(block.GetHash()))
+        var hash = block.GetHash();
+
+        if (StateCache.GetBlocks().ContainsKey(hash) || Store.BlockExists(hash))
         {
-            Logger.LogInformation($"{block.GetHash()} already exists");
+            Logger.LogInformation($"{hash} already exists");
             return false;
         }
 
@@ -58,13 +62,14 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (block.Value != Constant.BLOCK_REWARD)
+        var chainState = StateCache.GetCurrentState();
+        var blockReward = RewardCalculator.BlockReward(chainState.Id);
+
+        if (block.Value != blockReward)
         {
-            Logger.LogInformation($"Block verification failed (reason = invalid reward). Got {block.Value}, required: {Constant.BLOCK_REWARD}");
+            Logger.LogInformation($"Block verification failed (reason = invalid reward). Got {block.Value}, required: {blockReward}");
             return false;
         }
-
-        var chainState = StateCache.GetCurrentState();
 
         if (chainState.ViewHash != block.LastHash)
         {
@@ -117,6 +122,15 @@ public class Verifier : IVerifier
             return false;
         }
 
+        var address = view.PublicKey.ToAddress();
+        var validator = Store.GetStake(address);
+
+        if (validator is null)
+        {
+            Logger.LogInformation($"View verification failed (reason = view generator not validator ({address}))");
+            return false;
+        }
+
         if (!view.Verify())
         {
             Logger.LogInformation($"{view.GetHash()} verification failed (reson = invalid signature)");
@@ -160,12 +174,23 @@ public class Verifier : IVerifier
             }
         }
 
+        foreach (var tx in view.Transactions)
+        {
+            if (!StateCache.GetTransactions().ContainsKey(tx))
+            {
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = tx not found)");
+                return false;
+            }
+        }
+
         return true;
     }
 
     public bool Verify(Vote vote)
     {
-        if (StateCache.GetVotes().ContainsKey(vote.GetHash()) || Store.VoteExists(vote.GetHash()))
+        var hash = vote.GetHash();
+
+        if (StateCache.GetVotes().ContainsKey(hash) || Store.VoteExists(hash))
         {
             Logger.LogInformation($"Vote {vote.GetHash()} already exists");
             return false;
@@ -178,10 +203,32 @@ public class Verifier : IVerifier
         }
 
         var address = vote.PublicKey.ToAddress();
+        var validator = Store.GetStake(address);
 
-        if (!Store.IsValidator(address))
+        if (validator is null)
         {
             Logger.LogInformation($"Vote verification failed (reason = not validator ({address}))");
+            return false;
+        }
+
+        if (vote.RewardAddress != validator.RewardAddress)
+        {
+            Logger.LogInformation($"Vote verification failed (reason = tx recipient not reward address ({address}))");
+            return false;
+        }
+
+        var stake = Constant.SEED_VALIDATORS.Contains(address) ?
+            Constant.MIN_STAKE : validator.Stake;
+
+        if (stake < Constant.MIN_STAKE)
+        {
+            Logger.LogInformation($"Vote verification failed (reason = stake too low)");
+            return false;
+        }
+
+        if (validator.Stake != stake)
+        {
+            Logger.LogInformation($"Vote verification failed (reason = vote stake not equals to validator stake)");
             return false;
         }
 
@@ -202,8 +249,10 @@ public class Verifier : IVerifier
                 return VerifyPayment(tx);
             case TransactionType.CONTRACT:
                 return VerifyContract(tx);
-            case TransactionType.REG_VALIDATOR:
+            case TransactionType.REGISTER_VALIDATOR:
                 return VerifyValidatorRegisteration(tx);
+            case TransactionType.DEREGISTER_VALIDATOR:
+                return VerifyValidatorDeRegisteration(tx);
             default:
                 throw new ArgumentException($"Invalid transaction type {tx.TransactionType} for {tx.CalculateHash()}");
         }
@@ -249,20 +298,12 @@ public class Verifier : IVerifier
 
     private bool VerifyValidatorRegisteration(Transaction tx)
     {
-        var isValidator = Store.IsValidator(tx.From!);
-
-        if (!isValidator && tx.Value < Constant.MIN_STAKE)
+        if (tx.Value > 0)
         {
-            Logger.LogInformation($"Validator registeration verification failed (reason = stake too low {tx.Value})");
+            Logger.LogInformation($"Validator registeration verification failed (reason = tx has value {tx.Value})");
             return false;
         }
-
-        if (isValidator && tx.Value > 0 && tx.Value < Constant.MIN_STAKE)
-        {
-            Logger.LogInformation($"Validator registeration verification failed (reason = stake too low {tx.Value})");
-            return false;
-        }
-
+        
         // do not allow seed validator registeration
         if (Constant.SEED_VALIDATORS.Contains(tx.From!))
         {
@@ -271,9 +312,50 @@ public class Verifier : IVerifier
         }
 
         // If we are setting stake we need to have recipient address
-        if (tx.Value >= Constant.MIN_STAKE && (tx.To is null || tx.To == Address.NULL_ADDRESS))
+        if (tx.To is null || tx.To == Address.NULL_ADDRESS)
         {
             Logger.LogInformation($"Validator registeration verification failed (reason = reward recipient not set)");
+            return false;
+        }
+
+        var isValidator = Store.IsValidator(tx.From!);
+
+        if (isValidator)
+        {
+            Logger.LogInformation($"Validator registeration verification failed (reason = already validator {tx.From})");
+            return false;
+        }
+
+        return true;
+    }
+
+    private bool VerifyValidatorDeRegisteration(Transaction tx)
+    {
+        if (tx.Value > 0)
+        {
+            Logger.LogInformation($"Validator deregisteration verification failed (reason = tx has value {tx.Value})");
+            return false;
+        }
+        
+        // do not allow seed validator deregisteration
+        if (Constant.SEED_VALIDATORS.Contains(tx.From!))
+        {
+            Logger.LogInformation($"Validator deregisteration verification failed (reason = sender is seed validator)");
+            return false;
+        }
+
+        // If we are setting stake we need to have recipient address
+        if (tx.To != Address.NULL_ADDRESS)
+        {
+            Logger.LogInformation($"Validator deregisteration verification failed (reason = tx.To should ne NULL_ADDRESS)");
+            return false;
+        }
+
+        var isValidator = Store.IsValidator(tx.From!);
+
+        if (!isValidator)
+        {
+            Logger.LogInformation($"Validator deregisteration verification failed (reason = not validator {tx.From})");
             return false;
         }
 

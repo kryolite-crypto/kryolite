@@ -23,7 +23,7 @@ public class NetworkManager : INetworkManager
     {
         if (host.Url is null)
         {
-            logger.LogWarning($"Failed to add host. Null hostname for {host.ClientId}");
+            logger.LogWarning("Failed to add host. Null hostname for {clientId}", host.ClientId);
             return;
         }
 
@@ -32,7 +32,7 @@ public class NetworkManager : INetworkManager
         if (!Hosts.TryGetValue(host.ClientId, out var existing))
         {
             Hosts.Add(host.ClientId, host);
-            logger.LogInformation($"Added host {host.Url.ToHostname()}");
+            logger.LogInformation("Added host {hostname}", host.Url.ToHostname());
         }
         else
         {
@@ -41,7 +41,7 @@ public class NetworkManager : INetworkManager
             existing.LastSeen = host.LastSeen;
             existing.IsReachable = host.IsReachable;
 
-            logger.LogInformation($"Updated status for host {host.Url.ToHostname()}");
+            logger.LogInformation("Updated status for host {hostname}", host.Url.ToHostname());
         }
     }
 

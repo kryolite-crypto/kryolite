@@ -18,10 +18,7 @@ public class PrivateKey
 
     public PrivateKey(byte[] buffer)
     {
-        if (buffer is null)
-        {
-            throw new ArgumentNullException(nameof(buffer));
-        }
+        ArgumentNullException.ThrowIfNull(buffer);
 
         if (buffer.Length != PRIVATE_KEY_SZ)
         {
@@ -34,8 +31,8 @@ public class PrivateKey
     public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PrivateKey privateKey) => privateKey.Buffer;
-    public static implicit operator PrivateKey(byte[] buffer) => new PrivateKey(buffer);
-    public static implicit operator PrivateKey(string privKey) => new PrivateKey(Base32.Kryolite.Decode(privKey));
+    public static implicit operator PrivateKey(byte[] buffer) => new(buffer);
+    public static implicit operator PrivateKey(string privKey) => new(Base32.Kryolite.Decode(privKey));
 
     public override bool Equals(object? obj) 
     {
@@ -44,12 +41,12 @@ public class PrivateKey
 
     public static bool operator ==(PrivateKey a, PrivateKey b)
     {
-        if (System.Object.ReferenceEquals(a, b))
+        if (ReferenceEquals(a, b))
         {
             return true;
         }
 
-        if (((object)a == null) || ((object)b == null))
+        if ((a is null) || (b is null))
         {
             return false;
         }
@@ -72,7 +69,7 @@ public class PrivateKey
         return hash;
     }
 
-    public static int PRIVATE_KEY_SZ = 32;
+    public const int PRIVATE_KEY_SZ = 32;
 }
 
 [MessagePackObject]
@@ -88,10 +85,7 @@ public class PublicKey
 
     public PublicKey(byte[] buffer)
     {
-        if (buffer is null)
-        {
-            throw new ArgumentNullException(nameof(buffer));
-        }
+        ArgumentNullException.ThrowIfNull(buffer);
 
         if (buffer.Length != PUB_KEY_SZ)
         {
@@ -104,12 +98,12 @@ public class PublicKey
     public override string ToString() => Base32.Kryolite.Encode(Buffer);
     public static implicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PublicKey publicKey) => publicKey.Buffer;
-    public static implicit operator PublicKey(byte[] buffer) => new PublicKey(buffer);
-    public static implicit operator PublicKey(string pubKey) => new PublicKey(Base32.Kryolite.Decode(pubKey));
+    public static implicit operator PublicKey(byte[] buffer) => new(buffer);
+    public static implicit operator PublicKey(string pubKey) => new(Base32.Kryolite.Decode(pubKey));
 
     public override bool Equals(object? obj) 
     {
-        return obj is PublicKey c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
+        return obj is PublicKey c && Enumerable.SequenceEqual(Buffer, c.Buffer);
     }
 
     public static bool operator ==(PublicKey? a, PublicKey? b)
@@ -144,8 +138,7 @@ public class PublicKey
 
     public Address ToAddress()
     {
-        using var sha256 = SHA256.Create();
-        var shaHash = sha256.ComputeHash(Buffer);
+        var shaHash = SHA256.HashData(Buffer);
 
         using var ripemd = new RIPEMD160Managed();
         var ripemdHash = ripemd.ComputeHash(shaHash);
@@ -157,14 +150,14 @@ public class PublicKey
         var ripemdBytes = new List<byte>(addressBytes);
         ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
 
-        var h1 = sha256.ComputeHash(ripemdBytes.ToArray());
-        var h2 = sha256.ComputeHash(h1);
+        var h1 = SHA256.HashData(ripemdBytes.ToArray());
+        var h2 = SHA256.HashData(h1);
 
         addressBytes.InsertRange(addressBytes.Count, h2.Take(4)); // checksum
 
         return addressBytes.ToArray();
     }
 
-    public static int PUB_KEY_SZ = 32;
-    public static PublicKey NULL_PUBLIC_KEY = new PublicKey();
+    public const int PUB_KEY_SZ = 32;
+    public static readonly PublicKey NULL_PUBLIC_KEY = new();
 }

@@ -1,5 +1,4 @@
-﻿using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+﻿using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
@@ -17,33 +16,19 @@ public class TransactionExecutor : IExecutor
 
     public ExecutionResult Execute(Transaction tx)
     {
-        var wallet = Context.GetOrNewWallet(tx.To);
-
-        checked
-        {
-            wallet.Pending -= tx.Value;
-            wallet.Balance += tx.Value;
-        }
+        Context.Transfer.To(tx.To, tx.Value, out var wallet);
+        wallet.Pending = checked (wallet.Pending - tx.Value);
 
         return ExecutionResult.SUCCESS;
     }
 
     public void Rollback(Transaction tx)
     {
-        var from = Context.GetWallet(tx.From);
-        var to = Context.GetWallet(tx.To);
-
-        checked
+        if (!Context.Transfer.From(tx.To, tx.Value, out _, out _))
         {
-            if (tx.TransactionType == TransactionType.PAYMENT && from is not null)
-            {
-                from.Balance += tx.Value;
-            }
-
-            if (to is not null)
-            {
-                to.Balance -= tx.Value;
-            }
+            throw new Exception("failed to rollback transactions");
         }
+
+        Context.Transfer.To(tx.From!, tx.Value, out _);
     }
 }

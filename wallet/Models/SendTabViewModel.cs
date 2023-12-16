@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Linq;
 using Avalonia.Data;
 using Kryolite.Shared;
@@ -25,20 +26,45 @@ public class SendTabViewModel : NotifyPropertyChanged
         set => RaisePropertyChanged(ref selectedWallet, value);
     }
 
-
     public string? Recipient
     {
         get => recipient; 
-        set => RaisePropertyChanged(ref recipient, new string((value ?? string.Empty).Where(c => Char.IsDigit(c) || Char.IsLetter(c) || c == ':').ToArray()));
-    }
+        set {
+            var addr = new string((value ?? string.Empty).Where(c => Char.IsDigit(c) || Char.IsLetter(c) || c == ':').ToArray());
 
+            RaisePropertyChanged(ref recipient, addr, () => {
+                if (value is null)
+                {
+                    return "Recipient is required";
+                }
+
+                if (!Address.IsValid(value))
+                {
+                    return "Invalid address";
+                }
+
+                return null;
+            });
+        }
+    }
 
     public string? Amount
     {
         get => amount; 
-        set => RaisePropertyChanged(ref amount, value);
-    }
+        set => RaisePropertyChanged(ref amount, value, () => {
+            if (value is null)
+            {
+                return "Amount is required";
+            }
 
+            if (!decimal.TryParse(value, out _))
+            {
+                return "Invalid value";
+            }
+
+            return null;
+        });
+    }
 
     public ManifestView? Manifest
     {
@@ -52,7 +78,6 @@ public class SendTabViewModel : NotifyPropertyChanged
         get => method; 
         set => RaisePropertyChanged(ref method, value);
     }
-
 
     public ObservableCollection<string> Addresses
     {
