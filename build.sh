@@ -45,10 +45,10 @@ export DOCKER_BUILDKIT=1
 RUNTIME=$VARIANT
 case "$VARIANT" in
   mac-x64)
-    RUNTIME=osx.11.0-x64
+    RUNTIME=osx-x64
   ;;
   mac-arm64)
-    RUNTIME=osx.11.0-arm64
+    RUNTIME=osx-arm64
   ;;
 esac
 export RUNTIME
