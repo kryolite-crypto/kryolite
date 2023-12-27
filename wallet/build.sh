@@ -21,7 +21,7 @@ case "$RUNTIME" in
       -t:BundleApp -p:Configuration=Release \
       -p:RuntimeIdentifier="$RUNTIME" \
       -p:CFBundleVersion="$INFORMATIONAL_VERSION" -p:CFBundleShortVersionString="$VERSION" \
-      -p:UseAppHost=true -p:TargetFramework=net7.0 -p:SelfContained=true -p:PublishSingleFile=true
+      -p:UseAppHost=true -p:TargetFramework=net8.0 -p:SelfContained=true -p:PublishSingleFile=true
 
     pushd "bin/Release/net8.0/${RUNTIME}/publish"
 
