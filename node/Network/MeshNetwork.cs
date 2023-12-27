@@ -22,7 +22,7 @@ public class MeshNetwork : IMeshNetwork
     // TODO: better implementation
     public static event EventHandler<int>? ConnectedChanged;
 
-    private ConcurrentDictionary<ulong, Peer> Peers = new();
+    private readonly ConcurrentDictionary<ulong, Peer> Peers = new();
     private readonly MemoryCache cache = new(new MemoryCacheOptions());
 
     private readonly ReaderWriterLockSlim rwlock = new ReaderWriterLockSlim(LockRecursionPolicy.SupportsRecursion);
@@ -35,9 +35,8 @@ public class MeshNetwork : IMeshNetwork
     public static MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard
                 .WithCompression(MessagePackCompression.Lz4BlockArray);
 
-    private ulong serverId;
-    private string networkName;
-    private CancellationTokenSource tokenSource = new CancellationTokenSource();
+    private readonly ulong serverId;
+    private readonly CancellationTokenSource tokenSource = new CancellationTokenSource();
 
     private HttpClient HttpClient { get;  } = new HttpClient();
     public MeshNetwork(IServer server, IConfiguration configuration, ILogger<MeshNetwork> logger)
@@ -57,8 +56,6 @@ public class MeshNetwork : IMeshNetwork
         {
             serverId = ulong.Parse(File.ReadAllText(path));
         }
-
-        networkName = configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
     }
 
     public async Task<List<string>> DownloadPeerListAsync(Uri uri)
@@ -232,7 +229,7 @@ public class MeshNetwork : IMeshNetwork
                     client.Options.KeepAliveInterval = TimeSpan.FromMilliseconds(configuration.GetValue<int?>("KeepAliveInterval") ?? 60_000);
                     client.Options.SetRequestHeader("kryo-apilevel", Constant.API_LEVEL.ToString());
                     client.Options.SetRequestHeader("kryo-client-id", serverId.ToString());
-                    client.Options.SetRequestHeader("kryo-network", networkName);
+                    client.Options.SetRequestHeader("kryo-network", Constant.NETWORK_NAME);
                     client.Options.SetRequestHeader("kryo-connect-to-url", configuration.GetValue<string>("PublicUrl"));
                     client.Options.SetRequestHeader("kryo-connect-to-ports", GetPorts());
 

@@ -147,7 +147,6 @@ public class Startup
         }
 
         using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        var network = Configuration.GetValue<string?>("NetworkName") ?? "MAINNET";
         var logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
         using var scope = app.ApplicationServices.CreateScope();
         var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
@@ -187,7 +186,7 @@ public class Startup
             return;
         }
 
-        if (context.Request.Headers["kryo-network"] != network)
+        if (context.Request.Headers["kryo-network"] != Constant.NETWORK_NAME)
         {
             if (logger.IsEnabled(LogLevel.Debug))
             {

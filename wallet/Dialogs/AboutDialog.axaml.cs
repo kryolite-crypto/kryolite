@@ -26,7 +26,7 @@ public partial class AboutDialog : Window
         var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly()!, typeof(AssemblyInformationalVersionAttribute))
             as AssemblyInformationalVersionAttribute;
 
-        Model.NetworkName = configuration.GetValue<string>("NetworkName") ?? string.Empty;
+        Model.NetworkName = Constant.NETWORK_NAME;
         Model.Version = $"Version {attr?.InformationalVersion}";
 
         if (Version.TryParse(attr?.InformationalVersion, out var version))
