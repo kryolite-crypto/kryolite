@@ -23,7 +23,7 @@ case "$RUNTIME" in
       -p:CFBundleVersion="$INFORMATIONAL_VERSION" -p:CFBundleShortVersionString="$VERSION" \
       -p:UseAppHost=true -p:TargetFramework=net7.0 -p:SelfContained=true -p:PublishSingleFile=true
 
-    pushd "bin/Release/net7.0/${RUNTIME}/publish"
+    pushd "bin/Release/net8.0/${RUNTIME}/publish"
 
     zip -pr "${output}/kryolite-wallet.zip" "Kryolite Wallet.app"
 
