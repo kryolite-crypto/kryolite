@@ -218,7 +218,7 @@ public abstract class TransactionManager
                 {
                     ViewHash = view.GetHash(),
                     PublicKey = node.PublicKey,
-                    Stake = validator.Stake,
+                    Stake = stake,
                     RewardAddress = validator.RewardAddress
                 };
 
