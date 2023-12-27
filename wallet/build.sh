@@ -53,7 +53,7 @@ case "$RUNTIME" in
   win-*)
     :
   ;;
-  osx.*)
+  osx-*)
     :
   ;;
   *)
