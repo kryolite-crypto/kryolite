@@ -11,10 +11,13 @@ public class TimestampConverter : IValueConverter
 
     public object? Convert( object? value, Type targetType, object? parameter, CultureInfo culture )
     {
-        if (value is long)
+        if (value is long v)
         {
-            return new DateTime(1970, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc)
-                .AddMilliseconds((long)value).ToLocalTime().ToString();
+            return DateTimeOffset.FromUnixTimeMilliseconds(v).ToLocalTime().ToString().Split("+")[0];
+        }
+        else if (value is DateTimeOffset dt)
+        {
+            return dt.ToLocalTime().ToString().Split("+")[0];
         }
         // converter used for the wrong type
         return new BindingNotification(new InvalidCastException(), BindingErrorType.Error);

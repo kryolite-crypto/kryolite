@@ -12,9 +12,9 @@ public class ValidatorViewModel : NotifyPropertyChanged
     private Address address = Address.NULL_ADDRESS;
     private Address? rewardAddress;
     private string status = "Disabled";
-    private ulong total;
-    private ulong locked;
-    private ulong available;
+    private string balance = $"0 / {Constant.MIN_STAKE}";
+    private ulong accumulatedReward;
+    private DateTimeOffset nextEpoch;
     private List<TransactionModel> votes = new();
     private string actionText = "Enable Validator";
 
@@ -29,24 +29,24 @@ public class ValidatorViewModel : NotifyPropertyChanged
         set => RaisePropertyChanged(ref rewardAddress, value);
     }
 
+    public string Balance {
+        get => balance;
+        set => RaisePropertyChanged(ref balance, value);
+    }
+
+    public ulong AccumulatedReward {
+        get => accumulatedReward;
+        set => RaisePropertyChanged(ref accumulatedReward, value);
+    }
+
+    public DateTimeOffset NextEpoch {
+        get => nextEpoch;
+        set => RaisePropertyChanged(ref nextEpoch, value);
+    }
+
     public string Status {
         get => status;
         set => RaisePropertyChanged(ref status, value);
-    }
-
-    public ulong Total { 
-        get => total;
-        set => RaisePropertyChanged(ref total, value);
-    }
-
-    public ulong Locked { 
-        get => locked;
-        set => RaisePropertyChanged(ref locked, value);
-    }
-
-    public ulong Available { 
-        get => available;
-        set => RaisePropertyChanged(ref available, value);
     }
 
     public List<TransactionModel> Votes {
@@ -57,5 +57,16 @@ public class ValidatorViewModel : NotifyPropertyChanged
     public string ActionText {
         get => actionText;
         set => RaisePropertyChanged(ref actionText, value);
+    }
+
+    public void SetBalance(ulong balance)
+    {
+        if (balance >= Constant.MIN_STAKE)
+        {
+            Balance = $"{balance / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO";
+            return;
+        }
+
+        Balance = $"{balance / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO / {Constant.MIN_STAKE} kryo";
     }
 }

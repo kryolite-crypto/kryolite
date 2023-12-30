@@ -21,6 +21,8 @@
                         <TextBlock FontWeight="Bold" Text="{Binding Address, Converter={StaticResource AddressConverter}}" ToolTip.Tip="Copy address" Cursor="Hand" PointerPressed="CopyAddress"/>
                         <material:MaterialIcon Kind="ContentCopy" Margin="5 0 0 0" ToolTip.Tip="Copy address" Cursor="Hand" PointerPressed="CopyAddress"/>
                     </StackPanel>
+                    <TextBlock Margin="0, 20, 0, 0">Balance</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding Balance}" />
                     <TextBlock Margin="0, 20, 0, 0">Status</TextBlock>
                     <TextBlock FontWeight="Bold" Text="{Binding Status}" />
                 </StackPanel>
@@ -30,13 +32,12 @@
                     CornerRadius="0"
                     Padding="4">
                 <StackPanel Margin="10" Width="420">
-                    <TextBlock FontWeight="Bold">Balances</TextBlock>
-                    <TextBlock Margin="0, 20, 0, 0">Total</TextBlock>
-                    <TextBlock FontWeight="Bold" Text="{Binding Total, Converter={StaticResource CurrencyConverter}}" />
-                    <TextBlock Margin="0, 20, 0, 0">Locked</TextBlock>
-                    <TextBlock FontWeight="Bold" Text="{Binding Locked, Converter={StaticResource CurrencyConverter}}" />
-                    <TextBlock Margin="0, 20, 0, 0">Available</TextBlock>
-                    <TextBlock FontWeight="Bold" Text="{Binding Available, Converter={StaticResource CurrencyConverter}}" />
+                    <TextBlock FontWeight="Bold">Current Epoch</TextBlock>
+                    <TextBlock Margin="0, 20, 0, 0">Accumulated reward (estimate)</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding AccumulatedReward, Converter={StaticResource CurrencyConverter}}" />
+
+                    <TextBlock Margin="0, 20, 0, 0">Estimated end of epoch (reward payout)</TextBlock>
+                    <TextBlock FontWeight="Bold" Text="{Binding NextEpoch, Converter={StaticResource TimestampConverter}}" />
                 </StackPanel>
             </Border>
             <StackPanel Orientation="Horizontal" Spacing="5">
@@ -51,7 +52,7 @@
                     Padding="4"
                     HorizontalAlignment="Right">
                 <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="300" Height="393">
-                    <TextBlock FontWeight="Bold" Margin="11, 0, 0, 0">Latest votes</TextBlock>
+                    <TextBlock FontWeight="Bold" Margin="11, 0, 0, 0">Latest rewards</TextBlock>
                     <ListBox Background="Transparent" ItemsSource="{Binding Votes}">
                         <ListBox.ItemTemplate>
                             <DataTemplate>

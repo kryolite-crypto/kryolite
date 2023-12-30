@@ -44,54 +44,65 @@ public partial class ValidatorTab : UserControl
 
     public async Task LoadData()
     {
-        using var scope = Program.ServiceCollection.CreateScope();
-        var keyRepository = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-        var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-
-        var key = keyRepository.GetKey();
-        var validator = storeManager.GetStake(key.Address);
-        var ledger = storeManager.GetLedger(key.Address);
-
-        var votes = storeManager.GetVotesForAddress(key.Address, 6).Select(x => new TransactionModel
+        try
         {
-            Recipient = x.To,
-            Amount = (long)x.Value,
-            Timestamp = x.Timestamp
-        }).ToList();
+            using var scope = Program.ServiceCollection.CreateScope();
+            var keyRepository = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
+            var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
-        await Dispatcher.UIThread.InvokeAsync(() => {
-            Model.Address = key.Address;
+            var key = keyRepository.GetKey();
+            var validator = storeManager.GetStake(key.Address);
+            var chainState = storeManager.GetChainState();
 
-            if (validator is not null)
+            var votes = storeManager.GetVotesForAddress(key.Address, 6).Select(x => new TransactionModel
             {
-                if (validator.Stake >= Constant.MIN_STAKE)
+                Recipient = x.To,
+                Amount = (long)x.Value,
+                Timestamp = x.Timestamp
+            }).ToList();
+
+            var previousEpoch = chainState.Id - (chainState.Id % Constant.EPOCH_LENGTH);
+            var nextEpoch = previousEpoch + Constant.EPOCH_LENGTH;
+            var estimatedReward = storeManager.GetEstimatedStakeReward(key.Address, nextEpoch);
+            
+            var secondsUntilEpochEnd = (nextEpoch - chainState.Id) * Constant.HEARTBEAT_INTERVAL;
+            var endOfEpoch = DateTimeOffset.UtcNow.AddSeconds(secondsUntilEpochEnd);
+
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                Model.Address = key.Address;
+
+                if (validator is not null)
                 {
-                    Model.Status = "Enabled";
-                    Model.ActionText = "Disable Validator";
+                    if (validator.Stake >= Constant.MIN_STAKE)
+                    {
+                        Model.Status = "Enabled";
+                        Model.ActionText = "Disable Validator";
+                    }
+                    else
+                    {
+                        Model.Status = "Disabled";
+                        Model.ActionText = "Enable Validator";
+                    }
+
+                    Model.RewardAddress = validator.RewardAddress != Address.NULL_ADDRESS ? validator.RewardAddress : null;
                 }
                 else
                 {
                     Model.Status = "Disabled";
                     Model.ActionText = "Enable Validator";
+                    Model.RewardAddress = null;
                 }
 
-                Model.RewardAddress = validator.RewardAddress != Address.NULL_ADDRESS ? validator.RewardAddress : null;
-                Model.Locked = validator.Stake;
-                Model.Available = ledger?.Balance ?? 0UL;
-                Model.Total = Model.Locked + Model.Available;
                 Model.Votes = votes;
-            }
-            else
-            {
-                Model.Status = "Disabled";
-                Model.ActionText = "Enable Validator";
-                Model.RewardAddress = null;
-                Model.Locked = 0;
-                Model.Available = ledger?.Balance ?? 0UL;
-                Model.Total = Model.Locked + Model.Available;
-                Model.Votes = votes;
-            }
-        });
+                Model.AccumulatedReward = estimatedReward;
+                Model.NextEpoch = endOfEpoch;
+                Model.SetBalance(validator?.Stake ?? 0UL);
+            });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.ToString());
+        }
     }
 
     public async void SetValidatorState(object? sender, RoutedEventArgs args)
@@ -180,13 +191,14 @@ public partial class ValidatorTab : UserControl
             var walletManager = scope.ServiceProvider.GetRequiredService<IWalletManager>();
 
             var key = keyRepository.GetKey();
+            var stake = storeManager.GetStake(key.Address);
 
             var model = new TransferModel
             {
                 From = key.Address.ToString(),
                 Min = 0,
-                Max = Model.Total,
-                Amount = (Model.Available / Constant.DECIMAL_MULTIPLIER).ToString(),
+                Max = stake?.Stake ?? 0UL,
+                Amount = "0",
                 RecipientDescription = "Recipient"
             };
 

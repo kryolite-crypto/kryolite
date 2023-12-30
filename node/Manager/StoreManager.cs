@@ -560,4 +560,20 @@ public class StoreManager : TransactionManager, IStoreManager
         using var _ = rwlock.EnterReadLockEx();
         return Repository.GetVotesForAddress(address, count);
     }
+
+    public ulong GetEstimatedStakeReward(Address address, long milestoneId)
+    {
+        var tmpView = new View() { Id = milestoneId };
+        var transactions = new List<Transaction>();
+
+        using (var _ = rwlock.EnterReadLockEx())
+        {
+            HandleEpochChange(tmpView, transactions);
+        }
+
+        return transactions
+            .Where(x => x.From == address)
+            .Select(x => x.Value)
+            .SingleOrDefault();
+    }
 }

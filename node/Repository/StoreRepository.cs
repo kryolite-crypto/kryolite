@@ -570,9 +570,9 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetVotesForAddress(Address address, int count)
     {
-        var key = new byte[Address.ADDRESS_SZ + sizeof(long)];
-        Array.Fill(key, (byte)255);
-        address.Buffer.CopyTo(key, 0);
+        Span<byte> key = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
+        key.Fill(255);
+        address.Buffer.CopyTo(key);
 
         var lowerBound = new byte[Address.ADDRESS_SZ + sizeof(long)];
         address.Buffer.CopyTo(lowerBound, 0);
