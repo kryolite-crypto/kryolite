@@ -82,8 +82,9 @@ public partial class SendTab : UserControl
                 Model.Addresses.Add(Model.Recipient);
             }
 
-            Model.Recipient = "";
-            Model.Amount = "";
+            Model.SelectedWallet = null;
+            Model.Recipient = null;
+            Model.Amount = null;
         };
     }
 

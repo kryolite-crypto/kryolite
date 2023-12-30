@@ -33,6 +33,11 @@ public class SendTabViewModel : NotifyPropertyChanged
             var addr = new string((value ?? string.Empty).Where(c => Char.IsDigit(c) || Char.IsLetter(c) || c == ':').ToArray());
 
             RaisePropertyChanged(ref recipient, addr, () => {
+                if (selectedWallet is null)
+                {
+                    return null;
+                }
+
                 if (value is null)
                 {
                     return "Recipient is required";
@@ -52,6 +57,11 @@ public class SendTabViewModel : NotifyPropertyChanged
     {
         get => amount; 
         set => RaisePropertyChanged(ref amount, value, () => {
+            if (selectedWallet is null)
+            {
+                return null;
+            }
+
             if (value is null)
             {
                 return "Amount is required";
