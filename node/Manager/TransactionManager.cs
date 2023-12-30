@@ -276,7 +276,7 @@ public abstract class TransactionManager
         return false;
     }
 
-    private void HandleEpochChange(View view, List<Transaction> toExecute)
+    protected void HandleEpochChange(View view, List<Transaction> toExecute)
     {
         var milestones = Constant.EPOCH_LENGTH / Constant.VOTE_INTERVAL;
         var epochEnd = view.Id;
@@ -285,7 +285,7 @@ public abstract class TransactionManager
         var totalReward = RewardCalculator.ValidatorReward(view.Id) * (ulong)milestones;
         var blockCount = 0;
 
-        var aggregatedVotes = new Dictionary<Address, (PublicKey PublicKey, Address RewardAddress, ulong CumulatedStake)>();
+        var aggregatedVotes = new Dictionary<Address, AggregatedData>();
 
         for (var i = epochStart; i < epochEnd; i += Constant.VOTE_INTERVAL)
         {
@@ -313,13 +313,12 @@ public abstract class TransactionManager
 
                 totalStake += vote.Stake;
 
-                if (!aggregatedVotes.ContainsKey(address))
+                if (!aggregatedVotes.TryGetValue(address, out var validator))
                 {
-                    aggregatedVotes.Add(address, (vote.PublicKey, vote.RewardAddress, vote.Stake));
+                    aggregatedVotes.Add(address, new (vote.PublicKey, vote.RewardAddress, vote.Stake));
                     continue;
                 }
 
-                var validator = aggregatedVotes[address];
                 validator.CumulatedStake = checked(validator.CumulatedStake + vote.Stake);
                 validator.RewardAddress = vote.RewardAddress;
             }
@@ -346,7 +345,7 @@ public abstract class TransactionManager
         {
             TransactionType = TransactionType.DEV_REWARD,
             To = Constant.DEV_FEE_ADDRESS,
-            Value = devRewardBlock + devRewardVal,
+            Value = checked(devRewardBlock + devRewardVal),
             Timestamp = view.Timestamp
         };
 
@@ -535,4 +534,11 @@ public abstract class TransactionManager
     }
 
     protected bool loggingDisabled;
+
+    private class AggregatedData(PublicKey publicKey, Address rewardAddress, ulong cumulatedStake)
+    {
+        public PublicKey PublicKey { get; set; } = publicKey;
+        public Address RewardAddress { get; set; } = rewardAddress;
+        public ulong CumulatedStake { get; set; } = cumulatedStake;
+    }
 }
