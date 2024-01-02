@@ -1,7 +1,9 @@
+using System.Collections.Concurrent;
 using System.Numerics;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using MessagePack;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -31,6 +33,9 @@ public class VoteBroadcast : IPacket
             return;
         }
 
+        // Lock on the hashvalue to prevent nodes concurrently downloading votes for same hash
+        using var _ = Votehash.Lock();
+        
         logger.LogDebug("Received VoteBroadcast from {hostname}", peer.Uri.ToHostname());
 
         if (storeManager.VoteExists(Votehash))
@@ -47,4 +52,6 @@ public class VoteBroadcast : IPacket
 
         storeManager.AddVote(response.Vote, true);
     }
+
+    private readonly MemoryCache _cache = new(new MemoryCacheOptions());
 }

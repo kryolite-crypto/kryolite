@@ -15,7 +15,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "shared", "shared\shared.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "wallet", "wallet\wallet.csproj", "{C3225B5C-F6FE-4FC3-9B66-9E7CCF6FBE34}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "sharedTests", "sharedTests\sharedTests.csproj", "{9F381ECB-E5B2-416A-AFCF-0F42B53DF5AD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "sharedTests", "shared.tests\shared.tests.csproj", "{9F381ECB-E5B2-416A-AFCF-0F42B53DF5AD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "benchmarks", "benchmarks\benchmarks.csproj", "{6BD908D7-2E5B-4BEB-BA0E-FCA5BD913570}"
 EndProject

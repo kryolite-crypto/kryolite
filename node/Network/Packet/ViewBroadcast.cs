@@ -38,6 +38,9 @@ public class ViewBroadcast : IPacket
             return;
         }
 
+        // Lock on the hashvalue to prevent nodes concurrently downloading views for same hash
+        using var _ = ViewHash.Lock();
+
         if (peer.IsForked && storeManager.GetView(LastHash) is null)
         {
             logger.LogDebug("Ignoring ViewBroadcast, peer has fork");

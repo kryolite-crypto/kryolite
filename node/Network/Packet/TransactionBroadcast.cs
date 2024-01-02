@@ -32,6 +32,9 @@ public class TransactionBroadcast : IPacket
             return;
         }
 
+        // Lock on the hashvalue to prevent nodes concurrently downloading transactions for same id
+        using var _ = TransactionId.Lock();
+
         logger.LogDebug("Received TransactionBroadcast from {hostname}", peer.Uri.ToHostname());
 
         if (storeManager.TransactionExists(TransactionId))

@@ -31,6 +31,9 @@ public class BlockBroadcast : IPacket
             return;
         }
 
+        // Lock on the hashvalue to prevent nodes concurrently downloading blocks for same hash
+        using var _ = Blockhash.Lock();
+
         logger.LogDebug("Received BlockBroadcast from {hostname}", peer.Uri.ToHostname());
 
         if (storeManager.BlockExists(Blockhash))

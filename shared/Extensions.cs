@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Caching.Memory;
+
 namespace Kryolite.Shared;
     
 public static class Extensions
@@ -22,7 +24,7 @@ public static class Extensions
         return new WriteLock(rwlock);
     }
 
-    public class ReadLock : IDisposable
+    public readonly struct ReadLock : IDisposable
     {
         private readonly ReaderWriterLockSlim rwlock;
 
@@ -38,7 +40,7 @@ public static class Extensions
         }
     }
 
-    public class WriteLock : IDisposable
+    public readonly struct WriteLock : IDisposable
     {
         private readonly ReaderWriterLockSlim rwlock;
 

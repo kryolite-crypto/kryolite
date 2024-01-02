@@ -12,6 +12,7 @@
   <ItemGroup>
     <PackageReference Include="acryptohashnet" Version="2.0.0" />
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="MessagePack" Version="2.5.108" />
     <PackageReference Include="SimpleBase" Version="4.0.0" />
