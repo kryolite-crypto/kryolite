@@ -85,27 +85,37 @@ public static class ValueConverter
             case "U256":
                 return ((SHA256Hash)str).Buffer;
             case "bool":
+            case "Boolean":
                 return bool.Parse(str);
             case "i8":
             case "u8":
+            case "Byte":
                 return byte.Parse(str);
             case "i16":
+            case "Int16":
                 return short.Parse(str);
             case "u16":
+            case "UInt16":
                 return ushort.Parse(str);
             case "i32":
             case "isize":
+            case "Int32":
                 return int.Parse(str);
             case "u32":
             case "usize":
+            case "UInt32":
                 return uint.Parse(str);
             case "i64":
+            case "Int64":
                 return long.Parse(str);
             case "u64":
+            case "UInt64":
                 return ulong.Parse(str);
             case "f32":
+            case "Single":
                 return float.Parse(str);
             case "f64":
+            case "Double":
                 return double.Parse(str);
             default:
                 return Encoding.UTF8.GetBytes(str);

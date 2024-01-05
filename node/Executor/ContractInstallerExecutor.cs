@@ -44,7 +44,7 @@ public class ContractInstallerExecutor : IExecutor
         using var vm = KryoVM.LoadFromCode(newContract.Code)
             .WithContext(vmContext);
 
-        contract.EntryPoint = vm.Initialize();
+        vm.Initialize();
 
         ctx.AddContract(contract);
         ctx.AddContractCode(contract.Address, newContract.Code);

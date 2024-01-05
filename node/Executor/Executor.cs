@@ -29,12 +29,19 @@ public class Executor
 
     public void Execute(IEnumerable<Transaction> transactions, View view)
     {
-        if (transactions.Count() == 0)
+        if (!transactions.Any())
         {
             return;
         }
 
-        Context.SetRand((long)Context.GetTotalStake());
+        var seed = view.Timestamp;
+
+        foreach (var tx in transactions)
+        {
+            seed += tx.Timestamp;
+        }
+
+        Context.SetRand(seed);
 
         foreach (var tx in transactions)
         {

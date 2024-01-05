@@ -18,8 +18,6 @@ public class Contract
     [Key(2)]
     public string Name { get; set; }
     [Key(3)]
-    public int? EntryPoint { get; set; }
-    [Key(4)]
     public ContractManifest Manifest { get; set; }
 
     [IgnoreMember]
@@ -75,6 +73,9 @@ public class ContractManifest
     [Key(0)]
     public string Name { get; init; } = string.Empty;
     [Key(1)]
+    [JsonPropertyName("api_level")]
+    public int ApiLevel { get; init; }
+    [Key(2)]
     public IReadOnlyCollection<ContractMethod> Methods { get; init; } = Array.Empty<ContractMethod>();
 }
 
@@ -83,17 +84,10 @@ public class ContractMethod
 {
     [Key(0)]
     public string Name { get; init; } = string.Empty;
-    [Key(1)]
-    [JsonPropertyName("readonly")]
-    public bool IsReadonly { get; init; }
 
-    [Key(2)]
+    [Key(1)]
     [JsonPropertyName("method_params")]
     public IReadOnlyCollection<ContractParam> Params { get; init; } = Array.Empty<ContractParam>();
-
-    [Key(3)]
-    [JsonPropertyName("return_value")]
-    public ReturnValue Returns { get; init; } = new();
 }
 
 [MessagePackObject]
@@ -105,11 +99,4 @@ public class ContractParam
     [Key(1)]
     [JsonPropertyName("param_type")]
     public string Type { get; init; } = string.Empty;
-}
-
-[MessagePackObject]
-public class ReturnValue
-{
-    [Key(0)]
-    public string Type { get; set; } = string.Empty;
 }

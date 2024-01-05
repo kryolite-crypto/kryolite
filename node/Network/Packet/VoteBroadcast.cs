@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Numerics;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
+using Kryolite.Shared.Locks;
 using MessagePack;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;

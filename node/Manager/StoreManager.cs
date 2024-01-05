@@ -347,12 +347,7 @@ public class StoreManager : TransactionManager, IStoreManager
             throw new Exception(ExecutionResult.INVALID_METHOD.ToString());
         }
 
-        if (!method.IsReadonly)
-        {
-            throw new Exception("only readonly methods can be called without transaction");
-        }
-
-        var methodParams = new List<object> { contract.EntryPoint ?? throw new Exception(ExecutionResult.CONTRACT_ENTRYPOINT_MISSING.ToString()) };
+        var methodParams = new List<object>();
 
         if (call.Params is not null)
         {

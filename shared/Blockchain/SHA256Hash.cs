@@ -1,5 +1,4 @@
 using System.Numerics;
-using System.Runtime.InteropServices;
 using MessagePack;
 
 namespace Kryolite.Shared;

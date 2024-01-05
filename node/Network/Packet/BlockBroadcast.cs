@@ -1,6 +1,7 @@
 using System.Numerics;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
+using Kryolite.Shared.Locks;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

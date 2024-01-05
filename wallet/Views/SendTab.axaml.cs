@@ -129,7 +129,6 @@ public partial class SendTab : UserControl
         {
             Name = contract?.Manifest.Name ?? string.Empty,
             Methods = contract?.Manifest.Methods
-                .Where(x => !x.IsReadonly)
                 .DistinctBy(x => x.Name)
                 .Select(x => new MethodView
                 {

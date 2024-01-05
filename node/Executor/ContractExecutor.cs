@@ -61,12 +61,7 @@ public class ContractExecutor : IExecutor
                 return ExecutionResult.INVALID_METHOD;
             }
 
-            if (contract.EntryPoint is null)
-            {
-                return ExecutionResult.CONTRACT_ENTRYPOINT_MISSING;
-            }
-
-            var methodParams = new List<object> { contract.EntryPoint };
+            var methodParams = new List<object>();
 
             if (call.Params is not null)
             {
@@ -81,7 +76,7 @@ public class ContractExecutor : IExecutor
                 .WithContext(vmContext);
 
             Logger.LogDebug("Executing contract {contractName}:{methodName}", contract.Name, call.Method);
-            var ret = vm.CallMethod(methodName, methodParams.ToArray(), out _);
+            var ret = vm.CallMethod(methodName, [.. methodParams], out _);
             Logger.LogDebug("Contract result = {result}", ret);
 
             if (ret != 0)
@@ -90,7 +85,7 @@ public class ContractExecutor : IExecutor
                 return ExecutionResult.CONTRACT_EXECUTION_FAILED;
             }
 
-            var getTokenName = $"get_token";
+            const string getTokenName = "get_token";
             var hasGetToken = contract.Manifest.Methods.Any(x => x.Name == getTokenName);
 
             foreach (var effect in tx.Effects)
@@ -103,7 +98,7 @@ public class ContractExecutor : IExecutor
 
                     if (token is null)
                     {
-                        var result = vm.CallMethod(getTokenName, new object[] { contract.EntryPoint, effect.TokenId }, out var json);
+                        var result = vm.CallMethod(getTokenName, [effect.TokenId], out var json);
 
                         if (result != 0)
                         {

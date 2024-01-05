@@ -1,7 +1,6 @@
 ﻿using Kryolite.Shared;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json.Linq;
-using System;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using Wasmtime;
@@ -34,9 +33,21 @@ public class KryoVM : IDisposable
         Linker = new Linker(Engine);
         Store = new Store(Engine);
 
+        if (Context?.Logger.IsEnabled(LogLevel.Debug) ?? false)
+        {
+            foreach (var imp in Module.Imports)
+            {
+                Context?.Logger.LogDebug($"{imp.ModuleName} - {imp.Name}");
+            }
+
+            foreach (var exp in Module.Exports)
+            {
+                Context?.Logger.LogDebug($"{exp.Name}");
+            }
+        }
+
         // TODO: placeholder
-        ulong start = 1000000000;
-        Store.AddFuel(start);
+        Store.Fuel = 1000000000;
 
         RegisterAPI();
 
@@ -80,16 +91,10 @@ public class KryoVM : IDisposable
         return this;
     }
 
-    public int Initialize()
+    public void Initialize()
     {
-        var init = Instance.GetFunction("__init");
-
-        if (init == null)
-        {
-            throw new Exception("Contract initialization failed, init method missing");
-        }
-
-        return (int?)init.Invoke() ?? throw new Exception("Contract initialization failed, pointer to EntryPoint missing");
+        var init = Instance.GetFunction("_initialize") ?? throw new Exception($"method not found [_initialize]");
+        init.Invoke();
     }
 
     public int CallMethod(string method, object[] methodParams, out string? returns)
@@ -99,41 +104,43 @@ public class KryoVM : IDisposable
             throw new Exception("Context not set");
         }
 
+        var toFree = new List<(int ptr, int length)>();
+
         var malloc = Instance.GetFunction("__malloc") ?? throw new Exception($"method not found [__malloc]");
         var free = Instance.GetFunction("__free") ?? throw new Exception($"method not found [__free]");
+        var setContract = Instance.GetFunction("set_contract") ?? throw new Exception($"method not found [set_contract]");
+        var setTransaction = Instance.GetFunction("set_transaction") ?? throw new Exception($"method not found [set_transaction]");
         var run = Instance.GetFunction(method) ?? throw new Exception($"method not found [{method}]");
 
         var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
 
-        var ctr = Instance.GetGlobal("_CONTRACT") ?? throw new Exception("Context global not found");
-        var ctrPtr = (int?)ctr.GetValue() ?? throw new Exception("Context global ptr not found");
-        memory.WriteBuffer(ctrPtr, Context.Contract.Address);
-        memory.WriteBuffer(ctrPtr + 26, Context.Contract.Owner);
-        memory.WriteInt64(ctrPtr + 52, (long)Context.Balance);
+        // Set Contract details to smart contract
+        var addrPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
+        memory.WriteBuffer(addrPtr, Context.Contract.Address);
+        toFree.Add((addrPtr, Address.ADDRESS_SZ));
 
-        var tx = Instance.GetGlobal("_TRANSACTION") ?? throw new Exception("Transaction global not found");
-        var txPtr = (int?)tx.GetValue() ?? throw new Exception("Transaction global ptr not found");
-        memory.WriteBuffer(txPtr, Context.Transaction.From ?? new Address());
-        memory.WriteBuffer(txPtr + 26, Context.Transaction.To!);
-        memory.WriteInt64(txPtr + 52, (long)Context.Transaction.Value);
+        var ownerPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
+        memory.WriteBuffer(ownerPtr, Context.Contract.Owner);
+        toFree.Add((ownerPtr, Address.ADDRESS_SZ));
+
+        setContract.Invoke(addrPtr, Address.ADDRESS_SZ, ownerPtr, Address.ADDRESS_SZ, Context.Balance);
+
+        // Set transaction details to smart contract
+        var fromPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
+        memory.WriteBuffer(fromPtr, Context.Transaction.From!);
+        toFree.Add((fromPtr, Address.ADDRESS_SZ));
+
+        setTransaction.Invoke(fromPtr, Address.ADDRESS_SZ, Context.Transaction.Value);
 
         var exitCode = 0;
 
         try
         {
-            var values = new List<ValueBox>() { new IntPtr((int)methodParams[0]) };
-            var toFree = new List<(int ptr, int length)>();
-
             var manifest = Context.Contract.Manifest.Methods.Where(x => x.Name == method).First();
-
-            if (manifest == null)
-            {
-                throw new Exception($"method manifest not found ({method})");
-            }
-
             var mParams = manifest.Params.ToArray();
+            var values = new List<ValueBox>();
 
-            for (int i = 0; i < methodParams.Length - 1; i++)
+            for (int i = 0; i < methodParams.Length; i++)
             {
                 var param = mParams[i];
                 var value = ValueConverter.ConvertFromValue(param.Type, methodParams[i + 1]);
@@ -141,16 +148,14 @@ public class KryoVM : IDisposable
                 switch (value)
                 {
                     case byte[] arr:
-                        var ptr = (int?)malloc.Invoke(arr.Length);
+                        var ptr = (int)(malloc.Invoke(arr.Length) ?? throw new Exception($"failed to allocate memory"));
+    
+                        // Write buffer to program
+                        memory.WriteBuffer(ptr, arr);
 
-                        if (ptr == null)
-                        {
-                            throw new Exception($"failed to allocate memory");
-                        }
-
-                        memory.WriteBuffer((int)ptr, arr);
-                        values.Add((int)ptr);
-                        toFree.Add(((int)ptr, arr.Length));
+                        values.Add(ptr);
+                        values.Add(arr.Length);
+                        toFree.Add((ptr, arr.Length));
                         break;
                     case bool val:
                         values.Add(val == true ? 1 : 0);
@@ -185,7 +190,14 @@ public class KryoVM : IDisposable
                 }
             }
 
-            run.Invoke(values.ToArray());
+            if (values.Count > 0)
+            {
+                run.Invoke(values.ToArray());
+            }
+            else
+            {
+                run.Invoke();
+            }
 
             foreach (var ptr in toFree)
             {
@@ -211,6 +223,8 @@ public class KryoVM : IDisposable
             exitCode = 1;
         }
 
+        Console.WriteLine(1000000000 - Store.Fuel);
+
         returns = Context!.Returns;
         return exitCode;
     }
@@ -228,6 +242,7 @@ public class KryoVM : IDisposable
         Linker.Dispose();
         Store.Dispose();
     }
+
     private void RegisterAPI() 
     {
         Linker.Define("env", "__transfer", Function.FromCallback<int, long>(Store, (Caller caller, int address, long value) => {
@@ -321,7 +336,7 @@ public class KryoVM : IDisposable
             Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, eventData.Owner, 0, eventData.TokenId, true));
         }));
 
-        Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
+        Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int ptr, int len) => {
             var mem = caller.GetMemory("memory");
 
             if (mem is null)
@@ -329,12 +344,11 @@ public class KryoVM : IDisposable
                 return;
             }
 
-            var type = mem.GetSpan(type_ptr, type_len);
             var msg = mem.GetSpan(ptr, len);
-            Context?.Logger.LogDebug($"LOG: {ValueConverter.ConvertToValue(type, msg)}");
+            Context?.Logger.LogDebug($"LOG: {Encoding.UTF8.GetString(msg)}");
         }));
 
-        Linker.Define("env", "__append_event", Function.FromCallback(Store, (Caller caller, int type_ptr, int type_len, int ptr, int len) => {
+        Linker.Define("env", "__append_event", Function.FromCallback(Store, (Caller caller, int ptr, int len) => {
             var mem = caller.GetMemory("memory");
 
             if (mem is null)
@@ -342,9 +356,8 @@ public class KryoVM : IDisposable
                 return;
             }
 
-            var type = mem.GetSpan(type_ptr, type_len);
             var msg = mem.GetSpan(ptr, len);
-            Context!.EventData.Add(ValueConverter.ConvertToValue(type, msg));
+            Context!.EventData.Add(Encoding.UTF8.GetString(msg));
         }));
 
         Linker.Define("env", "__publish_event", Function.FromCallback(Store, (Caller caller) => {
@@ -383,6 +396,83 @@ public class KryoVM : IDisposable
 
         Linker.Define("env", "__exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) => {
             throw new ExitException(exitCode);
+        }));
+
+        Linker.Define("env", "__hash_data", Function.FromCallback(Store, (Caller caller, int dataPtr, int dataLen, int destPtr, int destLen) => {
+            var mem = caller.GetMemory("memory") ?? throw new Exception("memory not found");
+            
+            var data = mem.GetSpan<byte>(dataPtr, dataLen);
+            var dest = mem.GetSpan<byte>(destPtr, destLen);
+
+            if (!SHA256.TryHashData(data, dest, out _))
+            {
+                throw new Exception("hash failed");
+            }
+        }));
+
+        // WASI shims
+        Linker.Define("wasi_snapshot_preview1", "environ_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int environ, int environ_buf) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "environ_sizes_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int environCount, int environSize) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "clock_time_get", Function.FromCallback<int, long, int, int>(Store, (Caller caller, int number, long precision, int time) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_close", Function.FromCallback<int, int>(Store, (Caller caller, int fd) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_fdstat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int fdStat) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_fdstat_set_flags", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int flags) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_prestat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int bufPtr) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_prestat_dir_name", Function.FromCallback<int, int, int, int>(Store, (Caller caller, int fd, int pathPtr, int pathLen) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_read", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int fd, int iovsPtr, int iovsLen, int nreadPtr) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_seek", Function.FromCallback<int, long, int, int, int>(Store, (Caller caller, int fd, long offset, int whence, int offsetOutPtr) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_write", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int fd, int iovsPtr, int iovsLen, int nwrittenPtr) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "path_open", Function.FromCallback<int, int, int, int, int, long, long, int, int, int>(Store, (Caller caller, int fd, int dirflags, int pathPtr, int pathLen, int ofFlags, long fsRightsBase, long fsRightsInheriting, int fdFlags, int openedFdPtr) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "poll_oneoff", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int inPtr, int outPtr, int nsubscriptions, int u) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "proc_exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "sched_yield", Function.FromCallback<int>(Store, (Caller caller) => {
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "random_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int buf, int len) => {
+            throw new NotImplementedException();
         }));
     }
 }
