@@ -108,7 +108,7 @@ public class ViewResponse : IPacket
 
                 var exr = storeManager.AddTransaction(txResponse.Transaction, true);
 
-                if (exr != ExecutionResult.SUCCESS)
+                if (exr != ExecutionResult.SUCCESS || exr != ExecutionResult.SCHEDULED)
                 {
                     await peer.SendAsync(new NodeInfoRequest());
                     return;

@@ -27,6 +27,8 @@ public class View
     public List<SHA256Hash> Votes { get; set; } = new();
     [Key(8)]
     public List<SHA256Hash> Blocks { get; set; } = new();
+    [Key(9)]
+    public List<SHA256Hash> ScheduledTransactions { get; set; } = new();
 
     public SHA256Hash GetHash()
     {

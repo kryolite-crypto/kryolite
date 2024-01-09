@@ -23,5 +23,6 @@ public enum ExecutionResult
     UNKNOWN,
     DUPLICATE_CONTRACT,
     STALE,
-    ORPHAN
+    ORPHAN,
+    SCHEDULED
 }

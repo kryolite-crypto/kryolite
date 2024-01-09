@@ -116,7 +116,7 @@ public class NodeInfoResponse : IPacket
 
             var exc = blockchainManager.AddTransaction(tx, true);
 
-            if (exc != ExecutionResult.SUCCESS)
+            if (exc != ExecutionResult.SUCCESS || exc != ExecutionResult.SCHEDULED)
             {
                 logger.LogDebug("Failed to apply pending transaction");
                 return;

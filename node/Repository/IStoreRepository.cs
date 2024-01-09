@@ -79,4 +79,6 @@ public interface IStoreRepository
     void DeleteContractCode(Address contract);
     void DeleteContractSnapshot(Address contract, long height);
     void DeleteState(long height);
+    List<Transaction> GetDueTransactions(long timestamp, bool delete);
+    void AddDueTransaction(Transaction tx);
 }

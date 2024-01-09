@@ -89,12 +89,10 @@ public partial class MainWindow : Window
         });
 
         EventBus.Subscribe<Ledger>(async ledger => {
-            if (!Wallets.ContainsKey(ledger.Address))
+            if (!Wallets.TryGetValue(ledger.Address, out var wallet))
             {
                 return;
             }
-
-            var wallet = Wallets[ledger.Address];
 
             var transactions = StoreManager.GetLastNTransctions(wallet.Address, 5);
             var txs = transactions.Select(x =>
@@ -123,6 +121,8 @@ public partial class MainWindow : Window
             try
             {
                 var toAdd = new List<WalletModel>();
+                var balance = 0UL;
+                var pending = 0UL;
 
                 foreach (var wallet in Wallets.Values)
                 {
@@ -152,10 +152,11 @@ public partial class MainWindow : Window
                         }).ToList()
                     };
 
+                    balance += ledger?.Balance ?? 0;
+                    pending += ledger?.Pending ?? 0;
+
                     toAdd.Add(wm);
                 }
-
-                var balance = toAdd.Sum(x => (long)(x.Balance ?? 0));
 
                 var transactions = toAdd
                     .SelectMany(wallet => wallet.Transactions)
@@ -165,7 +166,8 @@ public partial class MainWindow : Window
 
                 await Dispatcher.UIThread.InvokeAsync(() => {
                     Model.Wallets = new ObservableCollection<WalletModel>(toAdd);
-                    Model.Balance = balance;
+                    Model.Balance = (long)balance;
+                    Model.Pending = (long)pending;
                     Model.Transactions = transactions;
                 });
             }

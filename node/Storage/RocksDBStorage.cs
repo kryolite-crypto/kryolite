@@ -67,6 +67,7 @@ internal class RocksDBStorage : IStorage
                 db.CreateColumnFamily(opts, "ixTokenLedger");
                 db.CreateColumnFamily(opts, "ixTransactionId");
                 db.CreateColumnFamily(opts, "ixTransactionAddress");
+                db.CreateColumnFamily(opts, "ixScheduledTransaction");
             }
         }
 
@@ -88,7 +89,8 @@ internal class RocksDBStorage : IStorage
             { "ixTokenId", opts },
             { "ixTokenLedger", opts },
             { "ixTransactionId", opts },
-            { "ixTransactionAddress", opts }
+            { "ixTransactionAddress", opts },
+            { "ixScheduledTransaction", opts }
         };
 
         Database = RocksDb.Open(options, storePath, families);
@@ -112,6 +114,7 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ixTokenLedger", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTokenLedger")));
         ColumnFamilies.Add("ixTransactionId", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixTransactionId")));
         ColumnFamilies.Add("ixTransactionAddress", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTransactionAddress")));
+        ColumnFamilies.Add("ixScheduledTransaction", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixScheduledTransaction")));
 
         CurrentKey = InitializeKey();
 
@@ -666,6 +669,7 @@ internal class RocksDBStorage : IStorage
         Database.DropColumnFamily("ixTokenLedger");
         Database.DropColumnFamily("ixTransactionNum");
         Database.DropColumnFamily("ixTransactionAddress");
+        Database.DropColumnFamily("ixScheduledTransaction");
 
         var opts = new ColumnFamilyOptions()
             .SetCreateIfMissing(true)
@@ -688,6 +692,7 @@ internal class RocksDBStorage : IStorage
         Database.CreateColumnFamily(opts, "ixTokenLedger");
         Database.CreateColumnFamily(opts, "ixTransactionNum");
         Database.CreateColumnFamily(opts, "ixTransactionAddress");
+        Database.CreateColumnFamily(opts, "ixScheduledTransaction");
 
         ColumnFamilies.Clear();
         ColumnFamilies.Add("Key", (0, Database.GetColumnFamily("Key")));
@@ -697,6 +702,7 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ChainState", (sizeof(long), Database.GetColumnFamily("ChainState")));
         ColumnFamilies.Add("Ledger", (Address.ADDRESS_SZ, Database.GetColumnFamily("Ledger")));
         ColumnFamilies.Add("Transaction", (sizeof(long), Database.GetColumnFamily("Transaction")));
+        ColumnFamilies.Add("ScheduledTransaction", (sizeof(long), Database.GetColumnFamily("ScheduledTransaction")));
         ColumnFamilies.Add("Contract", (Address.ADDRESS_SZ, Database.GetColumnFamily("Contract")));
         ColumnFamilies.Add("ContractCode", (Address.ADDRESS_SZ, Database.GetColumnFamily("ContractCode")));
         ColumnFamilies.Add("ContractSnapshot", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ContractSnapshot")));
@@ -707,6 +713,7 @@ internal class RocksDBStorage : IStorage
         ColumnFamilies.Add("ixTokenLedger", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTokenLedger")));
         ColumnFamilies.Add("ixTransactionId", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixTransactionId")));
         ColumnFamilies.Add("ixTransactionAddress", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTransactionAddress")));
+        ColumnFamilies.Add("ixScheduledTransaction", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixScheduledTransaction")));
     }
 
     public Checkpoint CreateCheckpoint()

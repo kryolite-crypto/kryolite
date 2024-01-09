@@ -12,7 +12,7 @@ public class Ledger : EventBase
     public ulong Balance { get; set; }
     [Key(2)]
     public bool Locked { get; set; }
-    [IgnoreMember]
+    [Key(3)]
     public ulong Pending { get; set; }
 
     public Ledger()

@@ -212,7 +212,7 @@ public class StagingManager : TransactionManager, IDisposable
             {
                 if (tx.ExecutionResult == ExecutionResult.SUCCESS)
                 {
-                    RollbackTransaction(i, tx, transfer, ledgers, contracts, tokens, validators);
+                    RollbackTransaction(view, tx, transfer, ledgers, contracts, tokens, validators);
                 }
             }
 
@@ -223,7 +223,18 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in transactions)
             {
-                RollbackTransaction(i, tx, transfer, ledgers, contracts, tokens, validators);
+                RollbackTransaction(view, tx, transfer, ledgers, contracts, tokens, validators);
+            }
+
+            var scheduled = Repository.GetTransactions(view.ScheduledTransactions);
+
+            // Rollback in reverse order
+            scheduled.Reverse();
+
+            foreach (var tx in scheduled)
+            {
+                tx.ExecutionResult = ExecutionResult.SCHEDULED;
+                RollbackTransaction(view, tx, transfer, ledgers, contracts, tokens, validators);
             }
 
             Repository.DeleteBlocks(view.Blocks);
@@ -246,7 +257,7 @@ public class StagingManager : TransactionManager, IDisposable
         StateCache.SetChainState(Repository.GetChainState() ?? new ChainState());
     }
 
-    private void RollbackTransaction(long height, Transaction tx, Transfer transfer, WalletCache ledgers, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, ValidatorCache validators)
+    private void RollbackTransaction(View view, Transaction tx, Transfer transfer, WalletCache ledgers, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, ValidatorCache validators)
     {
         if (tx.ExecutionResult != ExecutionResult.SUCCESS)
         {
@@ -256,13 +267,15 @@ public class StagingManager : TransactionManager, IDisposable
 
         var from = tx.From ?? Address.NULL_ADDRESS;
         var to = tx.To ?? Address.NULL_ADDRESS;
+        var isScheduled = tx.ExecutionResult == ExecutionResult.SCHEDULED;
+        var isDue = tx.Timestamp <= view.Timestamp;
 
         if (!ledgers.TryGetWallet(from, Repository, out var sender))
         {
             sender = new Ledger();
         }
 
-        if (to.IsContract() && contracts.TryGetContract(to, Repository, out var contract))
+        if (to.IsContract() && contracts.TryGetContract(to, Repository, out var _))
         {
             // Note: effects need to be rolled back before transaction
             foreach (var effect in tx.Effects)
@@ -271,7 +284,7 @@ public class StagingManager : TransactionManager, IDisposable
                 RollbackToken(effect, tokens);
             }
 
-            Repository.DeleteContractSnapshot(to, height);
+            Repository.DeleteContractSnapshot(to, view.Id);
         }
 
         switch (tx.TransactionType)
@@ -282,14 +295,42 @@ public class StagingManager : TransactionManager, IDisposable
                 transfer.From(to, tx.Value, out _, out _);
                 break;
             case TransactionType.PAYMENT:
-                transfer.From(to, tx.Value, out _, out _);
-                transfer.To(from, tx.Value, out _);
+                if (isDue)
+                {
+                    transfer.From(to, tx.Value, out _, out _);
+                }
+
+                // If this was scheduled execution, add the transaction back to scheduled index
+                if (isScheduled)
+                {
+                    Repository.AddDueTransaction(tx);
+                }
+
+                // Don't refund the scheduled execution to sender, only the base transactions
+                if (!isScheduled)
+                {
+                    transfer.To(from, tx.Value, out _);
+                }
                 break;
             case TransactionType.CONTRACT:
-                transfer.From(to, tx.Value, out _, out _);
-                transfer.To(from, tx.Value, out _);
+                if (isDue)
+                {
+                    transfer.From(to, tx.Value, out _, out _);
 
-                Repository.DeleteContractSnapshot(to, height);
+                    // If this was scheduled execution, add the transaction back to scheduled index
+                    if (isScheduled)
+                    {
+                        Repository.AddDueTransaction(tx);
+                    }
+                }
+
+                // Don't refund the scheduled execution to sender, only the base transactions
+                if (!isScheduled)
+                {
+                    transfer.To(from, tx.Value, out _);
+                }
+
+                Repository.DeleteContractSnapshot(to, view.Id);
                 Repository.DeleteContractCode(to);
                 Repository.DeleteContract(to);
 

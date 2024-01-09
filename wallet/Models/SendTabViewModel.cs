@@ -15,6 +15,9 @@ public class SendTabViewModel : NotifyPropertyChanged
     private WalletModel? selectedWallet;
     private string? recipient;
     private string? amount;
+    private bool isScheduled;
+    private DateTime date = DateTime.Now.Date;
+    private TimeSpan time = DateTimeOffset.Now.TimeOfDay;
     private ManifestView? manifest;
     private MethodView? method;
     private ObservableCollection<string> addresses = new();
@@ -74,6 +77,24 @@ public class SendTabViewModel : NotifyPropertyChanged
 
             return null;
         });
+    }
+
+    public bool IsScheduled
+    {
+        get => isScheduled;
+        set => RaisePropertyChanged(ref isScheduled, value);
+    }
+
+    public DateTime Date
+    {
+        get => date;
+        set => RaisePropertyChanged(ref date, value);
+    }
+
+    public TimeSpan Time
+    {
+        get => time;
+        set => RaisePropertyChanged(ref time, value);
     }
 
     public ManifestView? Manifest

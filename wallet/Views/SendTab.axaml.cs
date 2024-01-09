@@ -64,12 +64,21 @@ public partial class SendTab : UserControl
                 payload = MessagePackSerializer.Serialize(transactionPayload, lz4Options);
             }
 
+            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+            if (Model.IsScheduled)
+            {
+                timestamp = new DateTimeOffset(DateTime.SpecifyKind(Model.Date, DateTimeKind.Local))
+                    .Add(Model.Time)
+                    .ToUnixTimeMilliseconds();
+            }
+
             var transaction = new Transaction {
                 TransactionType = TransactionType.PAYMENT,
                 PublicKey = Model.SelectedWallet.PublicKey,
                 To = Model.Recipient,
                 Value = (ulong)(decimal.Parse(Model.Amount) * 1000000),
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Timestamp = timestamp,
                 Data = payload
             };
 
@@ -85,6 +94,7 @@ public partial class SendTab : UserControl
             Model.SelectedWallet = null;
             Model.Recipient = null;
             Model.Amount = null;
+            Model.IsScheduled = false;
         };
     }
 

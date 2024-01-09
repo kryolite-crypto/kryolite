@@ -107,28 +107,33 @@ public class StoreRepository : IStoreRepository, IDisposable
             tx.Id = (long)Storage.NextKey();
         }
 
-        var key = tx.Id.ToKey();
+        var id = tx.Id.ToKey();
 
         // Transaction
-        Storage.Put("Transaction", key, MessagePackSerializer.Serialize(tx), CurrentTransaction);
+        Storage.Put("Transaction", id, MessagePackSerializer.Serialize(tx), CurrentTransaction);
 
         //ixTransactionId index
-        Storage.Put("ixTransactionId", transactionId.Buffer, key, CurrentTransaction);
+        Storage.Put("ixTransactionId", transactionId.Buffer, id, CurrentTransaction);
 
         // Address index
-        var addrKey = keyBuf.Slice(0, 34);
-        key.CopyTo(addrKey.Slice(26));
+        var addrKey = keyBuf[..34];
+        id.CopyTo(addrKey[26..]);
 
         if (tx.PublicKey is not null)
         {
             tx.From!.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, key, CurrentTransaction);
+            Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
         }
 
         if (tx.To is not null)
         {
             tx.To.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, key, CurrentTransaction);
+            Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
+        }
+
+        if (tx.ExecutionResult == ExecutionResult.SCHEDULED)
+        {
+            AddDueTransaction(tx);
         }
     }
 
@@ -520,6 +525,61 @@ public class StoreRepository : IStoreRepository, IDisposable
             .ToList();
     }
 
+    public void AddDueTransaction(Transaction tx)
+    {
+            var id = tx.Id.ToKey();
+            var ts = tx.Timestamp.ToKey();
+
+            Span<byte> tsKey = stackalloc byte[(sizeof(long) * 2)]; // timestamp + id
+            
+            ts.CopyTo(tsKey);
+            id.CopyTo(tsKey[sizeof(long)..]);
+
+            Storage.Put("ixScheduledTransaction", tsKey, id, CurrentTransaction);
+    }
+
+    public List<Transaction> GetDueTransactions(long timestamp, bool delete)
+    {
+        var ts = timestamp.ToKey();
+
+        Span<byte> key = stackalloc byte[sizeof(long) * 2]; // timestamp + id
+        key.Fill(255);
+        ts.CopyTo(key);
+
+        var lowerBound = new byte[sizeof(long) * 2];
+        ts.CopyTo(lowerBound, 0);
+
+        var opts = new ReadOptions();
+        opts.SetIterateLowerBound(lowerBound);
+
+        using var iterator = Storage.GetIterator("ixScheduledTransaction");
+
+        iterator.SeekForPrev(key);
+
+        var results = new List<Transaction>();
+        var toRemove = new List<byte>();
+
+        while (iterator.Valid())
+        {
+            var id = iterator.Value();
+            var tx = Storage.Get<Transaction>("Transaction", id);
+
+            if (delete)
+            {
+                Storage.Delete("ixScheduledTransaction", iterator.Key(), CurrentTransaction);
+            }
+
+            iterator.Prev();
+
+            if (tx is not null)
+            {
+                results.Add(tx);
+            }
+        }
+
+        return results;
+    }
+
     public List<Transaction> GetTransactions(int pageNum, int pageSize)
     {
         return Storage.GetRange<Transaction>("Transaction", pageNum, pageSize);
@@ -667,17 +727,17 @@ public class StoreRepository : IStoreRepository, IDisposable
         Span<byte> keyBuf = stackalloc byte[34];
         var transactionId = tx.CalculateHash();
 
-        var key = tx.Id.ToKey();
+        var id = tx.Id.ToKey();
 
         // Transaction
-        Storage.Delete("Transaction", key, CurrentTransaction);
+        Storage.Delete("Transaction", id, CurrentTransaction);
 
         // transactionId
         Storage.Delete("ixTransactionId", transactionId.Buffer, CurrentTransaction);
 
         // Address index
-        var addrKey = keyBuf.Slice(0, 34);
-        key.CopyTo(addrKey.Slice(26));
+        var addrKey = keyBuf[..34];
+        id.CopyTo(addrKey[26..]);
 
         if (tx.PublicKey is not null)
         {
@@ -690,6 +750,14 @@ public class StoreRepository : IStoreRepository, IDisposable
             tx.To.Buffer.CopyTo(addrKey);
             Storage.Delete("ixTransactionAddress", addrKey, CurrentTransaction);
         }
+
+        var ts = tx.Timestamp.ToKey();
+        Span<byte> tsKey = stackalloc byte[(sizeof(long) * 2)]; // timestamp + id
+
+        ts.CopyTo(tsKey);
+        id.CopyTo(tsKey[sizeof(long)..]);
+
+        Storage.Delete("ixScheduledTransaction", tsKey, CurrentTransaction);
     }
 
     public void DeleteContract(Address contract)
