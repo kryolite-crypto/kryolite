@@ -30,71 +30,92 @@ public partial class SendTab : UserControl
         Model = new();
         DataContext = Model;
 
-        Model.SendTransactionClicked += (object? sender, EventArgs args) => {
-            using var scope = Program.ServiceCollection.CreateScope();
-            var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
-
-            if (Model.Recipient is null || Model.SelectedWallet is null || Model.Amount is null || !Address.IsValid(Model.Recipient))
+        Model.SendTransactionClicked += async (object? sender, EventArgs args) => {
+            try
             {
-                return;
-            }
+                using var scope = Program.ServiceCollection.CreateScope();
+                var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
 
-            var payload = Array.Empty<byte>();
-
-            if (((Address)Model.Recipient).IsContract())
-            {
-                if (Model.Method is null)
+                if (Model.Recipient is null || Model.SelectedWallet is null || Model.Amount is null || !Address.IsValid(Model.Recipient))
                 {
                     return;
                 }
 
-                var transactionPayload = new TransactionPayload
+                var payload = Array.Empty<byte>();
+
+                if (((Address)Model.Recipient).IsContract())
                 {
-                    Payload = new CallMethod
+                    if (Model.Method is null)
                     {
-                        Method = Model.Method.Name,
-                        Params = Model.Method.Params.Select(x => x.Value).ToArray()
+                        return;
                     }
+
+                    var transactionPayload = new TransactionPayload
+                    {
+                        Payload = new CallMethod
+                        {
+                            Method = Model.Method.Name,
+                            Params = Model.Method.Params.Select(x => x.Value).ToArray()
+                        }
+                    };
+
+                    var lz4Options = MessagePackSerializerOptions.Standard
+                        .WithCompression(MessagePackCompression.Lz4BlockArray)
+                        .WithOmitAssemblyVersion(true);
+
+                    payload = MessagePackSerializer.Serialize(transactionPayload, lz4Options);
+                }
+
+                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+
+                if (Model.IsScheduled)
+                {
+                    timestamp = new DateTimeOffset(DateTime.SpecifyKind(Model.Date, DateTimeKind.Local))
+                        .Add(Model.Time)
+                        .ToUnixTimeMilliseconds();
+                }
+
+                var transaction = new Transaction {
+                    TransactionType = TransactionType.PAYMENT,
+                    PublicKey = Model.SelectedWallet.PublicKey,
+                    To = Model.Recipient,
+                    Value = (ulong)(decimal.Parse(Model.Amount) * 1000000),
+                    Timestamp = timestamp,
+                    Data = payload
                 };
 
-                var lz4Options = MessagePackSerializerOptions.Standard
-                    .WithCompression(MessagePackCompression.Lz4BlockArray)
-                    .WithOmitAssemblyVersion(true);
+                if(TopLevel.GetTopLevel(this) is not Window window)
+                {
+                    return;
+                }
 
-                payload = MessagePackSerializer.Serialize(transactionPayload, lz4Options);
+                var ok = await TransactionDialog.Show(transaction, window);
+
+                if (!ok)
+                {
+                    return;
+                }
+
+                transaction.Sign(Model.SelectedWallet!.PrivateKey);
+
+                var result = blockchainManager.AddTransaction(new TransactionDto(transaction), true);
+
+                if (!Model.Addresses.Contains(Model.Recipient))
+                {
+                    Model.Addresses.Add(Model.Recipient);
+                }
+
+                Model.SelectedWallet = null;
+                Model.Recipient = null;
+                Model.Amount = null;
+                Model.IsScheduled = false;
+
+                await ConfirmDialog.Show($"Transaction Status: {result}", true, window);
             }
-
-            var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-
-            if (Model.IsScheduled)
+            catch (Exception ex)
             {
-                timestamp = new DateTimeOffset(DateTime.SpecifyKind(Model.Date, DateTimeKind.Local))
-                    .Add(Model.Time)
-                    .ToUnixTimeMilliseconds();
+                Console.WriteLine(ex.ToString());
             }
-
-            var transaction = new Transaction {
-                TransactionType = TransactionType.PAYMENT,
-                PublicKey = Model.SelectedWallet.PublicKey,
-                To = Model.Recipient,
-                Value = (ulong)(decimal.Parse(Model.Amount) * 1000000),
-                Timestamp = timestamp,
-                Data = payload
-            };
-
-            transaction.Sign(Model.SelectedWallet!.PrivateKey);
-
-            blockchainManager.AddTransaction(new TransactionDto(transaction), true);
-
-            if (!Model.Addresses.Contains(Model.Recipient))
-            {
-                Model.Addresses.Add(Model.Recipient);
-            }
-
-            Model.SelectedWallet = null;
-            Model.Recipient = null;
-            Model.Amount = null;
-            Model.IsScheduled = false;
         };
     }
 
@@ -105,7 +126,7 @@ public partial class SendTab : UserControl
         if (string.IsNullOrEmpty(box.Text) && Model.Addresses.Count > 0)
         {
             var mInfo = sender.GetType().GetMethod("OpeningDropDown", BindingFlags.NonPublic | BindingFlags.Instance);
-            mInfo?.Invoke(sender, new object[] { false });
+            mInfo?.Invoke(sender, [false]);
         }
     }
 
@@ -120,7 +141,7 @@ public partial class SendTab : UserControl
         }
 
         var mInfo = sender.GetType().GetMethod("ClosingDropDown", BindingFlags.NonPublic | BindingFlags.Instance);
-        mInfo?.Invoke(sender, new object[] { true });
+        mInfo?.Invoke(sender, [true]);
 
         var addr = (Address)Model.Recipient;
 

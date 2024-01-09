@@ -114,7 +114,7 @@ public partial class ValidatorTab : UserControl
 
         if (Model.Status == "Enabled")
         {
-            var ok = await ConfirmDialog.Show("Disable validator and unlock stake?", window);
+            var ok = await ConfirmDialog.Show("Disable validator and unlock stake?", false, window);
 
             if (!ok)
             {
@@ -243,7 +243,7 @@ public partial class ValidatorTab : UserControl
         }
     }
 
-    private void SetValidatorState(TransactionType transactionType, Address rewardRecipient)
+    private async void SetValidatorState(TransactionType transactionType, Address rewardRecipient)
     {
         try
         {
@@ -263,7 +263,14 @@ public partial class ValidatorTab : UserControl
 
             tx.Sign(key.PrivateKey);
 
-            Console.WriteLine(storeManager.AddTransaction(new TransactionDto(tx), true));
+            var result = storeManager.AddTransaction(new TransactionDto(tx), true);
+
+            if(TopLevel.GetTopLevel(this) is not Window window)
+            {
+                return;
+            }
+
+            await ConfirmDialog.Show($"Transaction Status: {result}", true, window);
         }
         catch (Exception ex)
         {

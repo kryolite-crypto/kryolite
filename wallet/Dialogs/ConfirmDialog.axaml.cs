@@ -15,19 +15,28 @@ public partial class ConfirmDialog : Window
         AvaloniaXamlLoader.Load(this);
     }
 
-    public static async Task<bool> Show(string text, Window owner)
+    public static async Task<bool> Show(string text, bool okOnly, Window owner)
     {
         var dialog = new ConfirmDialog();
+
         dialog.Opened += async (object? sender, EventArgs e) =>
         {
             var textContainer = dialog.FindControl<TextBlock>("TextContainer");
+            var cancelButton = dialog.FindControl<Button>("CancelButton");
 
-            await Dispatcher.UIThread.InvokeAsync(() => {
-                if (textContainer is not null)
-                {
-                    textContainer.Text = text;
-                }
-            });
+            if (okOnly && cancelButton is not null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    cancelButton.IsVisible = false;
+                });
+            }
+
+            if (textContainer is not null)
+            {
+                await Dispatcher.UIThread.InvokeAsync(() => {
+                    textContainer.Text = text;   
+                });
+            }
         };
 
         return await dialog.ShowDialog<bool>(owner);

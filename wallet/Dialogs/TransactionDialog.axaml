@@ -5,8 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d"
-        x:Class="Kryolite.Wallet.ConfirmDialog"
-        Title="Confirm"
+        x:Class="Kryolite.Wallet.TransactionDialog"
+        Title="Confirm Transaction"
         SizeToContent="WidthAndHeight"
         TransparencyLevelHint="AcrylicBlur"
         Background="Transparent"
@@ -28,7 +28,12 @@
                 <Button Width="60" HorizontalContentAlignment="Center" Click="Ok">Ok</Button>
                 <Button x:Name="CancelButton" Width="60" HorizontalContentAlignment="Center" Click="Cancel">Cancel</Button>
             </StackPanel>
-            <TextBlock HorizontalAlignment="Left" VerticalAlignment="Center" x:Name="TextContainer" Margin="10, 20, 20, 20" DockPanel.Dock="Top" />
+            <TextBlock Text="Transaction Id" Margin="10, 20, 10, 0" DockPanel.Dock="Top"/>
+            <TextBlock x:Name="TransactionId" FontWeight="Bold" Margin="10, 5, 10, 0" DockPanel.Dock="Top" Cursor="Hand" PointerPressed="CopyAddress"/>
+            <TextBlock Text="Recipient Address" Margin="10, 20, 10, 0" DockPanel.Dock="Top" />
+            <TextBlock x:Name="To" FontWeight="Bold" Margin="10, 5, 10, 0" DockPanel.Dock="Top" />
+            <TextBlock Text="Amount" Margin="10, 20, 10, 0" DockPanel.Dock="Top" />
+            <TextBlock x:Name="Value" FontWeight="Bold" Margin="10, 5, 10, 0" DockPanel.Dock="Top" />
         </DockPanel>
     </Panel>
 </Window>
