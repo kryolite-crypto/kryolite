@@ -67,6 +67,6 @@ public class ValidatorViewModel : NotifyPropertyChanged
             return;
         }
 
-        Balance = $"{balance / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO / {Constant.MIN_STAKE} kryo";
+        Balance = $"{balance / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO / {Constant.MIN_STAKE / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO";
     }
 }

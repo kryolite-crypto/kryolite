@@ -50,18 +50,7 @@ public partial class MiningTab : UserControl
 
         var eventBus = Program.ServiceCollection.GetRequiredService<IEventBus>();
 
-        eventBus.Subscribe<ChainState>(chainState => {
-            _model.CurrentDifficulty = chainState.CurrentDifficulty.ToString();
-
-            if (_model.ActionText != "Start mining")
-            {
-                WriteLog($"{DateTime.Now}: New job #{chainState?.Id}, diff = {chainState?.CurrentDifficulty}");
-
-                var oldSource = _tokenSource;
-                _tokenSource = new();
-                oldSource.Cancel();
-            }
-        });
+        eventBus.Subscribe<ChainState>(chainState => UpdateStats(chainState));
 
         AttachedToVisualTree += (_, _) =>
         {
@@ -83,14 +72,15 @@ public partial class MiningTab : UserControl
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
         var chainState = storeManager.GetChainState();
-        _model.CurrentDifficulty = chainState.CurrentDifficulty.ToString();
+        UpdateStats(chainState);
 
         _snapshotTimer = new System.Timers.Timer(TimeSpan.FromSeconds(2))
         {
             AutoReset = true
         };
 
-        _snapshotTimer.Elapsed += (sender, e) => {
+        _snapshotTimer.Elapsed += (sender, e) =>
+        {
             _snapshots.Enqueue((DateTime.Now, _hashes));
 
             var snapshot = _snapshots.Count >= 30 ? _snapshots.Dequeue() : _snapshots.Peek();
@@ -103,6 +93,35 @@ public partial class MiningTab : UserControl
 
             _model.Hashrate = $"{(_hashes - snapshot.Hashes) / elapsed.TotalSeconds:N2} h/s";
         };
+    }
+
+    private async void UpdateStats(ChainState chainState)
+    {
+        if (chainState is null)
+        {
+            return;
+        }
+
+        if (_model.ActionText != "Start mining")
+        {
+            WriteLog($"{DateTime.Now}: New job #{chainState.Id}, diff = {chainState.CurrentDifficulty}");
+
+            var oldSource = _tokenSource;
+            _tokenSource = new();
+            oldSource.Cancel();
+        }
+
+        using var scope = Program.ServiceCollection.CreateScope();
+        var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+
+        var lastBlockHeight = storeManager.GetLastHeightContainingBlock();
+        var blockReward = RewardCalculator.BlockReward(chainState.Id);
+
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            _model.CurrentDifficulty = chainState.CurrentDifficulty.ToString();
+            _model.BlockReward = blockReward * (1 + (ulong)(chainState.Id - lastBlockHeight));
+        });
     }
 
     public void ScrollToBottom(object sender, EventArgs args)
@@ -218,7 +237,6 @@ public partial class MiningTab : UserControl
                                 if (storeManager.AddBlock(blocktemplate, true))
                                 {
                                     _model.BlocksFound++;
-                                    _model.TotalEarned += blocktemplate.Value;
                                 }
                             }
 

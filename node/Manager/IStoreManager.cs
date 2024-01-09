@@ -58,4 +58,5 @@ public interface IStoreManager
     bool LoadStagingChain(string storeName, ChainState newChain, IStateCache newState, List<EventBase> events);
     Checkpoint CreateCheckpoint();
     ulong GetEstimatedStakeReward(Address address, long milestoneId);
+    long GetLastHeightContainingBlock();
 }

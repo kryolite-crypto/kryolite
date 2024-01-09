@@ -66,7 +66,7 @@ public class Block
         var basehash = GetBaseHash();
         var concat = new Concat
         {
-            Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? new byte[0]).ToArray()
+            Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? []).ToArray()
         };
 
         var hash = Grasshopper.Hash(concat);

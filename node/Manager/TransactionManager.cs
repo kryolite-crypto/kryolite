@@ -92,11 +92,13 @@ public abstract class TransactionManager
 
             var height = view.Id;
 
-            var toExecute = new List<Transaction>(StateCache.TransactionCount() + StateCache.GetBlocks().Count + StateCache.GetVotes().Count);
-            var blocks = new List<Block>(StateCache.GetBlocks().Count);
-            var votes = new List<Vote>(StateCache.GetVotes().Count);
+            var toExecute = new List<Transaction>(view.Transactions.Count + view.Blocks.Count + view.Votes.Count);
+            var blocks = new List<Block>(view.Blocks.Count );
+            var votes = new List<Vote>(view.Votes.Count);
             var totalStake = 0UL;
             var seedStake = 0UL;
+
+            var lastBlockHeight = Repository.GetLastHeightContainingBlock();
 
             foreach (var blockhash in view.Blocks)
             {
@@ -109,13 +111,12 @@ public abstract class TransactionManager
                 {
                     TransactionType = TransactionType.BLOCK_REWARD,
                     To = block.To,
-                    Value = block.Value,
+                    Value = block.Value * (ulong)(view.Id - lastBlockHeight) / (ulong)view.Blocks.Count,
                     Data = blockhash,
                     Timestamp = view.Timestamp
                 };
 
                 toExecute.Add(blockReward);
-
                 blocks.Add(block);
             }
 
@@ -355,19 +356,15 @@ public abstract class TransactionManager
     protected bool AddBlockInternal(Block block, bool broadcast)
     {
         var sw = Stopwatch.StartNew();
-        
-        if (!StateCache.GetLedgers().TryGetWallet(block.To, Repository, out var to))
-        {
-            to = Repository.GetWallet(block.To) ?? new Ledger(block.To);
-            StateCache.Add(to);
-        }
-
-        checked
-        {
-            to.Pending += block.Value;
-        }
 
         var chainState = StateCache.GetCurrentState();
+
+        if (broadcast)
+        {
+            Broadcast(block);
+        }
+
+        StateCache.Add(block);
 
         sw.Stop();
 
@@ -377,15 +374,6 @@ public abstract class TransactionManager
             sw.Elapsed.TotalMilliseconds,
             block.Difficulty
         );
-
-        if (broadcast)
-        {
-            Broadcast(block);
-        }
-
-        StateCache.Add(block);
-
-        Publish(to);
 
         return true;
     }

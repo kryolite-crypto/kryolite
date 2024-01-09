@@ -571,4 +571,10 @@ public class StoreManager : TransactionManager, IStoreManager
             .Select(x => x.Value)
             .SingleOrDefault();
     }
+
+    public long GetLastHeightContainingBlock()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetLastHeightContainingBlock();
+    }
 }

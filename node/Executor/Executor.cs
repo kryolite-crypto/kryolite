@@ -35,7 +35,7 @@ public class Executor
 
         if (dueTransactions.Count != 0)
         {
-            Logger.LogInformation("Found {count} due transactions to execute", dueTransactions.Count);
+            Logger.LogDebug("Found {count} due transactions to execute", dueTransactions.Count);
         }
 
         view.ScheduledTransactions.AddRange(dueHashes);
@@ -61,20 +61,17 @@ public class Executor
             {
                 case TransactionType.DEV_REWARD:
                 case TransactionType.STAKE_REWARD:
+                case TransactionType.BLOCK_REWARD:
                         var wallet = Context.GetOrNewWallet(tx.To);
                         wallet.Pending += tx.Value;
 
                         view.Rewards.Add(tx.CalculateHash());
 
                         goto case TransactionType.PAYMENT;
-                case TransactionType.BLOCK_REWARD:
-                        view.Rewards.Add(tx.CalculateHash());
-
-                        goto case TransactionType.PAYMENT;
                 case TransactionType.PAYMENT:
                     if (tx.Timestamp > view.Timestamp)
                     {
-                        Logger.LogInformation("Added scheduled transaction ({hash}), to execute at {timestamp}", tx.CalculateHash(), DateTimeOffset.FromUnixTimeMilliseconds(tx.Timestamp));
+                        Logger.LogDebug("Added scheduled transaction ({hash}), to execute at {timestamp}", tx.CalculateHash(), DateTimeOffset.FromUnixTimeMilliseconds(tx.Timestamp));
                         tx.ExecutionResult = ExecutionResult.SCHEDULED;
                         continue;
                     }

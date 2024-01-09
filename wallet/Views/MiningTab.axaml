@@ -124,13 +124,11 @@
               <TextBlock Text="{Binding BlocksFound}" FontWeight="Bold"/>
             </StackPanel>
             <StackPanel>
-              <TextBlock>Total earned</TextBlock>
-              <TextBlock Text="{Binding TotalEarned, Converter={StaticResource CurrencyConverter}}}" FontWeight="Bold"/>
+              <TextBlock>Next block reward</TextBlock>
+              <TextBlock Text="{Binding BlockReward, Converter={StaticResource CurrencyConverter}}}" FontWeight="Bold"/>
             </StackPanel>
           </StackPanel>
         </Border>
       </StackPanel>
-
-      <!---->
     </DockPanel>
   </UserControl>

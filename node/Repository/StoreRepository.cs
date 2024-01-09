@@ -198,6 +198,28 @@ public class StoreRepository : IStoreRepository, IDisposable
         return Storage.Get<View>("View", heightBytes.ToKey());
     }
 
+    public long GetLastHeightContainingBlock()
+    {
+        using var iterator = Storage.GetIterator("View");
+
+        iterator.SeekToLast();
+
+        while (iterator.Valid())
+        {
+            var view = MessagePackSerializer.Deserialize<View>(iterator.Value());
+
+            if (view.Blocks.Count > 0)
+            {
+                return view.Id;
+            }
+
+            iterator.Prev();
+        }
+
+        // View #1 is the first possible view with blocks
+        return 1;
+    }
+
     public List<Transaction> GetTransactionsAtHeight(long height)
     {
         var view = Storage.Get<View>("View", height.ToKey());

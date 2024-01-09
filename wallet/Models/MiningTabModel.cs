@@ -13,7 +13,7 @@ public class MiningTabModel : NotifyPropertyChanged
     private string _hashrate = "0 h/s";
     private string _currentDifficulty = "N/A";
     private long _blocksFound;
-    private ulong _totalEarned;
+    private ulong _blockReward;
 
     public WalletModel? SelectedWallet
     {
@@ -51,9 +51,9 @@ public class MiningTabModel : NotifyPropertyChanged
         set => RaisePropertyChanged(ref _blocksFound, value);
     }
 
-    public ulong TotalEarned
+    public ulong BlockReward
     {
-        get => _totalEarned; 
-        set => RaisePropertyChanged(ref _totalEarned, value);
+        get => _blockReward; 
+        set => RaisePropertyChanged(ref _blockReward, value);
     }
 }

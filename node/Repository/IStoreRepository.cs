@@ -81,4 +81,5 @@ public interface IStoreRepository
     void DeleteState(long height);
     List<Transaction> GetDueTransactions(long timestamp, bool delete);
     void AddDueTransaction(Transaction tx);
+    long GetLastHeightContainingBlock();
 }
