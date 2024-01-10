@@ -1,6 +1,6 @@
 namespace Kryolite.Shared.Algorithm;
 
-public enum Op
+public enum Op : byte
 {
     /// <summary>
     /// Load local value from given location onto stack
@@ -85,5 +85,48 @@ public enum Op
     /// <summary>
     /// Pop last item from stack and return it
     /// </summary>
-    Ret
+    Ret,
+
+    /// <summary>
+    /// Population count
+    /// </summary>
+    PopCnt,
+
+    /// <summary>
+    /// Leading Zero count
+    /// </summary>
+    LZCnt,
+
+    /// <summary>
+    /// Trailing Zero count
+    /// </summary>
+    TZCnt,
+
+    /// <summary>
+    /// SHA256
+    /// </summary>
+    SHA256,
+
+    /// <summary>
+    /// Calculate Crc32c
+    /// </summary>
+    CRC32C,
+
+    /// <summary>
+    /// No operation
+    /// </summary>
+    NoOp,
+
+    /// <summary>
+    /// Compare
+    /// </summary>
+    Cmp,
+    /// <summary>
+    /// Jump
+    /// </summary>
+    Jmp,
+    /// <summary>
+    /// Pop value from stack and jump if zero
+    /// </summary>
+    JmpIfZero
 }

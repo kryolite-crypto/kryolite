@@ -2,10 +2,10 @@ using Kryolite.Shared;
 
 public static class RewardCalculator
 {
-    // private static int VIEWS_IN_YEAR = 500_000;
+    // private static int VIEWS_IN_YEAR = 525_600;
     // private static int FAIR_PERIOD = 1440; // 1 day
     private static readonly int VIEWS_IN_YEAR = 10_000;
-    private static readonly int FAIR_PERIOD = 600;
+    private static readonly int FAIR_PERIOD = 30;
     private static readonly double STEP_REDUCE = 100 * Constant.DECIMAL_MULTIPLIER;
 
     public static ulong BlockReward(long height)
@@ -17,7 +17,7 @@ public static class RewardCalculator
 
         var steps = height / VIEWS_IN_YEAR;
         var reward = Constant.BLOCK_REWARD - (STEP_REDUCE * steps);
-        return (ulong)Math.Max(reward, 0);
+        return (ulong)Math.Max(reward, 10);
     }
 
     public static ulong ValidatorReward(long height)

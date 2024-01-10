@@ -30,5 +30,5 @@ public static class Constant
     // Placeholder
     public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;
     public const ulong VALIDATOR_REWARD = 1000 * DECIMAL_MULTIPLIER;
-    public const long BLOCK_REWARD = 1000 * DECIMAL_MULTIPLIER;
+    public const long BLOCK_REWARD = 500 * DECIMAL_MULTIPLIER;
 }

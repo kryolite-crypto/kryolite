@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -189,6 +190,7 @@ public partial class MiningTab : UserControl
                 try
                 {
                     using var sha256 = SHA256.Create();
+                    var buf = new byte[32];
 
                     var concat = new Concat
                     {
@@ -213,8 +215,9 @@ public partial class MiningTab : UserControl
                         {
                             Random.Shared.NextBytes(nonce);
 
-                            var sha256Hash = Grasshopper.Hash(concat);
-                            var result = sha256Hash.ToBigInteger();
+                            Grasshopper.Hash(concat, buf);
+
+                            var result = new BigInteger(buf, true, true);
 
                             if (result.CompareTo(target) <= 0)
                             {

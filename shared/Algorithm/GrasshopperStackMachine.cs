@@ -1,66 +1,83 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Algorithm;
 
-public unsafe class GrasshopperStackMachine
+public unsafe ref struct GrasshopperStackMachine
 {
-    public long Checksum { get; private set; }
+    public long Checksum;
 
-    private long[] _locals = new long[17];
-    private long[] _stack = new long[16];
-    private int _stackPtr = 0;
-    private List<(Op Op, int I32, long I64)> _operations = new (8192 * 2);
+    private long* _locals;
+    private long* _values;
+
+    private long* _stackStart;
+    private long* _stackPtr;
+
+    private byte* _operationsStart;
+    private byte* _opsPtr;
+
+    public GrasshopperStackMachine()
+    {
+        _stackStart = (long*)Marshal.AllocHGlobal(sizeof(long) * 256);
+        _stackPtr = _stackStart;
+
+        _operationsStart = (byte*)Marshal.AllocHGlobal(2048);
+        _opsPtr = _operationsStart;
+
+        _values = (long*)Marshal.AllocHGlobal(sizeof(long) * 2048);
+        _locals = (long*)Marshal.AllocHGlobal(sizeof(long) * 17);
+    }
 
     public void Reset()
     {
-        _stackPtr = 0;
-        _operations.Clear();
+        _stackPtr = _stackStart;
+        _opsPtr = _operationsStart;
     }
 
     public void Emit(Op op)
     {
-        _operations.Add((op, 0, 0));
-        Checksum += _operations.Count;
+        *_opsPtr++ = (byte)op;
+        Checksum += (byte)op;
     }
 
     public void Emit(Op op, int addr)
     {
-        _operations.Add((op, addr, 0));
-        Checksum += _operations.Count;
+        _values[_opsPtr - _operationsStart] = addr;
+        *_opsPtr++ = (byte)op;
+        Checksum += (byte)op;
     }
 
     public void Emit(Op op, long addr)
     {
-        _operations.Add((op, 0, addr));
-        Checksum += _operations.Count;
+        _values[_opsPtr - _operationsStart] = addr;
+        *_opsPtr++ = (byte)op;
+        Checksum += (byte)op;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     public long Invoke()
     {
-        for (var i = 0; i < _operations.Count; i++)
-        {
-            var ins = _operations[i];
+        var ptr = _operationsStart;
 
-            switch (ins.Op)
+        while (ptr < _opsPtr)
+        {
+            var op = *ptr;
+
+            switch ((Op)op)
             {
                 case Op.LdLoc:
-                    Push(_locals[ins.I32]);
+                    Push(_locals[_values[ptr - _operationsStart]]);
                     break;
                 case Op.StLoc:
-                    {
-                        var a = Pop();
-                        _locals[ins.I32] = a;
-
-                        Checksum += a;
-                    }
+                    _locals[_values[ptr - _operationsStart]] = Pop();
                     break;
                 case Op.LdInt32:
-                    Push(ins.I32);
+                    Push(_values[ptr - _operationsStart]);
                     break;
                 case Op.LdInt64:
-                    Push(ins.I64);
+                    Push(_values[ptr - _operationsStart]);
                     break;
                 case Op.Dup:
                     Push(Peek());
@@ -138,68 +155,123 @@ public unsafe class GrasshopperStackMachine
                 case Op.ShrUn:
                     {
                         var b = (int)Pop();
-                        var a = (ulong)Pop();
+                        var a = Pop();
 
-                        Push((long)(a >> b));
+                        Push(a >> b);
                     }
                     break;
                 case Op.Shl:
                     {
                         var b = (int)Pop();
-                        var a = (ulong)Pop();
+                        var a = Pop();
 
-                        Push((long)(a << b));
+                        Push(a << b);
+                    }
+                    break;
+                case Op.SHA256:
+                    {
+                        var b = (int)Pop();
+                        var a = Pop();
+                        var span = new Span<byte>(_locals, 8 * 16);
+
+                        SHA256.TryHashData(span, span[b..32], out _);
+
+                        for (var x = b / 8; x < 16; x++)
+                        {
+                            a += _locals[x];
+                        }
+
+                        Push(a);
+                    }
+                    break;
+                case Op.PopCnt:
+                    {
+                        var a = Pop();
+                        Push(a + BitOperations.PopCount((ulong)a));
+                    }
+                    break;
+                case Op.LZCnt:
+                    {
+                        var a = Pop();
+                        Push(a + BitOperations.LeadingZeroCount((ulong)a));
+                    }
+                    break;
+                case Op.TZCnt:
+                    {
+                        var a = Pop();
+                        Push(a + BitOperations.TrailingZeroCount((ulong)a));
+                    }
+                    break;
+                case Op.CRC32C:
+                    {
+                        var a = Pop();
+                        var crc = (uint)(a % uint.MaxValue);
+                        
+                        for (var x = 0; x < 16; x++)
+                        {
+                            crc += BitOperations.Crc32C(crc, (ulong)_locals[x]);
+                        }
+
+                        Push(a + crc);
+                    }
+                    break;
+                case Op.Cmp:
+                    {
+                        var b = Pop();
+                        var a = Pop();
+
+                        Push(a - b);
+                    }
+                    break;
+                case Op.Jmp:
+                    {
+                        ptr += _values[ptr - _operationsStart];
+                    }
+                    break;
+                case Op.JmpIfZero:
+                    {
+                        var a = Pop();
+
+                        if (a == 0)
+                        {
+                            ptr += _values[ptr - _operationsStart];
+                        }
                     }
                     break;
                 case Op.Ret:
                     return Pop();
             }
+
+            ptr++;
         }
 
         throw new Exception("invalid stack");
-    }
-
-    public void Print()
-    {
-        for (var i = 0; i < _operations.Count; i++)
-        {
-            var ins = _operations[i];
-            var bytes = BitConverter.GetBytes(i);
-            Array.Reverse(bytes);
-
-            switch (ins.Op)
-            {
-                case Op.LdLoc:
-                case Op.StLoc:
-                case Op.LdInt32:
-                    Console.WriteLine($"{BitConverter.ToString(bytes).Replace("-", "")}: {ins.Op}.{ins.I32}");
-                    break;
-                case Op.LdInt64:
-                    Console.WriteLine($"{BitConverter.ToString(bytes).Replace("-", "")}: {ins.Op}.{ins.I64}");
-                    break;
-                default:
-                    Console.WriteLine($"{BitConverter.ToString(bytes).Replace("-", "")}: {ins.Op}");
-                    break;
-            }
-        }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Push(long value)
     {
         Checksum += value;
-        _stack[_stackPtr++] = value;
+        *_stackPtr++ = value;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private long Pop()
     {
-        return _stack[--_stackPtr];
+        return *--_stackPtr;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private long Peek()
+    private readonly long Peek()
     {
-        return _stack[_stackPtr - 1];
+        return *(_stackPtr - 1);
+    }
+
+    public readonly void Dispose()
+    {
+        Marshal.FreeHGlobal((nint)_stackStart);
+        Marshal.FreeHGlobal((nint)_locals);
+        Marshal.FreeHGlobal((nint)_operationsStart);
+        Marshal.FreeHGlobal((nint)_values);
     }
 }
