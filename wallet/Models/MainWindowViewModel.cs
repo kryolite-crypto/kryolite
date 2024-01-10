@@ -115,9 +115,9 @@ public class MainWindowViewModel : NotifyPropertyChanged
         Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
         Pending = Wallets.Sum(x => (long)(x.Pending ?? 0));
 
-        Transactions = Wallets.SelectMany(wallet => wallet.Transactions)
+        Transactions = Wallets
+            .SelectMany(wallet => wallet.Transactions)
             .OrderByDescending(tx => tx.Timestamp)
-            .DistinctBy(tx => $"{tx.Recipient},{tx.Timestamp},{tx.Amount}")
             .Take(5)
             .ToList();
     }

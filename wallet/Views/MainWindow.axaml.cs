@@ -89,12 +89,12 @@ public partial class MainWindow : Window
         });
 
         EventBus.Subscribe<Ledger>(async ledger => {
-            if (!Wallets.TryGetValue(ledger.Address, out var wallet))
+            if (!Wallets.ContainsKey(ledger.Address))
             {
                 return;
             }
 
-            var transactions = StoreManager.GetLastNTransctions(wallet.Address, 5);
+            var transactions = StoreManager.GetLastNTransctions(ledger.Address, 5);
             var txs = transactions.Select(x =>
             {
                 var isRecipient = Wallets.ContainsKey(x.To!);
