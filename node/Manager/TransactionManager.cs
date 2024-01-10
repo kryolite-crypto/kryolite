@@ -99,6 +99,7 @@ public abstract class TransactionManager
             var seedStake = 0UL;
 
             var lastBlockHeight = Repository.GetLastHeightContainingBlock();
+            var blockRewards = new Dictionary<Address, ulong>();
 
             foreach (var blockhash in view.Blocks)
             {
@@ -107,17 +108,36 @@ public abstract class TransactionManager
                     throw new Exception($"unknown reference to block ({blockhash})");
                 }
 
+                if (!blockRewards.TryGetValue(block.To, out var count))
+                {
+                    blockRewards.Add(block.To, 0);
+                }
+
+                blockRewards[block.To] = count + 1;
+                blocks.Add(block);
+            }
+
+            var accumulatedReward = 0UL;
+            
+            for (var i = lastBlockHeight + 1; i <= view.Id; i++)
+            {
+                accumulatedReward = RewardCalculator.BlockReward(i);
+            }
+
+            accumulatedReward *= 1_000_000;
+
+            foreach (var reward in blockRewards)
+            {
+                var blocksSubmitted = reward.Value;
                 var blockReward = new Transaction
                 {
                     TransactionType = TransactionType.BLOCK_REWARD,
-                    To = block.To,
-                    Value = block.Value * (ulong)(view.Id - lastBlockHeight) / (ulong)view.Blocks.Count,
-                    Data = blockhash,
+                    To = reward.Key,
+                    Value = accumulatedReward / (ulong)view.Blocks.Count * blocksSubmitted / 1_000_000,
                     Timestamp = view.Timestamp
                 };
 
                 toExecute.Add(blockReward);
-                blocks.Add(block);
             }
 
             // Reset pending values for orphaned blocks
