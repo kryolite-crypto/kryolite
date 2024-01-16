@@ -63,11 +63,10 @@ public class Verifier : IVerifier
         }
 
         var chainState = StateCache.GetCurrentState();
-        var blockReward = RewardCalculator.BlockReward(chainState.Id);
 
-        if (block.Value != blockReward)
+        if (block.Value != chainState.BlockReward)
         {
-            Logger.LogInformation($"Block verification failed (reason = invalid reward). Got {block.Value}, required: {blockReward}");
+            Logger.LogInformation($"Block verification failed (reason = invalid reward). Got {block.Value}, required: {chainState.BlockReward}");
             return false;
         }
 
@@ -108,7 +107,7 @@ public class Verifier : IVerifier
             return false;
         }
 
-        var earliest = StateCache.GetCurrentView().Timestamp + Constant.HEARTBEAT_INTERVAL;
+        var earliest = StateCache.GetCurrentView().Timestamp + Constant.VIEW_INTERVAL;
 
         if (view.Timestamp < earliest)
         {

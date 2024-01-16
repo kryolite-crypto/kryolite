@@ -115,13 +115,10 @@ public partial class MiningTab : UserControl
         using var scope = Program.ServiceCollection.CreateScope();
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
-        var lastBlockHeight = storeManager.GetLastHeightContainingBlock();
-        var blockReward = RewardCalculator.BlockReward(chainState.Id);
-
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
             _model.CurrentDifficulty = chainState.CurrentDifficulty.ToString();
-            _model.BlockReward = blockReward * (1 + (ulong)(chainState.Id - lastBlockHeight));
+            _model.BlockReward = chainState.BlockReward;
         });
     }
 
@@ -257,6 +254,8 @@ public partial class MiningTab : UserControl
 
             thread.UnsafeStart();
         }
+
+        WriteLog("Mining started");
     }
 
     private Blocktemplate LoadBlocktemplate()

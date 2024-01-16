@@ -4,7 +4,7 @@ namespace Kryolite.Shared;
 
 public static class DifficultyExtensions
 {
-    public readonly static BigInteger TARGET_MAX = new BigInteger(new byte[32] {255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255}, true, true);
+    public readonly static BigInteger TARGET_MAX = new BigInteger([255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255], true, true);
     public readonly static BigInteger TARGET_MIN = BigInteger.Pow(new BigInteger(2), Constant.STARTING_DIFFICULTY);
 
     public static BigInteger ToTarget(this Difficulty difficulty)
@@ -31,7 +31,7 @@ public static class DifficultyExtensions
     {
         var exponent = (byte)BigInteger.Log(work, 2);
 
-        var target = (TARGET_MAX / (work + BigInteger.One));
+        var target = TARGET_MAX / (work + BigInteger.One);
         var bytes = target.ToByteArray();
 
         Array.Reverse(bytes);

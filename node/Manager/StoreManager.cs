@@ -217,7 +217,7 @@ public class StoreManager : TransactionManager, IStoreManager
         var block = new Block
         {
             To = wallet,
-            Value = RewardCalculator.BlockReward(chainState.Id),
+            Value = chainState.BlockReward,
             Timestamp = timestamp,
             LastHash = chainState.ViewHash,
             Difficulty = chainState.CurrentDifficulty

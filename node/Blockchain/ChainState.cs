@@ -25,6 +25,8 @@ public class ChainState : EventBase
     public long Votes { get; set; }
     [Key(6)]
     public long Transactions { get; set; }
+    [Key(7)]
+    public ulong BlockReward { get; set; }
 
     public BigInteger CalculateWork(long blocks)
     {

@@ -98,7 +98,7 @@ public abstract class TransactionManager
             var totalStake = 0UL;
             var seedStake = 0UL;
 
-            var lastBlockHeight = Repository.GetLastHeightContainingBlock();
+            var chainState = StateCache.GetCurrentState();
             var blockRewards = new Dictionary<Address, ulong>();
 
             foreach (var blockhash in view.Blocks)
@@ -117,23 +117,14 @@ public abstract class TransactionManager
                 blocks.Add(block);
             }
 
-            var accumulatedReward = 0UL;
-            
-            for (var i = lastBlockHeight + 1; i <= view.Id; i++)
+            foreach (var (to, reward) in blockRewards)
             {
-                accumulatedReward = RewardCalculator.BlockReward(i);
-            }
-
-            accumulatedReward *= 1_000_000;
-
-            foreach (var reward in blockRewards)
-            {
-                var blocksSubmitted = reward.Value;
+                var blocksSubmitted = reward;
                 var blockReward = new Transaction
                 {
                     TransactionType = TransactionType.BLOCK_REWARD,
-                    To = reward.Key,
-                    Value = accumulatedReward / (ulong)view.Blocks.Count * blocksSubmitted / 1_000_000,
+                    To = to,
+                    Value = chainState.BlockReward / (ulong)view.Blocks.Count * blocksSubmitted,
                     Timestamp = view.Timestamp
                 };
 
@@ -152,8 +143,6 @@ public abstract class TransactionManager
             StateCache.GetBlocks().Clear();
 
             Logger.LogDebug("Pending votes: {voteCount}", StateCache.GetVotes().Count);
-
-            var chainState = StateCache.GetCurrentState();
 
             foreach (var votehash in view.Votes)
             {
@@ -203,16 +192,21 @@ public abstract class TransactionManager
 
             executor.Execute(toExecute, view);
 
+            if (blocks.Count > 0)
+            {
+                // there was blocks found, reset accumulated reward
+                chainState.BlockReward = 0;
+            }
+
+            // Update chain state
             chainState.ViewHash = view.GetHash();
             chainState.Id++;
             chainState.Weight += (chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE)) + chainState.CurrentDifficulty.ToWork();
             chainState.Votes += votes.Count;
             chainState.Transactions += toExecute.Count;
             chainState.Blocks += blocks.Count;
-
-            var lastView = Repository.GetView(chainState.Id - 1);
-            var lastState = Repository.GetChainState(chainState.Id - 1);
-            chainState.CurrentDifficulty = chainState.CurrentDifficulty.ScaleDifficulty(blocks.Count, lastState?.CalculateWork(lastView?.Blocks.Count ?? 0) ?? 0);
+            chainState.CurrentDifficulty = DifficultyScale.Scale(chainState, blocks.Count, Repository);
+            chainState.BlockReward += RewardCalculator.BlockReward(view.Id);
 
             Repository.AddRange(blocks);
             Repository.AddRange(votes);

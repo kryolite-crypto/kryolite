@@ -65,7 +65,7 @@ public partial class ValidatorTab : UserControl
             var nextEpoch = previousEpoch + Constant.EPOCH_LENGTH;
             var estimatedReward = storeManager.GetEstimatedStakeReward(key.Address, nextEpoch);
             
-            var secondsUntilEpochEnd = (nextEpoch - chainState.Id) * Constant.HEARTBEAT_INTERVAL;
+            var secondsUntilEpochEnd = (nextEpoch - chainState.Id) * Constant.VIEW_INTERVAL;
             var endOfEpoch = DateTimeOffset.UtcNow.AddSeconds(secondsUntilEpochEnd);
 
             await Dispatcher.UIThread.InvokeAsync(() => {
