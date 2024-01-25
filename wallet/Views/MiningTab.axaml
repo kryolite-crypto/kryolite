@@ -7,7 +7,8 @@
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
                 x:Class="Kryolite.Wallet.MiningTab"
                 x:DataType="vm:MiningTabModel"
-                xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit">
+                xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
+                xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia">
   <UserControl.Styles>
     <Style Selector="vm|GroupBox">
       <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush}" />
@@ -71,16 +72,26 @@
   </UserControl.Styles>
 
     <DockPanel Margin="20">
-      <Border BorderBrush="#66ffffff" BorderThickness="0.51" CornerRadius="0" Padding="4" HorizontalAlignment="Stretch" DockPanel.Dock="Bottom">
-        <AvaloniaEdit:TextEditor
-                        Name="LogBox"
-                        IsReadOnly="True"
-                        FontFamily="Andale Mono,Consolas,Monospace"
-                        FontSize="12"
-                        Height="180"
-                        TextChanged="ScrollToBottom"
-                        />
-      </Border>
+      <StackPanel DockPanel.Dock="Bottom">
+        <Border BorderBrush="#66ffffff" BorderThickness="0.51" CornerRadius="0" Padding="4" HorizontalAlignment="Stretch">
+          <StackPanel>
+          <AvaloniaEdit:TextEditor
+                          Name="LogBox"
+                          IsReadOnly="True"
+                          FontFamily="Andale Mono,Consolas,Monospace"
+                          FontSize="12"
+                          Height="180"
+                          TextChanged="ScrollToBottom"
+                          IsVisible="True"
+                          />
+          <lvc:CartesianChart Height="180" Series="{Binding Series}" XAxes="{Binding XAxes}" YAxes="{Binding YAxes}" IsVisible="False"></lvc:CartesianChart>
+          </StackPanel>
+        </Border>
+        <!--StackPanel Orientation="Horizontal">
+          <ToggleButton IsChecked="true">Graph</ToggleButton>
+          <ToggleButton IsChecked="false">Logs</ToggleButton>
+        </StackPanel-->
+      </StackPanel>
       <StackPanel DockPanel.Dock="Left">
         <Border BorderBrush="#66ffffff" BorderThickness="0.51" CornerRadius="0" Padding="4" HorizontalAlignment="Stretch">
           <StackPanel Margin="10, 10, 10, 7" Spacing="10" MinWidth="300" Height="220">

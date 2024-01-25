@@ -1,4 +1,3 @@
-using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -6,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
 
-public class RegisterValidatorExecutor : IExecutor
+public class RegisterValidatorExecutor
 {
     private IExecutorContext Context { get; }
     private ILogger Logger { get; }

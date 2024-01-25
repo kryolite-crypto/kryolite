@@ -22,7 +22,7 @@ public class StagingManager : TransactionManager, IDisposable
 
     public override string CHAIN_NAME => "[STAGING] ";
 
-    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, IExecutorFactory executorFactory, ILoggerFactory loggerFactory) : base(repository, keyRepository, stateCache, executorFactory, loggerFactory.CreateLogger("TransactionManager"))
+    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, ILoggerFactory loggerFactory) : base(repository, keyRepository, stateCache, loggerFactory.CreateLogger("TransactionManager"))
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
@@ -41,10 +41,9 @@ public class StagingManager : TransactionManager, IDisposable
         var stateCache = new StateCache();
         stateCache.SetChainState(repository.GetChainState() ?? new ChainState());
 
-        var executor = new ExecutorFactory(loggerFactory.CreateLogger<ExecutorFactory>());
         var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
 
-        return new StagingManager(repository, keyRepository, verifier, stateCache, executor, loggerFactory);
+        return new StagingManager(repository, keyRepository, verifier, stateCache, loggerFactory);
     }
 
     public bool LoadView(View view)

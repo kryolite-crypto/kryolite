@@ -1,28 +1,26 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
-using QuikGraph;
-using System.Security.Cryptography;
 
 namespace Kryolite.Node.Executor;
 
 public class Executor
 {
-    private IExecutor ContractExecutor { get; }
-    private IExecutor TransactionExecutor { get; }
-    private IExecutor ValidatorRegExecutor { get; }
-    private IExecutor ValidatorDeregExecutor { get; }
-    private IExecutor ContractInstallerExecutor { get; }
+    private ContractExecutor ContractExecutor { get; }
+    private TransactionExecutor TransactionExecutor { get; }
+    private RegisterValidatorExecutor ValidatorRegExecutor { get; }
+    private DeregisterValidatorExecutor ValidatorDeregExecutor { get; }
+    private ContractInstallerExecutor ContractInstallerExecutor { get; }
     private IExecutorContext Context { get; }
     private ILogger Logger { get; set; }
 
-    public Executor(IExecutor contractExecutor, IExecutor transactionExecutor, IExecutor validatorRegExecutor, IExecutor validatorDeregExecutor, IExecutor contractInstallerExecutor, IExecutorContext context, ILogger logger)
+    public Executor(IExecutorContext context, ILogger logger)
     {
-        ContractExecutor = contractExecutor ?? throw new ArgumentNullException(nameof(contractExecutor));
-        TransactionExecutor = transactionExecutor ?? throw new ArgumentNullException(nameof(transactionExecutor));
-        ValidatorRegExecutor = validatorRegExecutor ?? throw new ArgumentNullException(nameof(validatorRegExecutor));
-        ValidatorDeregExecutor = validatorDeregExecutor ?? throw new ArgumentNullException(nameof(validatorDeregExecutor));
-        ContractInstallerExecutor = contractInstallerExecutor ?? throw new ArgumentNullException(nameof(contractInstallerExecutor));
+        ContractExecutor = new(context, logger);
+        TransactionExecutor = new(context, logger);
+        ValidatorRegExecutor = new(context, logger);
+        ValidatorDeregExecutor = new(context, logger);
+        ContractInstallerExecutor = new(context, logger);
         Context = context ?? throw new ArgumentNullException(nameof(context));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
@@ -80,7 +78,7 @@ public class Executor
 
                     if (tx.To.IsContract())
                     {
-                        tx.ExecutionResult = ContractExecutor.Execute(tx);
+                        tx.ExecutionResult = ContractExecutor.Execute(tx, view);
                     }
 
                     if (tx.ExecutionResult != ExecutionResult.SUCCESS)
@@ -104,7 +102,7 @@ public class Executor
                         continue;
                     }
 
-                    tx.ExecutionResult = ContractInstallerExecutor.Execute(tx);
+                    tx.ExecutionResult = ContractInstallerExecutor.Execute(tx, view);
                     break;
             }
         }

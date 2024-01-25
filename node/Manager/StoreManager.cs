@@ -25,7 +25,7 @@ public class StoreManager : TransactionManager, IStoreManager
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IExecutorFactory executorFactory, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, executorFactory, logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         MeshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
@@ -338,7 +338,7 @@ public class StoreManager : TransactionManager, IStoreManager
         var balance = GetBalance(address);
 
         var methodName = $"{call.Method}";
-        var method = contract.Manifest.Methods
+        var method = contract.Manifest?.Methods
             .Where(x => x.Name == methodName)
             .FirstOrDefault();
 
@@ -354,7 +354,7 @@ public class StoreManager : TransactionManager, IStoreManager
             methodParams.AddRange(call.Params);
         }
 
-        var vmContext = new VMContext(contract, new Transaction { To = address }, Random.Shared, Logger, balance);
+        var vmContext = new VMContext(Repository.GetLastView()!, contract, new Transaction { To = address }, Random.Shared, Logger, balance);
 
         var code = Repository.GetContractCode(contract.Address);
 

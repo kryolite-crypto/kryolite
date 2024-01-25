@@ -101,6 +101,8 @@ namespace Kryolite.Wallet
                 using var dump = File.Create(Path.Join(dumpDir, $"wallet-{DateTime.Now.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}.txt"));
                 dump.Write(Encoding.UTF8.GetBytes(ex.ToString()).AsSpan());
 
+                Console.WriteLine(ex.ToString());
+
                 return 1;
             }
 

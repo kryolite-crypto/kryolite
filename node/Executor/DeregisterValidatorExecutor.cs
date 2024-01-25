@@ -1,12 +1,10 @@
-using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
-using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
 
-public class DeregisterValidatorExecutor : IExecutor
+public class DeregisterValidatorExecutor
 {
     private IExecutorContext Context { get; }
     private ILogger Logger { get; }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Globalization;
 using Avalonia.Data.Converters;
 
@@ -13,6 +14,10 @@ public class NotEmptyConverter : IValueConverter
         if (value is string str)
         {
             return !string.IsNullOrWhiteSpace(str);
+        }
+        else if (value is IList list)
+        {
+            return list.Count > 0;
         }
 
         return false;

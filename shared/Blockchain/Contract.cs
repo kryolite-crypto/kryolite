@@ -16,9 +16,9 @@ public class Contract
     [Key(1)]
     public Address Owner { get; set; }
     [Key(2)]
-    public string Name { get; set; }
+    public string? Name { get; set; }
     [Key(3)]
-    public ContractManifest Manifest { get; set; }
+    public ContractManifest? Manifest { get; set; }
 
     [IgnoreMember]
     public byte[]? CurrentSnapshot { get; set; }
@@ -31,12 +31,9 @@ public class Contract
         Manifest = new();
     }
 
-    public Contract(Address owner, ContractManifest manifest, byte[] code)
+    public Contract(Address owner, byte[] code)
     {
         Owner = owner;
-        Name = manifest.Name;
-        Manifest = manifest;
-
         Address = ToAddress(code);
     }
 
@@ -71,32 +68,51 @@ public class Contract
 public class ContractManifest
 {
     [Key(0)]
+    [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
     [Key(1)]
+    [JsonPropertyName("url")]
+    public string Url { get; init; } = string.Empty;
+    [Key(2)]
     [JsonPropertyName("api_level")]
     public int ApiLevel { get; init; }
-    [Key(2)]
-    public IReadOnlyCollection<ContractMethod> Methods { get; init; } = Array.Empty<ContractMethod>();
+    [Key(3)]
+    [JsonPropertyName("methods")]
+    public IReadOnlyCollection<ContractMethod> Methods { get; init; } = [];
 }
 
 [MessagePackObject]
 public class ContractMethod
 {
     [Key(0)]
+    [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
 
     [Key(1)]
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [Key(2)]
+    [JsonPropertyName("readonly")]
+    public bool IsReadOnly { get; set; }
+
+    [Key(3)]
     [JsonPropertyName("method_params")]
-    public IReadOnlyCollection<ContractParam> Params { get; init; } = Array.Empty<ContractParam>();
+    public IReadOnlyCollection<ContractParam> Params { get; init; } = [];
 }
 
 [MessagePackObject]
 public class ContractParam
 {
     [Key(0)]
+    [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
 
     [Key(1)]
+    [JsonPropertyName("description")]
+    public string? Description { get; set; }
+
+    [Key(2)]
     [JsonPropertyName("param_type")]
     public string Type { get; init; } = string.Empty;
 }

@@ -6,7 +6,7 @@
         xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
         mc:Ignorable="d"
         MinWidth="880"
-        MinHeight="450"
+        MinHeight="650"
         Width="900" 
         Height="600"
         x:DataType="vm:MainWindowViewModel"

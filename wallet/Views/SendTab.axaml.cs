@@ -1,21 +1,17 @@
 using System;
-using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using Avalonia;
+using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Input;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MessagePack;
 using Microsoft.Extensions.DependencyInjection;
-using System.Collections.Immutable;
-using Avalonia.VisualTree;
 
 namespace Kryolite.Wallet;
 
@@ -132,11 +128,10 @@ public partial class SendTab : UserControl
 
     public void RecipientChanged(object sender, TextChangedEventArgs args)
     {
-        var container = this.GetControl<GroupBox>("MethodContainer");
-
         if (Model.Recipient == null || !Address.IsValid(Model.Recipient))
         {
-            container.IsVisible = false;
+            Model.Manifest = null;
+            Model.Method = null;
             return;
         }
 
@@ -147,7 +142,8 @@ public partial class SendTab : UserControl
 
         if (!addr.IsContract())
         {
-            container.IsVisible = false;
+            Model.Manifest = null;
+            Model.Method = null;
             return;
         }
 
@@ -156,23 +152,67 @@ public partial class SendTab : UserControl
 
         var contract = blockchainManager.GetContract(addr);
 
+        if (contract is null)
+        {
+            Model.Manifest = null;
+            Model.Method = null;
+            return;
+        }
+
         Model.Manifest = new ManifestView()
         {
-            Name = contract?.Manifest.Name ?? string.Empty,
-            Methods = contract?.Manifest.Methods
+            Name = contract.Manifest?.Name ?? "n/a",
+            Url = contract.Manifest?.Url ?? string.Empty,
+            Methods = contract?.Manifest?.Methods
                 .DistinctBy(x => x.Name)
+                .Where(x => !x.IsReadOnly)
                 .Select(x => new MethodView
                 {
                     Name = x.Name,
+                    Description = x.Description ?? x.Name,
                     Params = x.Params.Select(y => new ParamView
                     {
-                        Name = y.Name
+                        Name = y.Name,
+                        Description = y.Description ?? y.Name
                     })
                     .ToList()
                 })
                 .ToList() ?? new()
         };
+    }
 
-        container.IsVisible = true;
+    public void OpenUrl(object sender, PointerPressedEventArgs args)
+    {
+        if (Model.Manifest is null || string.IsNullOrEmpty(Model.Manifest.Url))
+        {
+            return;
+        }
+
+        if (!Uri.IsWellFormedUriString(Model.Manifest.Url, UriKind.Absolute))
+        {
+            return;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            //https://stackoverflow.com/a/2796367/241446
+            using var proc = new Process { StartInfo = { UseShellExecute = true, FileName = Model.Manifest.Url } };
+            proc.Start();
+
+            return;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            Process.Start("xdg-open", Model.Manifest.Url);
+            return;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            Process.Start("open", Model.Manifest.Url);
+        }
+
+        return;
     }
 }

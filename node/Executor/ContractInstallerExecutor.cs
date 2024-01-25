@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
 
-public class ContractInstallerExecutor : IExecutor
+public class ContractInstallerExecutor
 {
     private IExecutorContext Context { get; }
     private ILogger Logger { get; }
@@ -16,7 +16,7 @@ public class ContractInstallerExecutor : IExecutor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public ExecutionResult Execute(Transaction tx)
+    public ExecutionResult Execute(Transaction tx, View view)
     {
         var lz4Options = MessagePackSerializerOptions.Standard
             .WithCompression(MessagePackCompression.Lz4BlockArray)
@@ -29,7 +29,7 @@ public class ContractInstallerExecutor : IExecutor
             return ExecutionResult.INVALID_PAYLOAD;
         }
 
-        var contract = new Contract(tx.From!, newContract.Manifest, newContract.Code);
+        var contract = new Contract(tx.From!, newContract.Code);
 
         var ctx = Context.GetRepository();
         var ctr = ctx.GetContract(contract.Address);
@@ -39,12 +39,13 @@ public class ContractInstallerExecutor : IExecutor
             return ExecutionResult.DUPLICATE_CONTRACT;
         }
 
-        var vmContext = new VMContext(contract, tx, Context.GetRand(), Logger, 0);
+        var vmContext = new VMContext(view, contract, tx, Context.GetRand(), Logger, 0);
 
         using var vm = KryoVM.LoadFromCode(newContract.Code)
             .WithContext(vmContext);
 
-        vm.Initialize();
+        contract.Manifest = vm.Initialize();
+        contract.Name = contract.Manifest.Name;
 
         ctx.AddContract(contract);
         ctx.AddContractCode(contract.Address, newContract.Code);

@@ -125,17 +125,20 @@ public class SendTabViewModel : NotifyPropertyChanged
 public class ManifestView
 {
     public string Name { get; set; } = string.Empty;
+    public string Url { get; set; } = string.Empty;
     public List<MethodView> Methods { get; set; } = new();
 }
 
 public class MethodView
 {
     public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
     public List<ParamView> Params { get; set; } = new();
 }
 
 public class ParamView
 {
     public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
     public string Value { get; set; } = string.Empty;
 }

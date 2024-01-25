@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Numerics;
 using System.Security.Cryptography;
 using System.Threading;
@@ -14,6 +15,8 @@ using Kryolite.EventBus;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using LiveChartsCore.Defaults;
+using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Wallet;
@@ -33,6 +36,14 @@ public partial class MiningTab : UserControl
     {
         AvaloniaXamlLoader.Load(this);
         DataContext = _model;
+
+        _model.Series.Add(new LineSeries<ObservableValue>
+        {
+            Values = _model.ChartValues,
+            Fill = null,
+            LineSmoothness = 1,
+            GeometrySize = 0
+        });
 
         _logBox = this.FindControl<TextEditor>("LogBox");
 
@@ -75,7 +86,7 @@ public partial class MiningTab : UserControl
         var chainState = storeManager.GetChainState();
         UpdateStats(chainState);
 
-        _snapshotTimer = new System.Timers.Timer(TimeSpan.FromSeconds(2))
+        _snapshotTimer = new System.Timers.Timer(TimeSpan.FromMilliseconds(500))
         {
             AutoReset = true
         };
@@ -92,7 +103,10 @@ public partial class MiningTab : UserControl
                 return;
             }
 
-            _model.Hashrate = $"{(_hashes - snapshot.Hashes) / elapsed.TotalSeconds:N2} h/s";
+            var hashrate = (_hashes - snapshot.Hashes) / elapsed.TotalSeconds;
+
+            _model.Hashrate = $"{hashrate:N2} h/s";
+            // _model.ChartValues.Add(new ObservableValue(hashrate));
         };
     }
 

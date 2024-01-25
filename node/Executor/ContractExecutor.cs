@@ -6,7 +6,7 @@ using System.Text.Json;
 
 namespace Kryolite.Node.Executor;
 
-public class ContractExecutor : IExecutor
+public class ContractExecutor
 {
     private IExecutorContext Context { get; }
     private ILogger Logger { get; }
@@ -17,7 +17,7 @@ public class ContractExecutor : IExecutor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public ExecutionResult Execute(Transaction tx)
+    public ExecutionResult Execute(Transaction tx, View view)
     {
         try
         {
@@ -68,7 +68,7 @@ public class ContractExecutor : IExecutor
                 methodParams.AddRange(call.Params);
             }
 
-            var vmContext = new VMContext(contract, tx, Context.GetRand(), Logger, contractLedger.Balance);
+            var vmContext = new VMContext(view, contract, tx, Context.GetRand(), Logger, contractLedger.Balance);
 
             var code = Context.GetRepository().GetContractCode(contract.Address);
 
@@ -142,6 +142,11 @@ public class ContractExecutor : IExecutor
                 }
 
                 Context.Transfer.To(effect.To, effect.Value, out _);
+            }
+
+            foreach (var sched in vmContext.ScheduledCalls)
+            {
+                Context.GetRepository().Add(sched);
             }
 
             Context.AddEvents(vmContext.Events);
