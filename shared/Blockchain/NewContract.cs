@@ -1,3 +1,4 @@
+using System.Text;
 using MessagePack;
 
 namespace Kryolite.Shared;
@@ -6,10 +7,13 @@ namespace Kryolite.Shared;
 public class NewContract : ITransactionPayload
 {
     [Key(0)]
+    public ContractManifest Manifest { get; set; }
+    [Key(1)]
     public byte[] Code { get; set; }
 
-    public NewContract(byte[] code)
+    public NewContract(ContractManifest manifest, byte[] code)
     {
+        Manifest = manifest;
         Code = code;
     }
 }

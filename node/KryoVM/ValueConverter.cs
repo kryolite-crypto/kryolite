@@ -75,47 +75,44 @@ public static class ValueConverter
 
     public static object ConvertFromString(string type, string str)
     {
-        // cleanup lifetimes, references etc
-        var cleaned_type = type.Contains("Address") ? "Address" : type;
-
-        switch (cleaned_type)
+        switch (type)
         {
             case "Address":
                 return ((Address)str).Buffer;
             case "U256":
                 return ((SHA256Hash)str).Buffer;
             case "bool":
-            case "Boolean":
                 return bool.Parse(str);
             case "i8":
             case "u8":
-            case "Byte":
+            case "byte":
+            case "sbyte":
                 return byte.Parse(str);
             case "i16":
-            case "Int16":
+            case "short":
                 return short.Parse(str);
             case "u16":
-            case "UInt16":
+            case "ushort":
                 return ushort.Parse(str);
             case "i32":
             case "isize":
-            case "Int32":
+            case "int":
                 return int.Parse(str);
             case "u32":
             case "usize":
-            case "UInt32":
+            case "uint":
                 return uint.Parse(str);
             case "i64":
-            case "Int64":
+            case "long":
                 return long.Parse(str);
             case "u64":
-            case "UInt64":
+            case "ulong":
                 return ulong.Parse(str);
             case "f32":
-            case "Single":
+            case "float":
                 return float.Parse(str);
             case "f64":
-            case "Double":
+            case "double":
                 return double.Parse(str);
             default:
                 return Encoding.UTF8.GetBytes(str);

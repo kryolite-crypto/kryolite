@@ -39,12 +39,12 @@ public class KryoVM : IDisposable
         {
             foreach (var imp in Module.Imports)
             {
-                Context?.Logger.LogDebug($"{imp.ModuleName} - {imp.Name}");
+                Console.WriteLine($"{imp.ModuleName} - {imp.Name}");
             }
 
             foreach (var exp in Module.Exports)
             {
-                Context?.Logger.LogDebug($"{exp.Name}");
+                Console.WriteLine($"{exp.Name}");
             }
         }
 
@@ -93,20 +93,10 @@ public class KryoVM : IDisposable
         return this;
     }
 
-    public ContractManifest Initialize()
+    public void Initialize()
     {
         var init = Instance.GetFunction("_initialize") ?? throw new Exception($"method not found [_initialize]");
         init.Invoke();
-
-        var getManifest = Instance.GetFunction("GetManifest") ?? throw new Exception($"method not found [GetManifest]");
-        getManifest.Invoke();
-
-        if (Context?.Returns is not string str)
-        {
-            throw new Exception($"GetManifest returned wrong type {Context?.Returns?.GetType()}");
-        }
-
-        return JsonSerializer.Deserialize<ContractManifest>(str) ?? throw new Exception("failed to deserialize manifest");
     }
 
     public int CallMethod(string method, object[] methodParams, out string? returns)
@@ -516,7 +506,39 @@ public class KryoVM : IDisposable
             return 0;
         }));
 
+        Linker.Define("wasi_snapshot_preview1", "fd_advise", Function.FromCallback<int, long, long, int, int>(Store, (Caller caller, int fd, long offset, long len, int advice) => {
+            return 0;
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_filestat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int size) => {
+            return 0;
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_filestat_set_size", Function.FromCallback<int, long, int>(Store, (Caller caller, int fd, long size) => {
+            return 0;
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_pread", Function.FromCallback<int, int, int, long, int, int>(Store, (Caller caller, int fd, int size, int a, long b, int c) => {
+            return 0;
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "fd_readdir", Function.FromCallback<int, int, int, long, int, int>(Store, (Caller caller, int fd, int buf, int len, long cookie, int retptr0) => {
+            return 0;
+        }));
+
         Linker.Define("wasi_snapshot_preview1", "path_open", Function.FromCallback<int, int, int, int, int, long, long, int, int, int>(Store, (Caller caller, int fd, int dirflags, int pathPtr, int pathLen, int ofFlags, long fsRightsBase, long fsRightsInheriting, int fdFlags, int openedFdPtr) => {
+            return 0;
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "path_filestat_get", Function.FromCallback<int, int, int, int, int, int>(Store, (Caller caller, int fd, int flags, int path, int retptr0, int a) => {
+            return 0;
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "path_readlink", Function.FromCallback<int, int, int, int, int, int, int>(Store, (Caller caller, int fd, int path, int buf, int buf_len, int retptr0, int a) => {
+            return 0;
+        }));
+
+        Linker.Define("wasi_snapshot_preview1", "path_unlink_file", Function.FromCallback<int, int, int, int>(Store, (Caller caller, int fd, int path, int a) => {
             return 0;
         }));
 
@@ -535,5 +557,7 @@ public class KryoVM : IDisposable
         Linker.Define("wasi_snapshot_preview1", "random_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int buf, int len) => {
             return 0;
         }));
+
+        ReadOnlySpan<char> foo = "str";
     }
 }

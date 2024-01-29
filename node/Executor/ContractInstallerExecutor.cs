@@ -29,7 +29,7 @@ public class ContractInstallerExecutor
             return ExecutionResult.INVALID_PAYLOAD;
         }
 
-        var contract = new Contract(tx.From!, newContract.Code);
+        var contract = new Contract(tx.From!, newContract.Manifest, newContract.Code);
 
         var ctx = Context.GetRepository();
         var ctr = ctx.GetContract(contract.Address);
@@ -44,12 +44,16 @@ public class ContractInstallerExecutor
         using var vm = KryoVM.LoadFromCode(newContract.Code)
             .WithContext(vmContext);
 
-        contract.Manifest = vm.Initialize();
-        contract.Name = contract.Manifest.Name;
+        vm.Initialize();
 
         ctx.AddContract(contract);
         ctx.AddContractCode(contract.Address, newContract.Code);
         ctx.AddContractSnapshot(contract.Address, Context.GetHeight(), vm.TakeSnapshot());
+
+        foreach (var sched in vmContext.ScheduledCalls)
+        {
+            Context.GetRepository().Add(sched);
+        }
 
         return ExecutionResult.SUCCESS;
     }

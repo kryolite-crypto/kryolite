@@ -16,9 +16,9 @@ public class Contract
     [Key(1)]
     public Address Owner { get; set; }
     [Key(2)]
-    public string? Name { get; set; }
+    public string Name { get; set; }
     [Key(3)]
-    public ContractManifest? Manifest { get; set; }
+    public ContractManifest Manifest { get; set; }
 
     [IgnoreMember]
     public byte[]? CurrentSnapshot { get; set; }
@@ -31,10 +31,12 @@ public class Contract
         Manifest = new();
     }
 
-    public Contract(Address owner, byte[] code)
+    public Contract(Address owner, ContractManifest manifest, byte[] code)
     {
         Owner = owner;
         Address = ToAddress(code);
+        Manifest = manifest;
+        Name = manifest.Name;
     }
 
     public Address ToAddress(byte[] code)

@@ -51,15 +51,31 @@ public static class ContractCmd
                 Environment.Exit(-1);
             }
 
-            var bytes = File.ReadAllBytes(file);
+            var manifestFile = Path.Combine(Path.GetDirectoryName(file)!, $"{Path.GetFileNameWithoutExtension(file)}.json");
+
+            if (!File.Exists(manifestFile))
+            {
+                Console.WriteLine($"Manifest does not exist {manifestFile}");
+            }
+
+            var bytes = await File.ReadAllBytesAsync(file);
+            var manifestJson = await File.ReadAllTextAsync(manifestFile, Encoding.UTF8);
+            var manifest = JsonSerializer.Deserialize<ContractManifest>(manifestJson, Program.serializerOpts);
+
+            if (manifest == null)
+            {
+                Console.WriteLine($"Failed to deserialize {manifestFile}");
+                Environment.Exit(-1);
+            }
 
             var contract = new Contract(
                 wallet.PublicKey.ToAddress(),
+                manifest,
                 bytes
             );
 
             var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
-            var newContract = new NewContract(bytes);
+            var newContract = new NewContract(manifest, bytes);
 
             var payload = new TransactionPayload
             {
