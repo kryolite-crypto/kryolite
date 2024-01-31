@@ -1,17 +1,17 @@
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class TransactionRequest : IPacket
+[MemoryPackable]
+public partial class TransactionRequest : IPacket
 {
-    [Key(0)]
     public SHA256Hash TransactionId { get; set; }
 
+    [MemoryPackConstructor]
     public TransactionRequest(SHA256Hash transactionId)
     {
         TransactionId = transactionId;

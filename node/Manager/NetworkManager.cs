@@ -1,5 +1,5 @@
 using Kryolite.Shared;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Logging;
 using NSec.Cryptography;
 
@@ -146,14 +146,13 @@ public class NetworkManager : INetworkManager
     }
 }
 
-[MessagePackObject]
-public class NodeCandidate
+[MemoryPackable]
+public partial class NodeCandidate
 {
-    [Key(0)]
     public Uri Url { get; init; }
-    [Key(1)]
     public ulong ClientId { get; init; }
 
+    [MemoryPackConstructor]
     public NodeCandidate(Uri url, ulong clientId)
     {
         Url = url;

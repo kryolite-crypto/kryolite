@@ -4,7 +4,7 @@ using System.Net.WebSockets;
 using System.Text;
 using System.Text.Json;
 using Kryolite.Shared;
-using MessagePack;
+using MemoryPack;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Caching.Memory;
@@ -31,9 +31,6 @@ public class MeshNetwork : IMeshNetwork
     private readonly IServer server;
     private readonly IConfiguration configuration;
     private readonly ILogger<MeshNetwork> logger;
-    
-    public static MessagePackSerializerOptions lz4Options = MessagePackSerializerOptions.Standard
-                .WithCompression(MessagePackCompression.Lz4BlockArray);
 
     private readonly ulong serverId;
     private readonly CancellationTokenSource tokenSource = new CancellationTokenSource();
@@ -90,7 +87,7 @@ public class MeshNetwork : IMeshNetwork
         try
         {
             var msg = new Message(packet);
-            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, lz4Options);
+            var bytes = MemoryPackSerializer.Serialize<IMessage>(msg);
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
@@ -109,7 +106,7 @@ public class MeshNetwork : IMeshNetwork
     {
         try
         {
-            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, lz4Options);
+            var bytes = MemoryPackSerializer.Serialize<IMessage>(msg);
 
             using(var _ = rwlock.EnterWriteLockEx())
             {
@@ -532,7 +529,7 @@ public class MessageReceivedEventArgs
         }
 
         MessageType = message.MessageType;
-        Message = MessagePackSerializer.Deserialize<IMessage>(message.Bytes, MeshNetwork.lz4Options);
+        Message = MemoryPackSerializer.Deserialize<IMessage>(message.Bytes) ?? throw new Exception("failed to deserialize message");
     }
 }
 

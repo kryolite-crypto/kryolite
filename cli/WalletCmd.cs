@@ -33,8 +33,8 @@ public static class WalletCmd
                 case "json":
                     var json = JsonSerializer.Serialize(new {
                         Address = wallet.Address,
-                        PrivateKey = wallet.PrivateKey.ToHexString(),
-                        PublicKey = wallet.PublicKey.ToHexString()
+                        PrivateKey = wallet.PrivateKey.ToString(),
+                        PublicKey = wallet.PublicKey.ToString()
                     }, Program.serializerOpts);
 
                     Console.WriteLine(json);
@@ -55,8 +55,8 @@ public static class WalletCmd
                 case "json":
                     var json = JsonSerializer.Serialize(wallets.Select(x => new {
                             Address = x.Value.Address,
-                            PrivateKey = x.Value.PrivateKey.ToHexString(),
-                            PublicKey = x.Value.PublicKey.ToHexString()
+                            PrivateKey = x.Value.PrivateKey.ToString(),
+                            PublicKey = x.Value.PublicKey.ToString()
                         }
                     ).ToList(), Program.serializerOpts);
 

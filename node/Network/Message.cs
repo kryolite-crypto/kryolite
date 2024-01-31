@@ -1,17 +1,15 @@
-using Kryolite.Shared;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class Message : IMessage
+[MemoryPackable]
+public partial class Message : IMessage
 {
-    [Key(0)]
     public ulong Id { get; set; }
 
-    [Key(1)]
     public IPacket? Payload { get; set; }
 
+    [MemoryPackConstructor]
     public Message()
     {
 
@@ -30,18 +28,16 @@ public class Message : IMessage
     }
 }
 
-[MessagePackObject]
-public class Reply : IMessage
+[MemoryPackable]
+public partial class Reply : IMessage
 {
-    [Key(0)]
     public ulong Id { get; set; }
 
-    [Key(1)]
     public IPacket? Payload { get; set; }
 
-    [Key(2)]
     public ulong ReplyTo { get; set; }
 
+    [MemoryPackConstructor]
     public Reply()
     {
 
@@ -62,12 +58,11 @@ public class Reply : IMessage
     }
 }
 
-[Union(0, typeof(Message))]
-[Union(1, typeof(Reply))]
-public interface IMessage
+[MemoryPackable]
+[MemoryPackUnion(0, typeof(Message))]
+[MemoryPackUnion(1, typeof(Reply))]
+public partial interface IMessage
 {
-    [Key(0)]
     ulong Id { get; }
-    [Key(1)]
     public IPacket? Payload { get; set; }
 }

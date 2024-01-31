@@ -1,35 +1,32 @@
 ﻿using Kryolite.EventBus;
 using Kryolite.Shared.Blockchain;
-using MessagePack;
-using NSec.Cryptography;
-using System.Collections.Immutable;
+using MemoryPack;
 using System.ComponentModel.DataAnnotations;
 using System.Security.Cryptography;
-using KeyAttribute = MessagePack.KeyAttribute;
 
 namespace Kryolite.Shared.Dto;
 
-[MessagePackObject]
-public class TransactionDto : EventBase
+[MemoryPackable]
+public partial class TransactionDto : EventBase
 {
-    [Key(0)]
     public TransactionType TransactionType { get; init; }
-    [Key(1)]
+
     [Required]
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
-    [Key(2)]
+
     [Required]
     public Address To { get; init; } = Address.NULL_ADDRESS;
-    [Key(3)]
+
     public ulong Value { get; init; }
-    [Key(4)]
+
     public byte[]? Data { get; init; }
-    [Key(5)]
+
     public long Timestamp { get; init; }
-    [Key(6)]
+
     [Required]
     public Signature Signature { get; init; } = Signature.NULL_SIGNATURE;
-    [IgnoreMember]
+    
+    [MemoryPackIgnore]
     public bool IsValid { get; set; }
 
     private SHA256Hash? CachedTransactionId { get; set; }
@@ -67,6 +64,7 @@ public class TransactionDto : EventBase
         return CachedTransactionId;
     }
 
+    [MemoryPackConstructor]
     public TransactionDto()
     {
 

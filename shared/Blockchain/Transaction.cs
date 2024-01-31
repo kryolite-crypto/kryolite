@@ -1,40 +1,31 @@
 using System.Security.Cryptography;
 using Kryolite.EventBus;
 using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
-[MessagePackObject]
-public class Transaction : EventBase, IComparable<Transaction>
+[MemoryPackable]
+public partial class Transaction : EventBase, IComparable<Transaction>
 {
-    [Key(0)]
     public TransactionType TransactionType { get; init; }
-    [Key(1)]
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
-    [Key(2)]
     public Address To { get; set; } = Address.NULL_ADDRESS;
-    [Key(3)]
     public ulong Value { get; set; }
-    [Key(4)]
     public byte[]? Data { get; init; }
-    [Key(5)]
     public long Timestamp { get; init; }
-    [Key(6)]
     public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
-    [Key(7)]
     public ExecutionResult ExecutionResult { get; set; }
-    [Key(8)]
     public List<Effect> Effects { get; set; } = new();
-    [Key(9)]
     public long Id { get; set; }
 
-    [IgnoreMember]
+    [MemoryPackIgnore]
     public Address? From { get => PublicKey.ToAddress(); }
 
     private bool _isVerified = false;
 
+    [MemoryPackConstructor]
     public Transaction()
     {
 

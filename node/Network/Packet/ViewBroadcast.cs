@@ -1,24 +1,20 @@
 using System.Numerics;
 using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
 using Kryolite.Shared.Locks;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class ViewBroadcast : IPacket
+[MemoryPackable]
+public partial class ViewBroadcast : IPacket
 {
-    [Key(0)]
     public SHA256Hash ViewHash { get; set; }
-    [Key(1)]
     public SHA256Hash LastHash { get; set; }
-    [Key(2)]
     public BigInteger Weight { get; set; }
 
+    [MemoryPackConstructor]
     public ViewBroadcast(SHA256Hash viewHash, SHA256Hash lastHash, BigInteger weight)
     {
         ViewHash = viewHash;

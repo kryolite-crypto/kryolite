@@ -1,33 +1,21 @@
-﻿using System.Collections.ObjectModel;
-using System.Runtime.InteropServices;
-using System.Security.Cryptography;
-using MessagePack;
+﻿using System.Security.Cryptography;
+using MemoryPack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
-[MessagePackObject]
-public class View
+[MemoryPackable]
+public partial class View
 {
-    [Key(0)]
     public long Id { get; set; }
-    [Key(1)]
     public long Timestamp { get; init; }
-    [Key(2)]
     public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
-    [Key(3)]
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
-    [Key(4)]
     public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
-    [Key(5)]
     public List<SHA256Hash> Transactions { get; set; } = new();
-    [Key(6)]
     public List<SHA256Hash> Rewards { get; set; } = new();
-    [Key(7)]
     public List<SHA256Hash> Votes { get; set; } = new();
-    [Key(8)]
     public List<SHA256Hash> Blocks { get; set; } = new();
-    [Key(9)]
     public List<SHA256Hash> ScheduledTransactions { get; set; } = new();
 
     public SHA256Hash GetHash()

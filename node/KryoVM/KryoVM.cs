@@ -1,6 +1,6 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
@@ -21,8 +21,7 @@ public class KryoVM : IDisposable
     private KryoVM(ReadOnlySpan<byte> bytes)
     {
         Engine = new Engine(new Config()
-            .WithFuelConsumption(true)
-            .WithReferenceTypes(true));
+            .WithFuelConsumption(true));
 
         var errors = Module.Validate(Engine, bytes);
 
@@ -126,14 +125,14 @@ public class KryoVM : IDisposable
         memory.WriteBuffer(ownerPtr, Context.Contract.Owner);
         toFree.Add((ownerPtr, Address.ADDRESS_SZ));
 
-        setContract.Invoke(addrPtr, Address.ADDRESS_SZ, ownerPtr, Address.ADDRESS_SZ, Context.Balance);
+        setContract.Invoke(addrPtr, Address.ADDRESS_SZ, ownerPtr, Address.ADDRESS_SZ, (long)Context.Balance);
 
         // Set transaction details to smart contract
         var fromPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
         memory.WriteBuffer(fromPtr, Context.Transaction.From!);
         toFree.Add((fromPtr, Address.ADDRESS_SZ));
 
-        setTransaction.Invoke(fromPtr, Address.ADDRESS_SZ, Context.Transaction.Value);
+        setTransaction.Invoke(fromPtr, Address.ADDRESS_SZ, (long)Context.Transaction.Value);
 
         // Set view details to smart contract
         setView.Invoke(Context.View.Id, Context.View.Timestamp);
@@ -435,27 +434,26 @@ public class KryoVM : IDisposable
 
             var method = mem.ReadString(methodPtr, methodLen, Encoding.UTF8);
 
-            var lz4Options = MessagePackSerializerOptions.Standard
-                .WithCompression(MessagePackCompression.Lz4BlockArray)
-                .WithOmitAssemblyVersion(true);
-
             var payload = new TransactionPayload
             {
                 Payload = new CallMethod
                 {
                     Method = method,
-                    Params = Context!.MethodParams.ToArray()
+                    Params = [.. Context!.MethodParams]
                 }
             };
 
             var transaction = new Transaction {
                 TransactionType = TransactionType.CONTRACT_SCHEDULED_SELF_CALL,
-                PublicKey = PublicKey.NULL_PUBLIC_KEY,
+                PublicKey = Context!.Transaction.PublicKey,
                 To = Context!.Contract.Address,
                 Value = 0,
                 Timestamp = timestamp,
-                Data = MessagePackSerializer.Serialize(payload, lz4Options)
+                Data = MemoryPackSerializer.Serialize(payload),
+                ExecutionResult = ExecutionResult.SCHEDULED
             };
+
+            Console.WriteLine($"schedule {method} at {DateTimeOffset.FromUnixTimeMilliseconds(timestamp)}");
 
             Context.ScheduledCalls.Add(transaction);
             Context.MethodParams.Clear();
@@ -557,7 +555,5 @@ public class KryoVM : IDisposable
         Linker.Define("wasi_snapshot_preview1", "random_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int buf, int len) => {
             return 0;
         }));
-
-        ReadOnlySpan<char> foo = "str";
     }
 }

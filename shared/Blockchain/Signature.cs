@@ -1,11 +1,10 @@
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class Signature : IComparable<Signature>
+[MemoryPackable]
+public partial class Signature : IComparable<Signature>
 {
-    [Key(0)]
     public byte[] Buffer { get; private init; }
 
     public Signature()
@@ -13,6 +12,7 @@ public class Signature : IComparable<Signature>
         Buffer = new byte[SIGNATURE_SZ];
     }
 
+    [MemoryPackConstructor]
     public Signature(byte[] buffer)
     {
         if (buffer is null)
@@ -47,9 +47,9 @@ public class Signature : IComparable<Signature>
             return true;
         }
 
-        if ((a is null) || (b is null))
+        if (a is null)
         {
-            return false;
+            return b is null;
         }
 
         return a.Equals(b);

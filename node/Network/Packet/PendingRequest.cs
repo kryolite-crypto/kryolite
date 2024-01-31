@@ -1,13 +1,12 @@
-using Kryolite.Shared;
 using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class PendingRequest : IPacket
+[MemoryPackable]
+public partial class PendingRequest : IPacket
 {
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
     {

@@ -1,14 +1,12 @@
-using System.Text;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class NewContract : ITransactionPayload
+[MemoryPackable]
+public partial class NewContract : ITransactionPayload
 {
-    [Key(0)]
     public ContractManifest Manifest { get; set; }
-    [Key(1)]
+    [BrotliFormatter]
     public byte[] Code { get; set; }
 
     public NewContract(ContractManifest manifest, byte[] code)

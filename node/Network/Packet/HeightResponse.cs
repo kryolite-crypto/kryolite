@@ -1,13 +1,13 @@
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class HeightResponse : IPacket
+[MemoryPackable]
+public partial class HeightResponse : IPacket
 {
-    [Key(0)]
     public long CommonHeight { get; set; }
 
+    [MemoryPackConstructor]
     public HeightResponse(long commonHeight)
     {
         CommonHeight = commonHeight;

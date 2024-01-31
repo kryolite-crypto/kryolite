@@ -1,11 +1,10 @@
-using System.Collections.Immutable;
 using System.CommandLine;
 using System.Text;
 using System.Text.Json;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Cli;
@@ -96,10 +95,6 @@ public static class SendCmd
 
             using var http = new HttpClient();
 
-            var lz4Options = MessagePackSerializerOptions.Standard
-                .WithCompression(MessagePackCompression.Lz4BlockArray)
-                .WithOmitAssemblyVersion(true);
-
             var tx = new Transaction
             {
                 TransactionType = TransactionType.PAYMENT,
@@ -107,7 +102,7 @@ public static class SendCmd
                 To = to,
                 Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Data = transactionPayload != null ? MessagePackSerializer.Serialize(transactionPayload, lz4Options) : null
+                Data = transactionPayload != null ? MemoryPackSerializer.Serialize(transactionPayload) : null
             };
 
             tx.Sign(wallet.PrivateKey);

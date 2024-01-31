@@ -1,23 +1,18 @@
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class Effect
+[MemoryPackable]
+public partial class Effect
 {
-    [Key(0)]
     public Address From { get; set; }
-    [Key(1)]
     public Address To { get; set; }
-    [Key(2)]
     public ulong Value { get; set; }
-    [Key(3)]
     public Address Contract { get; set; }
-    [Key(4)]
     public SHA256Hash? TokenId { get; set; }
-    [Key(5)]
     public bool ConsumeToken { get; set; }
-    
+
+    [MemoryPackConstructor]    
     public Effect()
     {
         From = Address.NULL_ADDRESS;

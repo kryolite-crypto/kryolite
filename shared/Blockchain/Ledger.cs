@@ -1,20 +1,17 @@
 using Kryolite.EventBus;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class Ledger : EventBase
+[MemoryPackable]
+public partial class Ledger : EventBase
 {
-    [Key(0)]
     public Address Address { get; set; }
-    [Key(1)]
     public ulong Balance { get; set; }
-    [Key(2)]
     public bool Locked { get; set; }
-    [Key(3)]
     public ulong Pending { get; set; }
 
+    [MemoryPackConstructor]
     public Ledger()
     {
         Address = Address.NULL_ADDRESS;

@@ -1,13 +1,11 @@
 using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class VoteResponse : IPacket
+[MemoryPackable]
+public partial class VoteResponse : IPacket
 {
-    [Key(0)]
     public Vote? Vote { get; set; }
 
     public VoteResponse(Vote? vote)

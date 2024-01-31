@@ -5,6 +5,7 @@ namespace Kryolite.Shared;
 public static class Constant
 {
     public const string STORE_VERSION = "3";
+    public const string CONFIG_VERSION = "1";
     public const string NETWORK_NAME = "TYTYRI-2";
     public const int API_LEVEL = 4;
     public const int MIN_API_LEVEL = 3;
@@ -20,13 +21,13 @@ public static class Constant
 
     public static readonly ImmutableArray<Address> SEED_VALIDATORS =
     [
-        "kryo:wean6dt2ckvgubhh54ipu7nufdkfpmfx7zq9w2dx7e",
-        "kryo:weamhh4gyqhr5vjuqk5jyx25giceyuuqq4cgrwit6i",
-        "kryo:weacmn6cra2hif5an2858aqedjbz7vsp2r6h2pp3va",
-        "kryo:weaqr9zjggwru75qfgwkw5nhygtwuxv89hrhgnigve"
+        "kryo:ad2335i9wfmqg5cdn9d87ey43wt4wef2m6a3zyp7",
+        "kryo:abugb869cphn7vywkpv6w7ai2yejrmkbs99dchez",
+        "kryo:ac67f596jjayd9gr5n84ubafrkah5682krh5ngn3",
+        "kryo:aawxrbkrud5kqze7j4xzzaxbsxa66ein6yfthiza" // REMOVE
     ];
 
-    public static readonly Address DEV_FEE_ADDRESS = "kryo:weabq9evqg43d4q9e9rbcjjq93j9xauu7g2hxwyjne";
+    public static readonly Address DEV_FEE_ADDRESS = "kryo:adwuufxsu3qyzgy46nr8mev2z54r2d4t7q2p8jbj";
 
     // Placeholder
     public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;

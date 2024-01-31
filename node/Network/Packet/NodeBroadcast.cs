@@ -1,17 +1,17 @@
-using MessagePack;
 using Microsoft.Extensions.Logging;
 using Kryolite.Shared;
 using static Kryolite.Node.NetworkManager;
 using Microsoft.Extensions.DependencyInjection;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class NodeBroadcast : IPacket
+[MemoryPackable]
+public partial class NodeBroadcast : IPacket
 {
-    [Key(0)]
     public string Url { get; set; }                 
 
+    [MemoryPackConstructor]
     public NodeBroadcast(string url)
     {
         Url = url;

@@ -1,23 +1,19 @@
 using System.Data.Common;
 using System.Text.Json.Serialization;
-using MessagePack;
+using MemoryPack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class Wallet
+[MemoryPackable]
+public partial class Wallet
 {
-    [Key(0)]
-    public Address Address { get; set; } = new Address();
-    [Key(1)]
+    public Address Address { get; set; } = Address.NULL_ADDRESS;
     public string? Description { get; set; }
-    [Key(2)]
-    public PublicKey PublicKey { get; set; } = new PublicKey();
-    [Key(3)]
+    public PublicKey PublicKey { get; set; } = PublicKey.NULL_PUBLIC_KEY;
     public PrivateKey PrivateKey { get; set; } = new PrivateKey();
 
-
+    [MemoryPackConstructor]
     public Wallet()
     {
 
@@ -34,7 +30,7 @@ public class Wallet
         var wallet = new Wallet
         {
             PublicKey = pubKey,
-            PrivateKey = privKey,
+            PrivateKey = privKey
         };
 
         wallet.Address = wallet.PublicKey.ToAddress();

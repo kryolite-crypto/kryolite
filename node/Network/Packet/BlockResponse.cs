@@ -1,15 +1,14 @@
 using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class BlockResponse : IPacket
+[MemoryPackable]
+public partial class BlockResponse : IPacket
 {
-    [Key(0)]
     public Block? Block { get; set; }
 
+    [MemoryPackConstructor]
     public BlockResponse(Block? block)
     {
         Block = block;

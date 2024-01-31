@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
 using System.Net.WebSockets;
-using Kryolite.Shared;
-using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
@@ -50,7 +48,7 @@ public class Peer : IDisposable
 
         try
         {
-            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, MeshNetwork.lz4Options);
+            var bytes = MemoryPackSerializer.Serialize<IMessage>(msg);
             
             token ??= CancellationToken.None;
 
@@ -82,7 +80,7 @@ public class Peer : IDisposable
         try
         {
             var msg = new Reply(replyTo, packet);
-            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, MeshNetwork.lz4Options);
+            var bytes = MemoryPackSerializer.Serialize<IMessage>(msg);
 
             await SendAsync(bytes,token ?? CancellationToken.None);
         }
@@ -97,7 +95,7 @@ public class Peer : IDisposable
         try
         {
             var msg = new Message(packet);
-            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, MeshNetwork.lz4Options);
+            var bytes = MemoryPackSerializer.Serialize<IMessage>(msg);
 
             await SendAsync(bytes,token ?? CancellationToken.None);
         }
@@ -112,7 +110,7 @@ public class Peer : IDisposable
         try
         {
             var msg = new Message(id, packet);
-            var bytes = MessagePackSerializer.Serialize<IMessage>(msg, MeshNetwork.lz4Options);
+            var bytes = MemoryPackSerializer.Serialize<IMessage>(msg);
 
             await SendAsync(bytes,token ?? CancellationToken.None);
         }

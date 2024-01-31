@@ -1,12 +1,15 @@
-using MessagePack;
+
+using System.Text.Json.Serialization;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class CallMethod : ITransactionPayload
+[MemoryPackable]
+public partial class CallMethod : ITransactionPayload
 {
-    [Key(0)]
+    [JsonPropertyName("method")]
     public string Method { get; set; } = string.Empty;
-    [Key(1)]
+
+    [JsonPropertyName("params")]
     public string[]? Params { get; set; }
 }

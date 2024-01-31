@@ -4,25 +4,22 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using Crypto.RIPEMD;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class Contract
+[MemoryPackable]
+public partial class Contract
 {
-    [Key(0)]
     public Address Address { get; set; }
-    [Key(1)]
     public Address Owner { get; set; }
-    [Key(2)]
     public string Name { get; set; }
-    [Key(3)]
     public ContractManifest Manifest { get; set; }
 
-    [IgnoreMember]
+    [MemoryPackIgnore]
     public byte[]? CurrentSnapshot { get; set; }
 
+    [MemoryPackConstructor]
     public Contract()
     {
         Address = Address.NULL_ADDRESS;
@@ -51,8 +48,7 @@ public class Contract
         var ripemdHash = ripemd.ComputeHash(shaHash);
 
         var addressBytes = ripemdHash.ToList();
-        addressBytes.Insert(0, (byte)Network.MAIN); // network (161 mainnet, 177 testnet)
-        addressBytes.Insert(1, (byte)AddressType.CONTRACT); // type / version
+        addressBytes.Insert(0, (byte)AddressType.CONTRACT); // type / version
 
         var ripemdBytes = new List<byte>(addressBytes);
         ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
@@ -62,59 +58,51 @@ public class Contract
 
         addressBytes.InsertRange(addressBytes.Count, h2.Take(4)); // checksum
 
-        return addressBytes.ToArray();
+        return (Address)addressBytes.ToArray();
     }
 }
 
-[MessagePackObject]
-public class ContractManifest
+[MemoryPackable]
+public partial class ContractManifest
 {
-    [Key(0)]
     [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
-    [Key(1)]
+
     [JsonPropertyName("url")]
     public string Url { get; init; } = string.Empty;
-    [Key(2)]
+
     [JsonPropertyName("api_level")]
     public int ApiLevel { get; init; }
-    [Key(3)]
+
     [JsonPropertyName("methods")]
     public IReadOnlyCollection<ContractMethod> Methods { get; init; } = [];
 }
 
-[MessagePackObject]
-public class ContractMethod
+[MemoryPackable]
+public partial class ContractMethod
 {
-    [Key(0)]
     [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
 
-    [Key(1)]
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    [Key(2)]
     [JsonPropertyName("readonly")]
     public bool IsReadOnly { get; set; }
 
-    [Key(3)]
     [JsonPropertyName("method_params")]
-    public IReadOnlyCollection<ContractParam> Params { get; init; } = [];
+    public IReadOnlyList<ContractParam> Params { get; init; } = [];
 }
 
-[MessagePackObject]
-public class ContractParam
+[MemoryPackable]
+public partial class ContractParam
 {
-    [Key(0)]
     [JsonPropertyName("name")]
     public string Name { get; init; } = string.Empty;
 
-    [Key(1)]
     [JsonPropertyName("description")]
     public string? Description { get; set; }
 
-    [Key(2)]
     [JsonPropertyName("param_type")]
     public string Type { get; init; } = string.Empty;
 }

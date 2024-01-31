@@ -1,21 +1,17 @@
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class ViewResponse : IPacket
+[MemoryPackable]
+public partial class ViewResponse : IPacket
 {
-    [Key(0)]
     public View? View { get; set; }
-    [Key(1)]
     public List<Block> Blocks { get; set; }
-    [Key(2)]
     public List<Vote> Votes { get; set; }
-    [Key(3)]
     public List<TransactionDto> Transactions { get; set; }
 
     public ViewResponse(View? view)
@@ -26,6 +22,7 @@ public class ViewResponse : IPacket
         Transactions = new();
     }
 
+    [MemoryPackConstructor]
     public ViewResponse(View? view, List<Block> blocks, List<Vote> votes, List<TransactionDto> transactions)
     {
         View = view;
@@ -123,10 +120,9 @@ public class ViewResponse : IPacket
     }
 }
 
-[MessagePackObject]
-public class ViewRangeResponse : IPacket
+[MemoryPackable]
+public partial class ViewRangeResponse : IPacket
 {
-    [Key(0)]
     public List<ViewResponse> Views { get; set; } = new();
 
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)

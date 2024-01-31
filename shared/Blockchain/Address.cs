@@ -1,20 +1,20 @@
 using System.Security.Cryptography;
 using System.Text;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class Address
+[MemoryPackable]
+public partial class Address
 {
-    [Key(0)]
-    public byte[] Buffer { get; private init; }
+    public byte[] Buffer { get; set; }
 
     public Address()
     {
         Buffer = new byte[ADDRESS_SZ];
     }
 
+    [MemoryPackConstructor]
     public Address(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
@@ -27,12 +27,12 @@ public class Address
         Buffer = buffer;
     }
 
-    public bool IsContract() => Buffer[1] == (byte)AddressType.CONTRACT;
-    public bool IsWallet() => Buffer[1] == (byte)AddressType.WALLET;
+    public bool IsContract() => Buffer[0] == (byte)AddressType.CONTRACT;
+    public bool IsWallet() => Buffer[0] == (byte)AddressType.WALLET;
     public override string ToString() => Constant.ADDR_PREFIX + Base32.Kryolite.Encode(Buffer);
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
     public static implicit operator byte[] (Address address) => address.Buffer;
-    public static implicit operator Address(byte[] buffer) => new(buffer);
+    public static implicit operator Address(byte[] buffer) => new (buffer);
     public static implicit operator Address(Span<byte> buffer) => new(buffer.ToArray());
     public static implicit operator Address(string address) => new(Base32.Kryolite.Decode(address.Split(':').Last()));
 
@@ -43,9 +43,14 @@ public class Address
 
     public static bool operator ==(Address? a, Address? b)
     {
-        if (a is null || b is null)
+        if (ReferenceEquals(a, b))
         {
-            return false;
+            return true;
+        }
+
+        if (a is null)
+        {
+            return b is null;
         }
 
         return a.Equals(b);
@@ -75,13 +80,13 @@ public class Address
 
         var bytes = Base32.Kryolite.Decode(address.Split(':').Last());
 
-        if (bytes.Length != 26)
+        if (bytes.Length != 25)
         {
             return false;
         }
 
         var checksum = bytes.TakeLast(4).ToArray();
-        var addr = bytes.Take(22).ToList();
+        var addr = bytes.Take(21).ToList();
         addr.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
 
         var h1 = SHA256.HashData(addr.ToArray());
@@ -90,6 +95,6 @@ public class Address
         return Enumerable.SequenceEqual(h2.Take(4).ToArray(), checksum);
     }
 
-    public const int ADDRESS_SZ = 26;
+    public const int ADDRESS_SZ = 25;
     public static readonly Address NULL_ADDRESS = new();
 }

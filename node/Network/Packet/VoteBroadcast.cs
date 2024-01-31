@@ -1,21 +1,18 @@
-using System.Collections.Concurrent;
-using System.Numerics;
 using Kryolite.Shared;
-using Kryolite.Shared.Dto;
 using Kryolite.Shared.Locks;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class VoteBroadcast : IPacket
+[MemoryPackable]
+public partial class VoteBroadcast : IPacket
 {
-    [Key(0)]
     public SHA256Hash Votehash { get; set; }
 
+    [MemoryPackConstructor]
     public VoteBroadcast(SHA256Hash votehash)
     {
         Votehash = votehash;

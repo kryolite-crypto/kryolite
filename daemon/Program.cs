@@ -40,10 +40,7 @@ internal class Program
         var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
 
-        if (!Path.Exists(dataDir))
-        {
-            Directory.CreateDirectory(dataDir);
-        }
+        Directory.CreateDirectory(dataDir);
 
         var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
 
@@ -56,9 +53,16 @@ internal class Program
             {
                 Directory.Delete(storeDir, true);
             }
+
+            if (File.Exists(versionPath))
+            {
+                File.Delete(versionPath);
+            }
         }
 
-        if (args.Contains("--force-recreate"))
+        var configVersion = Path.Join(dataDir, $"config.version.{Constant.STORE_VERSION}");
+
+        if (args.Contains("--force-recreate") || !Path.Exists(configVersion))
         {
             var renamedTarget = $"{dataDir}-{DateTimeOffset.Now:yyyyMMddhhmmss}";
             if (Path.Exists(dataDir))
@@ -69,6 +73,11 @@ internal class Program
         }
 
         Directory.CreateDirectory(dataDir);
+
+        if (!Path.Exists(configVersion))
+        {
+            File.WriteAllText(configVersion, Constant.CONFIG_VERSION);
+        }
 
         var walletRepository = new WalletRepository(config);
         walletRepository.Backup();

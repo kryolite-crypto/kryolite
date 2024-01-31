@@ -1,19 +1,17 @@
-using System.Numerics;
 using Kryolite.Shared;
-using Kryolite.Shared.Dto;
 using Kryolite.Shared.Locks;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class BlockBroadcast : IPacket
+[MemoryPackable]
+public partial class BlockBroadcast : IPacket
 {
-    [Key(0)]
     public SHA256Hash Blockhash { get; set; }
 
+    [MemoryPackConstructor]
     public BlockBroadcast(SHA256Hash blockhash)
     {
         Blockhash = blockhash;

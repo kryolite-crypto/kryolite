@@ -1,12 +1,11 @@
-using MessagePack;
 using Microsoft.Extensions.Logging;
-using Kryolite.Shared;
 using Microsoft.Extensions.DependencyInjection;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class NodeInfoRequest : IPacket
+[MemoryPackable]
+public partial class NodeInfoRequest : IPacket
 {
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)
     {

@@ -1,14 +1,13 @@
-using MessagePack;
 using Microsoft.Extensions.Logging;
 using Kryolite.Shared;
 using Microsoft.Extensions.DependencyInjection;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class HeightRequest : IPacket
+[MemoryPackable]
+public partial class HeightRequest : IPacket
 {
-    [Key(0)]
     public List<SHA256Hash> Views { get; set; } = new();
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)

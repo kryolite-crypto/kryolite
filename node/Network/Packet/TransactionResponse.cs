@@ -1,14 +1,14 @@
 using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class TransactionResponse : IPacket
+[MemoryPackable]
+public partial class TransactionResponse : IPacket
 {
-    [Key(0)]
     public TransactionDto? Transaction { get; set; }
 
+    [MemoryPackConstructor]
     public TransactionResponse(TransactionDto? transaction)
     {
         Transaction = transaction;

@@ -1,5 +1,5 @@
 ﻿using Kryolite.Shared;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Configuration;
 using RocksDbSharp;
 using System.Numerics;
@@ -157,7 +157,7 @@ internal class RocksDBStorage : IStorage
             return default;
         }
 
-        return MessagePackSerializer.Deserialize<T>(result);
+        return MemoryPackSerializer.Deserialize<T>(result);
     }
 
     public byte[][] GetMany(string ixName, byte[][] keys)
@@ -190,7 +190,12 @@ internal class RocksDBStorage : IStorage
 
         foreach (var result in results)
         {
-            transactions.Add(MessagePackSerializer.Deserialize<T>(result.Value));
+            var data = MemoryPackSerializer.Deserialize<T>(result.Value);
+
+            if (data is not null)
+            {
+                transactions.Add(data);
+            }
         }
 
         return transactions;
@@ -212,7 +217,7 @@ internal class RocksDBStorage : IStorage
     public void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity, ITransaction? transaction = null)
     {
         var ix = ColumnFamilies[ixName];
-        var bytes = MessagePackSerializer.Serialize<T>(entity);
+        var bytes = MemoryPackSerializer.Serialize<T>(entity);
 
         if (transaction is not null)
         {
@@ -281,7 +286,7 @@ internal class RocksDBStorage : IStorage
             return default(T);
         }
 
-        return MessagePackSerializer.Deserialize<T>(iterator.Value());
+        return MemoryPackSerializer.Deserialize<T>(iterator.Value());
     }
 
     public List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix)
@@ -331,7 +336,13 @@ internal class RocksDBStorage : IStorage
 
         while (iterator.Valid())
         {
-            results.Add(MessagePackSerializer.Deserialize<T>(iterator.Value()));
+            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+
+            if (data is not null)
+            {
+                results.Add(data);
+            }
+
             iterator.Next();
         }
 
@@ -395,7 +406,12 @@ internal class RocksDBStorage : IStorage
 
         while (iterator.Valid())
         {
-            results.Add(MessagePackSerializer.Deserialize<T>(iterator.Value()));
+            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+
+            if (data is not null)
+            {
+                results.Add(data);
+            }
 
             if (results.Count == count)
             {
@@ -455,7 +471,7 @@ internal class RocksDBStorage : IStorage
             return default(T);
         }
 
-        return MessagePackSerializer.Deserialize<T>(iterator.Value());
+        return MemoryPackSerializer.Deserialize<T>(iterator.Value());
     }
 
     public byte[]? FindLast(string ixName)
@@ -496,7 +512,7 @@ internal class RocksDBStorage : IStorage
             return default(T);
         }
 
-        return MessagePackSerializer.Deserialize<T>(iterator.Value());
+        return MemoryPackSerializer.Deserialize<T>(iterator.Value());
     }
 
     public byte[]? FindLast(string ixName, ReadOnlySpan<byte> keyPrefix)
@@ -536,7 +552,13 @@ internal class RocksDBStorage : IStorage
 
         while (iterator.Valid())
         {
-            results.Add(MessagePackSerializer.Deserialize<T>(iterator.Value()));
+            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+
+            if (data is not null)
+            {
+                results.Add(data);
+            }
+
             iterator.Next();
         }
 
@@ -605,7 +627,13 @@ internal class RocksDBStorage : IStorage
                 continue;
             }
 
-            results.Add(MessagePackSerializer.Deserialize<T>(iterator.Value()));
+            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+
+            if (data is not null)
+            {
+                results.Add(data);
+            }
+
             iterator.Prev();
 
             if (results.Count >= count)

@@ -67,6 +67,7 @@ public class Executor
 
                         goto case TransactionType.PAYMENT;
                 case TransactionType.PAYMENT:
+                case TransactionType.CONTRACT_SCHEDULED_SELF_CALL:
                     if (tx.Timestamp > view.Timestamp)
                     {
                         Logger.LogDebug("Added scheduled transaction ({hash}), to execute at {timestamp}", tx.CalculateHash(), DateTimeOffset.FromUnixTimeMilliseconds(tx.Timestamp));

@@ -2,22 +2,18 @@ using System.Numerics;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class NodeInfoResponse : IPacket
+[MemoryPackable]
+public partial class NodeInfoResponse : IPacket
 {
-    [Key(0)]
     public long CurrentTime { get; init; }
-    [Key(1)]
     public long Height { get; init; }
-    [Key(2)]
     public BigInteger Weight { get; init; }
-    [Key(3)]
     public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider serviceProvider)

@@ -1,22 +1,21 @@
-﻿using MessagePack;
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
+using MemoryPack;
 
 namespace Kryolite.Shared.Blockchain;
 
-[MessagePackObject]
-public class Block
+[MemoryPackable]
+public partial class Block
 {
-    [Key(0)]
     public Address To { get; set; } = Address.NULL_ADDRESS;
-    [Key(1)]
+
     public ulong Value { get; init; }
-    [Key(2)]
+
     public long Timestamp { get; init; }
-    [Key(3)]
+
     public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
-    [Key(4)]
+
     public Difficulty Difficulty { get; set; }
-    [Key(5)]
+
     public SHA256Hash Nonce { get; set; } = SHA256Hash.NULL_HASH;
 
     private bool _isVerified = false;

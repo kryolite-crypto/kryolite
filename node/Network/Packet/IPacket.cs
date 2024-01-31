@@ -1,32 +1,33 @@
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Node;
 
 // Request & Responses
-[Union(0, typeof(NodeInfoRequest))]
-[Union(1, typeof(NodeInfoResponse))]
-[Union(4, typeof(HeightRequest))]
-[Union(5, typeof(HeightResponse))]
-[Union(6, typeof(BlockRequest))]
-[Union(7, typeof(BlockResponse))]
-[Union(8, typeof(VoteRequest))]
-[Union(9, typeof(VoteResponse))]
-[Union(10, typeof(ViewRequestByHash))]
-[Union(11, typeof(ViewRequestById))]
-[Union(12, typeof(ViewResponse))]
-[Union(13, typeof(TransactionRequest))]
-[Union(14, typeof(TransactionResponse))]
-[Union(15, typeof(PendingRequest))]
-[Union(16, typeof(PendingResponse))]
-[Union(17, typeof(ViewRequestByRange))]
-[Union(18, typeof(ViewRangeResponse))]
+[MemoryPackable]
+[MemoryPackUnion(0, typeof(NodeInfoRequest))]
+[MemoryPackUnion(1, typeof(NodeInfoResponse))]
+[MemoryPackUnion(4, typeof(HeightRequest))]
+[MemoryPackUnion(5, typeof(HeightResponse))]
+[MemoryPackUnion(6, typeof(BlockRequest))]
+[MemoryPackUnion(7, typeof(BlockResponse))]
+[MemoryPackUnion(8, typeof(VoteRequest))]
+[MemoryPackUnion(9, typeof(VoteResponse))]
+[MemoryPackUnion(10, typeof(ViewRequestByHash))]
+[MemoryPackUnion(11, typeof(ViewRequestById))]
+[MemoryPackUnion(12, typeof(ViewResponse))]
+[MemoryPackUnion(13, typeof(TransactionRequest))]
+[MemoryPackUnion(14, typeof(TransactionResponse))]
+[MemoryPackUnion(15, typeof(PendingRequest))]
+[MemoryPackUnion(16, typeof(PendingResponse))]
+[MemoryPackUnion(17, typeof(ViewRequestByRange))]
+[MemoryPackUnion(18, typeof(ViewRangeResponse))]
 // Broadcasts
-[Union(100, typeof(NodeBroadcast))]
-[Union(101, typeof(ViewBroadcast))]
-[Union(102, typeof(BlockBroadcast))]
-[Union(103, typeof(VoteBroadcast))]
-[Union(104, typeof(TransactionBroadcast))]
-public interface IPacket
+[MemoryPackUnion(100, typeof(NodeBroadcast))]
+[MemoryPackUnion(101, typeof(ViewBroadcast))]
+[MemoryPackUnion(102, typeof(BlockBroadcast))]
+[MemoryPackUnion(103, typeof(VoteBroadcast))]
+[MemoryPackUnion(104, typeof(TransactionBroadcast))]
+public partial interface IPacket
 {
     public void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider);
 }

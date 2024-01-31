@@ -1,27 +1,26 @@
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
+[MemoryPackable]
 [StructLayout(LayoutKind.Explicit)]
-public record struct Difficulty
+public partial record struct Difficulty
 {
-    [Key(0)]
     [FieldOffset(0)]
     public uint Value;
-    [IgnoreMember]
+    [MemoryPackIgnore]
     [FieldOffset(0)]
     public byte b0;
-    [IgnoreMember]
+    [MemoryPackIgnore]
     [FieldOffset(1)]
     public byte b1;
-    [IgnoreMember]
+    [MemoryPackIgnore]
     [FieldOffset(2)]
     public byte b2;
-    [IgnoreMember]
+    [MemoryPackIgnore]
     [FieldOffset(3)]
     public byte b3;
 

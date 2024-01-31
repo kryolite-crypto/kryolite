@@ -1,6 +1,6 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -40,13 +40,9 @@ public class ContractExecutor
                 }
             }
 
-            var lz4Options = MessagePackSerializerOptions.Standard
-                    .WithCompression(MessagePackCompression.Lz4BlockArray)
-                    .WithOmitAssemblyVersion(true);
+            var payload = MemoryPackSerializer.Deserialize<TransactionPayload>(tx.Data);
 
-            var payload = MessagePackSerializer.Deserialize<TransactionPayload>(tx.Data, lz4Options);
-
-            if (payload.Payload is not CallMethod call)
+            if (payload?.Payload is not CallMethod call)
             {
                 return ExecutionResult.INVALID_PAYLOAD;
             }

@@ -1,6 +1,5 @@
 using Kryolite.Shared;
-using MessagePack;
-using MessagePack.Resolvers;
+using MemoryPack;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node.Repository;
@@ -17,7 +16,7 @@ public class KeyRepository : IKeyRepository
         if (!Path.Exists(StorePath))
         {
             var keys = Wallet.Create();
-            var bytes = MessagePackSerializer.Serialize(keys);
+            var bytes = MemoryPackSerializer.Serialize(keys);
 
             File.WriteAllBytes(StorePath, bytes);
         }
@@ -26,6 +25,6 @@ public class KeyRepository : IKeyRepository
     public Wallet GetKey()
     {
         var bytes = File.ReadAllBytes(StorePath);
-        return MessagePackSerializer.Deserialize<Wallet>(bytes);
+        return MemoryPackSerializer.Deserialize<Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
     }
 }

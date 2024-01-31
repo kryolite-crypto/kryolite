@@ -1,17 +1,29 @@
+using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Caching.Memory;
 
 namespace Kryolite.Shared;
     
 public static class Extensions
 {
-    public static string ToHexString(this PrivateKey bytes)
+    public static void Buffer<T>(this BufferBlock<T> block, TimeSpan interval, Func<IList<T>, Task> action)
     {
-        return BitConverter.ToString(bytes).Replace("-", "");
-    }
+        Task.Run(async () => 
+        {
+            using var timer = new PeriodicTimer(interval);
 
-    public static string ToHexString(this PublicKey bytes)
-    {
-        return BitConverter.ToString(bytes).Replace("-", "");
+            while (!block.Completion.IsCompleted)
+            {
+                await timer.WaitForNextTickAsync();
+
+                if (block.TryReceiveAll(out var list))
+                {
+                    if (list.Count > 0)
+                    {
+                        await action(list);
+                    }
+                }
+            }
+        });
     }
 
     public static IDisposable EnterReadLockEx(this ReaderWriterLockSlim rwlock)

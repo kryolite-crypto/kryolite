@@ -1,7 +1,7 @@
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Configuration;
 using RocksDbSharp;
 using System.Buffers;
@@ -82,19 +82,19 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void Add(Block block)
     {
-        Storage.Put("Block", block.GetHash(), MessagePackSerializer.Serialize(block), CurrentTransaction);
+        Storage.Put("Block", block.GetHash(), MemoryPackSerializer.Serialize(block), CurrentTransaction);
     }
 
     public void Add(View view)
     {
         var key = view.Id.ToKey();
-        Storage.Put("View", key, MessagePackSerializer.Serialize(view), CurrentTransaction);
+        Storage.Put("View", key, MemoryPackSerializer.Serialize(view), CurrentTransaction);
         Storage.Put("ixViewHash", view.GetHash(), key, CurrentTransaction);
     }
 
     public void Add(Vote vote)
     {
-        Storage.Put("Vote", vote.GetHash(), MessagePackSerializer.Serialize(vote), CurrentTransaction);
+        Storage.Put("Vote", vote.GetHash(), MemoryPackSerializer.Serialize(vote), CurrentTransaction);
     }
 
     public void Add(Transaction tx)
@@ -110,14 +110,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         var id = tx.Id.ToKey();
 
         // Transaction
-        Storage.Put("Transaction", id, MessagePackSerializer.Serialize(tx), CurrentTransaction);
+        Storage.Put("Transaction", id, MemoryPackSerializer.Serialize(tx), CurrentTransaction);
 
         //ixTransactionId index
         Storage.Put("ixTransactionId", transactionId.Buffer, id, CurrentTransaction);
 
         // Address index
         var addrKey = keyBuf[..34];
-        id.CopyTo(addrKey[26..]);
+        id.CopyTo(addrKey[Address.ADDRESS_SZ..]);
 
         if (tx.PublicKey is not null)
         {
@@ -206,9 +206,9 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         while (iterator.Valid())
         {
-            var view = MessagePackSerializer.Deserialize<View>(iterator.Value());
+            var view = MemoryPackSerializer.Deserialize<View>(iterator.Value());
 
-            if (view.Blocks.Count > 0)
+            if (view?.Blocks.Count > 0)
             {
                 return view.Id;
             }
@@ -388,14 +388,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         // ContractAddress_TokenId
         var tokenIx = keyBuf.Slice(0, 58);
         token.Contract.Buffer.CopyTo(tokenIx);
-        token.TokenId.Buffer.CopyTo(tokenIx.Slice(26));
+        token.TokenId.Buffer.CopyTo(tokenIx.Slice(Address.ADDRESS_SZ));
 
         Storage.Put("ixTokenId", tokenIx, id, CurrentTransaction);
 
         // LedgerAddress_Key
         var ledgerIx = keyBuf.Slice(0, 34);
         token.Ledger.Buffer.CopyTo(ledgerIx);
-        id.CopyTo(ledgerIx.Slice(26));
+        id.CopyTo(ledgerIx.Slice(Address.ADDRESS_SZ));
 
         Storage.Put("ixTokenLedger", ledgerIx, id, CurrentTransaction);
     }
@@ -411,7 +411,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         {
             // LedgerAddress_Key
             token.Ledger.Buffer.CopyTo(keyBuf);
-            id.CopyTo(keyBuf.Slice(26));
+            id.CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
 
             Storage.Delete("ixTokenLedger", keyBuf, CurrentTransaction);
         }
@@ -437,14 +437,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         // ContractAddress_TokenId
         var tokenIx = keyBuf.Slice(0, 58);
         token.Contract.Buffer.AsSpan().CopyTo(tokenIx);
-        token.TokenId.Buffer.AsSpan().CopyTo(tokenIx.Slice(26));
+        token.TokenId.Buffer.AsSpan().CopyTo(tokenIx.Slice(Address.ADDRESS_SZ));
 
         Storage.Delete("ixTokenId", tokenIx, CurrentTransaction);
 
         // LedgerAddress_Key
         var ledgerIx = keyBuf.Slice(0, 34);
         token.Ledger.Buffer.AsSpan().CopyTo(ledgerIx);
-        id.CopyTo(ledgerIx.Slice(26));
+        id.CopyTo(ledgerIx.Slice(Address.ADDRESS_SZ));
 
         Storage.Delete("ixTokenLedger", ledgerIx, CurrentTransaction);
     }
@@ -461,7 +461,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         // ContractAddress_TokenId
         contract.Buffer.CopyTo(id, 0);
-        tokenId.Buffer.CopyTo(id, 26);
+        tokenId.Buffer.CopyTo(id, Address.ADDRESS_SZ);
 
         var key = Storage.Get("ixTokenId", id);
 
@@ -535,7 +535,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
             if (!validators.ContainsKey(addr))
             {
-                var validator = MessagePackSerializer.Deserialize<Validator>(iterator.Value());
+                var validator = MemoryPackSerializer.Deserialize<Validator>(iterator.Value()) ?? throw new Exception("failed to deserialize validator");
                 validators.Add(addr, validator);
             }
 
@@ -759,7 +759,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         // Address index
         var addrKey = keyBuf[..34];
-        id.CopyTo(addrKey[26..]);
+        id.CopyTo(addrKey[Address.ADDRESS_SZ..]);
 
         if (tx.PublicKey is not null)
         {

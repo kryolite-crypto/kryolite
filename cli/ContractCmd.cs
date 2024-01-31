@@ -4,7 +4,7 @@ using System.Text.Json;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Cli;
@@ -21,11 +21,7 @@ public static class ContractCmd
             
         };
 
-        var fileOption = new Argument<string>(name: "PATH", description: "Path to WASM file to upload.")
-        {
-            
-        };
-
+        var fileOption = new Argument<string>(name: "PATH", description: "Path to WASM file");
         uploadCmd.AddArgument(fileOption);
         uploadCmd.AddArgument(fromOption);
 
@@ -74,7 +70,6 @@ public static class ContractCmd
                 bytes
             );
 
-            var lz4Options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
             var newContract = new NewContract(manifest, bytes);
 
             var payload = new TransactionPayload
@@ -88,7 +83,7 @@ public static class ContractCmd
                 PublicKey = wallet.PublicKey,
                 To = contract.ToAddress(bytes),
                 Value = 0,
-                Data = MessagePackSerializer.Serialize(payload, lz4Options),
+                Data = MemoryPackSerializer.Serialize(payload),
                 Timestamp = 69
             };
 

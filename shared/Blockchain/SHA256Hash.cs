@@ -1,12 +1,11 @@
 using System.Numerics;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class SHA256Hash : IComparable<SHA256Hash>
+[MemoryPackable]
+public partial class SHA256Hash : IComparable<SHA256Hash>
 {
-    [Key(0)]
     public byte[] Buffer { get; private init; }
 
     public SHA256Hash()
@@ -14,6 +13,7 @@ public class SHA256Hash : IComparable<SHA256Hash>
         Buffer = new byte[HASH_SZ];
     }
 
+    [MemoryPackConstructor]
     public SHA256Hash(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
@@ -40,9 +40,9 @@ public class SHA256Hash : IComparable<SHA256Hash>
 
     public static bool operator ==(SHA256Hash a, SHA256Hash b)
     {
-        if (a is null || (b is null))
+        if (a is null)
         {
-            return false;
+            return b is null;
         }
 
         return a.Equals(b);

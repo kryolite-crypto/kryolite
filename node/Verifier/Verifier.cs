@@ -242,19 +242,14 @@ public class Verifier : IVerifier
 
     private bool VerifyByTransactionType(Transaction tx)
     {
-        switch (tx.TransactionType)
+        return tx.TransactionType switch
         {
-            case TransactionType.PAYMENT:
-                return VerifyPayment(tx);
-            case TransactionType.CONTRACT:
-                return VerifyContract(tx);
-            case TransactionType.REGISTER_VALIDATOR:
-                return VerifyValidatorRegisteration(tx);
-            case TransactionType.DEREGISTER_VALIDATOR:
-                return VerifyValidatorDeRegisteration(tx);
-            default:
-                throw new ArgumentException($"Invalid transaction type {tx.TransactionType} for {tx.CalculateHash()}");
-        }
+            TransactionType.PAYMENT => VerifyPayment(tx),
+            TransactionType.CONTRACT => VerifyContract(tx),
+            TransactionType.REGISTER_VALIDATOR => VerifyValidatorRegisteration(tx),
+            TransactionType.DEREGISTER_VALIDATOR => VerifyValidatorDeRegisteration(tx),
+            _ => throw new ArgumentException($"Invalid transaction type {tx.TransactionType} for {tx.CalculateHash()}"),
+        };
     }
 
     private bool VerifyPayment(Transaction tx)

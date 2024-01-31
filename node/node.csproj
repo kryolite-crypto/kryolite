@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Optimize>true</Optimize>
+    <Optimize>false</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
@@ -18,14 +18,12 @@
     <PackageReference Include="DnsClient" Version="1.7.0" />
     <PackageReference Include="LettuceEncrypt" Version="1.2.0" />
     <PackageReference Include="Lib.AspNetCore.ServerSentEvents" Version="8.2.0" />
-    <PackageReference Include="MessagePack" Version="2.5.108" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="7.0.1" />
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="Open.NAT.NET5" Version="1.0.0" />
     <PackageReference Include="QuikGraph" Version="2.5.0" />
     <PackageReference Include="QuikGraph.Graphviz" Version="2.5.0" />
     <PackageReference Include="RocksDB" Version="8.3.2.39829" />
-    <PackageReference Include="System.Reactive.Linq" Version="5.0.0" />
     <PackageReference Include="Vkosin.Dns.Multicast" Version="0.44.0" />
     <PackageReference Include="Wasmtime" Version="16.0.0" />
   </ItemGroup>

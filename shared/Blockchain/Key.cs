@@ -1,14 +1,13 @@
 using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
-using MessagePack;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class PrivateKey
+[MemoryPackable]
+public partial class PrivateKey
 {
-    [Key(0)]
     public byte[] Buffer { get; private init; }
 
     public PrivateKey()
@@ -16,6 +15,7 @@ public class PrivateKey
         Buffer = new byte[PRIVATE_KEY_SZ];
     }
 
+    [MemoryPackConstructor]
     public PrivateKey(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
@@ -46,9 +46,9 @@ public class PrivateKey
             return true;
         }
 
-        if ((a is null) || (b is null))
+        if (a is null)
         {
-            return false;
+            return b is null;
         }
 
         return a.Equals(b);
@@ -72,10 +72,9 @@ public class PrivateKey
     public const int PRIVATE_KEY_SZ = 32;
 }
 
-[MessagePackObject]
-public class PublicKey
+[MemoryPackable]
+public partial class PublicKey
 {
-    [Key(0)]
     public byte[] Buffer { get; private init; }
 
     public PublicKey()
@@ -83,6 +82,7 @@ public class PublicKey
         Buffer = new byte[PUB_KEY_SZ];
     }
 
+    [MemoryPackConstructor]
     public PublicKey(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
@@ -113,9 +113,9 @@ public class PublicKey
             return true;
         }
 
-        if ((a is null) || (b is null))
+        if (a is null)
         {
-            return false;
+            return b is null;
         }
 
         return a.Equals(b);
@@ -143,19 +143,13 @@ public class PublicKey
         using var ripemd = new RIPEMD160Managed();
         var ripemdHash = ripemd.ComputeHash(shaHash);
 
-        var addressBytes = ripemdHash.ToList();
-        addressBytes.Insert(0, (byte)Network.MAIN); // network (161 mainnet, 177 testnet)
-        addressBytes.Insert(1, (byte)AddressType.WALLET); // version
+        byte[] addressBytes = [(byte)AddressType.WALLET, ..ripemdHash];
+        byte[] prefixConcat = [..Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX), ..addressBytes];
 
-        var ripemdBytes = new List<byte>(addressBytes);
-        ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
-
-        var h1 = SHA256.HashData(ripemdBytes.ToArray());
+        var h1 = SHA256.HashData(prefixConcat);
         var h2 = SHA256.HashData(h1);
 
-        addressBytes.InsertRange(addressBytes.Count, h2.Take(4)); // checksum
-
-        return addressBytes.ToArray();
+        return (Address)(byte[])[..addressBytes, ..h2[0..4]];
     }
 
     public const int PUB_KEY_SZ = 32;

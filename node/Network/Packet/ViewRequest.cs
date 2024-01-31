@@ -1,19 +1,16 @@
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class ViewRequestByHash : IPacket
+[MemoryPackable]
+public partial class ViewRequestByHash : IPacket
 {
-    [Key(0)]
     public SHA256Hash ViewHash { get; set; }
-    [Key(1)]
     public bool AsyncReply { get; set; }
-    [Key(2)]
     public bool IncludeAll { get; set; }
 
     public ViewRequestByHash(SHA256Hash viewHash)
@@ -30,11 +27,12 @@ public class ViewRequestByHash : IPacket
         IncludeAll = false;
     }
 
+    [MemoryPackConstructor]
     public ViewRequestByHash(SHA256Hash viewHash, bool asyncReply, bool includeAll)
     {
         ViewHash = viewHash;
         AsyncReply = asyncReply;
-        IncludeAll = IncludeAll;
+        IncludeAll = includeAll;
     }
 
     public async void Handle(Peer peer, MessageReceivedEventArgs args, IServiceProvider provider)
@@ -68,14 +66,11 @@ public class ViewRequestByHash : IPacket
     }
 }
 
-[MessagePackObject]
-public class ViewRequestById : IPacket
+[MemoryPackable]
+public partial class ViewRequestById : IPacket
 {
-    [Key(0)]
     public long Id { get; set; }
-    [Key(1)]
     public bool AsyncReply { get; set; }
-    [Key(2)]
     public bool IncludeAll { get; set; }
 
     public ViewRequestById(long id)
@@ -91,6 +86,7 @@ public class ViewRequestById : IPacket
         AsyncReply = asyncReply;
     }
 
+    [MemoryPackConstructor]
     public ViewRequestById(long id, bool asyncReply, bool includeAll)
     {
         Id = id;
@@ -129,14 +125,13 @@ public class ViewRequestById : IPacket
     }
 }
 
-[MessagePackObject]
-public class ViewRequestByRange : IPacket
+[MemoryPackable]
+public partial class ViewRequestByRange : IPacket
 {
-    [Key(0)]
     public long StartId { get; set; }
-    [Key(1)]
     public long Count { get; set; }
 
+    [MemoryPackConstructor]
     public ViewRequestByRange(long startId, long count)
     {
         StartId = startId;

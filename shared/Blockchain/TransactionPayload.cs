@@ -1,18 +1,17 @@
-using MessagePack;
-using MessagePack.Formatters;
+using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MessagePackObject]
-public class TransactionPayload
+[MemoryPackable]
+public partial class TransactionPayload
 {
-    [Key(0)]
     public ITransactionPayload? Payload { get; set; }
 }
 
-[Union(0, typeof(NewContract))]
-[Union(1, typeof(CallMethod))]
-public interface ITransactionPayload
+[MemoryPackable]
+[MemoryPackUnion(0, typeof(NewContract))]
+[MemoryPackUnion(1, typeof(CallMethod))]
+public partial interface ITransactionPayload
 {
 
 }

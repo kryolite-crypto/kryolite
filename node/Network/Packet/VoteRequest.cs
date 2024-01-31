@@ -1,17 +1,16 @@
 using Kryolite.Shared;
-using Kryolite.Shared.Dto;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
-[MessagePackObject]
-public class VoteRequest : IPacket
+[MemoryPackable]
+public partial class VoteRequest : IPacket
 {
-    [Key(0)]
     public SHA256Hash Votehash { get; set; }
 
+    [MemoryPackConstructor]
     public VoteRequest(SHA256Hash votehash)
     {
         Votehash = votehash; 

@@ -1,7 +1,7 @@
 
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
-using MessagePack;
+using MemoryPack;
 using Microsoft.Extensions.Configuration;
 using System.Data;
 
@@ -112,20 +112,18 @@ public class WalletRepository : IWalletRepository
     private WalletContainer Load()
     {
         var bytes = File.ReadAllBytes(StorePath);
-        return MessagePackSerializer.Deserialize<WalletContainer>(bytes);
+        return MemoryPackSerializer.Deserialize<WalletContainer>(bytes) ?? throw new Exception("failed to deserialize wallet");
     }
 
     private void Commit(WalletContainer container)
     {
-        var bytes = MessagePackSerializer.Serialize(container);
+        var bytes = MemoryPackSerializer.Serialize(container);
         File.WriteAllBytes(StorePath, bytes);
-    }
-
-    [MessagePackObject]
-    public class WalletContainer
-    {
-        [Key(0)]
-        public Dictionary<Address, Wallet> Container = new();
     }
 }
 
+[MemoryPackable]
+public partial class WalletContainer
+{
+    public Dictionary<Address, Wallet> Container = new();
+}
