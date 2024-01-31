@@ -1,11 +1,11 @@
 using System;
-using System.Reactive.Linq;
 using System.Threading.Tasks.Dataflow;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
+using Kryolite.Shared;
 
 namespace Kryolite.Wallet;
 
@@ -41,20 +41,13 @@ public partial class LogViewerDialog : Window
 
         InMemoryLogger.OnNewMessage += MessageHandler;
 
-        LogBuffer.AsObservable()
-            .Buffer(TimeSpan.FromSeconds(1))
-            .Subscribe(async messages => {
-                if (messages.Count == 0)
-                {
-                    return;
-                }
+        LogBuffer.Buffer(TimeSpan.FromSeconds(1), async (messages) => {
+            var newText = String.Join(Environment.NewLine, messages) + Environment.NewLine;
 
-                var newText = String.Join(Environment.NewLine, messages) + Environment.NewLine;
-
-                await Dispatcher.UIThread.InvokeAsync(() => {
-                    logBox.AppendText(newText);
-                });
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                logBox.AppendText(newText);
             });
+        });
         
         Closing += (object? sender, WindowClosingEventArgs args) => {
             LogBuffer.Complete();

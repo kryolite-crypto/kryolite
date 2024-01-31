@@ -1,0 +1,69 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Kryolite.Wallet"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:avalonia="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
+        mc:Ignorable="d"
+        x:Class="Kryolite.Wallet.AuthorizePaymentDialog"
+        Title="Authorize Transaction"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent"
+        SizeToContent="WidthAndHeight"
+        ExtendClientAreaToDecorationsHint="True"
+        WindowStartupLocation="CenterScreen"
+        MaxWidth="500"
+        Icon="/Assets/kryolite.png">
+    <Panel>
+        <ExperimentalAcrylicBorder IsHitTestVisible="False">
+            <ExperimentalAcrylicBorder.Material>
+                <ExperimentalAcrylicMaterial
+                    BackgroundSource="Digger"
+                    TintColor="Black"
+                    TintOpacity="0.8"
+                    MaterialOpacity="0.65" />
+            </ExperimentalAcrylicBorder.Material>
+        </ExperimentalAcrylicBorder>
+        <DockPanel HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+            <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="5, 5, 5, 5" Spacing="10">
+                <Button Width="80" HorizontalContentAlignment="Center" Click="Ok">Authorize</Button>
+                <Button Width="80" HorizontalContentAlignment="Center" Click="Cancel">Cancel</Button>
+            </StackPanel>
+            <StackPanel DockPanel.Dock="Top">
+                <TextBlock Text="Transaction For" Margin="10, 20, 10, 0" />
+                <TextBlock x:Name="MethodName" FontWeight="Bold" Margin="10 5, 10, 0" />
+                <TextBlock Text="Amount" Margin="10, 20, 10, 0" />
+                <TextBlock x:Name="Value" FontWeight="Bold" Margin="10, 5, 10, 0" />
+                <TextBlock Text="Parameters" Margin="10, 20, 10, 0" />
+                <ItemsRepeater x:Name="MethodParams">
+                    <ItemsRepeater.Layout>
+                        <StackLayout Spacing="10" Orientation="Vertical" />
+                    </ItemsRepeater.Layout>
+                    <ItemsRepeater.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel>
+                                <TextBlock Margin="10, 0, 10, 0" x:DataType="vm:ParamModel" Text="{Binding Name}" />
+                                <TextBlock FontWeight="Bold" Margin="10, 5, 0, 0" x:DataType="vm:ParamModel" Text="{Binding Value}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+                <TextBlock Text="Contract" Margin="10, 20, 10, 0" />
+                <TextBlock x:Name="Name" FontWeight="Bold" Margin="10, 5, 10, 0" />
+                <TextBlock x:Name="Address" FontWeight="Bold" Margin="10, 2, 10, 0" />
+                <TextBlock x:Name="Url" FontWeight="Bold" Margin="10, 2, 10, 0" />
+                <ComboBox x:Name="Wallets" Width="420" PlaceholderText="Select wallet" Margin="10">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">
+                            <TextBlock Text="{ReflectionBinding Balance, Converter={StaticResource CurrencyConverter}}" Grid.Row="0" Grid.Column="0"/>
+                            <TextBlock Text="{ReflectionBinding Description}" IsVisible="{ReflectionBinding Description, Converter={StaticResource NotEmptyConverter}}" Grid.Row="1" Grid.Column="0"/>
+                            <TextBlock Text="{ReflectionBinding Address, Converter={StaticResource AddressConverter}}" IsVisible="{ReflectionBinding Description, Converter={StaticResource EmptyConverter}}" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"/>
+                            </Grid>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+        </DockPanel>
+    </Panel>
+</Window>

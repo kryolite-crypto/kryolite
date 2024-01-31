@@ -1,7 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
 using Kryolite.EventBus;
 using Kryolite.Node;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,9 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Reactive.Linq;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
 
 namespace Kryolite.Wallet;
 

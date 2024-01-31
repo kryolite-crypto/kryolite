@@ -30,12 +30,27 @@ namespace Kryolite.Wallet
 
             var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
             var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+            var pipePath = Path.Join(dataDir, $".pipe");
 
             try
             {
-                if (!Path.Exists(dataDir))
+                Directory.CreateDirectory(dataDir);
+
+                foreach (var arg in args)
                 {
-                    Directory.CreateDirectory(dataDir);
+                    if (arg.StartsWith("kryolite:"))
+                    {
+                        var isRunning = File.Exists(pipePath);
+
+                        File.WriteAllText(pipePath, arg);
+
+                        if (isRunning)
+                        {
+                            return 0;
+                        }
+
+                        break;
+                    }
                 }
 
                 var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
@@ -49,9 +64,16 @@ namespace Kryolite.Wallet
                     {
                         Directory.Delete(storeDir, true);
                     }
+
+                    if (File.Exists(versionPath))
+                    {
+                        File.Delete(versionPath);
+                    }
                 }
 
-                if (args.Contains("--force-recreate"))
+                var configVersion = Path.Join(dataDir, $"config.version.{Constant.STORE_VERSION}");
+
+                if (args.Contains("--force-recreate") || !Path.Exists(configVersion))
                 {
                     var renamedTarget = $"{dataDir}-{DateTimeOffset.Now:yyyyMMddhhmmss}";
                     if (Path.Exists(dataDir))
@@ -62,6 +84,16 @@ namespace Kryolite.Wallet
                 }
 
                 Directory.CreateDirectory(dataDir);
+
+                if (!Path.Exists(configVersion))
+                {
+                    File.WriteAllText(configVersion, Constant.CONFIG_VERSION);
+                }
+
+                if (!Path.Exists(pipePath))
+                {
+                    File.WriteAllText(pipePath, string.Empty);
+                }
 
                 var walletRepository = new WalletRepository(config);
                 walletRepository.Backup();
@@ -92,6 +124,8 @@ namespace Kryolite.Wallet
                 }
 
                 BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+
+                File.Delete(pipePath);
             }
             catch (Exception ex)
             {
@@ -102,6 +136,8 @@ namespace Kryolite.Wallet
                 dump.Write(Encoding.UTF8.GetBytes(ex.ToString()).AsSpan());
 
                 Console.WriteLine(ex.ToString());
+
+                File.Delete(pipePath);
 
                 return 1;
             }

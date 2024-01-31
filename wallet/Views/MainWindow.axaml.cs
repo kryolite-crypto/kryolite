@@ -7,13 +7,19 @@ using System.Threading.Tasks.Dataflow;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Collections.Generic;
-using System.Reactive.Linq;
 using Avalonia.Markup.Xaml;
 using Kryolite.Node;
 using Kryolite.Shared;
 using System.Collections.Concurrent;
 using Kryolite.EventBus;
 using Avalonia;
+using System.IO;
+using Microsoft.Extensions.Configuration;
+using System.Text.Json;
+using Kryolite.Shared.Blockchain;
+using MemoryPack;
+using Kryolite.Shared.Dto;
+using System.Web;
 
 namespace Kryolite.Wallet;
 
@@ -24,6 +30,7 @@ public partial class MainWindow : Window
     private IStoreManager StoreManager;
     private IMeshNetwork MeshNetwork;
     private IEventBus EventBus;
+    private FileSystemWatcher Watcher = new ();
 
     private MainWindowViewModel Model = new MainWindowViewModel();
 
@@ -46,7 +53,6 @@ public partial class MainWindow : Window
 #if DEBUG
         this.AttachDevTools();
 #endif
-
         Opened += OnInitialized;
 
         Model.ViewLogClicked += (object? sender, EventArgs args) => {
@@ -67,9 +73,9 @@ public partial class MainWindow : Window
 
         var progressUpdatedBuffer = new BufferBlock<SyncProgress>();
 
-        progressUpdatedBuffer.AsObservable()
-            .Buffer(TimeSpan.FromSeconds(1), 1000)
-            .Subscribe(async syncArgs => await OnProgressUpdated(syncArgs));
+        progressUpdatedBuffer.Buffer(TimeSpan.FromSeconds(1), async (progress) => 
+            await OnProgressUpdated(progress)
+        );
 
         EventBus.Subscribe<SyncProgress>((progress) => {
             var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
@@ -164,12 +170,16 @@ public partial class MainWindow : Window
                     .Take(5)
                     .ToList();
 
-                await Dispatcher.UIThread.InvokeAsync(() => {
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
                     Model.Wallets = new ObservableCollection<WalletModel>(toAdd);
                     Model.Balance = (long)balance;
                     Model.Pending = (long)pending;
                     Model.Transactions = transactions;
                 });
+
+                await ConsumePipe();
+                StartPipeWatcher();
             }
             catch (Exception ex)
             {
@@ -191,13 +201,29 @@ public partial class MainWindow : Window
         Model.ConnectedPeers = MeshNetwork.GetPeers().Count;
     }
 
+    private void StartPipeWatcher()
+    {
+        using var scope = Program.ServiceCollection.CreateScope();
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+
+        Watcher.Path = dataDir;
+        Watcher.Filter = ".pipe";
+        Watcher.NotifyFilter = NotifyFilters.LastWrite;
+
+        Watcher.Changed += async (sender, args) =>
+        {
+            Watcher.EnableRaisingEvents = false;
+            await ConsumePipe();
+            Watcher.EnableRaisingEvents = true;
+        };
+
+        Watcher.EnableRaisingEvents = true;
+    }
+
     private async Task OnProgressUpdated(IList<SyncProgress> syncArgs)
     {
-        if (syncArgs.Count == 0)
-        {
-            return;
-        }
-
         var max = syncArgs.MaxBy(x => x.Progress);
 
         if (max is null)
@@ -218,6 +244,124 @@ public partial class MainWindow : Window
             syncProgress.Maximum = 100;
             syncProgress.IsEnabled = !max.Completed;
             syncProgress.IsVisible = !max.Completed;
+        });
+    }
+
+    private async Task ConsumePipe()
+    {
+        // Lets see if there are any pending requests
+        using var scope = Program.ServiceCollection.CreateScope();
+        var config = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+        var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+        var pipePath = Path.Join(dataDir, ".pipe");
+
+        var messages = await File.ReadAllLinesAsync(pipePath);
+
+        if (messages is null)
+        {
+            return;
+        }
+
+        foreach (var message in messages)
+        {
+            if (string.IsNullOrEmpty(message))
+            {
+                return;
+            }
+
+            await HandleMessage(message);
+        }
+
+        File.WriteAllText(pipePath, string.Empty);
+    }
+
+    private async Task HandleMessage(string message)
+    {
+        var parts = message.Split("/");
+
+        if (parts.Length != 4 || parts[0] != "kryolite:call")
+        {
+            Console.WriteLine($"Invalid message '{message}'");
+            return;
+        }
+
+        var contractAddress = (Address)parts[1];
+        var methodCall = JsonSerializer.Deserialize<CallMethod>(HttpUtility.UrlDecode(parts[3]));
+
+        var contract = StoreManager.GetContract(contractAddress);
+
+        if (contract is null)
+        {
+            Console.WriteLine($"Contract not found '{contractAddress}'");
+            return;
+        }
+
+        if (!ulong.TryParse(parts[2], out var amount))
+        {
+            Console.WriteLine($"Invalid amount'{parts[2]}'");
+            return;
+        }
+
+        if (methodCall is null)
+        {
+            Console.WriteLine($"Invalid method params '{message}'");
+            return;
+        }
+
+        var method = contract.Manifest.Methods.Where(x => x.Name == methodCall.Method).FirstOrDefault();
+
+        if (method is null)
+        {
+            Console.WriteLine($"Method not found '{methodCall.Method}'");
+            return;
+        }
+
+        var methodParams = new List<ParamModel>();
+
+        for (var i = 0; i < (methodCall?.Params?.Length ?? 0); i++)
+        {
+            methodParams.Add(new ParamModel
+            {
+                Name = method.Params[i].Description ?? method.Params[i].Name,
+                Value = methodCall?.Params?[i] ?? "n/a"
+            });
+        }
+
+        var wallet = await AuthorizePaymentDialog.Show(
+            method.Description ?? method.Name,
+            methodParams,
+            amount,
+            contract,
+            Model.Wallets,
+            this
+        );
+
+        if (wallet is null)
+        {
+            return;
+        }
+
+        var payload = new TransactionPayload
+        {
+            Payload = methodCall
+        };
+
+        var transaction = new Transaction {
+            TransactionType = TransactionType.PAYMENT,
+            PublicKey = wallet.PublicKey,
+            To = contract.Address,
+            Value = amount,
+            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+            Data = MemoryPackSerializer.Serialize(payload)
+        };
+
+        transaction.Sign(wallet.PrivateKey);
+
+        var result = StoreManager.AddTransaction(new TransactionDto(transaction), true);
+
+        await Dispatcher.UIThread.InvokeAsync(async () => {
+            await ConfirmDialog.Show($"Transaction Status: {result}", true, this);
         });
     }
 }
