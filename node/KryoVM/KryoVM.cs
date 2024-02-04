@@ -96,6 +96,9 @@ public class KryoVM : IDisposable
     {
         var init = Instance.GetFunction("_initialize") ?? throw new Exception($"method not found [_initialize]");
         init.Invoke();
+
+        var install = Instance.GetFunction("__install") ?? throw new Exception($"method not found [__install]");
+        install.Invoke();
     }
 
     public int CallMethod(string method, object[] methodParams, out string? returns)
