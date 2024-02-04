@@ -47,6 +47,10 @@
 		<CFBundlePackageType>APPL</CFBundlePackageType>
 		<CFBundleExecutable>wallet</CFBundleExecutable>
 		<CFBundleIconFile>AppName.icns</CFBundleIconFile> <!-- Will be copied from output directory -->
+    <CFBundleURLTypes>
+        <CFBundleURLName>Kryolite URL</CFBundleURLName>
+        <CFBundleURLSchemes>kryolite</CFBundleURLSchemes>
+    </CFBundleURLTypes>
 		<NSPrincipalClass>NSApplication</NSPrincipalClass>
 		<NSHighResolutionCapable>true</NSHighResolutionCapable>
 	</PropertyGroup>

@@ -13,6 +13,8 @@ using System.Globalization;
 using System.Text;
 using System.Linq;
 using Kryolite.Shared;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Kryolite.Wallet
 {
@@ -34,6 +36,8 @@ namespace Kryolite.Wallet
 
             try
             {
+                CreateUriScheme();
+
                 Directory.CreateDirectory(dataDir);
 
                 foreach (var arg in args)
@@ -150,5 +154,45 @@ namespace Kryolite.Wallet
             => AppBuilder.Configure(() => new App())
                 .UsePlatformDetect()
                 .LogToTrace();
+
+        private static void CreateUriScheme()
+        {
+            try
+            {
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+
+                if (string.IsNullOrEmpty(exePath))
+                {
+                    return;
+                }
+
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+                    var definitionFile = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".local/share/applications/kryolite.desktop");
+                    var definition = $"""
+                        [Desktop Entry]
+                        Name=Kryolite
+                        Exec="{exePath}" %u
+                        Type=Application
+                        Terminal=false
+                        MimeType=x-scheme-handler/kryolite;
+                        """;
+
+                    File.WriteAllText(definitionFile, definition);
+
+                    Process.Start("xdg-mime", "default kryolite.desktop x-scheme-handler/kryolite");
+                }
+                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                {
+                    Process.Start("ftype", $"""kryolite="{exePath}" %1""");
+                }
+
+                // MacOS registration is done by plist file
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Unable to register kryolite url scheme: {ex.Message}");
+            }
+        }
     }
 }
