@@ -221,7 +221,7 @@ namespace Kryolite.Wallet
                         throw new Exception("failed to open or create kryolite command");
                     }
 
-                    cmd.SetValue("", "\"{exePath}\" %1");
+                    cmd.SetValue("", $"\"{exePath}\" %1");
                 }
 
                 // MacOS registration is done by plist file
