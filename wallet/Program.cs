@@ -15,6 +15,7 @@ using System.Linq;
 using Kryolite.Shared;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace Kryolite.Wallet
 {
@@ -184,7 +185,43 @@ namespace Kryolite.Wallet
                 }
                 else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    Process.Start("ftype", $"""kryolite="{exePath}" %1""");
+                    var classes = Registry.CurrentUser.OpenSubKey("Software", true)?.OpenSubKey("Classes", true) ?? throw new Exception("failed to open registry");
+
+                    RegistryKey? key = null;
+
+                    if (classes.GetSubKeyNames().Contains("kryolite"))
+                    {
+                        key = classes.OpenSubKey("kryolite");
+                    }
+                    else
+                    {
+                        key = classes.CreateSubKey("kryolite");
+                    }
+
+                    if (key is null)
+                    {
+                        throw new Exception("failed to open or create kryolite handler");
+                    }
+
+                    key.SetValue("URL Protocol", "kryolite");
+
+                    RegistryKey? cmd = null;
+
+                    if (key.GetSubKeyNames().Contains(@"shell\open\command"))
+                    {
+                        cmd = key.OpenSubKey(@"shell\open\command");
+                    }
+                    else
+                    {
+                        cmd = key.CreateSubKey(@"shell\open\command");
+                    }
+
+                    if (cmd is null)
+                    {
+                        throw new Exception("failed to open or create kryolite command");
+                    }
+
+                    cmd.SetValue("", "\"{exePath}\" %1");
                 }
 
                 // MacOS registration is done by plist file
