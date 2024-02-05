@@ -55,7 +55,7 @@
         </ExperimentalAcrylicBorder>
 
         <DockPanel>
-            <Panel DockPanel.Dock="Top">
+            <Panel DockPanel.Dock="Top" Height="25">
                 <NativeMenuBar Width="180" HorizontalAlignment="Left"/>
                 <TextBlock IsVisible="{Binding IsWindows}" Text="Kryolite Wallet" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
             </Panel>

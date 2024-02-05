@@ -39,25 +39,8 @@
     <PackageReference Include="Material.Icons.Avalonia" Version="2.0.1" />
    </ItemGroup>
 
-	<PropertyGroup>
-		<CFBundleName>KryoliteWallet</CFBundleName> <!-- Also defines .app file name -->
-		<CFBundleDisplayName>Kryolite Wallet</CFBundleDisplayName>
-		<CFBundleIdentifier>io.kryolite.wallet</CFBundleIdentifier>
-		<CFBundlePackageType>APPL</CFBundlePackageType>
-		<CFBundleExecutable>wallet</CFBundleExecutable>
-		<CFBundleIconFile>AppName.icns</CFBundleIconFile> <!-- Will be copied from output directory -->
-    <CFBundleURLTypes>
-        <CFBundleURLName>Kryolite URL</CFBundleURLName>
-        <CFBundleURLSchemes>kryolite</CFBundleURLSchemes>
-    </CFBundleURLTypes>
-		<NSPrincipalClass>NSApplication</NSPrincipalClass>
-		<NSHighResolutionCapable>true</NSHighResolutionCapable>
-	</PropertyGroup>
-
   <ItemGroup>
-    <Content Include="appsettings.development.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    <Content Include="appsettings.development.json" CopyToOutputDirectory="Always" />
     <Content Include="appsettings.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
   </ItemGroup>
 
@@ -81,6 +64,6 @@
     <Copy SourceFiles="Info.plist" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents" />
     <Copy SourceFiles="Assets\kryolite.icns" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\Resources" />
     <Copy SourceFiles="$(PublishDir)wallet" DestinationFolder="$(PublishDir)Kryolite Wallet.app\MacOS" />
-    <Copy SourceFiles="$(PublishDir)appsettings.json" DestinationFolder="$(PublishDir)Kryolite Wallet.app\MacOS" />
+    <Copy SourceFiles="appsettings.json" DestinationFolder="$(PublishDir)Kryolite Wallet.app\MacOS" />
   </Target>
 </Project>

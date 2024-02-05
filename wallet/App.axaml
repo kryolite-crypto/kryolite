@@ -4,6 +4,7 @@
              xmlns:materialIcons="clr-namespace:Material.Icons.Avalonia;assembly=Material.Icons.Avalonia"
              xmlns:avalonia="clr-namespace:HyperText.Avalonia;assembly=HyperText.Avalonia"
              x:Class="Kryolite.Wallet.App"
+             Name="Kryolite Wallet"
              RequestedThemeVariant="Dark">
     <Application.Styles>
         <FluentTheme />
