@@ -37,7 +37,6 @@
     <PackageReference Include="HyperText.Avalonia" Version="2.0.0" />
     <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2" />
     <PackageReference Include="Material.Icons.Avalonia" Version="2.0.1" />
-    <PackageReference Include="Dotnet.Bundle" Version="*" />
    </ItemGroup>
 
 	<PropertyGroup>
@@ -56,10 +55,6 @@
 	</PropertyGroup>
 
   <ItemGroup>
-    <Content Include="appsettings.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Content Include="appsettings.development.json">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -73,4 +68,19 @@
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="Info.plist" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+
+  <Target Name="BundleApp" AfterTargets="AfterPublish">
+    <MakeDir Directories="$(PublishDir)Kryolite Wallet.app" Condition="!Exists('$(PublishDir)Kryolite Wallet.app')" />
+    <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\Contents" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\Contents')" />
+    <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\Contents\Resources" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\Contents\Resources')" />
+    <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\MacOS" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\MacOS')" />
+    <Copy SourceFiles="Info.plist" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents" />
+    <Copy SourceFiles="Assets\kryolite.icns" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\Resources" />
+    <Copy SourceFiles="$(PublishDir)wallet" DestinationFolder="$(PublishDir)Kryolite Wallet.app\MacOS" />
+    <Copy SourceFiles="$(PublishDir)appsettings.json" DestinationFolder="$(PublishDir)Kryolite Wallet.app\MacOS" />
+  </Target>
 </Project>
