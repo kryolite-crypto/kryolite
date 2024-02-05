@@ -185,21 +185,16 @@ namespace Kryolite.Wallet
                 }
                 else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
                 {
-                    var classes = Registry.CurrentUser.OpenSubKey("Software", true)?.OpenSubKey("Classes", true) ?? throw new Exception("failed to open registry");
-
-                    RegistryKey? key = null;
-                    RegistryKey? cmd = null;
+                    using var software = Registry.CurrentUser.OpenSubKey("Software", true);
+                    using var classes = software?.OpenSubKey("Classes", true) ?? throw new Exception("failed to open registry");
 
                     if (classes.GetSubKeyNames().Contains("kryolite"))
                     {
-                        key = classes.OpenSubKey("kryolite");
-                        cmd = key?.OpenSubKey(@"shell\open\command");
+                        classes?.DeleteSubKeyTree("kryolite");
                     }
-                    else
-                    {
-                        key = classes.CreateSubKey("kryolite");
-                        cmd = key.CreateSubKey(@"shell\open\command");
-                    }
+
+                    using var key = classes?.CreateSubKey("kryolite");
+                    using var cmd = key?.CreateSubKey(@"shell\open\command");
 
                     key?.SetValue("URL Protocol", "kryolite");
                     cmd?.SetValue("", $"\"{exePath}\" %1");
