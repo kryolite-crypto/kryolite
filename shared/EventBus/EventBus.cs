@@ -52,7 +52,7 @@ public class EventBus : IEventBus
         {
             if (Subscriptions.ContainsKey(ev.GetType()))
             {
-                subs = Subscriptions[ev.GetType()].ToList();
+                subs = [.. Subscriptions[ev.GetType()]];
             }
         }
 

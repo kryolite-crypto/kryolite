@@ -20,6 +20,13 @@ public static class Extensions
         throw new TimeoutException();
     }
 
+    public static Task WhenCancelled(this CancellationToken cancellationToken)
+    {
+        var tcs = new TaskCompletionSource<bool>();
+        cancellationToken.Register(s => ((TaskCompletionSource<bool>)s!).SetResult(true), tcs);
+        return tcs.Task;
+    }
+
     public static Address ReadAddress(this Memory memory, int address)
     {
         return (Address)memory.GetSpan(address, Address.ADDRESS_SZ);

@@ -1,11 +1,9 @@
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
-using Kryolite.Node.Executor;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
-using Lib.AspNetCore.ServerSentEvents;
 using Microsoft.Extensions.Logging;
 using RocksDbSharp;
 
@@ -18,21 +16,19 @@ public class StoreManager : TransactionManager, IStoreManager
     private IEventBus EventBus { get; }
     private IStateCache StateCache { get; }
     private IVerifier Verifier { get; }
-    private IServerSentEventsService NotificationService { get; }
     private ILogger<StoreManager> Logger { get; }
 
     public override string CHAIN_NAME => "";
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, IServerSentEventsService notificationService, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         MeshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
-        NotificationService = notificationService ?? throw new ArgumentNullException(nameof(notificationService));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -63,13 +59,7 @@ public class StoreManager : TransactionManager, IStoreManager
             return false;
         }
 
-        if (AddViewInternal(view, broadcast, castVote))
-        {
-            NotificationService.SendEventAsync("VIEW");
-            return true;
-        }
-
-        return false;
+        return AddViewInternal(view, broadcast, castVote);
     }
 
     public bool AddBlock(Block block, bool broadcast)
@@ -83,11 +73,7 @@ public class StoreManager : TransactionManager, IStoreManager
                 return false;
             }
 
-            if (AddBlockInternal(block, broadcast))
-            {
-                NotificationService.SendEventAsync("BLOCK");
-                return true;
-            }
+            return AddBlockInternal(block, broadcast);
         }
         catch (Exception ex)
         {
@@ -118,11 +104,7 @@ public class StoreManager : TransactionManager, IStoreManager
                 return false;
             }
 
-            if (AddBlockInternal(block, broadcast))
-            {
-                NotificationService.SendEventAsync("BLOCK");
-                return true;
-            }
+            return AddBlockInternal(block, broadcast);
         }
         catch (Exception ex)
         {
@@ -145,10 +127,7 @@ public class StoreManager : TransactionManager, IStoreManager
                 return ExecutionResult.VERIFY_FAILED;
             }
 
-            if(AddTransactionInternal(tx, broadcast))
-            {
-                NotificationService.SendEventAsync("TRANSACTION");
-            }
+            AddTransactionInternal(tx, broadcast);
 
             return tx.ExecutionResult;
         }
@@ -168,13 +147,7 @@ public class StoreManager : TransactionManager, IStoreManager
             return false;
         }
 
-        if (AddVoteInternal(vote, broadcast))
-        {
-            NotificationService.SendEventAsync("VOTE");
-            return true;
-        }
-
-        return false;
+        return AddVoteInternal(vote, broadcast);
     }
 
     public List<Block> GetBlocks(List<SHA256Hash> blockhashes)

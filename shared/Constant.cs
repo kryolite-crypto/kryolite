@@ -7,8 +7,8 @@ public static class Constant
     public const string STORE_VERSION = "3";
     public const string CONFIG_VERSION = "1";
     public const string NETWORK_NAME = "TYTYRI-2";
-    public const int API_LEVEL = 4;
-    public const int MIN_API_LEVEL = 3;
+    public const int API_LEVEL = 5;
+    public const int MIN_API_LEVEL = 5;
 
     public const int VIEW_INTERVAL = 60;
     public const byte STARTING_DIFFICULTY = 10;

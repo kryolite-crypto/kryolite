@@ -5,8 +5,8 @@ namespace Kryolite.Node;
 
 public class TransferTokenEventArgs : EventBase
 {
-    public Address Contract { get; set; } = new();
-    public Address From { get; set; } = new();
-    public Address To { get; set; } = new();
-    public SHA256Hash TokenId { get; set; } = new();
+    public Address Contract { get; set; } = Address.NULL_ADDRESS;
+    public Address From { get; set; } = Address.NULL_ADDRESS;
+    public Address To { get; set; } = Address.NULL_ADDRESS;
+    public SHA256Hash TokenId { get; set; } = SHA256Hash.NULL_HASH;
 }

@@ -1,10 +1,12 @@
-﻿using Kryolite.EventBus;
+﻿using System.Text.Json.Serialization;
+using Kryolite.EventBus;
 using Kryolite.Shared;
 
 namespace Kryolite.Node;
 
 public class ConsumeTokenEventArgs : EventBase
 {
-    public Address Owner { get; set; } = new();
-    public SHA256Hash TokenId { get; set; } = new();
+    public Address Contract { get; set; } = Address.NULL_ADDRESS;
+    public Address Owner { get; set; } = Address.NULL_ADDRESS;
+    public SHA256Hash TokenId { get; set; } = SHA256Hash.NULL_HASH;
 }

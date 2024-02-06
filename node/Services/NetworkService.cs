@@ -1,10 +1,8 @@
 using System.Net.NetworkInformation;
-using System.Reactive.Linq;
 using System.Timers;
 using DnsClient;
 using Kryolite.EventBus;
 using Kryolite.Shared;
-using Makaretu.Dns;
 using Microsoft.AspNetCore.Hosting.Server;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

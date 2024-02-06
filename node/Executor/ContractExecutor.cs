@@ -6,16 +6,10 @@ using System.Text.Json;
 
 namespace Kryolite.Node.Executor;
 
-public class ContractExecutor
+public class ContractExecutor(IExecutorContext context, ILogger logger)
 {
-    private IExecutorContext Context { get; }
-    private ILogger Logger { get; }
-
-    public ContractExecutor(IExecutorContext context, ILogger logger)
-    {
-        Context = context ?? throw new ArgumentNullException(nameof(context));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
-    }
+    private IExecutorContext Context { get; } = context ?? throw new ArgumentNullException(nameof(context));
+    private ILogger Logger { get; } = logger ?? throw new ArgumentNullException(nameof(logger));
 
     public ExecutionResult Execute(Transaction tx, View view)
     {
@@ -81,7 +75,7 @@ public class ContractExecutor
                 return ExecutionResult.CONTRACT_EXECUTION_FAILED;
             }
 
-            const string getTokenName = "get_token";
+            const string getTokenName = "GetToken";
             var hasGetToken = contract.Manifest.Methods.Any(x => x.Name == getTokenName);
 
             foreach (var effect in tx.Effects)
@@ -98,13 +92,13 @@ public class ContractExecutor
 
                         if (result != 0)
                         {
-                            Logger.LogDebug("get_token failed for {tokenId}, error code = {result}", effect.TokenId, result);
+                            Logger.LogDebug("GetToken failed for {tokenId}, error code = {result}", effect.TokenId, result);
                             continue;
                         }
 
                         if (json is null)
                         {
-                            Logger.LogDebug("get_token failed for {tokenId}, error = json output null", effect.TokenId);
+                            Logger.LogDebug("GetToken failed for {tokenId}, error = json output null", effect.TokenId);
                             continue;
                         }
 
@@ -112,7 +106,7 @@ public class ContractExecutor
 
                         if (tokenBase is null)
                         {
-                            Logger.LogDebug("get_token failed for {tokenId}, error = failed to parse json", effect.TokenId);
+                            Logger.LogDebug("GetToken failed for {tokenId}, error = failed to parse json", effect.TokenId);
                             continue;
                         }
 

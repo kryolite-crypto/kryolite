@@ -97,6 +97,8 @@ public class KryoVM : IDisposable
         var init = Instance.GetFunction("_initialize") ?? throw new Exception($"method not found [_initialize]");
         init.Invoke();
 
+        SetContext();
+
         var install = Instance.GetFunction("__install") ?? throw new Exception($"method not found [__install]");
         install.Invoke();
     }
@@ -110,40 +112,17 @@ public class KryoVM : IDisposable
 
         var toFree = new List<(int ptr, int length)>();
 
+        var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
+        var run = Instance.GetFunction(method) ?? throw new Exception($"method not found [{method}]");
         var malloc = Instance.GetFunction("__malloc") ?? throw new Exception($"method not found [__malloc]");
         var free = Instance.GetFunction("__free") ?? throw new Exception($"method not found [__free]");
-        var setContract = Instance.GetFunction("set_contract") ?? throw new Exception($"method not found [set_contract]");
-        var setTransaction = Instance.GetFunction("set_transaction") ?? throw new Exception($"method not found [set_transaction]");
-        var setView = Instance.GetFunction("set_view") ?? throw new Exception($"method not found [set_view]");
-        var run = Instance.GetFunction(method) ?? throw new Exception($"method not found [{method}]");
-
-        var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
-
-        // Set Contract details to smart contract
-        var addrPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
-        memory.WriteBuffer(addrPtr, Context.Contract.Address);
-        toFree.Add((addrPtr, Address.ADDRESS_SZ));
-
-        var ownerPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
-        memory.WriteBuffer(ownerPtr, Context.Contract.Owner);
-        toFree.Add((ownerPtr, Address.ADDRESS_SZ));
-
-        setContract.Invoke(addrPtr, Address.ADDRESS_SZ, ownerPtr, Address.ADDRESS_SZ, (long)Context.Balance);
-
-        // Set transaction details to smart contract
-        var fromPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
-        memory.WriteBuffer(fromPtr, Context.Transaction.From!);
-        toFree.Add((fromPtr, Address.ADDRESS_SZ));
-
-        setTransaction.Invoke(fromPtr, Address.ADDRESS_SZ, (long)Context.Transaction.Value);
-
-        // Set view details to smart contract
-        setView.Invoke(Context.View.Id, Context.View.Timestamp);
 
         var exitCode = 0;
 
         try
         {
+            SetContext();
+
             var manifest = Context.Contract.Manifest?.Methods.Where(x => x.Name == method).First() ?? throw new Exception("contract manifest not found");
             var mParams = manifest.Params.ToArray();
             var values = new List<ValueBox>();
@@ -249,6 +228,37 @@ public class KryoVM : IDisposable
         Store.Dispose();
     }
 
+    private void SetContext()
+    {
+        var memory = Instance.GetMemory("memory") ?? throw new Exception("memory not found");
+        var malloc = Instance.GetFunction("__malloc") ?? throw new Exception($"method not found [__malloc]");
+        var free = Instance.GetFunction("__free") ?? throw new Exception($"method not found [__free]");
+        var setContract = Instance.GetFunction("set_contract") ?? throw new Exception($"method not found [set_contract]");
+        var setTransaction = Instance.GetFunction("set_transaction") ?? throw new Exception($"method not found [set_transaction]");
+        var setView = Instance.GetFunction("set_view") ?? throw new Exception($"method not found [set_view]");
+
+        // Set Contract details to smart contract
+        var addrPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
+        memory.WriteBuffer(addrPtr, Context!.Contract.Address);
+
+        var ownerPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
+        memory.WriteBuffer(ownerPtr, Context!.Contract.Owner);
+
+        setContract.Invoke(addrPtr, Address.ADDRESS_SZ, ownerPtr, Address.ADDRESS_SZ, (long)Context!.Balance);
+        free.Invoke(addrPtr, Address.ADDRESS_SZ);
+        free.Invoke(ownerPtr, Address.ADDRESS_SZ);
+
+        // Set transaction details to smart contract
+        var fromPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
+        memory.WriteBuffer(fromPtr, Context.Transaction.From!);
+
+        setTransaction.Invoke(fromPtr, Address.ADDRESS_SZ, (long)Context.Transaction.Value);
+        free.Invoke(fromPtr, Address.ADDRESS_SZ);
+
+        // Set view details to smart contract
+        setView.Invoke(Context.View.Id, Context.View.Timestamp);
+    }
+
     private void RegisterAPI() 
     {
         Linker.Define("env", "__transfer", Function.FromCallback<int, long>(Store, (Caller caller, int address, long value) => {
@@ -292,6 +302,7 @@ public class KryoVM : IDisposable
 
             var eventData = new ApprovalEventArgs
             {
+                Contract = Context!.Contract.Address,
                 From = memory.ReadAddress(fromPtr) ?? throw new Exception("__approval: null 'from' address"),
                 To = memory.ReadAddress(toPtr) ?? throw new Exception("__approval: null 'to' address"),
                 TokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__approval: null 'tokenIdPtr' address")
@@ -334,6 +345,7 @@ public class KryoVM : IDisposable
 
             var eventData = new ConsumeTokenEventArgs
             {
+                Contract = Context!.Contract.Address,
                 Owner = memory.ReadAddress(ownerPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address"),
                 TokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address")
             };
@@ -376,8 +388,10 @@ public class KryoVM : IDisposable
 
             var eventData = new GenericEventArgs
             {
-                Json = JsonSerializer.Serialize(Context!.EventData)
+                Contract = Context!.Contract.Address
             };
+
+            eventData.EventData.AddRange(Context!.EventData);
 
             Context!.Events.Add(eventData);
             Context!.EventData.Clear();
