@@ -278,90 +278,97 @@ public partial class MainWindow : Window
 
     private async Task HandleMessage(string message)
     {
-        var parts = message.Split("/");
-
-        if (parts.Length != 4 || parts[0] != "kryolite:call")
+        try
         {
-            Console.WriteLine($"Invalid message '{message}'");
-            return;
-        }
+            var parts = message.Split("/");
 
-        var contractAddress = (Address)parts[1];
-        var methodCall = JsonSerializer.Deserialize<CallMethod>(HttpUtility.UrlDecode(parts[3]));
-
-        var contract = StoreManager.GetContract(contractAddress);
-
-        if (contract is null)
-        {
-            Console.WriteLine($"Contract not found '{contractAddress}'");
-            return;
-        }
-
-        if (!ulong.TryParse(parts[2], out var amount))
-        {
-            Console.WriteLine($"Invalid amount'{parts[2]}'");
-            return;
-        }
-
-        if (methodCall is null)
-        {
-            Console.WriteLine($"Invalid method params '{message}'");
-            return;
-        }
-
-        var method = contract.Manifest.Methods.Where(x => x.Name == methodCall.Method).FirstOrDefault();
-
-        if (method is null)
-        {
-            Console.WriteLine($"Method not found '{methodCall.Method}'");
-            return;
-        }
-
-        var methodParams = new List<ParamModel>();
-
-        for (var i = 0; i < (methodCall?.Params?.Length ?? 0); i++)
-        {
-            methodParams.Add(new ParamModel
+            if (parts.Length != 4 || parts[0] != "kryolite:call")
             {
-                Name = method.Params[i].Description ?? method.Params[i].Name,
-                Value = methodCall?.Params?[i] ?? "n/a"
+                Console.WriteLine($"Invalid message '{message}'");
+                return;
+            }
+
+            var contractAddress = (Address)parts[1];
+            var methodCall = JsonSerializer.Deserialize<CallMethod>(HttpUtility.UrlDecode(parts[3]));
+
+            var contract = StoreManager.GetContract(contractAddress);
+
+            if (contract is null)
+            {
+                Console.WriteLine($"Contract not found '{contractAddress}'");
+                return;
+            }
+
+            if (!ulong.TryParse(parts[2], out var amount))
+            {
+                Console.WriteLine($"Invalid amount'{parts[2]}'");
+                return;
+            }
+
+            if (methodCall is null)
+            {
+                Console.WriteLine($"Invalid method params '{message}'");
+                return;
+            }
+
+            var method = contract.Manifest.Methods.Where(x => x.Name == methodCall.Method).FirstOrDefault();
+
+            if (method is null)
+            {
+                Console.WriteLine($"Method not found '{methodCall.Method}'");
+                return;
+            }
+
+            var methodParams = new List<ParamModel>();
+
+            for (var i = 0; i < (methodCall?.Params?.Length ?? 0); i++)
+            {
+                methodParams.Add(new ParamModel
+                {
+                    Name = method.Params[i].Description ?? method.Params[i].Name,
+                    Value = methodCall?.Params?[i] ?? "n/a"
+                });
+            }
+
+            var wallet = await AuthorizePaymentDialog.Show(
+                method.Description ?? method.Name,
+                methodParams,
+                amount,
+                contract,
+                Model.Wallets,
+                this
+            );
+
+            if (wallet is null)
+            {
+                return;
+            }
+
+            var payload = new TransactionPayload
+            {
+                Payload = methodCall
+            };
+
+            var transaction = new Transaction {
+                TransactionType = TransactionType.PAYMENT,
+                PublicKey = wallet.PublicKey,
+                To = contract.Address,
+                Value = amount,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Data = MemoryPackSerializer.Serialize(payload)
+            };
+
+            transaction.Sign(wallet.PrivateKey);
+
+            var result = StoreManager.AddTransaction(new TransactionDto(transaction), true);
+
+            await Dispatcher.UIThread.InvokeAsync(async () => {
+                await ConfirmDialog.Show($"Transaction Status: {result}", true, this);
             });
         }
-
-        var wallet = await AuthorizePaymentDialog.Show(
-            method.Description ?? method.Name,
-            methodParams,
-            amount,
-            contract,
-            Model.Wallets,
-            this
-        );
-
-        if (wallet is null)
+        catch (Exception ex)
         {
-            return;
+            Console.WriteLine(ex);
         }
-
-        var payload = new TransactionPayload
-        {
-            Payload = methodCall
-        };
-
-        var transaction = new Transaction {
-            TransactionType = TransactionType.PAYMENT,
-            PublicKey = wallet.PublicKey,
-            To = contract.Address,
-            Value = amount,
-            Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-            Data = MemoryPackSerializer.Serialize(payload)
-        };
-
-        transaction.Sign(wallet.PrivateKey);
-
-        var result = StoreManager.AddTransaction(new TransactionDto(transaction), true);
-
-        await Dispatcher.UIThread.InvokeAsync(async () => {
-            await ConfirmDialog.Show($"Transaction Status: {result}", true, this);
-        });
     }
 }
