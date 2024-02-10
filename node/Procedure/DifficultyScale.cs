@@ -8,30 +8,18 @@ public class DifficultyScale
 {
     private const int SCALE_MUL = 1_000;
     private const int SCALE_DIV = SCALE_MUL * SCALE_MUL;
-    private readonly static BigInteger MAX_CHANGE = DifficultyExtensions.TARGET_MIN * 4;
-
-    public static Difficulty Scale(ChainState chainState, int blocks, IStoreRepository repository)
+    public static Difficulty Scale(ChainState chainState, IStoreRepository repository)
     {
-        var estimatedWork = chainState.CurrentDifficulty.ToWork();
-        var actualWork = estimatedWork * blocks;
-        
-        var periodStart = Math.Max(1, chainState.Id - Constant.DIFFICULTY_LOOKBACK);
-        var previousState = repository.GetChainState(periodStart - 1) ?? throw new Exception($"null state for height {periodStart - 1}, corrupted db?");
+        var periodStart = Math.Max(0, chainState.Id - Constant.DIFFICULTY_LOOKBACK);
+        var startState = repository.GetChainState(periodStart) ?? throw new Exception($"could not load ChainState at height {chainState.Id}, corrupted db?");
 
-        // Calculate estimated work for the period and actual work done
-        for (var i = periodStart; i < chainState.Id; i++)
-        {
-            var state = repository.GetChainState(i) ?? throw new Exception($"null state for height {i}, corrupted db?");
+        var expectedWork = chainState.CurrentDifficulty.ToWork();
+        var actualWork = (chainState.TotalWork - startState.TotalWork) / Constant.EXPECTED_BLOCKS;
 
-            actualWork += previousState.CurrentDifficulty.ToWork() * (state.Blocks - previousState.Blocks);
-            estimatedWork += state.CurrentDifficulty.ToWork();
+        // Clamp factor to [0.75x ... 10x]
+        var factor = BigInteger.Clamp(actualWork * SCALE_MUL / expectedWork, 750, 10000);
+        var newTarget = expectedWork * SCALE_MUL * factor / SCALE_DIV;
 
-            previousState = state;
-        }
-
-        var currentTarget = chainState.CurrentDifficulty.ToWork();
-        var newTarget = currentTarget * SCALE_MUL * (actualWork * SCALE_MUL / estimatedWork) / SCALE_DIV;
-
-        return BigInteger.Max(BigInteger.Max(newTarget, currentTarget - MAX_CHANGE), DifficultyExtensions.TARGET_MIN).ToDifficulty();
+        return BigInteger.Max(newTarget, DifficultyExtensions.TARGET_MIN).ToDifficulty();
     }
 }

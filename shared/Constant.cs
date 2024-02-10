@@ -17,7 +17,8 @@ public static class Constant
     public const long DECIMAL_MULTIPLIER = 1_000_000;
     public const int VOTE_INTERVAL = 5;
     public const int EPOCH_LENGTH = 1440;
-    public const int DIFFICULTY_LOOKBACK = 2;
+    public const int DIFFICULTY_LOOKBACK = 20;
+    public const int EXPECTED_BLOCKS = 4;
 
     public static readonly ImmutableArray<Address> SEED_VALIDATORS =
     [

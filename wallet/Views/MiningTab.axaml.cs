@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -232,25 +233,28 @@ public partial class MiningTab : UserControl
 
                             if (result.CompareTo(target) <= 0)
                             {
-                                var timespent = DateTime.Now - start;
-
-                                if (timespent.TotalSeconds > 0)
-                                {
-                                    WriteLog($"{DateTime.Now}: Block found! {_blockhashes / timespent.TotalSeconds:N2} h/s");
-                                }
-                                else
-                                {
-                                    WriteLog($"{DateTime.Now}: Block found!");
-                                }
-
                                 blocktemplate.Solution = concat.Buffer[32..];
 
                                 using var scope = Program.ServiceCollection.CreateScope();
                                 var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
+                                var status = "REJECTED";
+
                                 if (storeManager.AddBlock(blocktemplate, true))
                                 {
                                     _model.BlocksFound++;
+                                    status = "SUCCESS";
+                                }
+
+                                var timespent = DateTime.Now - start;
+
+                                if (timespent.TotalSeconds > 0)
+                                {
+                                    WriteLog($"{DateTime.Now}: [{status}] Block found! {_blockhashes / timespent.TotalSeconds:N2} h/s");
+                                }
+                                else
+                                {
+                                    WriteLog($"{DateTime.Now}: [{status}] Block found!");
                                 }
                             }
 

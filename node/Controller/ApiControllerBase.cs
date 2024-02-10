@@ -574,6 +574,7 @@ public class ApiControllerBase : Controller
         {
             Id = chainState.Id,
             Weight = chainState.Weight,
+            TotalWork = chainState.TotalWork,
             Blocks = chainState.Blocks,
             LastHast = chainState.ViewHash,
             CurrentDifficulty = chainState.CurrentDifficulty.ToString(),

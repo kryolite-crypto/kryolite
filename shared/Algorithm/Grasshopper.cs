@@ -2,6 +2,7 @@ using Kryolite.Shared.Algorithm;
 using Kryolite.Shared.Blockchain;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared;
@@ -15,13 +16,13 @@ public static class Grasshopper
 
     public static SHA256Hash Hash(Concat concat)
     {
-        var buf = new byte[32];
+        Span<byte> buf = stackalloc byte[32];
         Hash(concat, buf);
 
         return buf;
     }
 
-    public static unsafe void Hash(Concat concat, Span<byte> hash)
+    public static unsafe void Hash(ReadOnlySpan<byte> concat, Span<byte> hash)
     {
         using var vm = new GrasshopperStackMachine();
 
@@ -30,7 +31,7 @@ public static class Grasshopper
         var stateEnd = stateStart + OPS_COUNT_PER_ROUND;
 
         var ops = new Span<byte>(state, OPS_COUNT);
-        SHA512.TryHashData(concat.Buffer, ops, out var _);
+        SHA512.TryHashData(concat, ops, out var _);
 
         for (var i = 0; i < STATE_SZ * ROUNDS; i++)
         {

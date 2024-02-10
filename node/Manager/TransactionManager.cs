@@ -196,14 +196,17 @@ public abstract class TransactionManager
                 chainState.BlockReward = 0;
             }
 
+            var work = chainState.CurrentDifficulty.ToWork();
+
             // Update chain state
             chainState.ViewHash = view.GetHash();
             chainState.Id++;
-            chainState.Weight += (chainState.CurrentDifficulty.ToWork() * (totalStake / Constant.MIN_STAKE)) + chainState.CurrentDifficulty.ToWork();
+            chainState.Weight = 10; //+= (work * (totalStake / Constant.MIN_STAKE)) + work;
+            chainState.TotalWork += work * blocks.Count;
             chainState.Votes += votes.Count;
             chainState.Transactions += toExecute.Count;
             chainState.Blocks += blocks.Count;
-            chainState.CurrentDifficulty = DifficultyScale.Scale(chainState, blocks.Count, Repository);
+            chainState.CurrentDifficulty = DifficultyScale.Scale(chainState, Repository);
             chainState.BlockReward += RewardCalculator.BlockReward(view.Id);
 
             Repository.AddRange(blocks);
