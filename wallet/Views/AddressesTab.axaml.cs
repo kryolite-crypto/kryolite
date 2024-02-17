@@ -48,13 +48,10 @@ public partial class AddressesTab : UserControl
             await Dispatcher.UIThread.InvokeAsync(() => {
                 if (this.VisualRoot is MainWindow mw)
                 {
-                    if (mw.DataContext is MainWindowViewModel model)
-                    {
-                        model.AddWallet(wallet);
-                    }
-
                     mw.Wallets.TryAdd(wallet.Address, wallet);
                 }
+
+                Model.State.AddWallet(wallet);
             });
         };
 

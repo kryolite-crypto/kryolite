@@ -7,21 +7,8 @@ using Microsoft.Extensions.Configuration;
 
 public class Program
 {
-    public static JsonSerializerOptions serializerOpts = new JsonSerializerOptions
-    {
-        WriteIndented = true,
-    };
-
     private static async Task<int> Main(string[] args)
     {
-        serializerOpts.PropertyNameCaseInsensitive = true;
-        serializerOpts.Converters.Add(new AddressConverter());
-        serializerOpts.Converters.Add(new PrivateKeyConverter());
-        serializerOpts.Converters.Add(new PublicKeyConverter());
-        serializerOpts.Converters.Add(new SHA256HashConverter());
-        serializerOpts.Converters.Add(new SignatureConverter());
-        serializerOpts.Converters.Add(new DifficultyConverter());
-
         var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
 
         // TODO: make this an option

@@ -11,7 +11,6 @@
         <StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
         <StyleInclude Source="avares://AvaloniaEdit/Themes/Fluent/AvaloniaEdit.xaml" />
         <materialIcons:MaterialIconStyles />
-        <avalonia:HyperLinkStyle/>
     </Application.Styles>
     <Application.Resources>
         <vm:CurrencyConverter x:Key="CurrencyConverter"/>

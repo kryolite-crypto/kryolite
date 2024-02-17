@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -5,6 +6,15 @@ using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.Options;
 
 namespace Kryolite.Daemon;
+
+public static class CleanConsoleFormatterExtension
+{
+    [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026", Justification = "Types are retained")]
+    public static ILoggingBuilder AddCleanConsole(this ILoggingBuilder builder)
+    {
+        return builder.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>();
+    }
+}
 
 public class CleanConsoleFormatter : ConsoleFormatter, IDisposable
 {

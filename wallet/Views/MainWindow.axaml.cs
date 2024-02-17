@@ -116,7 +116,7 @@ public partial class MainWindow : Window
             }).ToList();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.UpdateWallet(ledger, txs);
+                Model.State.UpdateWallet(ledger, txs);
             });
         });
     }
@@ -172,10 +172,10 @@ public partial class MainWindow : Window
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    Model.Wallets = new ObservableCollection<WalletModel>(toAdd);
-                    Model.Balance = (long)balance;
-                    Model.Pending = (long)pending;
-                    Model.Transactions = transactions;
+                    Model.State.Wallets = new ObservableCollection<WalletModel>(toAdd);
+                    Model.State.Balance = (long)balance;
+                    Model.State.Pending = (long)pending;
+                    Model.State.Transactions = transactions;
                 });
 
                 await ConsumePipe();
@@ -289,7 +289,7 @@ public partial class MainWindow : Window
             }
 
             var contractAddress = (Address)parts[1];
-            var methodCall = JsonSerializer.Deserialize<CallMethod>(HttpUtility.UrlDecode(parts[3]));
+            var methodCall = JsonSerializer.Deserialize(HttpUtility.UrlDecode(parts[3]), SharedSourceGenerationContext.Default.CallMethod);
 
             var contract = StoreManager.GetContract(contractAddress);
 
@@ -335,7 +335,7 @@ public partial class MainWindow : Window
                 methodParams,
                 amount,
                 contract,
-                Model.Wallets,
+                Model.State.Wallets,
                 this
             );
 

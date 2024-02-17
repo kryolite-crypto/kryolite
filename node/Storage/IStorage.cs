@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using RocksDbSharp;
+﻿
+using Kryolite.RocksDb;
 
 namespace Kryolite.Node.Storage;
 
@@ -38,14 +34,14 @@ public interface IStorage
     List<byte[]> FindLast(string ixName, int count);
     List<T> FindLast<T>(string ixName, int count);
     List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix, int count);
-    Iterator GetIterator(string ixName, ReadOptions? readOpts = null);
+    Iterator GetIterator(string ixName, ReadOptions readOpts);
     List<T> GetAll<T>(string ixName);
     List<byte[]> GetRange(string ixName, int count, int toSkip);
     List<T> GetRange<T>(string ixName, int count, int toSkip);
     void Reset();
 
     ITransaction BeginTransaction();
-    RocksDb Open(string storePath);
+    RocksDb.RocksDb Open(string storePath);
     void Close();
     Checkpoint CreateCheckpoint();
 }

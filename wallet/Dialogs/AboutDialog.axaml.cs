@@ -49,9 +49,9 @@ public partial class AboutDialog : Window
         }
 
         var releaseStr = await result.Content.ReadAsStringAsync();
-        var release = JsonSerializer.Deserialize<GithubRelease>(releaseStr);
+        var release = JsonSerializer.Deserialize<GithubRelease>(releaseStr, SharedSourceGenerationContext.Default.GithubRelease);
 
-        if (Version.TryParse(release?.TagName, out var latestVersion))
+        if (Version.TryParse(release?.tag_name, out var latestVersion))
         {
             Model.UpdateAvailable = latestVersion > currentVersion;
         }

@@ -22,6 +22,8 @@ public class MiningTabModel : NotifyPropertyChanged
     private long _blocksFound;
     private ulong _blockReward;
 
+    public StateModel State { get; } = StateModel.Instance;
+
     public WalletModel? SelectedWallet
     {
         get => _selectedWallet; 

@@ -1,25 +1,20 @@
-using System.Net;
-using System.Net.WebSockets;
-using System.Text.Json;
-using System.Xml.Linq;
 using DnsClient;
 using Kryolite.EventBus;
+using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
+using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using LettuceEncrypt.Acme;
+using MemoryPack;
+using MemoryPack.Formatters;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.DataProtection;
-using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption;
-using Microsoft.AspNetCore.DataProtection.AuthenticatedEncryption.ConfigurationModel;
-using Microsoft.AspNetCore.DataProtection.XmlEncryption;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;
 
@@ -30,6 +25,96 @@ public class Startup
     public Startup(IConfiguration configuration)
     {
         Configuration = configuration;
+    }
+
+    public static void RegisterFormatters()
+    {
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NodeCandidate>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Message>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Reply>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<BlockBroadcast>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<BlockRequest>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<BlockResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<HeightRequest>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<HeightResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NodeBroadcast>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NodeInfoRequest>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NodeInfoResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<PendingRequest>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<PendingResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionBroadcast>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionRequest>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewBroadcast>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewRequestByHash>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewRequestById>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewRequestByRange>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewRangeResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<VoteBroadcast>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<VoteRequest>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<VoteResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<WalletContainer>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Address>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Block>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<CallMethod>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Contract>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ContractManifest>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ContractMethod>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ContractParam>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Effect>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<PrivateKey>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<PublicKey>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Ledger>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NewContract>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<SHA256Hash>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Signature>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Validator>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Token>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Transaction>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionPayload>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<View>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Vote>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Wallet>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Difficulty>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionDto>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ChainState>());
+
+        var txPayloadFormatter = new DynamicUnionFormatter<ITransactionPayload>(new[]
+        {
+            ((ushort)0, typeof(NewContract)),
+            ((ushort)1, typeof(CallMethod))
+        });
+
+        MemoryPackFormatterProvider.Register(txPayloadFormatter);
+
+        var packetFormatter = new DynamicUnionFormatter<IPacket>(new[]
+        {
+            ((ushort)0, typeof(NodeInfoRequest)),
+            ((ushort)1, typeof(NodeInfoResponse)),
+            ((ushort)4, typeof(HeightRequest)),
+            ((ushort)5, typeof(HeightResponse)),
+            ((ushort)6, typeof(BlockRequest)),
+            ((ushort)7, typeof(BlockResponse)),
+            ((ushort)8, typeof(VoteRequest)),
+            ((ushort)9, typeof(VoteResponse)),
+            ((ushort)10, typeof(ViewRequestByHash)),
+            ((ushort)11, typeof(ViewRequestById)),
+            ((ushort)12, typeof(ViewResponse)),
+            ((ushort)13, typeof(TransactionRequest)),
+            ((ushort)14, typeof(TransactionResponse)),
+            ((ushort)15, typeof(PendingRequest)),
+            ((ushort)16, typeof(PendingResponse)),
+            ((ushort)17, typeof(ViewRequestByRange)),
+            ((ushort)18, typeof(ViewRangeResponse)),
+            ((ushort)100, typeof(NodeBroadcast)),
+            ((ushort)101, typeof(ViewBroadcast)),
+            ((ushort)102, typeof(BlockBroadcast)),
+            ((ushort)103, typeof(VoteBroadcast)),
+            ((ushort)104, typeof(TransactionBroadcast))
+        });
+
+        MemoryPackFormatterProvider.Register(txPayloadFormatter);
     }
 
     public void Configure(IApplicationBuilder app)
@@ -49,166 +134,11 @@ public class Startup
         app.UseRouting();
         app.UseCors();
 
-        app.UseEndpoints(endpoints =>
-        {
-            // for let's encrypt
-            endpoints.MapGroup(".well-known").MapGet("{**catch-all}", async context =>
-            {
-                await context.Response.WriteAsync("OK");
-            });
-
-            endpoints.Map("whatisthis/{**catch-all}", async context => 
-            {
-                await context.Response.WriteAsync("OK");
-            });
-
-            endpoints.Map("hive/{**catch-all}", async context =>
-            {
-                await AuthorizeAndAcceptConnection(app, context);
-            });
-
-            endpoints.MapGet("/chainstate/listen", async (HttpContext ctx, IEventBus eventBus, CancellationToken ct) => {
-                ctx.Response.Headers.Append("Content-Type", "text/event-stream");
-
-                var subId = eventBus.Subscribe<ChainState>(async state =>
-                {
-                    await ctx.Response.WriteAsync($"data: ");
-                    await JsonSerializer.SerializeAsync(ctx.Response.Body, state);
-                    await ctx.Response.WriteAsync($"\n\n");
-                    await ctx.Response.Body.FlushAsync();
-                });
-
-                try
-                {
-                    await ct.WhenCancelled();
-                }
-                finally
-                {
-                    eventBus.Unsubscribe(subId);
-                }
-            });
-
-            endpoints.MapGet("/ledger/{address}/listen", async (string address, HttpContext ctx, IEventBus eventBus, CancellationToken ct) => {
-                ctx.Response.Headers.Append("Content-Type", "text/event-stream");
-
-                var addr = (Address)address;
-                var subId = eventBus.Subscribe<Ledger>(async ledger =>
-                {
-                    if (ledger.Address != addr)
-                    {
-                        return;
-                    }
-
-                    await ctx.Response.WriteAsync($"data: ");
-                    await JsonSerializer.SerializeAsync(ctx.Response.Body, ledger);
-                    await ctx.Response.WriteAsync($"\n\n");
-                    await ctx.Response.Body.FlushAsync();
-                });
-
-                try
-                {
-                    await ct.WhenCancelled();
-                }
-                finally
-                {
-                    eventBus.Unsubscribe(subId);
-                }
-            });
-
-            endpoints.MapGet("/contract/{address}/listen", async (string address, HttpContext ctx, IEventBus eventBus, CancellationToken ct) => {
-                ctx.Response.Headers.Append("Content-Type", "text/event-stream");
-
-                var addr = (Address)address;
-                var sub1 = eventBus.Subscribe<ApprovalEventArgs>(async approval =>
-                {
-                    if (approval.Contract != addr)
-                    {
-                        return;
-                    }
-
-                    var payload = new ContractEvent
-                    {
-                        Type = "Approval",
-                        Event = approval
-                    };
-
-                    await ctx.Response.WriteAsync($"data: ");
-                    await JsonSerializer.SerializeAsync(ctx.Response.Body, payload);
-                    await ctx.Response.WriteAsync($"\n\n");
-                    await ctx.Response.Body.FlushAsync();
-                });
-
-                var sub2 = eventBus.Subscribe<ConsumeTokenEventArgs>(async consume =>
-                {
-                    if (consume.Contract != addr)
-                    {
-                        return;
-                    }
-
-                    var payload = new ContractEvent
-                    {
-                        Type = "ConsumeToken",
-                        Event = consume
-                    };
-
-                    await ctx.Response.WriteAsync($"data: ");
-                    await JsonSerializer.SerializeAsync(ctx.Response.Body, payload);
-                    await ctx.Response.Body.FlushAsync();
-                });
-
-                var sub3 = eventBus.Subscribe<GenericEventArgs>(async generic =>
-                {
-                    if (generic.Contract != addr)
-                    {
-                        return;
-                    }
-
-                    var payload = new ContractEvent
-                    {
-                        Type = "Custom",
-                        Event = generic
-                    };
-
-                    await ctx.Response.WriteAsync($"data: ");
-                    await JsonSerializer.SerializeAsync(ctx.Response.Body, payload);
-                    await ctx.Response.WriteAsync($"\n\n");
-                    await ctx.Response.Body.FlushAsync();
-                });
-
-                var sub4 = eventBus.Subscribe<TransferTokenEventArgs>(async transfer =>
-                {
-                    if (transfer.Contract != addr)
-                    {
-                        return;
-                    }
-
-                    var payload = new ContractEvent
-                    {
-                        Type = "TransferToken",
-                        Event = transfer
-                    };
-
-                    await ctx.Response.WriteAsync($"data: ");
-                    await JsonSerializer.SerializeAsync(ctx.Response.Body, payload);
-                    await ctx.Response.WriteAsync($"\n\n");
-                    await ctx.Response.Body.FlushAsync();
-                });
-
-                try
-                {
-                    await ct.WhenCancelled();
-                }
-                finally
-                {
-                    eventBus.Unsubscribe(sub1);
-                    eventBus.Unsubscribe(sub2);
-                    eventBus.Unsubscribe(sub3);
-                    eventBus.Unsubscribe(sub4);
-                }
-            });
-
-            endpoints.MapControllers();
-        });
+        app.UseEndpoints(endpoints => endpoints
+            .RegisterAuthApi()
+            .RegisterBaseApi()
+            .RegisterEventApi()
+        );
     }
 
     public void ConfigureServices(IServiceCollection services)
@@ -217,18 +147,6 @@ public class Startup
         Directory.CreateDirectory(dataDir);
 
         BlockchainService.DATA_PATH = dataDir;
-
-        services.AddDataProtection()
-            .PersistKeysToFileSystem(new DirectoryInfo(dataDir))
-            .AddKeyManagementOptions(options =>
-            {
-                options.XmlEncryptor = new DummyXmlEncryptor();
-            })
-            .UseCryptographicAlgorithms(new AuthenticatedEncryptorConfiguration
-            {
-                EncryptionAlgorithm = EncryptionAlgorithm.AES_256_CBC,
-                ValidationAlgorithm = ValidationAlgorithm.HMACSHA256
-            });
 
         if(Configuration.GetSection("LettuceEncrypt").Exists())
         {
@@ -260,217 +178,19 @@ public class Startup
                     .AllowAnyMethod()
                     .AllowAnyHeader()
                 ))
-                .AddControllers()
-                .AddJsonOptions(options =>
+                .ConfigureHttpJsonOptions(options =>
                 {
-                    options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-                    options.JsonSerializerOptions.Converters.Add(new AddressConverter());
-                    options.JsonSerializerOptions.Converters.Add(new PrivateKeyConverter());
-                    options.JsonSerializerOptions.Converters.Add(new PublicKeyConverter());
-                    options.JsonSerializerOptions.Converters.Add(new SHA256HashConverter());
-                    options.JsonSerializerOptions.Converters.Add(new SignatureConverter());
-                    options.JsonSerializerOptions.Converters.Add(new DifficultyConverter());
-                    options.JsonSerializerOptions.Converters.Add(new BigIntegerConverter());
+                    options.SerializerOptions.TypeInfoResolverChain.Add(SharedSourceGenerationContext.Default);
+                    options.SerializerOptions.TypeInfoResolverChain.Add(NodeSourceGenerationContext.Default);
+                    options.SerializerOptions.PropertyNameCaseInsensitive = true;
+                    options.SerializerOptions.Converters.Add(new AddressConverter());
+                    options.SerializerOptions.Converters.Add(new PrivateKeyConverter());
+                    options.SerializerOptions.Converters.Add(new PublicKeyConverter());
+                    options.SerializerOptions.Converters.Add(new SHA256HashConverter());
+                    options.SerializerOptions.Converters.Add(new SignatureConverter());
+                    options.SerializerOptions.Converters.Add(new DifficultyConverter());
+                    options.SerializerOptions.Converters.Add(new BigIntegerConverter());
                 });
-    }
-
-    private async Task AuthorizeAndAcceptConnection(IApplicationBuilder app, HttpContext context)
-    {
-        if (!context.WebSockets.IsWebSocketRequest)
-        {
-            context.Response.StatusCode = StatusCodes.Status400BadRequest;
-            return;
-        }
-
-        using var webSocket = await context.WebSockets.AcceptWebSocketAsync();
-        var logger = app.ApplicationServices.GetRequiredService<ILogger<Startup>>();
-        using var scope = app.ApplicationServices.CreateScope();
-        var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
-
-        if (!int.TryParse(context.Request.Headers["kryo-apilevel"], out var apilevel))
-        {
-            logger.LogDebug("Received connection without api level, forcing disconnect...");
-            await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "API_LEVEL_NOT_SET", CancellationToken.None);
-            return;
-        }
-
-        if (apilevel < Constant.MIN_API_LEVEL)
-        {
-            logger.LogDebug("Incoming connection apilevel not supported ({apilevel}), forcing disconnect...", apilevel);
-            await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "UNSUPPORTED_API_LEVEL", CancellationToken.None);
-            return;
-        }
-
-        if (string.IsNullOrEmpty(context.Request.Headers["kryo-client-id"]))
-        {
-            logger.LogDebug("Received connection without client-id, forcing disconnect...");
-            await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "CLIENT_ID_NOT_SET", CancellationToken.None);
-            return;
-        }
-
-        if (!ulong.TryParse(context.Request.Headers["kryo-client-id"], out var clientId))
-        {
-            logger.LogDebug("Received connection with invalid client-id, forcing disconnect...");
-            await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "INVALID_CLIENT_ID", CancellationToken.None);
-            return;
-        }
-
-        if (networkManager.IsBanned(clientId))
-        {
-            logger.LogDebug("Received connection from banned node {clientId}, forcing disconnect...", clientId);
-            await webSocket.CloseAsync(WebSocketCloseStatus.NormalClosure, "BANNED_CLIENT", CancellationToken.None);
-            return;
-        }
-
-        if (context.Request.Headers["kryo-network"] != Constant.NETWORK_NAME)
-        {
-            if (logger.IsEnabled(LogLevel.Debug))
-            {
-                logger.LogDebug("Wrong network: '{kryoNetwork}'", context.Request.Headers["kryo-network"].ToString());
-            }
-
-            await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "WRONG_NETWORK", CancellationToken.None);
-            return;
-        }
-
-        var mesh = app.ApplicationServices.GetRequiredService<IMeshNetwork>();
-
-        if (clientId == mesh.GetServerId())
-        {
-            logger.LogDebug("Self connection, disconnecting client...");
-            await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "SELF_CONNECTION", CancellationToken.None);
-            return;
-        }
-
-        var url = context.Request.Headers["kryo-connect-to-url"];
-
-        if (!string.IsNullOrEmpty(url) && Uri.TryCreate(url, new UriCreationOptions(), out var uri))
-        {
-            if (logger.IsEnabled(LogLevel.Debug))
-            {
-                logger.LogInformation("Received connection from {url}", url.ToString());
-            }
-
-            var success = await Connection.TestConnectionAsync(uri);
-
-            if (!success)
-            {
-                logger.LogInformation("Force disconnect {uri}, reason: url not reachable", uri);
-                await webSocket.CloseAsync(WebSocketCloseStatus.ProtocolError, "URL_NOT_REACHABLE", CancellationToken.None);
-
-                return;
-            }
-
-            var urlPeer = new Peer(webSocket, clientId, uri, ConnectionType.IN, true, apilevel);
-            await mesh.AddSocketAsync(webSocket, urlPeer);
-
-            return;
-        }
-
-        IPAddress? address = null;
-        var forwardedFor = context.Request.Headers["X-Forwarded-For"].ToString();
-
-        logger.LogDebug("X-Forwarded-For = " + forwardedFor);
-
-        if (!string.IsNullOrEmpty(forwardedFor))
-        {
-            address = forwardedFor
-                .Split(",")
-                .Select(x => IPAddress.Parse(x.Trim()))
-                .Reverse()
-                .Where(x => x.IsPublic())
-                .LastOrDefault();
-
-            if (address == null)
-            {
-                address = forwardedFor
-                    .Split(",")
-                    .Select(x => IPAddress.Parse(x.Trim()))
-                    .Reverse()
-                    .LastOrDefault();
-            }
-        }
-
-        address ??= context.Request.HttpContext.Connection.RemoteIpAddress;
-
-        logger.LogInformation($"Received connection from {address}");
-
-        List<Uri> hosts = new List<Uri>();
-
-        var ports = context.Request.Headers["kryo-connect-to-ports"].ToString();
-
-        foreach (var portStr in ports.Split(','))
-        {
-            if (int.TryParse(portStr, out var port))
-            {
-                var builder = new UriBuilder()
-                {
-                    Host = address!.ToString(),
-                    Port = port
-                };
-
-                hosts.Add(builder.Uri);
-            }
-        }
-
-        Uri? bestUri = null;
-        bool isReachable = false;
-
-        foreach (var host in hosts)
-        {
-            try
-            {
-                var success = await Connection.TestConnectionAsync(host);
-
-                if (!success)
-                {
-                    logger.LogDebug($"Failed to open connection to {host}, skipping host...");
-                    continue;
-                }
-
-                bestUri = host;
-                isReachable = true;
-                break;
-            }
-            catch (Exception ex)
-            {
-                logger.LogDebug(ex, $"Connection failure: {host}");
-            }
-        }
-
-        if (bestUri == null)
-        {
-            bestUri = hosts.LastOrDefault();
-        }
-
-        if (bestUri == null)
-        {
-            bestUri = new UriBuilder
-            {
-                Host = context.Request.HttpContext.Connection.RemoteIpAddress?.ToString(),
-                Port = context.Request.HttpContext.Connection.RemotePort
-            }.Uri;
-        }
-
-        var peer = new Peer(webSocket, clientId, bestUri, ConnectionType.IN, isReachable, apilevel);
-
-        await mesh.AddSocketAsync(webSocket, peer);
-    }
-
-    class DummyXmlEncryptor : IXmlEncryptor
-    {
-        public EncryptedXmlInfo Encrypt(XElement plaintextElement)
-        {
-            return new EncryptedXmlInfo(plaintextElement, typeof(DummyXmlDecryptor));
-        }
-    }
-
-    class DummyXmlDecryptor : IXmlDecryptor
-    {
-        public XElement Decrypt(XElement encryptedElement)
-        {
-            return encryptedElement;
-        }
     }
 }
 

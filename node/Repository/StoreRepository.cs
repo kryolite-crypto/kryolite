@@ -1,9 +1,9 @@
 using Kryolite.Node.Storage;
+using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using MemoryPack;
 using Microsoft.Extensions.Configuration;
-using RocksDbSharp;
 using System.Buffers;
 using System.Data;
 
@@ -200,7 +200,8 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public long GetLastHeightContainingBlock()
     {
-        using var iterator = Storage.GetIterator("View");
+        using var opts = new ReadOptions();
+        using var iterator = Storage.GetIterator("View", opts);
 
         iterator.SeekToLast();
 
@@ -525,7 +526,8 @@ public class StoreRepository : IStoreRepository, IDisposable
     {
         var validators = new Dictionary<Address, Validator>();
 
-        using var iterator = Storage.GetIterator("Validator");
+        using var opts = new ReadOptions();
+        using var iterator = Storage.GetIterator("Validator", opts);
 
         iterator.SeekToLast();
 
@@ -571,10 +573,10 @@ public class StoreRepository : IStoreRepository, IDisposable
         var lowerBound = new byte[sizeof(long) * 2];
         ts.CopyTo(lowerBound, 0);
 
-        var opts = new ReadOptions();
-        opts.SetIterateLowerBound(lowerBound);
+        using var opts = new ReadOptions();
+        opts.IterateLowerBound(lowerBound);
 
-        using var iterator = Storage.GetIterator("ixScheduledTransaction");
+        using var iterator = Storage.GetIterator("ixScheduledTransaction", opts);
 
         iterator.SeekForPrev(key);
 
@@ -659,8 +661,8 @@ public class StoreRepository : IStoreRepository, IDisposable
         var lowerBound = new byte[Address.ADDRESS_SZ + sizeof(long)];
         address.Buffer.CopyTo(lowerBound, 0);
 
-        var opts = new ReadOptions();
-        opts.SetIterateLowerBound(lowerBound);
+        using var opts = new ReadOptions();
+        opts.IterateLowerBound(lowerBound);
 
         using var iterator = Storage.GetIterator("ixTransactionAddress", opts);
 

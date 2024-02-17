@@ -73,7 +73,7 @@ public class MeshNetwork : IMeshNetwork
 
             var content = await result.Content.ReadAsStringAsync();
 
-            return JsonSerializer.Deserialize<List<string>>(content) ?? new();
+            return JsonSerializer.Deserialize(content, SharedSourceGenerationContext.Default.ListString) ?? new();
         }
         catch (Exception ex)
         {

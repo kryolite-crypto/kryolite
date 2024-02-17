@@ -1,8 +1,7 @@
 ﻿using Kryolite.Node.Storage;
+using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using RocksDbSharp;
-using System.Numerics;
 
 namespace Kryolite.Node.Repository;
 

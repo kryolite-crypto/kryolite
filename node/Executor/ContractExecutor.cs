@@ -102,7 +102,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                             continue;
                         }
 
-                        var tokenBase = JsonSerializer.Deserialize<TokenBase>(json);
+                        var tokenBase = JsonSerializer.Deserialize(json, SharedSourceGenerationContext.Default.TokenBase);
 
                         if (tokenBase is null)
                         {

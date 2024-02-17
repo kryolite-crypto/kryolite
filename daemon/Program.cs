@@ -11,6 +11,11 @@ using System.Reflection;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
+using System.Numerics;
+using Kryolite.Shared.Blockchain;
+using static Kryolite.Node.Startup;
+using MemoryPack.Formatters;
+using MemoryPack;
 
 namespace Kryolite.Daemon;
 
@@ -18,6 +23,8 @@ internal class Program
 {
     static async Task Main(string[] args)
     {
+        Startup.RegisterFormatters();
+
         var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly()!, typeof(AssemblyInformationalVersionAttribute)) 
             as AssemblyInformationalVersionAttribute;
 
@@ -38,7 +45,7 @@ internal class Program
             .Build();
 
         var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-        var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+        var dataDir = config.GetValue("data-dir", defaultDataDir) ?? defaultDataDir;
 
         Directory.CreateDirectory(dataDir);
 
@@ -95,7 +102,7 @@ internal class Program
                 .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
                 .AddEnvironmentVariables(prefix: "KRYOLITE__")
                 .AddCommandLine(args))
-            .ConfigureLogging(configure => configure.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>())
+            .ConfigureLogging(configure => configure.AddCleanConsole())
             .UseStartup<Startup>()
             .Build();
 

@@ -12,6 +12,8 @@ public class SendTabViewModel : NotifyPropertyChanged
 {
     public event EventHandler? SendTransactionClicked;
 
+    public StateModel State { get; } = StateModel.Instance;
+
     private WalletModel? selectedWallet;
     private string? recipient;
     private string? amount;

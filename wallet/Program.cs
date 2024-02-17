@@ -26,7 +26,10 @@ namespace Kryolite.Wallet
         private static IWebHost Host = default!;
 
         [STAThread]
-        public static int Main(string[] args) {
+        public static int Main(string[] args)
+        {
+            Startup.RegisterFormatters();
+
             var config = new ConfigurationBuilder()
                 .AddCommandLine(args)
                 .Build();
@@ -152,8 +155,9 @@ namespace Kryolite.Wallet
 
         // Avalonia configuration, don't remove; also used by visual designer.
         public static AppBuilder BuildAvaloniaApp()
-            => AppBuilder.Configure(() => new App())
+            => AppBuilder.Configure<App>()
                 .UsePlatformDetect()
+                .WithInterFont()
                 .LogToTrace();
 
         private static void CreateUriScheme()

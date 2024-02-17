@@ -9,8 +9,7 @@ namespace Kryolite.Shared;
 
 // only partially implemented
 // https://api.github.com/repos/kryolite-crypto/kryolite/releases/latest
-public class GithubRelease
+public partial class GithubRelease
 {
-    [JsonPropertyName("tag_name")]
-    public string TagName { get; set; } = string.Empty;
+    public string tag_name { get; set; } = string.Empty;
 }

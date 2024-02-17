@@ -88,7 +88,7 @@ public static class SendCmd
                     Payload = new CallMethod
                     {
                         Method = contractMethod,
-                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<string[]>(contractParams, Program.serializerOpts)
+                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<string[]>(contractParams, SharedSourceGenerationContext.Default.StringArray)
                     }
                 };
             }
@@ -107,7 +107,7 @@ public static class SendCmd
 
             tx.Sign(wallet.PrivateKey);
 
-            var json = JsonSerializer.Serialize(tx, Program.serializerOpts);
+            var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
             var response = await http.PostAsync($"{node}/tx?wait={wait}", stringContent);

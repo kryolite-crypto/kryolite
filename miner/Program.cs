@@ -7,26 +7,15 @@ using System.Text.Json;
 using System.Diagnostics;
 using System.CommandLine.Parsing;
 using System.Collections.Concurrent;
-using System.Runtime.InteropServices;
 using Kryolite.Shared.Blockchain;
 
 public class Program
 {
-    private static JsonSerializerOptions SerializerOpts = new JsonSerializerOptions();
     private static ManualResetEvent Pause = new ManualResetEvent(false);
     private static CancellationTokenSource TokenSource = new CancellationTokenSource();
 
     public static async Task<int> Main(string[] args)
     {
-        SerializerOpts.PropertyNameCaseInsensitive = true;
-        SerializerOpts.Converters.Add(new PrivateKeyConverter());
-        SerializerOpts.Converters.Add(new PublicKeyConverter());
-        SerializerOpts.Converters.Add(new SHA256HashConverter());
-        SerializerOpts.Converters.Add(new SignatureConverter());
-        SerializerOpts.Converters.Add(new DifficultyConverter());
-        SerializerOpts.Converters.Add(new AddressConverter());
-
-
         var rootCmd = new RootCommand("Kryolite Miner");
 
         var nodeOption = new Option<string?>(name: "--url", description: "Node url");
@@ -144,7 +133,7 @@ public class Program
                                 };
 
                                 _ = Task.Run(async () => {
-                                    var json = JsonSerializer.Serialize(solution, SerializerOpts);
+                                    var json = JsonSerializer.Serialize(solution, SharedSourceGenerationContext.Default.Blocktemplate);
                                     using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
                                     int attempts = 0;
@@ -235,7 +224,7 @@ public class Program
             attempts = 0;
 
             var json = await request.Content.ReadAsStringAsync();
-            var blocktemplate = JsonSerializer.Deserialize<Blocktemplate>(json, SerializerOpts);
+            var blocktemplate = JsonSerializer.Deserialize(json, SharedSourceGenerationContext.Default.Blocktemplate);
 
             if (!restart && (blocktemplate == null || blocktemplate.ParentHash == current!.ParentHash))
             {

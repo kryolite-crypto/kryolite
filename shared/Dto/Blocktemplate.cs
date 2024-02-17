@@ -1,9 +1,12 @@
 using System.Collections.Immutable;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using System.Text.Json.Serialization.Metadata;
 using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Shared;
 
-public class Blocktemplate
+public partial class Blocktemplate
 {
     public long Height { get; set; }
     public Address To { get; set; } = Address.NULL_ADDRESS;

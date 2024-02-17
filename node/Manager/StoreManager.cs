@@ -1,11 +1,11 @@
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
+using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Logging;
-using RocksDbSharp;
 
 namespace Kryolite.Node;
 

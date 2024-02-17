@@ -31,14 +31,14 @@ public static class WalletCmd
             switch (output)
             {
                 case "json":
-                    var json = JsonSerializer.Serialize(new {
+                    /*var json = JsonSerializer.Serialize(new {
                         Address = wallet.Address,
                         PrivateKey = wallet.PrivateKey.ToString(),
                         PublicKey = wallet.PublicKey.ToString()
-                    }, Program.serializerOpts);
+                    });
 
-                    Console.WriteLine(json);
-                    break;
+                    Console.WriteLine(json);*/
+                    throw new NotImplementedException();
                 default:
                     Console.WriteLine(wallet.Address);
                     break;
@@ -53,15 +53,15 @@ public static class WalletCmd
             switch (output)
             {
                 case "json":
-                    var json = JsonSerializer.Serialize(wallets.Select(x => new {
+                    /*var json = JsonSerializer.Serialize(wallets.Select(x => new {
                             Address = x.Value.Address,
                             PrivateKey = x.Value.PrivateKey.ToString(),
                             PublicKey = x.Value.PublicKey.ToString()
                         }
                     ).ToList(), Program.serializerOpts);
 
-                    Console.WriteLine(json);
-                    break;
+                    Console.WriteLine(json);*/
+                    throw new NotImplementedException();
                 default:
                     foreach (var wallet in wallets)
                     {

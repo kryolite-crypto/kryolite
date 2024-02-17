@@ -24,6 +24,7 @@ public class KeyRepository : IKeyRepository
 
     public Wallet GetKey()
     {
+        var a = new Wallet();
         var bytes = File.ReadAllBytes(StorePath);
         return MemoryPackSerializer.Deserialize<Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
     }

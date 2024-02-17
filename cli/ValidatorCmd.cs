@@ -54,30 +54,20 @@ public static class ValidatorCmd
 
             if (string.IsNullOrEmpty(text))
             {
-                var keyAnswer = new
-                {
-                    NodeAddress = keys.PublicKey.ToAddress().ToString(),
-                    RewardAddress = "",
-                    Stake = 0,
-                    Status = "Stake not set"
-                };
-
-                Console.WriteLine(JsonSerializer.Serialize(keyAnswer, Program.serializerOpts));
+                Console.WriteLine($"NodeAddress: {keys.PublicKey.ToAddress().ToString()}");
+                Console.WriteLine($"RewardAddress: ");
+                Console.WriteLine($"Stake: 0");
+                Console.WriteLine($"Status: Stake not set");
 
                 return;
             }
 
-            var stake = JsonSerializer.Deserialize<Validator>(text, Program.serializerOpts);
+            var stake = JsonSerializer.Deserialize(text, SharedSourceGenerationContext.Default.Validator);
 
-            var answer = new
-            {
-                NodeAddress = keys.PublicKey.ToAddress().ToString(),
-                RewardAddress = stake?.RewardAddress.ToString(),
-                Stake = stake?.Stake,
-                Status = stake?.Stake >= Constant.MIN_STAKE ? "Enabled" : "Disabled"
-            };
-
-            Console.WriteLine(JsonSerializer.Serialize(answer, Program.serializerOpts));
+            Console.WriteLine($"NodeAddress: {stake!.NodeAddress}");
+            Console.WriteLine($"RewardAddress: {stake!.RewardAddress}");
+            Console.WriteLine($"Stake: {stake!.Stake}");
+            Console.WriteLine($"Status: Enabled");
         }, nodeOption);
 
         enableCmd.SetHandler(async (node, rewardAddress) =>
@@ -118,7 +108,7 @@ public static class ValidatorCmd
 
         tx.Sign(keys.PrivateKey);
 
-        var json = JsonSerializer.Serialize(tx, Program.serializerOpts);
+        var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
         var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
         var response = await http.PostAsync($"{node}/tx", stringContent);

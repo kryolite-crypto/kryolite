@@ -56,7 +56,7 @@ public static class ContractCmd
 
             var bytes = await File.ReadAllBytesAsync(file);
             var manifestJson = await File.ReadAllTextAsync(manifestFile, Encoding.UTF8);
-            var manifest = JsonSerializer.Deserialize<ContractManifest>(manifestJson, Program.serializerOpts);
+            var manifest = JsonSerializer.Deserialize(manifestJson, SharedSourceGenerationContext.Default.ContractManifest);
 
             if (manifest == null)
             {
@@ -89,7 +89,7 @@ public static class ContractCmd
 
             tx.Sign(wallet.PrivateKey);
             
-            var json = JsonSerializer.Serialize(tx, Program.serializerOpts);
+            var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
 
             using var http = new HttpClient();

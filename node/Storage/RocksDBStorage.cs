@@ -1,16 +1,13 @@
-﻿using Kryolite.Shared;
+﻿using Kryolite.RocksDb;
+using Kryolite.Shared;
 using MemoryPack;
 using Microsoft.Extensions.Configuration;
-using RocksDbSharp;
-using System.Numerics;
-using System.Runtime.InteropServices;
 
 namespace Kryolite.Node.Storage;
 
 internal class RocksDBStorage : IStorage
 {
-    private RocksDb Database { get; set; }
-    private Dictionary<string, (int KeySize, ColumnFamilyHandle Handle)>  ColumnFamilies { get; } = new();
+    private RocksDb.RocksDb Database { get; set; }
     private ulong CurrentKey = 0;
     private string StorePath;
 
@@ -35,86 +32,42 @@ internal class RocksDBStorage : IStorage
         Database = Open(storePath);
     }
 
-    public RocksDb Open(string storePath)
+    public RocksDb.RocksDb Open(string storePath)
     {
         var options = new DbOptions()
-            .SetCreateIfMissing(true)
-            .SetWalDir(storePath)
-            .SetKeepLogFileNum(1);
+            .CreateIfMissing(true)
+            .CreateMissingColumnFamilies(true)
+            .WalDir(storePath)
+            .KeepLogFileNum(1);
 
-        var opts = new ColumnFamilyOptions()
-            .SetCreateIfMissing(true)
-            .SetCreateMissingColumnFamilies(true);
+        var opts = new DbOptions()
+            .CreateIfMissing(true)
+            .CreateMissingColumnFamilies(true);
 
-        if (!Directory.Exists(storePath))
+        var columns = new List<(string ColumnName, int KeySize, DbOptions ColumnOptions)>()
         {
-            using (var db = RocksDb.Open(options, storePath, new ColumnFamilies()))
-            {
-                db.CreateColumnFamily(opts, "Key");
-                db.CreateColumnFamily(opts, "Block");
-                db.CreateColumnFamily(opts, "View");
-                db.CreateColumnFamily(opts, "Vote");
-                db.CreateColumnFamily(opts, "ChainState");
-                db.CreateColumnFamily(opts, "Ledger");
-                db.CreateColumnFamily(opts, "Transaction");
-                db.CreateColumnFamily(opts, "Contract");
-                db.CreateColumnFamily(opts, "ContractCode");
-                db.CreateColumnFamily(opts, "ContractSnapshot");
-                db.CreateColumnFamily(opts, "Token");
-                db.CreateColumnFamily(opts, "Validator");
-                db.CreateColumnFamily(opts, "ixViewHash");
-                db.CreateColumnFamily(opts, "ixTokenId");
-                db.CreateColumnFamily(opts, "ixTokenLedger");
-                db.CreateColumnFamily(opts, "ixTransactionId");
-                db.CreateColumnFamily(opts, "ixTransactionAddress");
-                db.CreateColumnFamily(opts, "ixScheduledTransaction");
-            }
-        }
-
-        var families = new ColumnFamilies
-        {
-            { "Key", opts },
-            { "Block", opts },
-            { "View", opts },
-            { "Vote", opts },
-            { "ChainState", opts },
-            { "Ledger", opts },
-            { "Transaction", opts },
-            { "Contract", opts },
-            { "ContractCode", opts },
-            { "ContractSnapshot", opts },
-            { "Token", opts },
-            { "Validator", opts},
-            { "ixViewHash", opts },
-            { "ixTokenId", opts },
-            { "ixTokenLedger", opts },
-            { "ixTransactionId", opts },
-            { "ixTransactionAddress", opts },
-            { "ixScheduledTransaction", opts }
+            ("default", 0, opts),
+            ("Key", 0, opts),
+            ("Block", SHA256Hash.HASH_SZ, opts),
+            ("View", sizeof(long), opts),
+            ("Vote", SHA256Hash.HASH_SZ, opts),
+            ("ChainState", sizeof(long), opts),
+            ("Ledger", Address.ADDRESS_SZ, opts),
+            ("Transaction", sizeof(long), opts),
+            ("Contract", Address.ADDRESS_SZ, opts),
+            ("ContractCode", Address.ADDRESS_SZ, opts),
+            ("ContractSnapshot", Address.ADDRESS_SZ + sizeof(long), opts),
+            ("Token", sizeof(long), opts),
+            ("Validator", Address.ADDRESS_SZ, opts),
+            ("ixViewHash", SHA256Hash.HASH_SZ, opts),
+            ("ixTokenId", Address.ADDRESS_SZ + SHA256Hash.HASH_SZ, opts),
+            ("ixTokenLedger", Address.ADDRESS_SZ + sizeof(long), opts),
+            ("ixTransactionId", SHA256Hash.HASH_SZ, opts),
+            ("ixTransactionAddress", Address.ADDRESS_SZ + sizeof(long), opts),
+            ("ixScheduledTransaction", Address.ADDRESS_SZ + sizeof(long), opts)
         };
 
-        Database = RocksDb.Open(options, storePath, families);
-
-        ColumnFamilies.Clear();
-
-        ColumnFamilies.Add("Key", (0, Database.GetColumnFamily("Key")));
-        ColumnFamilies.Add("Block", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("Block")));
-        ColumnFamilies.Add("View", (sizeof(long), Database.GetColumnFamily("View")));
-        ColumnFamilies.Add("Vote", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("Vote")));
-        ColumnFamilies.Add("ChainState", (sizeof(long), Database.GetColumnFamily("ChainState")));
-        ColumnFamilies.Add("Ledger", (Address.ADDRESS_SZ, Database.GetColumnFamily("Ledger")));
-        ColumnFamilies.Add("Transaction", (sizeof(long), Database.GetColumnFamily("Transaction")));
-        ColumnFamilies.Add("Contract", (Address.ADDRESS_SZ, Database.GetColumnFamily("Contract")));
-        ColumnFamilies.Add("ContractCode", (Address.ADDRESS_SZ, Database.GetColumnFamily("ContractCode")));
-        ColumnFamilies.Add("ContractSnapshot", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ContractSnapshot")));
-        ColumnFamilies.Add("Token", (sizeof(long), Database.GetColumnFamily("Token")));
-        ColumnFamilies.Add("Validator", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("Validator")));
-        ColumnFamilies.Add("ixViewHash", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixViewHash")));
-        ColumnFamilies.Add("ixTokenId", (Address.ADDRESS_SZ + SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixTokenId")));
-        ColumnFamilies.Add("ixTokenLedger", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTokenLedger")));
-        ColumnFamilies.Add("ixTransactionId", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixTransactionId")));
-        ColumnFamilies.Add("ixTransactionAddress", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTransactionAddress")));
-        ColumnFamilies.Add("ixScheduledTransaction", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixScheduledTransaction")));
+        Database = new RocksDb.RocksDb(StorePath, options, columns);
 
         CurrentKey = InitializeKey();
 
@@ -123,7 +76,6 @@ internal class RocksDBStorage : IStorage
 
     public void Close()
     {
-        ColumnFamilies.Clear();
         Database.Dispose();
     }
 
@@ -134,25 +86,26 @@ internal class RocksDBStorage : IStorage
 
     public bool Exists(string ixName, byte[] key)
     {
-        var ix = ColumnFamilies[ixName];
-        return Database.HasKey(key, ix.Handle);
+        return Database.HasKey(ixName, key);
     }
 
     public byte[]? Get(string ixName, byte[] key)
     {
-        var ix = ColumnFamilies[ixName];
-        return Database.Get(key, ix.Handle) ?? default;
+        var bytes = Database.Get(ixName, key);
+
+        if (bytes.Length == 0)
+        {
+            return null;
+        }
+        
+        return bytes;
     }
 
     public T? Get<T>(string ixName, byte[] key)
     {
-        byte[] result;
+        byte[] result = Database.Get(ixName, key);
 
-        var ix = ColumnFamilies[ixName];
-
-        result = Database.Get(key, ix.Handle);
-
-        if (result is null)
+        if (result.Length == 0)
         {
             return default;
         }
@@ -162,98 +115,74 @@ internal class RocksDBStorage : IStorage
 
     public byte[][] GetMany(string ixName, byte[][] keys)
     {
-        var ix = ColumnFamilies[ixName];
-
-        var handles = new ColumnFamilyHandle[keys.Length];
-        Array.Fill(handles, ix.Handle);
-
-        var resultCollection = Database.MultiGet(keys, handles);
-        var results = new byte[resultCollection.Length][];
-
-        for (int i = 0; i < resultCollection.Length; i++)
-        {
-            results[i] = resultCollection[i].Value;
-        }
-
-        return results;
+        return Database.GetMany(ixName, keys);
     }
 
     public List<T> GetMany<T>(string ixName, byte[][] keys)
     {
-        var ix = ColumnFamilies[ixName];
-
-        var handles = new ColumnFamilyHandle[keys.Length];
-        Array.Fill(handles, ix.Handle);
-
-        var results = Database.MultiGet(keys, handles);
-        var transactions = new List<T>(results.Length);
+        var results = Database.GetMany(ixName, keys);
+        var items = new List<T>(results.Length);
 
         foreach (var result in results)
         {
-            var data = MemoryPackSerializer.Deserialize<T>(result.Value);
+            var data = MemoryPackSerializer.Deserialize<T>(result);
 
             if (data is not null)
             {
-                transactions.Add(data);
+                items.Add(data);
             }
         }
 
-        return transactions;
+        return items;
     }
 
     public void Put(string ixName, ReadOnlySpan<byte> key, byte[] bytes, ITransaction? transaction = null)
     {
-        var ix = ColumnFamilies[ixName];
-
         if (transaction is not null)
         {
-            transaction.GetConnection().Put(key, bytes, ix.Handle);
+            transaction.GetConnection().Put(ixName, key, bytes);
             return;
         }
 
-        Database.Put(key, bytes, ix.Handle);
+        Database.Put(ixName, key, bytes);
     }
 
     public void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity, ITransaction? transaction = null)
     {
-        var ix = ColumnFamilies[ixName];
         var bytes = MemoryPackSerializer.Serialize<T>(entity);
 
         if (transaction is not null)
         {
-            transaction.GetConnection().Put(key, bytes, ix.Handle);
+            transaction.GetConnection().Put(ixName, key, bytes);
             return;
         }
 
-        Database.Put(key, bytes, ix.Handle);
+        Database.Put(ixName, key, bytes);
     }
 
     public void Delete(string ixName, ReadOnlySpan<byte> key, ITransaction? transaction = null)
     {
-        var ix = ColumnFamilies[ixName];
-
         if (transaction is not null)
         {
-            transaction.GetConnection().Delete(key, ix.Handle);
+            transaction.GetConnection().Delete(ixName, key);
             return;
         }
 
-        Database.Remove(key, ix.Handle);
+        Database.Delete(ixName, key);
     }
 
     public byte[]? FindFirst(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = ColumnFamilies[ixName];
-
+        var keySize = Database.KeySize(ixName);
         var upperBound = keyPrefix.ToArray();
-        Array.Resize(ref upperBound, ix.KeySize);
-        Array.Fill(upperBound, (byte)255, keyPrefix.Length, ix.KeySize - keyPrefix.Length);
+        Array.Resize(ref upperBound, keySize);
+        Array.Fill(upperBound, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound);
+        using var readOptions = new ReadOptions();
+        readOptions.PrefixSameAsStart(true);
+        readOptions.IterateUpperBound(upperBound);
 
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -267,17 +196,16 @@ internal class RocksDBStorage : IStorage
 
     public T? FindFirst<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = ColumnFamilies[ixName];
-
+        var keySize = Database.KeySize(ixName);
         var upperBound = keyPrefix.ToArray();
-        Array.Resize(ref upperBound, ix.KeySize);
-        Array.Fill(upperBound, (byte)255, keyPrefix.Length, ix.KeySize - keyPrefix.Length);
+        Array.Resize(ref upperBound, keySize);
+        Array.Fill(upperBound, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound);
+        using var readOptions = new ReadOptions();
+        readOptions.PrefixSameAsStart(true);
+        readOptions.IterateUpperBound(upperBound);
 
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -291,17 +219,16 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = ColumnFamilies[ixName];
-
+        var keySize = Database.KeySize(ixName);
         var upperBound = keyPrefix.ToArray();
-        Array.Resize(ref upperBound, ix.KeySize);
-        Array.Fill(upperBound, (byte)255, keyPrefix.Length, ix.KeySize - keyPrefix.Length);
+        Array.Resize(ref upperBound, keySize);
+        Array.Fill(upperBound, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound);
+        using var readOptions = new ReadOptions();
+        readOptions.PrefixSameAsStart(true);
+        readOptions.IterateUpperBound(upperBound);
         
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -318,17 +245,16 @@ internal class RocksDBStorage : IStorage
 
     public List<T> FindAll<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = ColumnFamilies[ixName];
-
+        var keySize = Database.KeySize(ixName);
         var upperBound = keyPrefix.ToArray();
-        Array.Resize(ref upperBound, ix.KeySize);
-        Array.Fill(upperBound, (byte)255, keyPrefix.Length, ix.KeySize - keyPrefix.Length);
+        Array.Resize(ref upperBound, keySize);
+        Array.Fill(upperBound, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-        readOptions.SetIterateUpperBound(upperBound);
+        using var readOptions = new ReadOptions();
+        readOptions.PrefixSameAsStart(true);
+        readOptions.IterateUpperBound(upperBound);
 
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.Seek(keyPrefix);
 
@@ -351,12 +277,10 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> FindAll(string ixName)
     {
-        var ix = ColumnFamilies[ixName];
+        using var readOptions = new ReadOptions();
+        readOptions.PrefixSameAsStart(true);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetPrefixSameAsStart(true);
-
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToFirst();
 
@@ -373,8 +297,8 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> FindLast(string ixName, int count)
     {
-        var ix = ColumnFamilies[ixName];
-        using var iterator = Database.NewIterator(ix.Handle);
+        using var readOptions = new ReadOptions();
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToLast();
 
@@ -397,8 +321,8 @@ internal class RocksDBStorage : IStorage
 
     public List<T> FindLast<T>(string ixName, int count)
     {
-        var ix = ColumnFamilies[ixName];
-        using var iterator = Database.NewIterator(ix.Handle);
+        using var readOptions = new ReadOptions();
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToLast();
 
@@ -426,19 +350,18 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> FindLast(string ixName, ReadOnlySpan<byte> keyPrefix, int count)
     {
-        var ix = ColumnFamilies[ixName];
-
+        var keySize = Database.KeySize(ixName);
         var key = keyPrefix.ToArray();
-        Array.Resize(ref key, ix.KeySize);
-        Array.Fill(key, (byte)255, keyPrefix.Length, ix.KeySize - keyPrefix.Length);
+        Array.Resize(ref key, keySize);
+        Array.Fill(key, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
 
         var lowerBound = keyPrefix.ToArray();
-        Array.Resize(ref lowerBound, ix.KeySize);
+        Array.Resize(ref lowerBound, keySize);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetIterateLowerBound(lowerBound);
+        using var readOptions = new ReadOptions();
+        readOptions.IterateLowerBound(lowerBound);
 
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
         iterator.SeekForPrev(key);
 
         var results = new List<byte[]>(Math.Max(count, 0));
@@ -460,9 +383,8 @@ internal class RocksDBStorage : IStorage
 
     public T? FindLast<T>(string ixName)
     {
-        var ix = ColumnFamilies[ixName];
-
-        using var iterator = Database.NewIterator(ix.Handle);
+        using var readOptions = new ReadOptions();
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToLast();
 
@@ -476,9 +398,8 @@ internal class RocksDBStorage : IStorage
 
     public byte[]? FindLast(string ixName)
     {
-        var ix = ColumnFamilies[ixName];
-
-        using var iterator = Database.NewIterator(ix.Handle);
+        using var readOptions = new ReadOptions();
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToLast();
 
@@ -492,19 +413,18 @@ internal class RocksDBStorage : IStorage
 
     public T? FindLast<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = ColumnFamilies[ixName];
-
+        var keySize = Database.KeySize(ixName);
         var key = keyPrefix.ToArray();
-        Array.Resize(ref key, ix.KeySize);
-        Array.Fill(key, (byte)255, keyPrefix.Length, ix.KeySize - keyPrefix.Length);
+        Array.Resize(ref key, keySize);
+        Array.Fill(key, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
 
         var lowerBound = keyPrefix.ToArray();
-        Array.Resize(ref lowerBound, ix.KeySize);
+        Array.Resize(ref lowerBound, keySize);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetIterateLowerBound(lowerBound);
+        using var readOptions = new ReadOptions();
+        readOptions.IterateLowerBound(lowerBound);
 
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
         iterator.SeekForPrev(key);
 
         if (!iterator.Valid())
@@ -517,19 +437,18 @@ internal class RocksDBStorage : IStorage
 
     public byte[]? FindLast(string ixName, ReadOnlySpan<byte> keyPrefix)
     {
-        var ix = ColumnFamilies[ixName];
-
+        var keySize = Database.KeySize(ixName);
         var key = keyPrefix.ToArray();
-        Array.Resize(ref key, ix.KeySize);
-        Array.Fill(key, (byte)255, keyPrefix.Length, ix.KeySize - keyPrefix.Length);
+        Array.Resize(ref key, keySize);
+        Array.Fill(key, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
 
         var lowerBound = keyPrefix.ToArray();
-        Array.Resize(ref lowerBound, ix.KeySize);
+        Array.Resize(ref lowerBound, keySize);
 
-        var readOptions = new ReadOptions();
-        readOptions.SetIterateLowerBound(lowerBound);
+        using var readOptions = new ReadOptions();
+        readOptions.IterateLowerBound(lowerBound);
 
-        using var iterator = Database.NewIterator(ix.Handle, readOptions);
+        using var iterator = Database.CreateIterator(ixName, readOptions);
         iterator.SeekForPrev(key);
 
         if (!iterator.Valid())
@@ -542,9 +461,8 @@ internal class RocksDBStorage : IStorage
 
     public List<T> GetAll<T>(string ixName)
     {
-        var ix = ColumnFamilies[ixName];
-
-        using var iterator = Database.NewIterator(ix.Handle);
+        using var readOptions = new ReadOptions();
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToFirst();
 
@@ -565,10 +483,9 @@ internal class RocksDBStorage : IStorage
         return results;
     }
 
-    public Iterator GetIterator(string ixName, ReadOptions? readOpts = null)
+    public Iterator GetIterator(string ixName, ReadOptions readOpts)
     {
-        var ix = ColumnFamilies[ixName];
-        return Database.NewIterator(ix.Handle, readOpts);
+        return Database.CreateIterator(ixName, readOpts);
     }
 
     public ulong GetCurrentKey()
@@ -582,10 +499,7 @@ internal class RocksDBStorage : IStorage
 
         if (transaction is null)
         {
-            var ix = ColumnFamilies["Key"];
-            var key = new byte[1];
-
-            Database.Put(key, BitConverter.GetBytes(next), ix.Handle);
+            Database.Put("Key", [], BitConverter.GetBytes(next));
         }
 
         return next;
@@ -593,25 +507,20 @@ internal class RocksDBStorage : IStorage
 
     private ulong InitializeKey()
     {
-        var ix = ColumnFamilies["Key"];
-
-        var key = new byte[0];
-
-        if (Database.HasKey(key, ix.Handle))
+        if (Database.HasKey("Key", []))
         {
-            return BitConverter.ToUInt64(Database.Get(key, ix.Handle));
+            return BitConverter.ToUInt64(Database.Get("Key", []));
         }
 
-        Database.Put(key, BitConverter.GetBytes(0UL), ix.Handle);
+        Database.Put("Key", [], BitConverter.GetBytes(0UL));
 
         return 0;
     }
 
     public List<T> GetRange<T>(string ixName, int count, int toSkip)
     {
-        var ix = ColumnFamilies[ixName];
-
-        using var iterator = Database.NewIterator(ix.Handle);
+        using var readOptions = new ReadOptions();
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToLast();
 
@@ -647,9 +556,8 @@ internal class RocksDBStorage : IStorage
 
     public List<byte[]> GetRange(string ixName, int count, int toSkip)
     {
-        var ix = ColumnFamilies[ixName];
-
-        using var iterator = Database.NewIterator(ix.Handle);
+        using var readOptions = new ReadOptions();
+        using var iterator = Database.CreateIterator(ixName, readOptions);
 
         iterator.SeekToLast();
 
@@ -680,68 +588,24 @@ internal class RocksDBStorage : IStorage
 
     public void Reset()
     {
-        Database.DropColumnFamily("Key");
-        Database.DropColumnFamily("Block");
-        Database.DropColumnFamily("View");
-        Database.DropColumnFamily("Vote");
-        Database.DropColumnFamily("ChainState");
-        Database.DropColumnFamily("Ledger");
-        Database.DropColumnFamily("Transaction");
-        Database.DropColumnFamily("Contract");
-        Database.DropColumnFamily("ContractCode");
-        Database.DropColumnFamily("ContractSnapshot");
-        Database.DropColumnFamily("Token");
-        Database.DropColumnFamily("Validator");
-        Database.DropColumnFamily("ixViewHash");
-        Database.DropColumnFamily("ixTokenId");
-        Database.DropColumnFamily("ixTokenLedger");
-        Database.DropColumnFamily("ixTransactionNum");
-        Database.DropColumnFamily("ixTransactionAddress");
-        Database.DropColumnFamily("ixScheduledTransaction");
-
-        var opts = new ColumnFamilyOptions()
-            .SetCreateIfMissing(true)
-            .SetCreateMissingColumnFamilies(true);
-
-        Database.CreateColumnFamily(opts, "Key");
-        Database.CreateColumnFamily(opts, "Block");
-        Database.CreateColumnFamily(opts, "View");
-        Database.CreateColumnFamily(opts, "Vote");
-        Database.CreateColumnFamily(opts, "ChainState");
-        Database.CreateColumnFamily(opts, "Ledger");
-        Database.CreateColumnFamily(opts, "Transaction");
-        Database.CreateColumnFamily(opts, "Contract");
-        Database.CreateColumnFamily(opts, "ContractCode");
-        Database.CreateColumnFamily(opts, "ContractSnapshot");
-        Database.CreateColumnFamily(opts, "Token");
-        Database.CreateColumnFamily(opts, "Validator");
-        Database.CreateColumnFamily(opts, "ixViewHash");
-        Database.CreateColumnFamily(opts, "ixTokenId");
-        Database.CreateColumnFamily(opts, "ixTokenLedger");
-        Database.CreateColumnFamily(opts, "ixTransactionNum");
-        Database.CreateColumnFamily(opts, "ixTransactionAddress");
-        Database.CreateColumnFamily(opts, "ixScheduledTransaction");
-
-        ColumnFamilies.Clear();
-        ColumnFamilies.Add("Key", (0, Database.GetColumnFamily("Key")));
-        ColumnFamilies.Add("Block", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("Block")));
-        ColumnFamilies.Add("View", (sizeof(long), Database.GetColumnFamily("View")));
-        ColumnFamilies.Add("Vote", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("Vote")));
-        ColumnFamilies.Add("ChainState", (sizeof(long), Database.GetColumnFamily("ChainState")));
-        ColumnFamilies.Add("Ledger", (Address.ADDRESS_SZ, Database.GetColumnFamily("Ledger")));
-        ColumnFamilies.Add("Transaction", (sizeof(long), Database.GetColumnFamily("Transaction")));
-        ColumnFamilies.Add("ScheduledTransaction", (sizeof(long), Database.GetColumnFamily("ScheduledTransaction")));
-        ColumnFamilies.Add("Contract", (Address.ADDRESS_SZ, Database.GetColumnFamily("Contract")));
-        ColumnFamilies.Add("ContractCode", (Address.ADDRESS_SZ, Database.GetColumnFamily("ContractCode")));
-        ColumnFamilies.Add("ContractSnapshot", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ContractSnapshot")));
-        ColumnFamilies.Add("Token", (sizeof(long), Database.GetColumnFamily("Token")));
-        ColumnFamilies.Add("Validator", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("Validator")));
-        ColumnFamilies.Add("ixViewHash", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixViewHash")));
-        ColumnFamilies.Add("ixTokenId", (Address.ADDRESS_SZ + SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixTokenId")));
-        ColumnFamilies.Add("ixTokenLedger", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTokenLedger")));
-        ColumnFamilies.Add("ixTransactionId", (SHA256Hash.HASH_SZ, Database.GetColumnFamily("ixTransactionId")));
-        ColumnFamilies.Add("ixTransactionAddress", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixTransactionAddress")));
-        ColumnFamilies.Add("ixScheduledTransaction", (Address.ADDRESS_SZ + sizeof(long), Database.GetColumnFamily("ixScheduledTransaction")));
+        Database.RecreateColumnFamily("Key");
+        Database.RecreateColumnFamily("Block");
+        Database.RecreateColumnFamily("View");
+        Database.RecreateColumnFamily("Vote");
+        Database.RecreateColumnFamily("ChainState");
+        Database.RecreateColumnFamily("Ledger");
+        Database.RecreateColumnFamily("Transaction");
+        Database.RecreateColumnFamily("Contract");
+        Database.RecreateColumnFamily("ContractCode");
+        Database.RecreateColumnFamily("ContractSnapshot");
+        Database.RecreateColumnFamily("Token");
+        Database.RecreateColumnFamily("Validator");
+        Database.RecreateColumnFamily("ixViewHash");
+        Database.RecreateColumnFamily("ixTokenId");
+        Database.RecreateColumnFamily("ixTokenLedger");
+        Database.RecreateColumnFamily("ixTransactionNum");
+        Database.RecreateColumnFamily("ixTransactionAddress");
+        Database.RecreateColumnFamily("ixScheduledTransaction");
     }
 
     public Checkpoint CreateCheckpoint()
