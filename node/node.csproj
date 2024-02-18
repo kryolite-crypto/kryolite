@@ -10,12 +10,12 @@
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.Extensions.Configuration.Binder.SourceGeneration;Microsoft.AspNetCore.Http.Generated</InterceptorsPreviewNamespaces>
-  </PropertyGroup>
+      </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\shared\shared.csproj" />
     <ProjectReference Include="..\rocksdb\rocksdb.csproj" />
-  </ItemGroup>
+      </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />

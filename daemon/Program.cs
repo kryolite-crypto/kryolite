@@ -4,18 +4,12 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Logging.Console;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Hosting.Server.Features;
 using System.Reflection;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
-using System.Numerics;
-using Kryolite.Shared.Blockchain;
-using static Kryolite.Node.Startup;
-using MemoryPack.Formatters;
-using MemoryPack;
 
 namespace Kryolite.Daemon;
 

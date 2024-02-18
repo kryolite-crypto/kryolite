@@ -114,7 +114,7 @@ public class Startup
             ((ushort)104, typeof(TransactionBroadcast))
         });
 
-        MemoryPackFormatterProvider.Register(txPayloadFormatter);
+        MemoryPackFormatterProvider.Register(packetFormatter);
     }
 
     public void Configure(IApplicationBuilder app)

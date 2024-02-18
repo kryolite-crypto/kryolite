@@ -111,7 +111,7 @@ public partial class RocksDb : IDisposable
         var cfs = GC.AllocateUninitializedArray<nint>(keys.Length, false);
         var handles = GC.AllocateUninitializedArray<GCHandle>(keys.Length, false);
         var pinned = GC.AllocateUninitializedArray<nint>(keys.Length, false);
-        var keylens = GC.AllocateUninitializedArray<int>(keys.Length, false);
+        var keylens = GC.AllocateUninitializedArray<nint>(keys.Length, false);
         var values = GC.AllocateUninitializedArray<nint>(keys.Length, false);
         var valuelens = GC.AllocateUninitializedArray<int>(keys.Length, false);
         var errors = GC.AllocateUninitializedArray<nint>(keys.Length, false);

@@ -125,6 +125,11 @@ internal class RocksDBStorage : IStorage
 
         foreach (var result in results)
         {
+            if (result.Length == 0)
+            {
+                continue;
+            }
+
             var data = MemoryPackSerializer.Deserialize<T>(result);
 
             if (data is not null)
@@ -368,7 +373,12 @@ internal class RocksDBStorage : IStorage
 
         while (iterator.Valid())
         {
-            results.Add(iterator.Value());
+            var value = iterator.Value();
+
+            if (value.Length != 0)
+            {
+                results.Add(iterator.Value());
+            }
 
             if (results.Count == count)
             {

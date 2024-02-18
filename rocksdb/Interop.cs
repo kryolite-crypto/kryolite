@@ -64,7 +64,7 @@ internal static class Interop
     public static extern void rocksdb_writebatch_delete_cf(nint handle, nint cf, nint key, long keylen);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_multi_get_cf")]
-    public unsafe static extern void rocksdb_multi_get_cf(nint handle, nint read_opts, nint[] cfs, int num_keys, nint[] keys, int[] key_sizes, nint[] values, int[] value_sizes, nint[] errors);
+    public unsafe static extern void rocksdb_multi_get_cf(nint handle, nint read_opts, nint[] cfs, int num_keys, nint[] keys, nint[] key_sizes, nint[] values, int[] value_sizes, nint[] errors);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_delete_cf")]
     public static extern void rocksdb_delete_cf(nint handle, nint write_opts, nint cf, nint key, long keylen, out nint errorptr);
