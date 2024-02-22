@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Kryolite.Node.Network;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -26,8 +27,6 @@ public static class BaseApi
         builder.MapGet("ledger/{address}/tokens", GetTokensForAddress);
         builder.MapGet("nodes", GetKnownNodes);
         builder.MapGet("peers", GetPeers);
-        builder.MapGet("peers/connected", GetAllPeers);
-        builder.MapGet("peers/unreachable", GetUnreachablePeers);
         builder.MapGet("richlist", GetRichList);
         builder.MapGet("token/{contractAddress}/{tokenId}", GetTokenForTokenId);
         builder.MapGet("tx", GetTransactions);
@@ -58,28 +57,10 @@ public static class BaseApi
         return storeManager.GetBlocktemplate(wallet);
     });
 
-    private static Task<IEnumerable<string>> GetPeers(INetworkManager networkManager) => Task.Run(() =>
+    private static Task<IEnumerable<string>> GetPeers(IConnectionManager connectionManager) => Task.Run(() =>
     {
-        var hosts = networkManager.GetHosts()
-            .Where(x => x.IsReachable)
-            .Select(x => x.Url.ToHostname());
-
-        return hosts;
-    });
-
-    private static Task<IEnumerable<string>> GetAllPeers(IMeshNetwork meshNetwork) => Task.Run(() =>
-    {
-        var hosts = meshNetwork.GetPeers()
-            .Select(x => x.Value.Uri.ToHostname());
-
-        return hosts;
-    });
-
-    private static Task<IEnumerable<string>> GetUnreachablePeers(IMeshNetwork meshNetwork) => Task.Run(() =>
-    {
-        var hosts = meshNetwork.GetPeers()
-            .Where(x => !x.Value.IsReachable)
-            .Select(x => x.Value.Uri.ToHostname());
+        var hosts = connectionManager.GetConnectedNodes()
+            .Select(x => x.Node.Uri.ToHostname());
 
         return hosts;
     });
@@ -441,8 +422,8 @@ public static class BaseApi
         return new ChainStateDto(chainState);
     }
 
-    private static Task<IEnumerable<NodeDto>> GetKnownNodes(INetworkManager networkManager) => Task.Run(() =>
+    private static Task<IEnumerable<NodeDto>> GetKnownNodes(NodeTable nodeTable) => Task.Run(() =>
     {
-        return networkManager.GetHosts().Select(x => new NodeDto(x.Url.ToHostname(), x.IsReachable, x.LastSeen));
+        return nodeTable.GetAllNodes().Select(x => new NodeDto(x.PublicKey, x.Uri.ToHostname(), x.LastSeen));
     });
 }

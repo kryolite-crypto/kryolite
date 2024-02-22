@@ -1,16 +1,23 @@
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using MemoryPack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
+[DataContract]
 [MemoryPackable]
 public partial class Vote
 {
+    [DataMember]
     public SHA256Hash ViewHash { get; init; } = SHA256Hash.NULL_HASH;
+    [DataMember]
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
+    [DataMember]
     public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
+    [DataMember]
     public ulong Stake { get; set; }
+    [DataMember]
     public Address RewardAddress { get; set; } = Address.NULL_ADDRESS;
 
     private bool _isVerified = false;

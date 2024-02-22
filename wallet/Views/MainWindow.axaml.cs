@@ -20,33 +20,31 @@ using Kryolite.Shared.Blockchain;
 using MemoryPack;
 using Kryolite.Shared.Dto;
 using System.Web;
+using Kryolite.Node.Network;
 
 namespace Kryolite.Wallet;
 
 public partial class MainWindow : Window
 {
-    private INetworkManager NetworkManager;
-    private IWalletManager WalletManager;
-    private IStoreManager StoreManager;
-    private IMeshNetwork MeshNetwork;
-    private IEventBus EventBus;
-    private FileSystemWatcher Watcher = new ();
+    private IWalletManager _walletManager;
+    private IStoreManager _storeManager;
+    private IEventBus _eventBus;
+    private IConnectionManager _connMan;
 
-    private MainWindowViewModel Model = new MainWindowViewModel();
-
+    private FileSystemWatcher _watcher = new ();
+    private MainWindowViewModel _model = new MainWindowViewModel();
     public ConcurrentDictionary<Address, Shared.Wallet> Wallets;
 
     public MainWindow()
     {
         var scope = Program.ServiceCollection.CreateScope();
-        NetworkManager = scope.ServiceProvider.GetService<INetworkManager>() ?? throw new ArgumentNullException(nameof(INetworkManager));
-        WalletManager = scope.ServiceProvider.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
-        StoreManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
-        MeshNetwork = Program.ServiceCollection.GetService<IMeshNetwork>() ?? throw new ArgumentNullException(nameof(IMeshNetwork));
-        EventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IEventBus));
+        _walletManager = scope.ServiceProvider.GetService<IWalletManager>() ?? throw new ArgumentNullException(nameof(IWalletManager));
+        _storeManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+        _eventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IEventBus));
+        _connMan = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
 
-        Wallets = new (WalletManager.GetWallets());
-        DataContext = Model;
+        Wallets = new (_walletManager.GetWallets());
+        DataContext = _model;
 
         AvaloniaXamlLoader.Load(this);
 
@@ -55,52 +53,43 @@ public partial class MainWindow : Window
 #endif
         Opened += OnInitialized;
 
-        Model.ViewLogClicked += (object? sender, EventArgs args) => {
+        _model.ViewLogClicked += (object? sender, EventArgs args) => {
             var dialog = new LogViewerDialog();
             dialog.Show(this);
         };
 
-        Model.AboutClicked += (object? sender, EventArgs args) => {
+        _model.AboutClicked += (object? sender, EventArgs args) => {
             var dialog = new AboutDialog();
             dialog.Show(this);
         };
 
-        Node.MeshNetwork.ConnectedChanged += async (object? sender, int count) => {
+        _connMan.NodeConnected += async (object? sender, NodeConnection connection) =>
+        {
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.ConnectedPeers = count;
+                _model.ConnectedPeers = _connMan.GetConnectedNodes().Count();
             });
         };
 
-        var progressUpdatedBuffer = new BufferBlock<SyncProgress>();
-
-        progressUpdatedBuffer.Buffer(TimeSpan.FromSeconds(1), async (progress) => 
-            await OnProgressUpdated(progress)
-        );
-
-        EventBus.Subscribe<SyncProgress>((progress) => {
-            var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
-
-            if (syncProgress is null)
-            {
-                return;
-            }
-
-            progressUpdatedBuffer.Post(progress);
-        });
-
-        EventBus.Subscribe<ChainState>(async state => {
+        _connMan.NodeDisconnected += async (object? sender, NodeConnection connection) =>
+        {
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Blocks = state.Id;
+                _model.ConnectedPeers = _connMan.GetConnectedNodes().Count();
+            });
+        };
+
+        _eventBus.Subscribe<ChainState>(async state => {
+            await Dispatcher.UIThread.InvokeAsync(() => {
+                _model.Blocks = state.Id;
             });
         });
 
-        EventBus.Subscribe<Ledger>(async ledger => {
+        _eventBus.Subscribe<Ledger>(async ledger => {
             if (!Wallets.ContainsKey(ledger.Address))
             {
                 return;
             }
 
-            var transactions = StoreManager.GetLastNTransctions(ledger.Address, 5);
+            var transactions = _storeManager.GetLastNTransctions(ledger.Address, 5);
             var txs = transactions.Select(x =>
             {
                 var isRecipient = Wallets.ContainsKey(x.To!);
@@ -116,7 +105,7 @@ public partial class MainWindow : Window
             }).ToList();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.State.UpdateWallet(ledger, txs);
+                _model.State.UpdateWallet(ledger, txs);
             });
         });
     }
@@ -132,8 +121,8 @@ public partial class MainWindow : Window
 
                 foreach (var wallet in Wallets.Values)
                 {
-                    var ledger = StoreManager.GetLedger(wallet.Address);
-                    var txs = StoreManager.GetLastNTransctions(wallet.Address, 5);
+                    var ledger = _storeManager.GetLedger(wallet.Address);
+                    var txs = _storeManager.GetLastNTransctions(wallet.Address, 5);
 
                     var wm = new WalletModel
                     {
@@ -172,10 +161,10 @@ public partial class MainWindow : Window
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    Model.State.Wallets = new ObservableCollection<WalletModel>(toAdd);
-                    Model.State.Balance = (long)balance;
-                    Model.State.Pending = (long)pending;
-                    Model.State.Transactions = transactions;
+                    _model.State.Wallets = new ObservableCollection<WalletModel>(toAdd);
+                    _model.State.Balance = (long)balance;
+                    _model.State.Pending = (long)pending;
+                    _model.State.Transactions = transactions;
                 });
 
                 await ConsumePipe();
@@ -194,11 +183,11 @@ public partial class MainWindow : Window
             var state = blockchainManager.GetChainState();
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Blocks = state.Id;
+                _model.Blocks = state.Id;
             });
         });
 
-        Model.ConnectedPeers = MeshNetwork.GetPeers().Count;
+        _model.ConnectedPeers = _connMan.GetConnectedNodes().Count();
     }
 
     private void StartPipeWatcher()
@@ -208,43 +197,18 @@ public partial class MainWindow : Window
         var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
 
-        Watcher.Path = dataDir;
-        Watcher.Filter = ".pipe";
-        Watcher.NotifyFilter = NotifyFilters.LastWrite;
+        _watcher.Path = dataDir;
+        _watcher.Filter = ".pipe";
+        _watcher.NotifyFilter = NotifyFilters.LastWrite;
 
-        Watcher.Changed += async (sender, args) =>
+        _watcher.Changed += async (sender, args) =>
         {
-            Watcher.EnableRaisingEvents = false;
+            _watcher.EnableRaisingEvents = false;
             await ConsumePipe();
-            Watcher.EnableRaisingEvents = true;
+            _watcher.EnableRaisingEvents = true;
         };
 
-        Watcher.EnableRaisingEvents = true;
-    }
-
-    private async Task OnProgressUpdated(IList<SyncProgress> syncArgs)
-    {
-        var max = syncArgs.MaxBy(x => x.Progress);
-
-        if (max is null)
-        {
-            return;
-        }
-
-        await Dispatcher.UIThread.InvokeAsync(() => {
-            var syncProgress = this.FindControl<ProgressBar>("SyncProgress");
-
-            if (syncProgress is null)
-            {
-                return;
-            }
-
-            syncProgress.Value = max.Progress;
-            syncProgress.Minimum = 0;
-            syncProgress.Maximum = 100;
-            syncProgress.IsEnabled = !max.Completed;
-            syncProgress.IsVisible = !max.Completed;
-        });
+        _watcher.EnableRaisingEvents = true;
     }
 
     private async Task ConsumePipe()
@@ -291,7 +255,7 @@ public partial class MainWindow : Window
             var contractAddress = (Address)parts[1];
             var methodCall = JsonSerializer.Deserialize(HttpUtility.UrlDecode(parts[3]), SharedSourceGenerationContext.Default.CallMethod);
 
-            var contract = StoreManager.GetContract(contractAddress);
+            var contract = _storeManager.GetContract(contractAddress);
 
             if (contract is null)
             {
@@ -335,7 +299,7 @@ public partial class MainWindow : Window
                 methodParams,
                 amount,
                 contract,
-                Model.State.Wallets,
+                _model.State.Wallets,
                 this
             );
 
@@ -360,7 +324,7 @@ public partial class MainWindow : Window
 
             transaction.Sign(wallet.PrivateKey);
 
-            var result = StoreManager.AddTransaction(new TransactionDto(transaction), true);
+            var result = _storeManager.AddTransaction(new TransactionDto(transaction), true);
 
             await Dispatcher.UIThread.InvokeAsync(async () => {
                 await ConfirmDialog.Show($"Transaction Status: {result}", true, this);

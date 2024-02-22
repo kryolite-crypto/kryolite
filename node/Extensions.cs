@@ -10,6 +10,17 @@ namespace Kryolite;
 
 public static class Extensions
 {
+    public static async Task<bool> WithTimeout(this Task task, TimeSpan timeout, CancellationToken token)
+    {
+        if (task == await Task.WhenAny(task, Task.Delay(timeout, token)))
+        {
+            await task;
+            return true;
+        }
+
+        return false;
+    }
+
     public static async Task<T> WithTimeout<T>(this Task<T> task, TimeSpan timeout)
     {
         if (task == await Task.WhenAny(task, Task.Delay(timeout)))

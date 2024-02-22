@@ -201,7 +201,7 @@ public abstract class TransactionManager
             // Update chain state
             chainState.ViewHash = view.GetHash();
             chainState.Id++;
-            chainState.Weight = 10; //+= (work * (totalStake / Constant.MIN_STAKE)) + work;
+            chainState.Weight += (work * (totalStake / Constant.MIN_STAKE)) + work;
             chainState.TotalWork += work * blocks.Count;
             chainState.Votes += votes.Count;
             chainState.Transactions += toExecute.Count;

@@ -2,28 +2,34 @@
 using Kryolite.Shared.Blockchain;
 using MemoryPack;
 using System.ComponentModel.DataAnnotations;
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Dto;
 
+[DataContract]
 [MemoryPackable]
 public partial class TransactionDto : EventBase
 {
+    [DataMember]
     public TransactionType TransactionType { get; init; }
 
-    [Required]
+    [DataMember]
     public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
 
-    [Required]
+    [DataMember]
     public Address To { get; init; } = Address.NULL_ADDRESS;
 
+    [DataMember]
     public ulong Value { get; init; }
 
+    [DataMember]
     public byte[]? Data { get; init; }
 
+    [DataMember]
     public long Timestamp { get; init; }
 
-    [Required]
+    [DataMember]
     public Signature Signature { get; init; } = Signature.NULL_SIGNATURE;
     
     [MemoryPackIgnore]

@@ -1,10 +1,12 @@
 using System.Globalization;
 using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Runtime.Serialization;
 using MemoryPack;
 
 namespace Kryolite.Shared;
 
+[DataContract]
 [MemoryPackable]
 [StructLayout(LayoutKind.Explicit)]
 public partial record struct Difficulty

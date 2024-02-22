@@ -22,20 +22,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <TrimmerRootAssembly Include="LettuceEncrypt" />
     <TrimmerRootAssembly Include="MemoryPack.Core" />
-    <TrimmerRootAssembly Include="Newtonsoft.Json" />
     <TrimmerRootAssembly Include="SimpleBase" />
+    <TrimmerRootAssembly Include="Makaretu.Dns" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Content Include="appsettings.json" CopyToOutputDirectory="Always" CopyToPublishDirectory="Always" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="appsettings.development.json">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
-  </ItemGroup>
-
 </Project>

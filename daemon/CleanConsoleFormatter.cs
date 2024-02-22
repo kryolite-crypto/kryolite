@@ -10,9 +10,16 @@ namespace Kryolite.Daemon;
 public static class CleanConsoleFormatterExtension
 {
     [UnconditionalSuppressMessage("ReflectionAnalysis", "IL2026", Justification = "Types are retained")]
+    [UnconditionalSuppressMessage("AOT", "IL3050:Calling members annotated with 'RequiresDynamicCodeAttribute' may break functionality when AOT compiling.", Justification = "<Pending>")]
     public static ILoggingBuilder AddCleanConsole(this ILoggingBuilder builder)
     {
-        return builder.AddConsoleFormatter<CleanConsoleFormatter, ConsoleFormatterOptions>();
+        return builder.AddConsoleFormatter<CleanConsoleFormatter, SimpleConsoleFormatterOptions>(x =>
+        {
+            x.IncludeScopes = false;
+            x.UseUtcTimestamp = false;
+            x.TimestampFormat = "yyyy-MM-dd HH:mm:ss ";
+            x.SingleLine = true;
+        });
     }
 }
 

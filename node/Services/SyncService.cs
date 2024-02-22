@@ -1,5 +1,6 @@
 ﻿using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
+using Kryolite.Node.Network;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,95 +10,69 @@ using System.Threading.Channels;
 
 namespace Kryolite.Node.Services;
 
-public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
+
+public class SyncManager : BackgroundService
 {
     private const int BATCH_SIZE = 1000;
 
-    private Channel<Chain> SyncChannel { get; } = Channel.CreateBounded<Chain>(3);
-    private IServiceProvider ServiceProvider { get; }
-    private ILogger<SyncService> Logger { get; }
+    private static Channel<Network.Node> _channel = Channel.CreateBounded<Network.Node>(3);
+    private IServiceProvider _serviceProvider;
+    private ILogger<SyncManager> _logger;
 
-    public SyncService(IServiceProvider serviceProvider, ILogger<SyncService> logger)
+    public SyncManager(IServiceProvider serviceProvider, ILogger<SyncManager> logger)
     {
-        ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _serviceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+    }
+
+    public static void AddToQueue(Network.Node node)
+    {
+        _channel.Writer.TryWrite(node);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            var result = await SyncChannel.Reader.WaitToReadAsync(stoppingToken);
-
-            if (!result)
-            {
-                Logger.LogError("SyncBuffer closed unexpectadly");
-                return;
-            }
-
-            var chain = await SyncChannel.Reader.ReadAsync(stoppingToken);
-
-            if (chain is null)
-            {
-                Logger.LogError("null chain passed to SyncChannel");
-                continue;
-            }
-
-            await HandleSynchronization(chain.Peer);
-        }
-    }
-
-    public void Add(Chain item)
-    {
-        SyncChannel.Writer.TryWrite(item);
-    }
-
-    public void Add(List<Chain> items)
-    {
-        foreach (var item in items)
-        {
-            SyncChannel.Writer.TryWrite(item);
-        }
-    }
-
-    public Task AddAsync(Chain item)
-    {
-        throw new NotImplementedException();
-    }
-
-    public Task AddAsync(List<Chain> items)
-    {
-        throw new NotImplementedException();
-    }
-
-    private async Task<bool> HandleSynchronization(Peer peer, bool findCommonHeight = true)
-    {
-        peer.IsSyncInProgress = true;
+        _logger.LogInformation("SyncMan       [UP]");
 
         try
         {
-            using var scope = ServiceProvider.CreateScope();
+            await foreach (var node in _channel.Reader.ReadAllAsync(stoppingToken))
+            {
+                Synchronize(node);
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            // Do nothing, shutting down
+        }
+
+        _logger.LogInformation("SyncMan       [DOWN]");
+    }
+
+    private void Synchronize(Network.Node node)
+    {
+        node.IsSyncInProgress = true;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var connMan = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-            var networkManager = scope.ServiceProvider.GetRequiredService<INetworkManager>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
             var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
-            Logger.LogInformation("Initalizing staging context");
+            _logger.LogInformation("Initalizing staging context");
 
             ChainState? newState = null;
             IStateCache? stateCache = null;
             List<EventBase>? events = null;
 
+            var client = connMan.CreateClient<INodeService>(node);
+
             using (var checkpoint = storeManager.CreateCheckpoint())
             using (var staging = StagingManager.Open("staging", configuration, loggerFactory))
             {
-                var commonHeight = 0L;
-
-                if (findCommonHeight)
-                {
-                    commonHeight = await FindCommonHeight(staging, peer);
-                }
-
+                var commonHeight = FindCommonHeight(staging, client);
                 var stagingHeight = staging.GetChainState()?.Id;
 
                 if (stagingHeight > commonHeight)
@@ -105,50 +80,37 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
                     staging.RollbackTo(commonHeight);
                 }
 
-                Logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Id}");
-
-                Logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
+                _logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Id}");
 
                 var i = commonHeight + 1;
                 var brokenChain = false;
 
+                _logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
+
                 while(true)
                 {
-                    if (peer.SupportsRangeDownload)
+                    (bool completed, brokenChain) = DownloadViewRange(client, i, staging);
+
+                    if(completed)
                     {
-                        (var completed, brokenChain) = await DownloadViewRange(peer, i, staging);
-
-                        if(completed)
-                        {
-                            break;
-                        }
-
-                        i += BATCH_SIZE;
+                        break;
                     }
-                    else
-                    {
-                        (var completed, brokenChain) = await DownloadView(peer, i, staging);
 
-                        if(completed)
-                        {
-                            break;
-                        }
+                    i += BATCH_SIZE;
 
-                        i++;
-                    }
                 }
 
                 if (brokenChain)
                 {
-                    peer.IsForked = true;
+                    node.IsForked = true;
                 }
 
                 newState = staging.GetChainState();
 
                 if (newState is null)
                 {
-                    Logger.LogInformation("Failed to load chain in staging (chainstate not found)");
-                    return false;
+                    _logger.LogInformation("Failed to load chain in staging (chainstate not found)");
+                    return;
                 }
 
                 stateCache = staging.StateCache;
@@ -156,86 +118,53 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             }
 
             var chainState = storeManager.GetChainState();
-            Logger.LogInformation($"Staging has height {newState.Id} and weight {newState.Weight}. Compared to local height {chainState.Id} and weight {chainState.Weight}");
+            _logger.LogInformation($"Staging has height {newState.Id} and weight {newState.Weight}. Compared to local height {chainState.Id} and weight {chainState.Weight}");
 
             storeManager.LoadStagingChain("staging", newState, stateCache, events);
 
-            return true;
+            return;
         }
         catch (Exception ex)
         {
-            Logger.LogInformation(ex, "ChainSync resulted in error");
-            return false;
+            _logger.LogInformation(ex, "ChainSync resulted in error");
         }
         finally
         {
-            peer.IsSyncInProgress = false;
+            node.IsSyncInProgress = false;
         }
     }
 
-    private async Task<long> FindCommonHeight(StagingManager stagingManager, Peer peer)
+    private long FindCommonHeight(StagingManager stagingManager, INodeService client)
     {
         var height = stagingManager.GetChainState()?.Id ?? 0;
 
-        var queryHeights = new List<long>
+        var queryHashes = new List<SHA256Hash>(15);
+
+        for (var i = 14; i >= 0; i--)
         {
-            height,
-            height - 1,
-            height - 5,
-            height - 25,
-            height - 100,
-            height - 500,
-            height - 1000,
-            height - 5000,
-            height - 10000,
-            height - 50000,
-            height - 100000,
-            height - 500000,
-            height - 1000000,
-        };
+            var qHeight = Math.Min(1, i * 5);
+            var view = stagingManager.GetView(Math.Max(height - qHeight, 1));
 
-        var query = new HeightRequest();
-
-        foreach (var qHeight in queryHeights)
-        {
-            var view = stagingManager.GetView(Math.Max(qHeight, 0));
-
-            if (view is null)
-            {
-                continue;
-            }
-
-            query.Views.Add(view.GetHash());
-
-            if (qHeight <= 0)
+            if (view is null || qHeight <= 0)
             {
                 break;
             }
+
+            queryHashes.Add(view.GetHash());
         }
 
-        var response = await peer.PostAsync(query);
+        var commonHeight = client.FindCommonHeight(queryHashes);
 
-        if (response is null || response.Payload is not HeightResponse heightResponse)
-        {
-            Logger.LogInformation($"Failed to request common height from {peer.Uri.ToHostname()}");
-            return 0;
-        }
+        _logger.LogInformation($"Found common height at {commonHeight}");
 
-        Logger.LogInformation($"Found common height at {heightResponse.CommonHeight}");
-
-        return heightResponse.CommonHeight;
+        return commonHeight;
     }
 
-    private async Task<(bool Completed, bool BrokenChain)> DownloadViewRange(Peer peer, long id, StagingManager staging)
+    private (bool Completed, bool BrokenChain) DownloadViewRange(INodeService client, long height, StagingManager staging)
     {
-        var result = await peer.PostAsync(new ViewRequestByRange(id, BATCH_SIZE));
+        var views = client.GetViewsForRange(height, BATCH_SIZE);
 
-        if (result is null || result.Payload is not ViewRangeResponse responses)
-        {
-            return (true, false);
-        }
-
-        var pResult = Parallel.ForEach(responses.Views.SelectMany(x => x.Blocks), (block, state) =>
+        var pResult = Parallel.ForEach(views.SelectMany(x => x.Blocks), (block, state) =>
         {
             if (!block.VerifyNonce())
             {
@@ -248,7 +177,7 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             return (true, true);
         }
 
-        pResult = Parallel.ForEach(responses.Views.SelectMany(x => x.Votes), (vote, state) =>
+        pResult = Parallel.ForEach(views.SelectMany(x => x.Votes), (vote, state) =>
         {
             if (!vote.Verify())
             {
@@ -261,7 +190,9 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
             return (true, true);
         }
 
-        foreach (var response in responses.Views)
+        // Transactions are verified later in LoadTransactions method
+
+        foreach (var response in views)
         {
             if (!staging.LoadBlocks(response.Blocks))
             {
@@ -285,102 +216,6 @@ public class SyncService : BackgroundService, IBufferService<Chain, SyncService>
         }
 
         // if count is less than batch size we found the tip of chain!
-        return (responses.Views.Count < BATCH_SIZE, false);
-    }
-
-    private async Task<(bool Completed, bool BrokenChain)> DownloadView(Peer peer, long id, StagingManager staging)
-    {
-        var result = await peer.PostAsync(new ViewRequestById(id, false, true));
-
-        if (result is null || result.Payload is not ViewResponse response || response.View is null)
-        {
-            Logger.LogDebug($"Found tip of chain at height {id - 1}");
-            return (true, false);
-        }
-
-        if (response.Blocks is null)
-        {
-            response.Blocks = new();
-            await DownloadBlocks(peer, response);
-        }
-
-        if (response.Votes is null)
-        {
-            response.Votes = new();
-            await DownloadVotes(peer, response);
-        }
-        
-        if (response.Transactions is null)
-        {
-            response.Transactions = new();
-            await DownloadTransactions(peer, response);
-        }
-        
-        if (!staging.LoadBlocks(response.Blocks))
-        {
-            return (true, true);
-        }
-        
-        if (!staging.LoadVotes(response.Votes))
-        {
-            return (true, true);
-        }
-
-        if (!staging.LoadTransactions(response.Transactions))
-        {
-            return (true, true);
-        }
-
-        if (!staging.LoadView(response.View))
-        {
-            return (true, true);
-        }
-
-        return (false, false);
-    }
-
-    public async Task DownloadBlocks(Peer peer, ViewResponse response)
-    {
-        foreach (var blockhash in response.View!.Blocks)
-        {
-            var download = await peer.PostAsync(new BlockRequest(blockhash));
-
-            if (download is null || download.Payload is not BlockResponse blockResponse || blockResponse.Block is null)
-            {
-                throw new Exception($"Block download from {peer.Uri.ToHostname()} failed at height {response.View.Id}");
-            }
-
-            response.Blocks.Add(blockResponse.Block);
-        }
-    }
-
-    public async Task DownloadVotes(Peer peer, ViewResponse response)
-    {
-        foreach (var votehash in response.View!.Votes)
-        {
-            var download = await peer.PostAsync(new VoteRequest(votehash));
-
-            if (download is null || download.Payload is not VoteResponse voteResponse || voteResponse.Vote is null)
-            {
-                throw new Exception($"Vote download from {peer.Uri.ToHostname()} failed at height {response.View.Id}");
-            }
-
-            response.Votes.Add(voteResponse.Vote);
-        }
-    }
-
-    public async Task DownloadTransactions(Peer peer, ViewResponse response)
-    {
-        foreach (var txid in response.View!.Transactions)
-        {
-            var download = await peer.PostAsync(new TransactionRequest(txid));
-
-            if (download is null || download.Payload is not TransactionResponse txResponse || txResponse.Transaction is null)
-            {
-                throw new Exception($"Transaction download from {peer.Uri.ToHostname()} failed at height {response.View.Id}");
-            }
-
-            response.Transactions.Add(txResponse.Transaction);
-        }
+        return (views.Count < BATCH_SIZE, false);
     }
 }

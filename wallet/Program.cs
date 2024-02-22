@@ -2,20 +2,20 @@
 using System;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
-using Microsoft.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Node;
 using System.IO;
-using Microsoft.AspNetCore.Hosting.Server.Features;
-using System.Collections.Generic;
 using System.Globalization;
 using System.Text;
 using System.Linq;
-using Kryolite.Shared;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Hosting;
+using System.Threading.Tasks;
+using Avalonia.Controls;
+using System.Threading;
+using Avalonia.Controls.ApplicationLifetimes;
 
 namespace Kryolite.Wallet
 {
@@ -23,26 +23,19 @@ namespace Kryolite.Wallet
     {
         public static IServiceProvider ServiceCollection { get; private set; } = default!;
 
-        private static IWebHost Host = default!;
-
         [STAThread]
         public static int Main(string[] args)
         {
-            Startup.RegisterFormatters();
-
             var config = new ConfigurationBuilder()
                 .AddCommandLine(args)
                 .Build();
 
-            var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-            var dataDir = config.GetValue<string>("data-dir", defaultDataDir) ?? defaultDataDir;
+            DataDirectory.EnsureExists(config, args, out var dataDir, out _);
             var pipePath = Path.Join(dataDir, $".pipe");
 
             try
             {
                 CreateUriScheme();
-
-                Directory.CreateDirectory(dataDir);
 
                 foreach (var arg in args)
                 {
@@ -61,79 +54,42 @@ namespace Kryolite.Wallet
                     }
                 }
 
-                var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
+                var builder = WebApplication.CreateSlimBuilder(args)
+                    .BuildKryoliteNode(args);
 
-                if (args.Contains("--resync") || !Path.Exists(versionPath))
-                {
-                    Console.WriteLine("Performing full resync");
-                    var storeDir = Path.Join(dataDir, "store");
+                builder.Logging.AddProvider(new InMemoryLoggerProvider());
 
-                    if (Path.Exists(storeDir))
-                    {
-                        Directory.Delete(storeDir, true);
-                    }
+                var app = builder.Build();
 
-                    if (File.Exists(versionPath))
-                    {
-                        File.Delete(versionPath);
-                    }
-                }
+                app.UseNodeMiddleware();
+                app.Start();
 
-                var configVersion = Path.Join(dataDir, $"config.version.{Constant.STORE_VERSION}");
-
-                if (args.Contains("--force-recreate") || !Path.Exists(configVersion))
-                {
-                    var renamedTarget = $"{dataDir}-{DateTimeOffset.Now:yyyyMMddhhmmss}";
-                    if (Path.Exists(dataDir))
-                    {
-                        Directory.Move(dataDir, renamedTarget);
-                        Console.WriteLine($"Rename {dataDir} to {renamedTarget}");
-                    }
-                }
-
-                Directory.CreateDirectory(dataDir);
-
-                if (!Path.Exists(configVersion))
-                {
-                    File.WriteAllText(configVersion, Constant.CONFIG_VERSION);
-                }
+                ServiceCollection = app.Services;
 
                 if (!Path.Exists(pipePath))
                 {
                     File.WriteAllText(pipePath, string.Empty);
                 }
 
-                var walletRepository = new WalletRepository(config);
-                walletRepository.Backup();
+                var ava = BuildAvaloniaApp();
 
-                var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-
-                Host = WebHost.CreateDefaultBuilder()
-                    .ConfigureAppConfiguration((hostingContext, config) => config
-                        .AddJsonFile(configPath, optional: true, reloadOnChange: true)
-                        .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                        .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-                        .AddEnvironmentVariables(prefix: "KRYOLITE__")
-                        .AddCommandLine(args))
-                    .ConfigureLogging(logging => logging.AddProvider(new InMemoryLoggerProvider()))
-                    .UseStartup<Startup>()
-                    .Build();
-
-                ServiceCollection = Host.Services;
-
-                Host.Start();
-
-                var logger = Host.Services.GetService<ILogger<Program>>();
-                var addresses = Host.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
-
-                foreach (var address in addresses)
+                var lifetime = new ClassicDesktopStyleApplicationLifetime
                 {
-                    logger!.LogInformation($"Now listening on {address}");
-                }
+                    Args = args,
+                    ShutdownMode = ShutdownMode.OnMainWindowClose
+                };
 
-                BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+                ava.SetupWithLifetime(lifetime);
+
+                app.Lifetime.ApplicationStopping.Register(() =>
+                {
+                    lifetime.Shutdown(0);
+                });
+
+                lifetime.Start(args);
 
                 File.Delete(pipePath);
+                return 0;
             }
             catch (Exception ex)
             {
@@ -146,11 +102,8 @@ namespace Kryolite.Wallet
                 Console.WriteLine(ex.ToString());
 
                 File.Delete(pipePath);
-
                 return 1;
             }
-
-            return 0;
         }
 
         // Avalonia configuration, don't remove; also used by visual designer.

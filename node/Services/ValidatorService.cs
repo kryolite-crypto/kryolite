@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Immutable;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
+using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -103,15 +104,15 @@ public class ValidatorService : BackgroundService
             while (!stoppingToken.IsCancellationRequested)
             {
                 using var scope = serviceProvider.CreateScope();
-                var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-                var meshNetwork = scope.ServiceProvider.GetRequiredService<IMeshNetwork>();
+                var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+                var connectionManager = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
 
-                var lastView = blockchainManager.GetLastView() ?? throw new Exception("LastView returned null");
+                var lastView = storeManager.GetLastView() ?? throw new Exception("LastView returned null");
                 
                 var height = lastView.Id - 1; // offset height by one since votes are confirmed at (height % Constant.VOTE_INTERVAL + 1)
                 var slotNumber = (int)(height % Constant.VOTE_INTERVAL);
                 var voteHeight = lastView.Id - slotNumber;
-                var votes = blockchainManager.GetVotesAtHeight(voteHeight);
+                var votes = storeManager.GetVotesAtHeight(voteHeight);
                 
                 logger.LogDebug("Loading votes from height {voteHeight} (id = {id}, slotNumber = {slotNumber}, voteCount = {voteCount})",
                     voteHeight,
@@ -147,7 +148,7 @@ public class ValidatorService : BackgroundService
                     nextLeader = Node.PublicKey;
 
                     // TODO: We should have some kind of vote who will create next view
-                    // this could create temporary chain splits
+                    // this could create temporary chain splits, for now we use jitter
                     await Task.Delay(Random.Shared.Next(30000), stoppingToken);
                 }
 
@@ -155,28 +156,43 @@ public class ValidatorService : BackgroundService
 
                 if (nextLeader == Node.PublicKey)
                 {
-                    GenerateView(blockchainManager, lastView);
+                    GenerateView(storeManager, lastView);
                 }
 
                 await Task.Delay(TimeSpan.FromSeconds(30), stoppingToken);
 
-                var nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
+                var nextView = storeManager.GetLastView() ?? throw new Exception("selecting next view returned null");
 
                 if (nextView.Id == lastView.Id)
                 {
-                    // maybe we were disconnected during view broadcast, try to request it from peers
-                    await meshNetwork.BroadcastAsync(new ViewRequestById(lastView.Id + 1, true));
+                    // We have not received new view, try to download it from current peers
+                    var nodes = connectionManager.GetConnectedNodes();
+                    var nextId = lastView.Id + 1;
+
+                    foreach (var node in nodes)
+                    {
+                        var client = connectionManager.CreateClient<INodeService>(node);
+                        var view = client.GetViewForId(nextId);
+
+                        if (view is not null)
+                        {
+                            storeManager.AddView(view, true, true);
+                            goto gotview;
+                        }
+                    }
 
                     logger.LogInformation("Leader {publicKey} failed to create view", nextLeader.ToAddress());
                     Banned.Add(nextLeader);
                     continue;
                 }
 
+gotview:
+
                 Banned.Clear();
 
                 await _enableValidator.Task.WaitAsync(stoppingToken);
 
-                nextView = blockchainManager.GetLastView() ?? throw new Exception("selecting next view returned null");
+                nextView = storeManager.GetLastView() ?? throw new Exception("selecting next view returned null");
 
                 await SynchronizeViewGenerator(nextView, stoppingToken);
             }

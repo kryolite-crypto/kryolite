@@ -10,67 +10,43 @@ namespace Kryolite.Node;
 
 public class UPnPService : BackgroundService
 {
-    private readonly IServer server;
-    private readonly IConfiguration configuration;
-    private readonly ILogger<UPnPService> logger;
-    private readonly TaskCompletionSource _source = new();
-    private readonly NatDiscoverer discoverer = new ();
+    private readonly IConfiguration _config;
+    private readonly ILogger<UPnPService> _logger;
+    private readonly NatDiscoverer _discoverer = new ();
 
-    public UPnPService(IServer server, IConfiguration configuration, ILogger<UPnPService> logger, IHostApplicationLifetime lifetime)
+    public UPnPService(IConfiguration configuration, ILogger<UPnPService> logger)
     {
-        this.server = server ?? throw new ArgumentNullException(nameof(server));
-        this.configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
-        this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
-
-        lifetime.ApplicationStarted.Register(() => _source.SetResult());
+        _config = configuration ?? throw new ArgumentNullException(nameof(configuration));
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
     protected override async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         try
         {
-            await _source.Task;
-
-            var enabled = configuration.GetValue<bool>("EnableUPNP");
+            var enabled = _config.GetValue<bool>("upnp");
 
             if (!enabled)
             {
-                logger.LogInformation("UPnP          [DISABLED]");
+                _logger.LogInformation("UPnP          [DISABLED]");
                 return;
             }
 
-            var addresses = server.Features.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
-            var ports = addresses
-                .Where(x => x is not null)
-                .Select(x => new Uri(x))
-                .Where(x => !x.IsLoopback)
-                .Select(x => x.Port)
-                .Distinct();
-
-            if (!ports.Any())
-            {
-                logger.LogInformation("No external http(s) endpoints configured, skipping UPNP discovery...");
-                return;
-            }
-
-            logger.LogDebug("UPnP enabled, performing NAT discovery");
+            var bind = _config.GetValue<string>("bind");
+            var port = _config.GetValue<ushort>("port");
 
             var cts = new CancellationTokenSource(1000);
-            var devices = await discoverer.DiscoverDevicesAsync(PortMapper.Upnp | PortMapper.Pmp, cts);
+            var devices = await _discoverer.DiscoverDevicesAsync(PortMapper.Upnp | PortMapper.Pmp, cts);
 
             foreach (var device in devices)
             {
-                logger.LogDebug("UPnP: External IP = {ip}", await device.GetExternalIPAsync());
+                _logger.LogDebug("UPnP: Mapping port TCP {port}:{port}", port, port);
 
-                foreach (var port in ports)
-                {
-                    logger.LogDebug("UPnP: Mapping port TCP {port}:{port}", port, port);
-
-                    var mapping = new Mapping(Protocol.Tcp, port, port);
-                    await device.CreatePortMapAsync(mapping);
-                }
+                var mapping = new Mapping(Protocol.Tcp, port, port);
+                await device.CreatePortMapAsync(mapping);
             }
-            logger.LogInformation("UPnP          [UP]");
+
+            _logger.LogInformation("UPnP          [UP]");
         }
         catch (TaskCanceledException)
         {
@@ -78,11 +54,11 @@ public class UPnPService : BackgroundService
         }
         catch (MappingException mEx)
         {
-            logger.LogError("UPnP mapping error: {message}", mEx.Message);
+            _logger.LogError("UPnP mapping error: {message}", mEx.Message);
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Error with UPnP discovery");
+            _logger.LogError(ex, "Error with UPnP discovery");
         }
     }
 
@@ -94,7 +70,7 @@ public class UPnPService : BackgroundService
         }
         catch (Exception ex)
         {
-            logger.LogDebug(ex, "Error removing UPnP mappings");
+            _logger.LogDebug(ex, "Error removing UPnP mappings");
         }
 
         await base.StopAsync(cancellationToken);

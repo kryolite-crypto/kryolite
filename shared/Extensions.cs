@@ -26,45 +26,46 @@ public static class Extensions
         });
     }
 
-    public static IDisposable EnterReadLockEx(this ReaderWriterLockSlim rwlock)
+    public static Lock EnterReadLockEx(this ReaderWriterLockSlim rwlock)
     {
-        return new ReadLock(rwlock);
+        return new Lock(rwlock, false);
     }
 
-    public static IDisposable EnterWriteLockEx(this ReaderWriterLockSlim rwlock)
+    public static Lock EnterWriteLockEx(this ReaderWriterLockSlim rwlock)
     {
-        return new WriteLock(rwlock);
+        return new Lock(rwlock, true);
     }
 
-    public readonly struct ReadLock : IDisposable
+    public readonly ref struct Lock
     {
-        private readonly ReaderWriterLockSlim rwlock;
+        private readonly ReaderWriterLockSlim _rwlock;
+        private readonly bool _write;
 
-        public ReadLock(ReaderWriterLockSlim rwlock)
+        public Lock(ReaderWriterLockSlim rwlock, bool write)
         {
-            this.rwlock = rwlock ?? throw new ArgumentNullException(nameof(rwlock));
-            rwlock.EnterReadLock();
+            _rwlock = rwlock;
+            _write = write;
+
+            if (_write)
+            {
+                rwlock.EnterWriteLock();
+            }
+            else
+            {
+                rwlock.EnterReadLock();
+            }
         }
 
         public void Dispose()
         {
-            rwlock.ExitReadLock();
-        }
-    }
-
-    public readonly struct WriteLock : IDisposable
-    {
-        private readonly ReaderWriterLockSlim rwlock;
-
-        public WriteLock(ReaderWriterLockSlim rwlock)
-        {
-            this.rwlock = rwlock ?? throw new ArgumentNullException(nameof(rwlock));
-            rwlock.EnterWriteLock();
-        }
-
-        public void Dispose()
-        {
-            rwlock.ExitWriteLock();
+            if (_write)
+            {
+                _rwlock.ExitWriteLock();
+            }
+            else
+            {
+                _rwlock.ExitReadLock();
+            }
         }
     }
 }

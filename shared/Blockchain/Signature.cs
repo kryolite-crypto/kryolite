@@ -1,11 +1,14 @@
+using System.Runtime.Serialization;
 using MemoryPack;
 
 namespace Kryolite.Shared;
 
+[DataContract]
 [MemoryPackable]
 public partial class Signature : IComparable<Signature>
 {
-    public byte[] Buffer { get; private init; }
+        [DataMember]
+    public byte[] Buffer { get; set; }
 
     public Signature()
     {

@@ -1,12 +1,15 @@
 using System.Numerics;
+using System.Runtime.Serialization;
 using MemoryPack;
 
 namespace Kryolite.Shared;
 
+[DataContract]
 [MemoryPackable]
 public partial class SHA256Hash : IComparable<SHA256Hash>
 {
-    public byte[] Buffer { get; private init; }
+    [DataMember]
+    public byte[] Buffer { get; set; }
 
     public SHA256Hash()
     {

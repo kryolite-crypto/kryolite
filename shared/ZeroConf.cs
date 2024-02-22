@@ -26,19 +26,6 @@ public static class ZeroConf
             // prefer connecting to loopback addresses (local node)
             foreach (var addr in addresses.ToList().OrderBy(x => IPAddress.IsLoopback(x.Address) ? 0 : 1))
             {
-                var uri = new UriBuilder()
-                {
-                    Host = addr.Address.ToString(),
-                    Port = addr.Port
-                };
-
-                var success = await Connection.TestConnectionAsync(uri.Uri);
-
-                if (!success)
-                {
-                    continue;
-                }
-
                 return $"http://{addr.Address}:{addr.Port}";
             }
         }

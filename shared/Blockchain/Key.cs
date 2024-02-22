@@ -1,3 +1,4 @@
+using System.Runtime.Serialization;
 using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
@@ -72,10 +73,12 @@ public partial class PrivateKey
     public const int PRIVATE_KEY_SZ = 32;
 }
 
+[DataContract]
 [MemoryPackable]
 public partial class PublicKey
 {
-    public byte[] Buffer { get; private init; }
+    [DataMember]
+    public byte[] Buffer { get; set; }
 
     public PublicKey()
     {

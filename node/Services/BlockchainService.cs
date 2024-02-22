@@ -11,14 +11,14 @@ namespace Kryolite.Node;
 
 public class BlockchainService : BackgroundService
 {
-    public static string DATA_PATH = string.Empty;
     private SHA256Hash GenesisSeed;
 
     public IServiceProvider ServiceProvider { get; }
     private ILogger<BlockchainService> Logger { get; }
     public IConfiguration Configuration { get; }
 
-    public BlockchainService(IServiceProvider serviceProvider, ILogger<BlockchainService> logger, IConfiguration configuration) {
+    public BlockchainService(IServiceProvider serviceProvider, ILogger<BlockchainService> logger, IConfiguration configuration)
+    {
         ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
         Configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));

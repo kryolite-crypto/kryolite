@@ -13,7 +13,7 @@ public static class Constant
     public const int VIEW_INTERVAL = 60;
     public const byte STARTING_DIFFICULTY = 10;
     public const string ADDR_PREFIX = "kryo:";
-    public const int MAX_PEERS = 6;
+    public const int MAX_PEERS = 12;
     public const long DECIMAL_MULTIPLIER = 1_000_000;
     public const int VOTE_INTERVAL = 5;
     public const int EPOCH_LENGTH = 1440;

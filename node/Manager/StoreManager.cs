@@ -1,5 +1,6 @@
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
+using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
@@ -12,7 +13,6 @@ namespace Kryolite.Node;
 public class StoreManager : TransactionManager, IStoreManager
 {
     private IStoreRepository Repository { get; }
-    private IMeshNetwork MeshNetwork { get; }
     private IEventBus EventBus { get; }
     private IStateCache StateCache { get; }
     private IVerifier Verifier { get; }
@@ -22,10 +22,9 @@ public class StoreManager : TransactionManager, IStoreManager
 
     private static ReaderWriterLockSlim rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IMeshNetwork meshNetwork, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, logger)
+    public StoreManager(IStoreRepository repository, IKeyRepository keyRepository, IEventBus eventBus, IStateCache stateCache, IVerifier verifier, ILogger<StoreManager> logger) : base(repository, keyRepository, stateCache, logger)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        MeshNetwork = meshNetwork ?? throw new ArgumentNullException(nameof(meshNetwork));
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
@@ -495,22 +494,22 @@ public class StoreManager : TransactionManager, IStoreManager
 
     public override void Broadcast(View view)
     {
-        MeshNetwork.BroadcastAsync(new ViewBroadcast(view.GetHash(), view.LastHash, StateCache.GetCurrentState().Weight));
+        BroadcastManager.Broadcast(new ViewBroadcast(view.GetHash(), view.LastHash, StateCache.GetCurrentState().Weight));
     }
 
     public override void Broadcast(Block block)
     {
-        MeshNetwork.BroadcastAsync(new BlockBroadcast(block.GetHash()));
+        BroadcastManager.Broadcast(new BlockBroadcast(block.GetHash()));
     }
 
     public override void Broadcast(Vote vote)
     {
-        MeshNetwork.BroadcastAsync(new VoteBroadcast(vote.GetHash()));
+        BroadcastManager.Broadcast(new VoteBroadcast(vote.GetHash()));
     }
 
     public override void Broadcast(Transaction tx)
     {
-        MeshNetwork.BroadcastAsync(new TransactionBroadcast(tx.CalculateHash()));
+        BroadcastManager.Broadcast(new TransactionBroadcast(tx.CalculateHash()));
     }
 
     public override void Publish(EventBase ev)

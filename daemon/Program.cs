@@ -1,15 +1,14 @@
 ﻿using Kryolite.Node;
-using Microsoft.AspNetCore;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Hosting.Server.Features;
-using System.Reflection;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
 using Kryolite.Shared.Dto;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
+using System.Net;
+using Microsoft.AspNetCore.Builder;
 
 namespace Kryolite.Daemon;
 
@@ -17,88 +16,14 @@ internal class Program
 {
     static async Task Main(string[] args)
     {
-        Startup.RegisterFormatters();
+        var builder = WebApplication.CreateSlimBuilder(args)
+            .BuildKryoliteNode(args);
 
-        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly()!, typeof(AssemblyInformationalVersionAttribute)) 
-            as AssemblyInformationalVersionAttribute;
+        builder.Logging.AddCleanConsole();
 
-        Console.ForegroundColor = ConsoleColor.Cyan;
-        Console.WriteLine($@"
- __                         .__  .__  __
-|  | _________ ___.__. ____ |  | |__|/  |_  ____
-|  |/ /\_  __ <   |  |/  _ \|  | |  \   __\/ __ \
-|    <  |  | \/\___  (  <_> )  |_|  ||  | \  ___/
-|__|_ \ |__|   / ____|\____/|____/__||__|  \___  >
-     \/        \/                              \/
-                            {attr?.InformationalVersion}
-                                         ");
-        Console.ForegroundColor = ConsoleColor.Gray;
+        var app = builder.Build();
 
-        var config = new ConfigurationBuilder()
-            .AddCommandLine(args)
-            .Build();
-
-        var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-        var dataDir = config.GetValue("data-dir", defaultDataDir) ?? defaultDataDir;
-
-        Directory.CreateDirectory(dataDir);
-
-        var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
-
-        if (args.Contains("--resync") || !Path.Exists(versionPath))
-        {
-            Console.WriteLine("Performing full resync");
-            var storeDir = Path.Join(dataDir, "store");
-
-            if (Path.Exists(storeDir))
-            {
-                Directory.Delete(storeDir, true);
-            }
-
-            if (File.Exists(versionPath))
-            {
-                File.Delete(versionPath);
-            }
-        }
-
-        var configVersion = Path.Join(dataDir, $"config.version.{Constant.STORE_VERSION}");
-
-        if (args.Contains("--force-recreate") || !Path.Exists(configVersion))
-        {
-            var renamedTarget = $"{dataDir}-{DateTimeOffset.Now:yyyyMMddhhmmss}";
-            if (Path.Exists(dataDir))
-            {
-                Directory.Move(dataDir, renamedTarget);
-                Console.WriteLine($"Rename {dataDir} to {renamedTarget}");
-            }
-        }
-
-        Directory.CreateDirectory(dataDir);
-
-        if (!Path.Exists(configVersion))
-        {
-            File.WriteAllText(configVersion, Constant.CONFIG_VERSION);
-        }
-
-        var walletRepository = new WalletRepository(config);
-        walletRepository.Backup();
-
-        var keyRepository = new KeyRepository(config);
-        Console.WriteLine($"Server");
-        Console.WriteLine($"\tPublic Key: {keyRepository.GetKey().PublicKey}");
-        Console.WriteLine($"\tAddress: {keyRepository.GetKey().Address}");
-
-        var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
-        var app = WebHost.CreateDefaultBuilder()
-            .ConfigureAppConfiguration((hostingContext, config) => config
-                .AddJsonFile(configPath, optional: true, reloadOnChange: true)
-                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
-                .AddJsonFile($"appsettings.{hostingContext.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
-                .AddEnvironmentVariables(prefix: "KRYOLITE__")
-                .AddCommandLine(args))
-            .ConfigureLogging(configure => configure.AddCleanConsole())
-            .UseStartup<Startup>()
-            .Build();
+        app.UseNodeMiddleware();
 
         if (args.Contains("--test-rollback-rebuild"))
         {
@@ -107,19 +32,10 @@ internal class Program
         }
 
         await app.StartAsync();
-
-        var logger = app.Services.GetRequiredService<ILogger<Program>>();
-        var addresses = app.ServerFeatures.Get<IServerAddressesFeature>()?.Addresses ?? new List<string>();
-
-        foreach (var address in addresses)
-        {
-            logger.LogInformation($"Now listening on {address}");
-        }
-
         await app.WaitForShutdownAsync();
     }
 
-    private static void TestRollbackRebuild(IWebHost app)
+    private static void TestRollbackRebuild(IHost app)
     {
         using var scope = app.Services.CreateScope();
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
