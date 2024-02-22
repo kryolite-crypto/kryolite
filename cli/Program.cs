@@ -10,10 +10,7 @@ public class Program
     private static async Task<int> Main(string[] args)
     {
         var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-
-        // TODO: make this an option
-        BlockchainService.DATA_PATH = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-        Directory.CreateDirectory(BlockchainService.DATA_PATH);
+        Directory.CreateDirectory(defaultDataDir);
 
         var rootCmd = new RootCommand("Kryolite CLI");
 
