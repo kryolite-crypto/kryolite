@@ -18,11 +18,11 @@ jobs:
         include:
           - runtime: linux-x64
             runner: ubuntu-22.04
-            image: ghcr.io/kryolite-crypto/kryolite/publish:latest
+            image: ghcr.io/kryolite-crypto/kryolite/publish:v1
             zip_type: tar.gz
           - runtime: linux-arm64
             runner: ubuntu-22.04
-            image: ghcr.io/kryolite-crypto/kryolite/publish:latest
+            image: ghcr.io/kryolite-crypto/kryolite/publish:v1
             cross_compile_opts: -p:SysRoot=/crossrootfs/arm64 -p:LinkerFlavor=lld -p:ObjCopyName=aarch64-linux-gnu-objcopy
             zip_type: tar.gz
           - runtime: win-x64

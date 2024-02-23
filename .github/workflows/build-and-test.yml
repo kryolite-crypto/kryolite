@@ -14,7 +14,7 @@ jobs:
 
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/kryolite-crypto/kryolite/publish:latest
+      image: ghcr.io/kryolite-crypto/kryolite/publish:v1
     steps:
     - uses: actions/checkout@v3
     - name: Restore dependencies
