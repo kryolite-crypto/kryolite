@@ -1,0 +1,54 @@
+name: Publish Kryolite
+
+on:
+  release:
+    types:
+      - prereleased
+
+jobs:
+  publish:
+    runs-on: ${{ matrix.runner }}
+    container:
+      image: ${{ matrix.image }}
+    strategy:
+      matrix:
+        runtime: [linux-x64, macos-arm64, windows-x64, macos-x64, macos-arm64]
+        project: [cli, miner, daemon, wallet]
+        include:
+          - runtime: linux-x64
+            runner: ubuntu-22.04
+            image: ghcr.io/kryolite-crypto/kryolite/publish:latest
+            arch: x64
+            zip_cmd: tar --exclude .dbg -czvf
+            zip_type: tar.gz
+          - runtime: linux-arm64
+            runner: ubuntu-22.04
+            image: ghcr.io/kryolite-crypto/kryolite/publish:latest
+            arch: arm64
+            zip_cmd: tar --exclude .dbg -czvf
+            zip_type: tar.gz
+          - runtime: windows-x64
+            runner: windows-2019
+            arch: x64
+            zip_cmd: tar --exclude .dbg -acvf
+            zip_type: zip
+          - runtime: macos-x64
+            runner: macos-13
+            arch: x64
+            zip_cmd: tar --exclude .dbg -czvf
+            zip_type: tar.gz
+          - runtime: macos-arm64
+            runner: macos-13-xlarge
+            arch: arm64
+            zip_cmd: tar --exclude .dbg -czvf
+            zip_type: tar.gz
+    steps:
+    - uses: actions/checkout@v3
+    - name: Publish
+      run: dotnet publish ${{ matrix.project }} -c Release -r ${{ matrix.runtime }} -p:PublishDir ${{ matrix.project }}-${{ matrix.arch }}-${{ env.GITHUB_REF_NAME }}
+    - name: Package
+      run: ${{ matrix.zip_cmd }} kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ env.GITHUB_REF_NAME }}.${{ matrix.zip_type }} ${{ matrix.project }}-${{ matrix.arch }}
+    - uses: actions/upload-artifact@v4
+      with:
+        name: kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ env.GITHUB_REF_NAME }}
+        path: kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ env.GITHUB_REF_NAME }}.${{ matrix.zip_type }}

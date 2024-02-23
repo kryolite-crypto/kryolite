@@ -33,6 +33,8 @@
 	  <PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="11.0.5" />
     <PackageReference Include="LiveChartsCore.SkiaSharpView.Avalonia" Version="2.0.0-rc2" />
     <PackageReference Include="Material.Icons.Avalonia" Version="2.0.1" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="8.0.2" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.linux-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" />
   </ItemGroup>
 
   <ItemGroup>
