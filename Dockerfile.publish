@@ -1,3 +1,4 @@
-FROM mcr.microsoft.com/dotnet/sdk:8.0-jammy-amd64
+FROM mcr.microsoft.com/dotnet/sdk:8.0.201-jammy-amd64
 COPY --from=mcr.microsoft.com/dotnet-buildtools/prereqs:cbl-mariner-2.0-cross-arm64 /crossrootfs /crossrootfs
-RUN apt-get update && apt-get install -y cmake clang zlib1g-dev libicu-dev git gh
+RUN apt-get update && apt-get install -y cmake clang zlib1g-dev libicu-dev lld binutils-aarch64-linux-gnu git gh
+# for some reason build doesn't work the first time, so do it here

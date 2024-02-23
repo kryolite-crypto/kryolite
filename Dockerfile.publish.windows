@@ -1,0 +1,9 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0.201-windowsservercore-ltsc2022 AS build
+RUN curl -SL --output vs_buildtools.exe https://aka.ms/vs/17/release/vs_buildtools.exe
+RUN vs_buildtools.exe --installPath C:\BuildTools --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 Microsoft.VisualStudio.Component.Windows10SDK.19041 --quiet --wait --norestart --nocache
+RUN mkdir C:\gh && \
+    cd C:\gh && \
+    curl -SL --output gh.zip -A "Mozilla" https://github.com/cli/cli/releases/download/v2.44.1/gh_2.44.1_windows_amd64.zip && \
+    tar -xf gh.zip && \
+    del gh.zip && \
+    setx path "%path%;C:\gh\bin"

@@ -22,7 +22,9 @@
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
     <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="8.0.2" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.linux-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.linux-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Linux')) And $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) == Arm64" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.win-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Windows')) And $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) == Arm64"/>
+    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('OSX')) And $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) == Arm64"/>
   </ItemGroup>
 
 </Project>
