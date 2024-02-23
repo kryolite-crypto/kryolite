@@ -47,7 +47,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Publish
-      run: dotnet publish ${{ matrix.project }} -c Release -r ${{ matrix.runtime }} -p:PublishDir ${{ matrix.project }}-${{ matrix.arch }} ${{ matrix.cross_compile_opts }} 
+      run: dotnet publish ${{ matrix.project }} -c Release -r ${{ matrix.runtime }} -p:PublishDir=${{ matrix.project }}-${{ matrix.arch }} ${{ matrix.cross_compile_opts }} 
     - name: Package
       run: ${{ matrix.zip_cmd }} kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }}.${{ matrix.zip_type }} ${{ matrix.project }}-${{ matrix.arch }}
     - uses: actions/upload-artifact@v4
