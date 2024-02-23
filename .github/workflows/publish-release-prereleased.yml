@@ -39,7 +39,7 @@ jobs:
     - name: Setup dotnet
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.2
+        dotnet-version: 8.0.201
     - name: Publish
       run: dotnet publish ${{ matrix.project }} -c Release -r ${{ matrix.runtime }} -p:PublishDir=${{ matrix.project }}-${{ matrix.runtime }} ${{ matrix.cross_compile_opts }} 
     - name: Package
