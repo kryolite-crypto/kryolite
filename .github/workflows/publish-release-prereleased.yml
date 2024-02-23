@@ -40,10 +40,10 @@ jobs:
       with:
         dotnet-version: 8.0.201
     - name: Publish
-      run: dotnet publish ${{ matrix.project }} -c Release -r ${{ matrix.runtime }} -p:PublishDir=${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }} ${{ matrix.cross_compile_opts }} 
+      run: dotnet publish ${{ matrix.project }} -c Release -r ${{ matrix.runtime }} -p:PublishDir=kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }} ${{ matrix.cross_compile_opts }} 
     - name: Package
-      run: tar --exclude .dbg -C ${{ matrix.project }} -cavf kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }}.${{ matrix.zip_type }} ${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }}
-    - uses: shogo82148/actions-upload-release-asset@v1
+      run: tar --exclude .dbg --exclude .pdb -C ${{ matrix.project }} -cavf kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }}.${{ matrix.zip_type }} kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }}
+    - name: Upload
+      uses: softprops/action-gh-release@v1
       with:
-        upload_url: ${{ github.event.release.upload_url }}
-        asset_path: kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }}.${{ matrix.zip_type }}
+        files: kryolite-${{ matrix.project }}-${{ matrix.runtime }}-${{ github.ref_name }}.${{ matrix.zip_type }}
