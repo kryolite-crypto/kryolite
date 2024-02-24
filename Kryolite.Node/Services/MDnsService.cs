@@ -1,12 +1,8 @@
 using System.Net;
-using System.Net.Sockets;
 using Makaretu.Dns;
-using Microsoft.AspNetCore.Hosting.Server;
-using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Kryolite.Shared;
 
 namespace Kryolite.Node;
 

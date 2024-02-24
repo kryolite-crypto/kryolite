@@ -17,6 +17,5 @@
     <PackageReference Include="MemoryPack" Version="1.10.0" />
     <PackageReference Include="SimpleBase" Version="4.0.0" />
     <PackageReference Include="Zeroconf" Version="3.6.11" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.linux-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" />
   </ItemGroup>
 </Project>

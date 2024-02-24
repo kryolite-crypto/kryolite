@@ -11,6 +11,7 @@ using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using Kryolite.Upnp;
 using MemoryPack;
 using MemoryPack.Formatters;
 using Microsoft.AspNetCore.Builder;
@@ -226,7 +227,6 @@ public static class Startup
                 .AddScoped<IWalletManager, WalletManager>()
                 .AddScoped<IVerifier, Verifier>()
                 .AddHostedService<BlockchainService>()
-                .AddHostedService<UPnPService>()
                 .AddHostedService<ValidatorService>()
                 .AddHostedService<MDnsService>()
                 .AddHostedService<SyncManager>()
@@ -239,6 +239,7 @@ public static class Startup
                 .AddSingleton((sp) => clientFactory)
                 .AddServiceModelGrpc().Services
                 .AddNodeServiceOptions(opts => {})
+                .AddUpnpService()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
                     .AllowAnyOrigin()

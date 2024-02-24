@@ -10,12 +10,13 @@
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.Extensions.Configuration.Binder.SourceGeneration;Microsoft.AspNetCore.Http.Generated</InterceptorsPreviewNamespaces>
-      </PropertyGroup>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
     <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
-      </ItemGroup>
+    <ProjectReference Include="..\Kryolite.Upnp\Kryolite.Upnp.csproj" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
