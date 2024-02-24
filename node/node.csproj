@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\shared\shared.csproj" />
-    <ProjectReference Include="..\rocksdb\rocksdb.csproj" />
+    <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
       </ItemGroup>
 
   <ItemGroup>
