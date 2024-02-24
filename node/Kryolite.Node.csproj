@@ -13,7 +13,7 @@
       </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\shared\shared.csproj" />
+    <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
     <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
       </ItemGroup>
 

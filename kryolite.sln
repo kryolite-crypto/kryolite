@@ -9,13 +9,13 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "daemon", "daemon\daemon.csp
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "miner", "miner\miner.csproj", "{0F5F9BB4-B147-4E27-A70F-BF44E31ED5D4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "node", "node\node.csproj", "{09CE0092-1FD4-4F10-BC03-B77BD9429886}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kryolite.Node", "Kryolite.Node\Kryolite.Node.csproj", "{09CE0092-1FD4-4F10-BC03-B77BD9429886}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "shared", "shared\shared.csproj", "{1E2C455D-E75E-401B-A9DB-A12FFF30564A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kryolite.Shared", "Kryolite.Shared\Kryolite.Shared.csproj", "{1E2C455D-E75E-401B-A9DB-A12FFF30564A}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "wallet", "wallet\wallet.csproj", "{C3225B5C-F6FE-4FC3-9B66-9E7CCF6FBE34}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "sharedTests", "shared.tests\shared.tests.csproj", "{9F381ECB-E5B2-416A-AFCF-0F42B53DF5AD}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Kryolite.Shared.Tests", "Kryolite.Shared.Tests\Kryolite.Shared.Tests.csproj", "{9F381ECB-E5B2-416A-AFCF-0F42B53DF5AD}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "benchmarks", "benchmarks\benchmarks.csproj", "{6BD908D7-2E5B-4BEB-BA0E-FCA5BD913570}"
 EndProject
@@ -24,7 +24,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.editorconfig = .editorconfig
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "rocksdb", "rocksdb\rocksdb.csproj", "{52B740BC-BB5F-4DB7-9AAA-63B836C98F30}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Rocksdb", "Kryolite.Rocksdb\Kryolite.Rocksdb.csproj", "{52B740BC-BB5F-4DB7-9AAA-63B836C98F30}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
