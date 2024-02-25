@@ -390,9 +390,9 @@ begin:
                         }
                     }
                 }
-                catch (Exception)
+                catch (Exception ex)
                 {
-                    _logger.LogDebug($"{node.Uri} sent malformed broadcast");
+                    _logger.LogDebug("{node} sent malformed broadcast: {message}", node.Uri, ex.Message);
                 }
             }
         }
@@ -402,6 +402,7 @@ begin:
         }
         catch (AuthorizationException)
         {
+            _logger.LogDebug("{node} authentication failed", node.Uri);
             // Something strange happened, remove node
             _nodeTable.RemoveNode(node);
             _connectedNodes.TryRemove(node.PublicKey, out _);

@@ -22,6 +22,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ServiceModel.Grpc.Client;
+using ServiceModel.Grpc.Configuration;
 
 namespace Kryolite.Node;
 
@@ -169,6 +170,7 @@ public static class Startup
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Difficulty>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionDto>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ChainState>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<AuthRequest>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<AuthResponse>());
 
         var txPayloadFormatter = new DynamicUnionFormatter<ITransactionPayload>(new[]
@@ -210,7 +212,12 @@ public static class Startup
 
     public static void AddNodeServices(this IServiceCollection services)
     {
-        var clientFactory = new ClientFactory()
+        var opts = new ServiceModelGrpcClientOptions
+        {
+            MarshallerFactory = MemoryPackMarshallerFactory.Default
+        };
+
+        var clientFactory = new ClientFactory(opts)
             .AddNodeServiceClient();
 
         services.AddHttpContextAccessor();
@@ -237,7 +244,7 @@ public static class Startup
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddSingleton<IEventBus, EventBus.EventBus>()
                 .AddSingleton((sp) => clientFactory)
-                .AddServiceModelGrpc().Services
+                .AddServiceModelGrpc(x => x.DefaultMarshallerFactory = MemoryPackMarshallerFactory.Default).Services
                 .AddNodeServiceOptions(opts => {})
                 .AddUpnpService()
                 .AddRouting()

@@ -16,6 +16,7 @@
     <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
     <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
     <ProjectReference Include="..\Kryolite.Upnp\Kryolite.Upnp.csproj" />
+    <ProjectReference Include="..\ServiceModel.Grpc.MemoryPackMarshaller\ServiceModel.Grpc.MemoryPackMarshaller.csproj" />
   </ItemGroup>
 
   <ItemGroup>
