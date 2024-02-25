@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -31,6 +32,15 @@ public class UpnpService : BackgroundService
             }
 
             var bind = _config.GetValue<string>("bind");
+            var ip = IPAddress.Parse(bind!);
+
+            if (IPAddress.IsLoopback(ip))
+            {
+                _logger.LogInformation("Disabling Upnp for localhost binding");
+                _logger.LogInformation("Upnp          [DISABLED]");
+                return;
+            }
+
             var port = _config.GetValue<ushort>("port");
 
             var timeoutSource = new CancellationTokenSource(5000);
