@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
-using Kryolite.Shared;
 using Microsoft.Extensions.DependencyInjection;
 using MemoryPack;
+using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 
 namespace Kryolite.Node.Network;

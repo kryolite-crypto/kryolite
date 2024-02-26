@@ -2,6 +2,7 @@ using System.Net;
 using System.Reflection;
 using DnsClient;
 using Kryolite.EventBus;
+using Kryolite.Grpc.NodeService;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Network;

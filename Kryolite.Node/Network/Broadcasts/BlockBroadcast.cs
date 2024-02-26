@@ -1,3 +1,4 @@
+using Kryolite.Grpc.NodeService;
 using Kryolite.Shared;
 using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;

@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;

@@ -1,5 +1,6 @@
 using System.Threading.Channels;
 using System.Threading.Tasks.Dataflow;
+using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using MemoryPack;

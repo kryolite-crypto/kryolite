@@ -36,6 +36,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Wallet", "Kryolite
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Wallet.Tests", "Kryolite.Wallet.Tests\Kryolite.Wallet.Tests.csproj", "{73D8F7A2-0BA3-47B0-BFA1-FDB7266F40A3}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Grpc.NodeService", "Kryolite.Grpc.NodeService\Kryolite.Grpc.NodeService.csproj", "{00B275FB-9438-48FB-B9AF-948726CCB1DB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -98,6 +100,10 @@ Global
 		{73D8F7A2-0BA3-47B0-BFA1-FDB7266F40A3}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{73D8F7A2-0BA3-47B0-BFA1-FDB7266F40A3}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{73D8F7A2-0BA3-47B0-BFA1-FDB7266F40A3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{00B275FB-9438-48FB-B9AF-948726CCB1DB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{00B275FB-9438-48FB-B9AF-948726CCB1DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{00B275FB-9438-48FB-B9AF-948726CCB1DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{00B275FB-9438-48FB-B9AF-948726CCB1DB}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

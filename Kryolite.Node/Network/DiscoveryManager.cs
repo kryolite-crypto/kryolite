@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using DnsClient;
 using Grpc.Net.Client;
+using Kryolite.Grpc.NodeService;
 using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;

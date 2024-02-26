@@ -3,7 +3,7 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using MemoryPack;
 
-namespace Kryolite.Node.Network;
+namespace Kryolite.Grpc.NodeService;
 
 [DataContract]
 [MemoryPackable]

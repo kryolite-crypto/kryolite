@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.ServiceModel;
 using System.Threading.Channels;
 using System.Threading.Tasks.Dataflow;
+using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
@@ -17,52 +18,6 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Network;
-
-[ServiceContract]
-public interface INodeService
-{
-    [OperationContract]
-    PublicKey GetPublicKey();
-
-    [OperationContract]
-    List<NodeDto> GetPeers();
-
-    [OperationContract]
-    View? GetViewForId(long id);
-
-    [OperationContract]
-    View? GetViewForHash(SHA256Hash hash);
-
-    [OperationContract]
-    Block? GetBlock(SHA256Hash hash);
-
-    [OperationContract]
-    Vote? GetVote(SHA256Hash hash);
-
-    [OperationContract]
-    TransactionDto? GetTransaction(SHA256Hash hash);
-    
-    [OperationContract]
-    void SuggestView(PublicKey publicKey, SHA256Hash viewhash, BigInteger weight);
-
-    [OperationContract]
-    long FindCommonHeight(List<SHA256Hash> hashes);
-
-    [OperationContract]
-    List<ViewResponse> GetViewsForRange(long startHeight, int batchSize);
-
-    [OperationContract]
-    bool ShouldSync(PublicKey publicKey, SHA256Hash viewHash, BigInteger weight);
-
-    [OperationContract]
-    void Broadcast(PublicKey publicKey, byte[][] messages);
-
-    [OperationContract]
-    long GenerateChallenge(long nonce);
-
-    [OperationContract]
-    IAsyncEnumerable<byte[][]> Listen(AuthRequest request, long challenge, CancellationToken token);
-}
 
 public class NodeService : INodeService
 {

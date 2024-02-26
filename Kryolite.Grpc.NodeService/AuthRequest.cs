@@ -4,6 +4,8 @@ using Kryolite.Shared;
 using MemoryPack;
 using NSec.Cryptography;
 
+namespace Kryolite.Grpc.NodeService;
+
 [DataContract]
 [MemoryPackable]
 public partial class AuthRequest

@@ -3,7 +3,7 @@ using Kryolite.Shared;
 using MemoryPack;
 using NSec.Cryptography;
 
-namespace Kryolite.Node.Network;
+namespace Kryolite.Grpc.NodeService;
 
 [DataContract]
 [MemoryPackable]

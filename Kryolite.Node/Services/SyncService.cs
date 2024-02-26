@@ -1,4 +1,5 @@
 ﻿using Kryolite.EventBus;
+using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Network;
 using Kryolite.Shared;
