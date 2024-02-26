@@ -17,7 +17,10 @@ public class ValidatorService : BackgroundService
     private readonly IServiceProvider serviceProvider;
     private readonly ILogger<ValidatorService> logger;
 
-    private Wallet Node { get; set; }
+    private PrivateKey SigningKey { get; set; }
+    private PublicKey NodeKey { get; set; }
+    private Address NodeAddress { get; set; }
+
     private IEventBus EventBus { get; }
     private readonly TaskCompletionSource _source = new();
     private TaskCompletionSource _enableValidator = new();
@@ -28,7 +31,10 @@ public class ValidatorService : BackgroundService
         EventBus = eventBus ?? throw new ArgumentNullException(nameof(eventBus));
         this.logger = logger ?? throw new ArgumentNullException(nameof(logger));
 
-        Node = keyRepository.GetKey();
+        SigningKey = keyRepository.GetPrivateKey();
+        NodeKey = keyRepository.GetPublicKey();
+        NodeAddress = NodeKey.ToAddress();
+
         lifetime.ApplicationStarted.Register(() => _source.SetResult());
     }
 
@@ -39,7 +45,7 @@ public class ValidatorService : BackgroundService
             await _source.Task;
             var task = StartValidator(stoppingToken);
 
-            if (Constant.SEED_VALIDATORS.Contains(Node.PublicKey.ToAddress()))
+            if (Constant.SEED_VALIDATORS.Contains(NodeKey.ToAddress()))
             {
                 _enableValidator.SetResult();
                 await task;
@@ -47,7 +53,7 @@ public class ValidatorService : BackgroundService
             }
 
             EventBus.Subscribe<ValidatorEnable>(validator => {
-                if (validator.Address != Node.Address)
+                if (validator.Address != NodeAddress)
                 {
                     return;
                 }
@@ -57,7 +63,7 @@ public class ValidatorService : BackgroundService
             });
 
             EventBus.Subscribe<ValidatorDisable>(validator => {
-                if (validator.Address != Node.Address)
+                if (validator.Address != NodeAddress)
                 {
                     return;
                 }
@@ -69,7 +75,7 @@ public class ValidatorService : BackgroundService
             using var scope = serviceProvider.CreateScope();
             var repository = scope.ServiceProvider.GetRequiredService<IStoreRepository>();
 
-            if (repository.IsValidator(Node.Address))
+            if (repository.IsValidator(NodeAddress))
             {
                 _enableValidator.SetResult();
                 logger.LogInformation("Validator     [ACTIVE]");
@@ -145,7 +151,7 @@ public class ValidatorService : BackgroundService
                 if (nextLeader is null)
                 {
                     logger.LogWarning("Leader selection could not determine next leader, assigning self");
-                    nextLeader = Node.PublicKey;
+                    nextLeader = NodeKey;
 
                     // TODO: We should have some kind of vote who will create next view
                     // this could create temporary chain splits, for now we use jitter
@@ -154,7 +160,7 @@ public class ValidatorService : BackgroundService
 
                 logger.LogInformation("Next leader is {publicKey}", nextLeader.ToAddress());
 
-                if (nextLeader == Node.PublicKey)
+                if (nextLeader == NodeKey)
                 {
                     GenerateView(storeManager, lastView);
                 }
@@ -216,7 +222,7 @@ gotview:
             Id = (lastView?.Id ?? 0) + 1L,
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             LastHash = lastHash,
-            PublicKey = Node.PublicKey,
+            PublicKey = NodeKey,
             Blocks = blockchainManager.GetPendingBlocks() // TODO: we can get key values from dictionary
                 .Where(x => x.LastHash == lastHash)
                 .Select(x => x.GetHash())
@@ -230,7 +236,7 @@ gotview:
                 .ToList()
         };
         
-        nextView.Sign(Node.PrivateKey);
+        nextView.Sign(SigningKey);
 
         blockchainManager.AddView(nextView, true, true);
     }

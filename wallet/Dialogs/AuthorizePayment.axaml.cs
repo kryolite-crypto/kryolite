@@ -18,7 +18,7 @@ public partial class AuthorizePaymentDialog : Window
         AvaloniaXamlLoader.Load(this);
     }
 
-    public static async Task<WalletModel?> Show(string method, List<ParamModel> methodParams, ulong amount, Contract contract, ObservableCollection<WalletModel> wallets, Window owner)
+    public static async Task<AccountModel?> Show(string method, List<ParamModel> methodParams, ulong amount, Contract contract, ObservableCollection<AccountModel> wallets, Window owner)
     {
         AuthorizePaymentDialog? dialog = null;
 
@@ -52,10 +52,10 @@ public partial class AuthorizePaymentDialog : Window
             });
         };
 
-        WalletModel? wallet = null;
+        AccountModel? wallet = null;
 
         await Dispatcher.UIThread.InvokeAsync(async () => {
-            wallet = await dialog.ShowDialog<WalletModel?>(owner);
+            wallet = await dialog.ShowDialog<AccountModel?>(owner);
         });
 
         return wallet;
@@ -71,7 +71,7 @@ public partial class AuthorizePaymentDialog : Window
 
         var bWallet = this.FindControl<ComboBox>("Wallets");
 
-        if (bWallet?.SelectedItem is not WalletModel wallet)
+        if (bWallet?.SelectedItem is not AccountModel wallet)
         {
             Close(null);
             return;

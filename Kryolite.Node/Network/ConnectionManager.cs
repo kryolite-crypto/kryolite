@@ -42,7 +42,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         using var scope = sp.CreateScope();
         var keyRepository = sp.GetRequiredService<IKeyRepository>();
 
-        _nodeKey = keyRepository.GetKey()?.PublicKey!;
+        _nodeKey = keyRepository.GetPublicKey();
         
         _timeout = TimeSpan.FromSeconds(config.GetValue<int>("timeout"));
         _publicAddr = config.GetValue<Uri?>("publicaddr");
@@ -430,10 +430,9 @@ begin:
         using var scope = _sp.CreateScope();
 
         var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-        var keys = keyRepo.GetKey();
         var authRequest = new AuthRequest(_nodeKey, _publicAddr, _port);
 
-        authRequest.Sign(keys.PrivateKey);
+        authRequest.Sign(keyRepo.GetPrivateKey());
 
         return authRequest;
     }

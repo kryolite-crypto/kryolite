@@ -7,7 +7,7 @@ using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Wallet;
 
-public class WalletModel : NotifyPropertyChanged
+public class AccountModel : NotifyPropertyChanged
 {
     private string? description;
     private ulong? balance;
@@ -15,7 +15,6 @@ public class WalletModel : NotifyPropertyChanged
 
     public Address Address { get; set; } = new Address();
     public PublicKey PublicKey { get; set; } = new PublicKey();
-    public PrivateKey PrivateKey { get; set; } = new PrivateKey();
     public List<TransactionModel> Transactions { get; set; } = new();
 
     public string? Description { 

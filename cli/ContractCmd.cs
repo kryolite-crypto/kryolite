@@ -30,11 +30,9 @@ public static class ContractCmd
         uploadCmd.SetHandler(async (from, file, node) =>
         {
             var walletRepository = new WalletRepository(configuration);
-            var wallets = walletRepository.GetWallets();
+            var account = walletRepository.GetAccount(from);
 
-            node = node ?? await ZeroConf.DiscoverNodeAsync();
-
-            if(!wallets.TryGetValue(from, out var wallet))
+            if(account is null)
             {
                 Console.WriteLine("Wallet not found from wallet.dat");
                 Console.WriteLine("'" + from + "'");
@@ -46,6 +44,8 @@ public static class ContractCmd
                 Console.WriteLine($"File does not exist {file}");
                 Environment.Exit(-1);
             }
+
+            node = node ?? await ZeroConf.DiscoverNodeAsync();
 
             var manifestFile = Path.Combine(Path.GetDirectoryName(file)!, $"{Path.GetFileNameWithoutExtension(file)}.json");
 
@@ -65,7 +65,7 @@ public static class ContractCmd
             }
 
             var contract = new Contract(
-                wallet.PublicKey.ToAddress(),
+                account.Address,
                 manifest,
                 bytes
             );
@@ -80,14 +80,22 @@ public static class ContractCmd
             var tx = new Transaction
             {
                 TransactionType = TransactionType.CONTRACT,
-                PublicKey = wallet.PublicKey,
+                PublicKey = account.PublicKey,
                 To = contract.ToAddress(bytes),
                 Value = 0,
                 Data = MemoryPackSerializer.Serialize(payload),
                 Timestamp = 69
             };
 
-            tx.Sign(wallet.PrivateKey);
+            var privKey = walletRepository.GetPrivateKey(account.PublicKey);
+
+            if (privKey is null)
+            {
+                Console.WriteLine($"Unable to load private key from {account.Address}");
+                Environment.Exit(-1);
+            }
+
+            tx.Sign(privKey);
             
             var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");

@@ -68,16 +68,16 @@ public static class SendCmd
         sendCmd.SetHandler(async (from, to, amount, node, contractMethod, contractParams, wait) =>
         {
             var walletRepository = new WalletRepository(configuration);
-            var wallets = walletRepository.GetWallets();
+            var account = walletRepository.GetAccount(from);
 
-            node = node ?? await ZeroConf.DiscoverNodeAsync();
-
-            if(!wallets.TryGetValue(from, out var wallet))
+            if(account is null)
             {
-                Console.WriteLine("Wallet not found from wallet.dat");
+                Console.WriteLine("Wallet not found from wallet.blob");
                 Console.WriteLine("'" + from + "'");
                 Environment.Exit(-1);
             }
+
+            node = node ?? await ZeroConf.DiscoverNodeAsync();
 
             TransactionPayload? transactionPayload = null;
 
@@ -98,14 +98,22 @@ public static class SendCmd
             var tx = new Transaction
             {
                 TransactionType = TransactionType.PAYMENT,
-                PublicKey = wallet.PublicKey,
+                PublicKey = account.PublicKey,
                 To = to,
                 Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Data = transactionPayload != null ? MemoryPackSerializer.Serialize(transactionPayload) : null
             };
 
-            tx.Sign(wallet.PrivateKey);
+            var privKey = walletRepository.GetPrivateKey(account.PublicKey);
+
+            if (privKey is null)
+            {
+                Console.WriteLine($"Unable to load private key from {account.Address}");
+                Environment.Exit(-1);
+            }
+
+            tx.Sign(privKey);
 
             var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
             var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");

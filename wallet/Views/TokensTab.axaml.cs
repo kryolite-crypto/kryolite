@@ -146,13 +146,13 @@ public partial class TokensTab : UserControl
     private void InitializeData(object? sender, VisualTreeAttachmentEventArgs e)
     {
         _ = Task.Run(() => {
-            var wallets = WalletManager.GetWallets();
+            var accounts = WalletManager.GetAccounts();
             var collection = new List<TokenModel>();
 
             using var scope = Program.ServiceCollection.CreateScope();
             var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
 
-            foreach (var wallet in wallets)
+            foreach (var wallet in accounts)
             {
                 var tokens = blockchainManager.GetTokens(wallet.Key)
                     .Select(token => new TokenModel

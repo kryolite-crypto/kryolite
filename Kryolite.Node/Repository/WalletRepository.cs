@@ -16,14 +16,24 @@ public class WalletRepository : IWalletRepository
     {
         DataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         StorePath = Path.Combine(DataDir, "wallet.blob");
-
-        if (!File.Exists(StorePath))
-        {
-            Commit(new WalletContainer());
-        }
     }
 
-    public void Add(Wallet wallet)
+    public bool WalletExists()
+    {
+        return File.Exists(StorePath);
+    }
+
+    public void CreateFromSeed(ReadOnlySpan<byte> seed)
+    {
+        if (File.Exists(StorePath))
+        {
+            throw new Exception("wallet already exists");
+        }
+
+        Commit(Wallet.Wallet.CreateFromSeed(seed));
+    }
+
+    public Wallet.Account CreateAccount()
     {
         using var mutex = new Mutex(false, StorePath.Replace(Path.DirectorySeparatorChar.ToString(), ""));
 
@@ -34,8 +44,13 @@ public class WalletRepository : IWalletRepository
             hasHandle = mutex.WaitOne( Timeout.Infinite, false );
 
             var store = Load();
-            store.Container[wallet.Address] = wallet;
+            var account = store.CreateAccount();
+            
+            store.Accounts.Add(account);
+            
             Commit(store);
+
+            return account;
         }
         finally
         {
@@ -46,16 +61,16 @@ public class WalletRepository : IWalletRepository
         }
     }
 
-    public Wallet? Get(Address address)
+    public Wallet.Account? GetAccount(Address address)
     {
         var store = Load();
-        
-        if (!store.Container.TryGetValue(address, out var wallet))
-        {
-            return null;
-        }
+        return store.GetAccount(address);
+    }
 
-        return wallet;
+    public PrivateKey? GetPrivateKey(PublicKey publicKey)
+    {
+        var store = Load();
+        return store.GetPrivateKey(publicKey);
     }
 
     public void UpdateDescription(Address address, string description)
@@ -69,8 +84,9 @@ public class WalletRepository : IWalletRepository
             hasHandle = mutex.WaitOne( Timeout.Infinite, false );
 
             var store = Load();
-            
-            if (store.Container.TryGetValue(address, out var wallet))
+            var wallet = store.GetAccount(address);
+
+            if (wallet is not null)
             {
                 wallet.Description = description;
             }
@@ -86,13 +102,23 @@ public class WalletRepository : IWalletRepository
         }
     }
 
-    public Dictionary<Address, Wallet> GetWallets()
+    public Dictionary<Address, Wallet.Account> GetAccounts()
     {
-        return Load().Container;
+        if (!File.Exists(StorePath))
+        {
+            return new();
+        }
+
+        return Load().Accounts.ToDictionary(x => x.Address, y => y);
     }
 
     public void Backup()
     {
+        if (!File.Exists(StorePath))
+        {
+            return;
+        }
+
         var backupFolder = Path.Combine(DataDir, "backup");
         Directory.CreateDirectory(backupFolder);
 
@@ -109,21 +135,15 @@ public class WalletRepository : IWalletRepository
         }
     }
 
-    private WalletContainer Load()
+    private Wallet.Wallet Load()
     {
         var bytes = File.ReadAllBytes(StorePath);
-        return MemoryPackSerializer.Deserialize<WalletContainer>(bytes) ?? throw new Exception("failed to deserialize wallet");
+        return MemoryPackSerializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize wallet");
     }
 
-    private void Commit(WalletContainer container)
+    private void Commit(Wallet.Wallet container)
     {
         var bytes = MemoryPackSerializer.Serialize(container);
         File.WriteAllBytes(StorePath, bytes);
     }
-}
-
-[MemoryPackable]
-public partial class WalletContainer
-{
-    public Dictionary<Address, Wallet> Container = new();
 }

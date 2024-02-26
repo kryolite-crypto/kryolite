@@ -13,8 +13,14 @@ public class MainWindowViewModel : NotifyPropertyChanged
     public event EventHandler? ViewLogClicked;
     public event EventHandler? AboutClicked;
     
+    private bool firstTimeExperience;
+    private bool welcomePage;
+    private bool newSeedPage;
+    private bool importSeedPage;
     private long blocks;
     private int connectedPeers;
+    private string mnemonic = string.Empty;
+    private string error = string.Empty;
 
     public StateModel State { get; } = StateModel.Instance;
 
@@ -26,11 +32,46 @@ public class MainWindowViewModel : NotifyPropertyChanged
         set => RaisePropertyChanged(ref blocks, value);
     }
 
-
     public int ConnectedPeers
     {
         get => connectedPeers;
         set => RaisePropertyChanged(ref connectedPeers, value);
+    }
+
+    public bool FirstTimeExperience
+    {
+        get => firstTimeExperience;
+        set => RaisePropertyChanged(ref firstTimeExperience, value);
+    }
+
+    public bool WelcomePage
+    {
+        get => welcomePage;
+        set => RaisePropertyChanged(ref welcomePage, value);
+    }
+
+    public bool NewSeedPage
+    {
+        get => newSeedPage;
+        set => RaisePropertyChanged(ref newSeedPage, value);
+    }
+
+    public bool ImportSeedPage
+    {
+        get => importSeedPage;
+        set => RaisePropertyChanged(ref importSeedPage, value);
+    }
+
+    public string Mnemonic
+    {
+        get => mnemonic;
+        set => RaisePropertyChanged(ref mnemonic, value);
+    }
+
+    public string Error
+    {
+        get => error;
+        set => RaisePropertyChanged(ref error, value);
     }
 
     public void ViewLogCommand()

@@ -24,9 +24,7 @@ public static class WalletCmd
         createCmd.SetHandler((output) =>
         {
             var walletRepository = new WalletRepository(configuration);
-            var wallet = Wallet.Create();
-
-            walletRepository.Add(wallet);
+            var account = walletRepository.CreateAccount();
 
             switch (output)
             {
@@ -40,7 +38,7 @@ public static class WalletCmd
                     Console.WriteLine(json);*/
                     throw new NotImplementedException();
                 default:
-                    Console.WriteLine(wallet.Address);
+                    Console.WriteLine(account.Address);
                     break;
             }
         }, outputOpt);
@@ -48,7 +46,6 @@ public static class WalletCmd
         listCmd.SetHandler((output) => 
         {
             var walletRepository = new WalletRepository(configuration);
-            var wallets = walletRepository.GetWallets();
 
             switch (output)
             {
@@ -63,7 +60,7 @@ public static class WalletCmd
                     Console.WriteLine(json);*/
                     throw new NotImplementedException();
                 default:
-                    foreach (var wallet in wallets)
+                    foreach (var wallet in walletRepository.GetAccounts())
                     {
                         Console.WriteLine(wallet.Value.Address);
                     }

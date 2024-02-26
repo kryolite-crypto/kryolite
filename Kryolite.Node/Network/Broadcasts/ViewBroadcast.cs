@@ -79,7 +79,7 @@ public partial class ViewBroadcast : IBroadcast
             else if (weight < chainState.Weight)
             {
                 var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-                var pubKey = keyRepo.GetKey().PublicKey;
+                var pubKey = keyRepo.GetPublicKey();
 
                 logger.LogDebug("[{hostname}] Has lower weight. Broadcast our current view", node.Uri.ToHostname());
                 client.SuggestView(pubKey, chainState.ViewHash, chainState.Weight);

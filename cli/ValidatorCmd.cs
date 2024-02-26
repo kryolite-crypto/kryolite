@@ -38,11 +38,11 @@ public static class ValidatorCmd
             node = node ?? await ZeroConf.DiscoverNodeAsync();
 
             var repository = new KeyRepository(configuration);
-            var keys = repository.GetKey();
+            var pubKey = repository.GetPublicKey();
 
             using var http = new HttpClient();
 
-            var result = await http.GetAsync($"{node}/validator/{keys.PublicKey.ToAddress().ToString()}");
+            var result = await http.GetAsync($"{node}/validator/{pubKey.ToAddress()}");
 
             if (!result.IsSuccessStatusCode)
             {
@@ -54,7 +54,7 @@ public static class ValidatorCmd
 
             if (string.IsNullOrEmpty(text))
             {
-                Console.WriteLine($"NodeAddress: {keys.PublicKey.ToAddress().ToString()}");
+                Console.WriteLine($"NodeAddress: {pubKey}");
                 Console.WriteLine($"RewardAddress: ");
                 Console.WriteLine($"Stake: 0");
                 Console.WriteLine($"Status: Stake not set");
@@ -93,20 +93,19 @@ public static class ValidatorCmd
         node ??= await ZeroConf.DiscoverNodeAsync();
 
         var repository = new KeyRepository(configuration);
-        var keys = repository.GetKey();
 
         using var http = new HttpClient();
 
         var tx = new Transaction
         {
             TransactionType = txType,
-            PublicKey = keys.PublicKey,
+            PublicKey = repository.GetPublicKey(),
             To = rewardAddress ?? Address.NULL_ADDRESS,
             Value = 0,
             Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
         };
 
-        tx.Sign(keys.PrivateKey);
+        tx.Sign(repository.GetPrivateKey());
 
         var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
         var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");

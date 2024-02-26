@@ -215,8 +215,8 @@ public abstract class TransactionManager
             Repository.Add(view);
             Repository.SaveState(chainState);
 
-            var node = KeyRepository.GetKey();
-            var address = node!.PublicKey.ToAddress();
+            var pubKey = KeyRepository.GetPublicKey();
+            var address = pubKey.ToAddress();
             var shouldVote = castVote && view.IsMilestone() && Repository.IsValidator(address);
 
             if (shouldVote)
@@ -233,12 +233,12 @@ public abstract class TransactionManager
                 var vote = new Vote
                 {
                     ViewHash = view.GetHash(),
-                    PublicKey = node.PublicKey,
+                    PublicKey = pubKey,
                     Stake = stake,
                     RewardAddress = validator.RewardAddress
                 };
 
-                vote.Sign(node.PrivateKey);
+                vote.Sign(KeyRepository.GetPrivateKey());
                 AddVoteInternal(vote, true);
             }
 

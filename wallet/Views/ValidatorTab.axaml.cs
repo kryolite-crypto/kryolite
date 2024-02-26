@@ -50,11 +50,13 @@ public partial class ValidatorTab : UserControl
             var keyRepository = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
 
-            var key = keyRepository.GetKey();
-            var validator = storeManager.GetStake(key.Address);
+            var pubKey = keyRepository.GetPublicKey();
+            var address = pubKey.ToAddress();
+
+            var validator = storeManager.GetStake(address);
             var chainState = storeManager.GetChainState();
 
-            var votes = storeManager.GetVotesForAddress(key.Address, 6).Select(x => new TransactionModel
+            var votes = storeManager.GetVotesForAddress(address, 6).Select(x => new TransactionModel
             {
                 Recipient = x.To,
                 Amount = (long)x.Value,
@@ -63,13 +65,13 @@ public partial class ValidatorTab : UserControl
 
             var previousEpoch = chainState.Id - (chainState.Id % Constant.EPOCH_LENGTH);
             var nextEpoch = previousEpoch + Constant.EPOCH_LENGTH;
-            var estimatedReward = storeManager.GetEstimatedStakeReward(key.Address, nextEpoch);
+            var estimatedReward = storeManager.GetEstimatedStakeReward(address, nextEpoch);
             
             var secondsUntilEpochEnd = (nextEpoch - chainState.Id) * Constant.VIEW_INTERVAL;
             var endOfEpoch = DateTimeOffset.UtcNow.AddSeconds(secondsUntilEpochEnd);
 
             await Dispatcher.UIThread.InvokeAsync(() => {
-                Model.Address = key.Address;
+                Model.Address = address;
 
                 if (validator is not null)
                 {
@@ -151,8 +153,6 @@ public partial class ValidatorTab : UserControl
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
             var walletManager = scope.ServiceProvider.GetRequiredService<IWalletManager>();
 
-            var key = keyRepository.GetKey();
-
             var title = "Select address for stake rewards";
             var description = "Address for stake rewards";
             var address = await InputDialog.Show(title, description, window);
@@ -190,12 +190,13 @@ public partial class ValidatorTab : UserControl
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
             var walletManager = scope.ServiceProvider.GetRequiredService<IWalletManager>();
 
-            var key = keyRepository.GetKey();
-            var stake = storeManager.GetStake(key.Address);
+            var pubKey = keyRepository.GetPublicKey();
+            var address = pubKey.ToAddress();
+            var stake = storeManager.GetStake(address);
 
             var model = new TransferModel
             {
-                From = key.Address.ToString(),
+                From = address.ToString(),
                 Min = 0,
                 Max = stake?.Stake ?? 0UL,
                 Amount = "0",
@@ -227,13 +228,13 @@ public partial class ValidatorTab : UserControl
             var tx = new Transaction
             {
                 TransactionType = TransactionType.PAYMENT,
-                PublicKey = key.PublicKey,
+                PublicKey = pubKey,
                 To = result.To,
                 Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds()
             };
 
-            tx.Sign(key.PrivateKey);
+            tx.Sign(keyRepository.GetPrivateKey());
 
             Console.WriteLine(storeManager.AddTransaction(new TransactionDto(tx), true));
         }
@@ -250,18 +251,17 @@ public partial class ValidatorTab : UserControl
             using var scope = Program.ServiceCollection.CreateScope();
             var keyRepository = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-            var key = keyRepository.GetKey();
 
             var tx = new Transaction
             {
                 TransactionType = transactionType,
-                PublicKey = key.PublicKey,
+                PublicKey = keyRepository.GetPublicKey(),
                 To = rewardRecipient,
                 Value = 0,
                 Timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds()
             };
 
-            tx.Sign(key.PrivateKey);
+            tx.Sign(keyRepository.GetPrivateKey());
 
             var result = storeManager.AddTransaction(new TransactionDto(tx), true);
 

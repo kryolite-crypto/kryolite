@@ -21,6 +21,10 @@ using MemoryPack;
 using Kryolite.Shared.Dto;
 using System.Web;
 using Kryolite.Node.Network;
+using System.Collections;
+using System.Security.Cryptography;
+using Avalonia.Interactivity;
+using Microsoft.Extensions.Hosting;
 
 namespace Kryolite.Wallet;
 
@@ -33,7 +37,7 @@ public partial class MainWindow : Window
 
     private FileSystemWatcher _watcher = new ();
     private MainWindowViewModel _model = new MainWindowViewModel();
-    public ConcurrentDictionary<Address, Shared.Wallet> Wallets;
+    public ConcurrentDictionary<Address, Account> Accounts;
 
     public MainWindow()
     {
@@ -43,7 +47,7 @@ public partial class MainWindow : Window
         _eventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IEventBus));
         _connMan = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
 
-        Wallets = new (_walletManager.GetWallets());
+        Accounts = new (_walletManager.GetAccounts());
         DataContext = _model;
 
         AvaloniaXamlLoader.Load(this);
@@ -51,7 +55,17 @@ public partial class MainWindow : Window
 #if DEBUG
         this.AttachDevTools();
 #endif
-        Opened += OnInitialized;
+        Opened += (object? sender, EventArgs args) =>
+        {
+            if (_walletManager.WalletExists())
+            {
+                Initialize();
+            }
+            else
+            {
+                FirstTimeExperience();
+            }
+        };
 
         _model.ViewLogClicked += (object? sender, EventArgs args) => {
             var dialog = new LogViewerDialog();
@@ -84,7 +98,7 @@ public partial class MainWindow : Window
         });
 
         _eventBus.Subscribe<Ledger>(async ledger => {
-            if (!Wallets.ContainsKey(ledger.Address))
+            if (!Accounts.ContainsKey(ledger.Address))
             {
                 return;
             }
@@ -92,7 +106,7 @@ public partial class MainWindow : Window
             var transactions = _storeManager.GetLastNTransctions(ledger.Address, 5);
             var txs = transactions.Select(x =>
             {
-                var isRecipient = Wallets.ContainsKey(x.To!);
+                var isRecipient = Accounts.ContainsKey(x.To!);
 
                 var tm = new TransactionModel
                 {
@@ -110,31 +124,30 @@ public partial class MainWindow : Window
         });
     }
 
-    private void OnInitialized(object? sender, EventArgs args)
+    private void Initialize()
     {
         Task.Run(async () => {
             try
             {
-                var toAdd = new List<WalletModel>();
+                var toAdd = new List<AccountModel>();
                 var balance = 0UL;
                 var pending = 0UL;
 
-                foreach (var wallet in Wallets.Values)
+                foreach (var account in Accounts.Values)
                 {
-                    var ledger = _storeManager.GetLedger(wallet.Address);
-                    var txs = _storeManager.GetLastNTransctions(wallet.Address, 5);
+                    var ledger = _storeManager.GetLedger(account.Address);
+                    var txs = _storeManager.GetLastNTransctions(account.Address, 5);
 
-                    var wm = new WalletModel
+                    var wm = new AccountModel
                     {
-                        Description = wallet.Description,
-                        Address = wallet.Address.ToString(),
-                        PublicKey = wallet.PublicKey,
-                        PrivateKey = wallet.PrivateKey,
+                        Description = account.Description,
+                        Address = account.Address.ToString(),
+                        PublicKey = account.PublicKey,
                         Balance = ledger?.Balance ?? 0,
                         Pending = ledger?.Pending ?? 0,
                         Transactions = txs.Select(x =>
                         {
-                            var isSender = x.From == wallet.Address;
+                            var isSender = x.From == account.Address;
 
                             var tm = new TransactionModel
                             {
@@ -161,7 +174,7 @@ public partial class MainWindow : Window
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _model.State.Wallets = new ObservableCollection<WalletModel>(toAdd);
+                    _model.State.Accounts = new ObservableCollection<AccountModel>(toAdd);
                     _model.State.Balance = (long)balance;
                     _model.State.Pending = (long)pending;
                     _model.State.Transactions = transactions;
@@ -294,16 +307,16 @@ public partial class MainWindow : Window
                 });
             }
 
-            var wallet = await AuthorizePaymentDialog.Show(
+            var account = await AuthorizePaymentDialog.Show(
                 method.Description ?? method.Name,
                 methodParams,
                 amount,
                 contract,
-                _model.State.Wallets,
+                _model.State.Accounts,
                 this
             );
 
-            if (wallet is null)
+            if (account is null)
             {
                 return;
             }
@@ -315,14 +328,14 @@ public partial class MainWindow : Window
 
             var transaction = new Transaction {
                 TransactionType = TransactionType.PAYMENT,
-                PublicKey = wallet.PublicKey,
+                PublicKey = account.PublicKey,
                 To = contract.Address,
                 Value = amount,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 Data = MemoryPackSerializer.Serialize(payload)
             };
 
-            transaction.Sign(wallet.PrivateKey);
+            transaction.Sign(_walletManager.GetPrivateKey(account.PublicKey));
 
             var result = _storeManager.AddTransaction(new TransactionDto(transaction), true);
 
@@ -334,5 +347,58 @@ public partial class MainWindow : Window
         {
             Console.WriteLine(ex);
         }
+    }
+
+    private void FirstTimeExperience()
+    {
+        _model.FirstTimeExperience = true;
+        _model.WelcomePage = true;
+    }
+
+    public void CreateNewWallet(object? sender, RoutedEventArgs args)
+    {
+        _model.WelcomePage = false;
+        _model.NewSeedPage = true;
+        _model.Mnemonic = Mnemonic.CreateMnemonic();
+    }
+
+
+    public void ImportWalletFromSeed(object? sender, RoutedEventArgs args)
+    {
+        _model.WelcomePage = false;
+        _model.ImportSeedPage = true;
+    }
+
+    public void CreateOrImport(object? sender, RoutedEventArgs args)
+    {
+        _model.WelcomePage = false;
+        _model.NewSeedPage = false;
+        _model.ImportSeedPage = false;
+        _model.FirstTimeExperience = false;
+
+        if (!Mnemonic.TryConvertMnemonicToSeed(_model.Mnemonic, out var seed))
+        {
+            _model.Error = "Invalid mnemonic seed";
+        }
+
+        if (seed.Length != 32)
+        {
+            _model.Error = "Invalid seed length";
+        }
+
+        _walletManager.CreateWalletFromSeed(seed);
+
+        _model.Error = string.Empty;
+
+        Program.App.Start();
+
+        Initialize();
+    }
+
+    public void Back(object? sender, RoutedEventArgs args)
+    {
+        _model.NewSeedPage = false;
+        _model.ImportSeedPage = false;
+        _model.WelcomePage = true;
     }
 }

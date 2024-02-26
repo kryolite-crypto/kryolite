@@ -8,7 +8,7 @@ namespace Kryolite.Benchmarks;
 [MemoryDiagnoser]
 public class TransactionVerify
 {
-    private static Wallet wallet = Wallet.Create();
+    /*private static Account wallet = Account.Create();
 
     private Transaction tx;
     private Ed25519 algorithm;
@@ -53,5 +53,5 @@ public class TransactionVerify
     }
 
     [Benchmark]
-    public void Verify() => algorithm.Verify(key, data, signature ?? throw new Exception("trying to verify null signature"));
+    public void Verify() => algorithm.Verify(key, data, signature ?? throw new Exception("trying to verify null signature"));*/
 }

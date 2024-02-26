@@ -20,7 +20,7 @@ public class NodeTable
 
     public NodeTable(IKeyRepository keyRepo)
     {
-        _serverKey = keyRepo.GetKey().PublicKey;
+        _serverKey = keyRepo.GetPublicKey();
     }
 
     public int GetNodesCount()

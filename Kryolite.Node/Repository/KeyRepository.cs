@@ -15,17 +15,25 @@ public class KeyRepository : IKeyRepository
 
         if (!Path.Exists(StorePath))
         {
-            var keys = Wallet.Create();
-            var bytes = MemoryPackSerializer.Serialize(keys);
+            var wallet = Wallet.Wallet.CreateFromRandomSeed();
+            wallet.CreateAccount();
+            var bytes = MemoryPackSerializer.Serialize(wallet);
 
             File.WriteAllBytes(StorePath, bytes);
         }
     }
 
-    public Wallet GetKey()
+    public PublicKey GetPublicKey()
     {
-        var a = new Wallet();
         var bytes = File.ReadAllBytes(StorePath);
-        return MemoryPackSerializer.Deserialize<Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
+        var wallet = MemoryPackSerializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
+        return wallet.Accounts[0].PublicKey;
+    }
+
+    public PrivateKey GetPrivateKey()
+    {
+        var bytes = File.ReadAllBytes(StorePath);
+        var wallet = MemoryPackSerializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
+        return wallet.GetPrivateKey(wallet.Accounts[0].PublicKey) ?? throw new Exception("node keys not initialized");
     }
 }

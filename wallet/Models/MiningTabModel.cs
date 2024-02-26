@@ -14,7 +14,7 @@ namespace Kryolite.Wallet;
 
 public class MiningTabModel : NotifyPropertyChanged
 {
-    private WalletModel? _selectedWallet;
+    private AccountModel? _selectedWallet;
     private string? _threads;
     private string _actionText = "Start mining";
     private string _hashrate = "0 h/s";
@@ -24,7 +24,7 @@ public class MiningTabModel : NotifyPropertyChanged
 
     public StateModel State { get; } = StateModel.Instance;
 
-    public WalletModel? SelectedWallet
+    public AccountModel? SelectedWallet
     {
         get => _selectedWallet; 
         set => RaisePropertyChanged(ref _selectedWallet, value);

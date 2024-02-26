@@ -12,7 +12,7 @@
         <StackPanel Margin="0, 20, 0, 0" Orientation="Horizontal" DockPanel.Dock="Bottom">
             <Button Command="{Binding OnNewAddressCommand}">New Address</Button>
         </StackPanel>
-        <DataGrid Name="WalletsGrid" ItemsSource="{Binding State.Wallets}" AutoGenerateColumns="False" DockPanel.Dock="Top">
+        <DataGrid Name="WalletsGrid" ItemsSource="{Binding State.Accounts}" AutoGenerateColumns="False" DockPanel.Dock="Top">
             <DataGrid.Styles>
                 <Style Selector="DataGridColumnHeader">
                     <Setter Property="Background" Value="Transparent"/>
@@ -24,9 +24,9 @@
                 </ContextMenu>
             </DataGrid.ContextMenu>
             <DataGrid.Columns>
-                <DataGridTextColumn x:DataType="vm:WalletModel" Header="Description" Binding="{Binding Description}"/>
-                <DataGridTextColumn x:DataType="vm:WalletModel" Header="Address" Binding="{Binding Address, Converter={StaticResource AddressConverter}}" IsReadOnly="True"/>
-                <DataGridTextColumn x:DataType="vm:WalletModel" Header="Balance" Binding="{Binding Balance, Converter={StaticResource CurrencyConverter}}" IsReadOnly="True"/>
+                <DataGridTextColumn x:DataType="vm:AccountModel" Header="Description" Binding="{Binding Description}"/>
+                <DataGridTextColumn x:DataType="vm:AccountModel" Header="Address" Binding="{Binding Address, Converter={StaticResource AddressConverter}}" IsReadOnly="True"/>
+                <DataGridTextColumn x:DataType="vm:AccountModel" Header="Balance" Binding="{Binding Balance, Converter={StaticResource CurrencyConverter}}" IsReadOnly="True"/>
             </DataGrid.Columns>
         </DataGrid>
     </DockPanel>

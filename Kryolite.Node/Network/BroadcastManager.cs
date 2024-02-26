@@ -29,7 +29,7 @@ public class BroadcastManager : BackgroundService
     {
         _connMan = connMan;
         _logger = logger;
-        _nodeKey = keyRepo.GetKey().PublicKey;
+        _nodeKey = keyRepo.GetPublicKey();
     }
 
     public static void Broadcast(IBroadcast packet)

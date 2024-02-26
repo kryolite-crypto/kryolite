@@ -14,31 +14,45 @@ public class WalletManager : IWalletManager
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
     }
 
-    public Wallet? GetWallet(Address address)
+    public Wallet.Account? GetAccount(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Repository.Get(address);
+        return Repository.GetAccount(address);
     }
 
-    public Dictionary<Address, Wallet> GetWallets()
+    public Dictionary<Address, Wallet.Account> GetAccounts()
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetWallets();
+        return Repository.GetAccounts();
     }
 
-    public Wallet CreateWallet()
+    public Wallet.Account CreateAccount()
     {
         using var _ = rwlock.EnterWriteLockEx();
-
-        var wallet = Wallet.Create();
-
-        Repository.Add(wallet);
-        return wallet;
+        return Repository.CreateAccount();
     }
 
     public void UpdateDescription(Address address, string description)
     {
         using var _ = rwlock.EnterWriteLockEx();
         Repository.UpdateDescription(address, description);
+    }
+
+    public PrivateKey GetPrivateKey(PublicKey publicKey)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetPrivateKey(publicKey)!;
+    }
+
+    public bool WalletExists()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.WalletExists();
+    }
+
+    public void CreateWalletFromSeed(ReadOnlySpan<byte> seed)
+    {
+        using var _ = rwlock.EnterWriteLockEx();
+        Repository.CreateFromSeed(seed);
     }
 }

@@ -12,6 +12,7 @@ using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Kryolite.Upnp;
+using Kryolite.Wallet;
 using MemoryPack;
 using MemoryPack.Formatters;
 using Microsoft.AspNetCore.Builder;
@@ -42,9 +43,10 @@ public static class Startup
         walletRepository.Backup();
 
         var keyRepository = new KeyRepository(config);
+        var pubKey = keyRepository.GetPublicKey();
         Console.WriteLine($"Server");
-        Console.WriteLine($"\tPublic Key: {keyRepository.GetKey().PublicKey}");
-        Console.WriteLine($"\tAddress: {keyRepository.GetKey().Address}");
+        Console.WriteLine($"\tPublic Key: {pubKey}");
+        Console.WriteLine($"\tAddress: {pubKey.ToAddress()}");
 
         config = builder.Configuration
             .AddIniFile(configPath, optional: true)
@@ -145,7 +147,6 @@ public static class Startup
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewResponse>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewRangeResponse>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<VoteBroadcast>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<WalletContainer>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Address>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Block>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<CallMethod>());
@@ -166,7 +167,8 @@ public static class Startup
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionPayload>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<View>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Vote>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Wallet>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Wallet.Wallet>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Wallet.Account>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Difficulty>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionDto>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ChainState>());

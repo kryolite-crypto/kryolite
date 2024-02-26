@@ -17,6 +17,7 @@
     <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
     <ProjectReference Include="..\Kryolite.Upnp\Kryolite.Upnp.csproj" />
     <ProjectReference Include="..\ServiceModel.Grpc.MemoryPackMarshaller\ServiceModel.Grpc.MemoryPackMarshaller.csproj" />
+    <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -24,7 +25,6 @@
     <PackageReference Include="DnsClient" Version="1.7.0" />
     <PackageReference Include="Grpc.AspNetCore" Version="2.60.0" />
     <PackageReference Include="Grpc.Net.Client" Version="2.60.0" />
-    <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="Open.NAT.NET5" Version="1.0.0" />
     <PackageReference Include="QuikGraph" Version="2.5.0" />
     <PackageReference Include="QuikGraph.Graphviz" Version="2.5.0" />

@@ -30,7 +30,8 @@ public partial class SendTab : UserControl
             try
             {
                 using var scope = Program.ServiceCollection.CreateScope();
-                var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+                var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+                var walletManager = scope.ServiceProvider.GetRequiredService<IWalletManager>();
 
                 if (Model.Recipient is null || Model.SelectedWallet is null || Model.Amount is null || !Address.IsValid(Model.Recipient))
                 {
@@ -88,7 +89,7 @@ public partial class SendTab : UserControl
                     return;
                 }
 
-                transaction.Sign(Model.SelectedWallet!.PrivateKey);
+                transaction.Sign(walletManager.GetPrivateKey(Model.SelectedWallet!.PublicKey));
 
                 var result = blockchainManager.AddTransaction(new TransactionDto(transaction), true);
 

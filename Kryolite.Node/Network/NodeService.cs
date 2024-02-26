@@ -85,7 +85,7 @@ public class NodeService : INodeService
         using var scope = sp.CreateScope();
         var keyRepository = sp.GetRequiredService<IKeyRepository>();
 
-        _nodeKey = keyRepository.GetKey()?.PublicKey ?? throw new Exception("node publickey not generated");
+        _nodeKey = keyRepository.GetPublicKey();
 
         lifetime.ApplicationStopping.Register(() => _cts.Cancel());
     }
@@ -345,12 +345,11 @@ public class NodeService : INodeService
     {
         using var scope = _sp.CreateScope();
         var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-        var keys = keyRepo.GetKey();
 
         var nonce = (long)(_challenges.Get(challenge) ?? 0L);
         var authResponse = new AuthResponse(_nodeKey, nonce);
 
-        authResponse.Sign(keys.PrivateKey);
+        authResponse.Sign(keyRepo.GetPrivateKey());
 
         return authResponse;
     }
@@ -392,8 +391,6 @@ public class NodeService : INodeService
                 yield return data;
             }
         }
-
-        Console.WriteLine("DISCONNECT");
     }
 
 #pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously

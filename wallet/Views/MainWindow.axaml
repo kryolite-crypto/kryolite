@@ -53,40 +53,72 @@
                     MaterialOpacity="0.5" />
             </ExperimentalAcrylicBorder.Material>
         </ExperimentalAcrylicBorder>
-
-        <DockPanel>
-            <Panel DockPanel.Dock="Top" Height="25">
-                <NativeMenuBar Width="180" HorizontalAlignment="Left"/>
-                <TextBlock IsVisible="{Binding IsWindows}" Text="Kryolite Wallet" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
-            </Panel>
-
-            <DockPanel DockPanel.Dock="Bottom">
-                <TextBlock Text="{Binding ConnectedPeers}" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
-                <avalonia:MaterialIcon Margin="5,0,0,0" Kind="Lan" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
-                <TextBlock Text="{Binding Blocks}" Margin="0,0,5,0" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
-                <avalonia:MaterialIcon Margin="5,0,0,0" Kind="LinkVariant" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
-                <ProgressBar Name="SyncProgress" IsEnabled="False" IsVisible="False" Minimum="0" Maximum="100" ShowProgressText="True" DockPanel.Dock="Left"/>
+        <Grid>
+            <DockPanel>
+                <Panel DockPanel.Dock="Top" Height="25">
+                    <NativeMenuBar Width="180" HorizontalAlignment="Left"/>
+                    <TextBlock IsVisible="{Binding IsWindows}" Text="Kryolite Wallet" HorizontalAlignment="Center" VerticalAlignment="Center" IsHitTestVisible="False"/>
+                </Panel>
+                <DockPanel DockPanel.Dock="Bottom">
+                    <TextBlock Text="{Binding ConnectedPeers}" Margin="0,0,5,0" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
+                    <avalonia:MaterialIcon Margin="5,0,0,0" Kind="Lan" ToolTip.Tip="Connected Peers" DockPanel.Dock="Right"/>
+                    <TextBlock Text="{Binding Blocks}" Margin="0,0,5,0" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
+                    <avalonia:MaterialIcon Margin="5,0,0,0" Kind="LinkVariant" ToolTip.Tip="Blocks" DockPanel.Dock="Right"/>
+                    <ProgressBar Name="SyncProgress" IsEnabled="False" IsVisible="False" Minimum="0" Maximum="100" ShowProgressText="True" DockPanel.Dock="Left"/>
+                </DockPanel>
+                <TabControl DockPanel.Dock="Top">
+                <TabItem Header="Overview" VerticalContentAlignment="Center">
+                    <vm:OverviewTab/>
+                </TabItem>
+                <TabItem Header="Addresses" VerticalContentAlignment="Center">
+                    <vm:AddressesTab/>
+                </TabItem>
+                <TabItem Header="Send" VerticalContentAlignment="Center">
+                    <vm:SendTab/>
+                </TabItem>
+                <TabItem Header="Tokens" VerticalContentAlignment="Center">
+                    <vm:TokensTab/>
+                </TabItem>
+                <TabItem Header="Mining" VerticalContentAlignment="Center">
+                    <vm:MiningTab/>
+                </TabItem>
+                <TabItem Header="Validator" VerticalContentAlignment="Center">
+                    <vm:ValidatorTab/>
+                </TabItem>
+                </TabControl>
             </DockPanel>
-            <TabControl DockPanel.Dock="Top">
-              <TabItem Header="Overview" VerticalContentAlignment="Center">
-                <vm:OverviewTab/>
-              </TabItem>
-              <TabItem Header="Addresses" VerticalContentAlignment="Center">
-                <vm:AddressesTab/>
-              </TabItem>
-              <TabItem Header="Send" VerticalContentAlignment="Center">
-                <vm:SendTab/>
-              </TabItem>
-              <TabItem Header="Tokens" VerticalContentAlignment="Center">
-                <vm:TokensTab/>
-              </TabItem>
-              <TabItem Header="Mining" VerticalContentAlignment="Center">
-                <vm:MiningTab/>
-              </TabItem>
-              <TabItem Header="Validator" VerticalContentAlignment="Center">
-                <vm:ValidatorTab/>
-              </TabItem>
-            </TabControl>
-        </DockPanel>
+            <Border Background="rgba(0, 0, 0, 0.92)" IsVisible="{Binding FirstTimeExperience}">
+                <Panel>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="20" IsVisible="{Binding WelcomePage}">
+                        <TextBlock Text="How do you want to setup your Kryolite wallet?" HorizontalAlignment="Center"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="20">
+                            <Button Content="Create new wallet" Click="CreateNewWallet"/>
+                            <Button Content="Import from mnemonic seed" Click="ImportWalletFromSeed" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="20" IsVisible="{Binding NewSeedPage}">
+                        <StackPanel>
+                            <TextBlock Text="This is your recovery phrase, also known as mnemonic seed." HorizontalAlignment="Center"/>
+                            <TextBlock Text="Save these words to secure location, you might need them if you lose your wallet backups." HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBox Text="{Binding Mnemonic}" Height="200" IsReadOnly="true" Width="600" HorizontalAlignment="Center" TextBox.TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="20">
+                            <Button Content="Create wallet" Click="CreateOrImport"/>
+                            <Button Content="Back" Click="Back" />
+                        </StackPanel>
+                    </StackPanel>
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="20" IsVisible="{Binding ImportSeedPage}">
+                        <StackPanel>
+                            <TextBlock Text="Insert your mnemonic seed here to recreate your wallet keys" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                        <TextBox Text="{Binding Mnemonic}" Height="200" Width="600" HorizontalAlignment="Center" TextBox.TextWrapping="Wrap"/>
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Spacing="20">
+                            <Button Content="Import wallet" Click="CreateOrImport"/>
+                            <Button Content="Back" Click="Back" />
+                        </StackPanel>
+                    </StackPanel>
+                </Panel>
+            </Border>
+        </Grid>
     </Panel>
 </Window>

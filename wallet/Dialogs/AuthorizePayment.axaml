@@ -54,7 +54,7 @@
                 <TextBlock x:Name="Url" FontWeight="Bold" Margin="10, 2, 10, 0" />
                 <ComboBox x:Name="Wallets" Width="420" PlaceholderText="Select wallet" Margin="10">
                     <ComboBox.ItemTemplate>
-                        <DataTemplate x:DataType="vm:WalletModel">
+                        <DataTemplate x:DataType="vm:AccountModel">
                             <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">
                             <TextBlock Text="{Binding Balance, Converter={StaticResource CurrencyConverter}}" Grid.Row="0" Grid.Column="0"/>
                             <TextBlock Text="{Binding Description}" IsVisible="{Binding Description, Converter={StaticResource NotEmptyConverter}}" Grid.Row="1" Grid.Column="0"/>

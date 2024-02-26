@@ -14,7 +14,7 @@ public class SendTabViewModel : NotifyPropertyChanged
 
     public StateModel State { get; } = StateModel.Instance;
 
-    private WalletModel? selectedWallet;
+    private AccountModel? selectedWallet;
     private string? recipient;
     private string? amount;
     private bool isScheduled;
@@ -25,7 +25,7 @@ public class SendTabViewModel : NotifyPropertyChanged
     private ObservableCollection<string> addresses = new();
 
 
-    public WalletModel? SelectedWallet
+    public AccountModel? SelectedWallet
     {
         get => selectedWallet; 
         set => RaisePropertyChanged(ref selectedWallet, value);

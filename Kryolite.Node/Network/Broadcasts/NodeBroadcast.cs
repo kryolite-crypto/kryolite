@@ -24,7 +24,7 @@ public partial class NodeBroadcast : IBroadcast
         using var scope = provider.CreateScope();
 
         var keyRepository = provider.GetRequiredService<IKeyRepository>();
-        var key = keyRepository.GetKey()?.PublicKey;
+        var key = keyRepository.GetPublicKey();
 
         if (AuthRequest.PublicKey == key)
         {

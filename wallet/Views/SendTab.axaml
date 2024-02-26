@@ -13,7 +13,7 @@
       <Border BorderBrush="#66ffffff" BorderThickness="0.51" CornerRadius="0" Padding="4" HorizontalAlignment="Stretch" DockPanel.Dock="Left">
         <StackPanel Spacing="20" Margin="10">
           <TextBlock FontWeight="Bold">Create a transaction</TextBlock>
-          <ComboBox Width="420" ItemsSource="{Binding State.Wallets}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
+          <ComboBox Width="420" ItemsSource="{Binding State.Accounts}" SelectedItem="{Binding SelectedWallet}" PlaceholderText="Select wallet">
             <ComboBox.ItemTemplate>
               <DataTemplate>
                 <Grid ColumnDefinitions="Auto, *" RowDefinitions="Auto,Auto">

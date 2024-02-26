@@ -11,16 +11,14 @@ using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Microsoft.Win32;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.Hosting;
-using System.Threading.Tasks;
 using Avalonia.Controls;
-using System.Threading;
 using Avalonia.Controls.ApplicationLifetimes;
 
 namespace Kryolite.Wallet
 {
     class Program
     {
+        public static WebApplication App { get; private set; } = default!;
         public static IServiceProvider ServiceCollection { get; private set; } = default!;
 
         [STAThread]
@@ -62,8 +60,8 @@ namespace Kryolite.Wallet
                 var app = builder.Build();
 
                 app.UseNodeMiddleware();
-                app.Start();
 
+                App = app;
                 ServiceCollection = app.Services;
 
                 if (!Path.Exists(pipePath))

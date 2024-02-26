@@ -1,14 +1,8 @@
 using System;
-using System.Collections.ObjectModel;
-using System.Linq;
 using System.Threading.Tasks;
-using System.Threading.Tasks.Dataflow;
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 using Kryolite.Node;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -37,26 +31,26 @@ public partial class AddressesTab : UserControl
         }
 
         walletGrid.CellEditEnded += (object? sender, DataGridCellEditEndedEventArgs args) => {
-            if (args.Row.DataContext is WalletModel walletModel) {
+            if (args.Row.DataContext is AccountModel walletModel) {
                 WalletManager.UpdateDescription(walletModel.Address, walletModel.Description ?? string.Empty);
             }
         };
 
         Model.NewAddressClicked += async (object? sender, EventArgs args) => {
-            var wallet = WalletManager.CreateWallet();
+            var account = WalletManager.CreateAccount();
 
-            await Dispatcher.UIThread.InvokeAsync(() => {
+            await Dispatcher.UIThread.InvokeAsync((Action)(() => {
                 if (this.VisualRoot is MainWindow mw)
                 {
-                    mw.Wallets.TryAdd(wallet.Address, wallet);
+                    mw.Accounts.TryAdd(account.Address, account);
                 }
 
-                Model.State.AddWallet(wallet);
-            });
+                Model.State.AddAccount(account);
+            }));
         };
 
         Model.CopyAddressClicked += async (object? sender, EventArgs args) => {
-            var wallet = (WalletModel)walletGrid.SelectedItem;
+            var wallet = (AccountModel)walletGrid.SelectedItem;
             TopLevel.GetTopLevel(this)?.Clipboard!.SetTextAsync(wallet.Address.ToString() ?? "");
             await Task.CompletedTask;
         };

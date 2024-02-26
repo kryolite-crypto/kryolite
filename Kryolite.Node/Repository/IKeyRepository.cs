@@ -4,5 +4,6 @@ namespace Kryolite.Node.Repository;
 
 public interface IKeyRepository
 {
-    Wallet GetKey();
+    PublicKey GetPublicKey();
+    PrivateKey GetPrivateKey();
 }

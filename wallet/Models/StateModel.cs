@@ -12,7 +12,7 @@ public class StateModel : NotifyPropertyChanged
     private long balance;
     private long pending;
     private List<TransactionModel> transactions = new();
-    private ObservableCollection<WalletModel> wallets = new();
+    private ObservableCollection<AccountModel> accounts = new();
 
     public long Balance
     {
@@ -47,30 +47,29 @@ public class StateModel : NotifyPropertyChanged
         }
     }
 
-    public ObservableCollection<WalletModel> Wallets
+    public ObservableCollection<AccountModel> Accounts
     {
         get 
         {
-            return wallets;
+            return accounts;
         }
         set
         {
-            if (!Enumerable.SequenceEqual(wallets, value))
+            if (!Enumerable.SequenceEqual(accounts, value))
             {
-                wallets = value;
+                accounts = value;
                 RaisePropertyChanged();
             }
         }
     }
 
-    public void AddWallet(Shared.Wallet wallet)
+    public void AddAccount(Account account)
     {
-        Wallets.Add(new WalletModel
+        Accounts.Add(new AccountModel
         {
-            Address = wallet.Address,
-            Description = wallet.Description,
-            PublicKey = wallet.PublicKey,
-            PrivateKey = wallet.PrivateKey,
+            Address = account.Address,
+            Description = account.Description,
+            PublicKey = account.PublicKey,
             Balance = 0,
             Pending = 0
         });
@@ -78,7 +77,7 @@ public class StateModel : NotifyPropertyChanged
 
     public void UpdateWallet(Ledger ledger, List<TransactionModel> transactions)
     {
-        var existing = Wallets
+        var existing = Accounts
                 .Where(x => x.Address == ledger.Address)
                 .FirstOrDefault();
 
@@ -91,10 +90,10 @@ public class StateModel : NotifyPropertyChanged
         existing.Pending = ledger.Pending;
         existing.Transactions = transactions;
 
-        Balance = Wallets.Sum(x => (long)(x.Balance ?? 0));
-        Pending = Wallets.Sum(x => (long)(x.Pending ?? 0));
+        Balance = Accounts.Sum(x => (long)(x.Balance ?? 0));
+        Pending = Accounts.Sum(x => (long)(x.Pending ?? 0));
 
-        Transactions = Wallets
+        Transactions = Accounts
             .SelectMany(wallet => wallet.Transactions)
             .OrderByDescending(tx => tx.Timestamp)
             .Take(5)

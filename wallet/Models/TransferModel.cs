@@ -11,7 +11,7 @@ public class TransferModel : NotifyPropertyChanged
     private string? from;
     private string? to;
     private string amount = string.Empty;
-    private List<WalletModel> wallets = new();
+    private List<AccountModel> wallets = new();
     private ulong min;
     private ulong max;
     private string recipientDescription = string.Empty;
@@ -63,7 +63,7 @@ public class TransferModel : NotifyPropertyChanged
         });
     }
 
-    public List<WalletModel> Wallets
+    public List<AccountModel> Wallets
     {
         get => wallets;
         set => RaisePropertyChanged(ref wallets, value);
