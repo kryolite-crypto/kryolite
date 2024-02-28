@@ -2,6 +2,7 @@ using System.Net;
 using System.Reflection;
 using DnsClient;
 using Kryolite.EventBus;
+using Kryolite.Grpc.DataService;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
@@ -175,6 +176,7 @@ public static class Startup
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ChainState>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<AuthRequest>());
         MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<AuthResponse>());
+        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<BlockTemplate>());
 
         var txPayloadFormatter = new DynamicUnionFormatter<ITransactionPayload>(new[]
         {
@@ -206,11 +208,15 @@ public static class Startup
         app.UseRouting();
         app.UseCors();
 
-        app.UseEndpoints(endpoints => endpoints
-            .RegisterBaseApi()
-            .RegisterEventApi()
-            .MapNodeService()
-        );
+        app.UseEndpoints(endpoints =>
+        {
+            endpoints
+                .RegisterBaseApi()
+                .RegisterEventApi();
+
+            endpoints.MapNodeService();
+            endpoints.MapDataService();
+        });
     }
 
     public static void AddNodeServices(this IServiceCollection services)
@@ -231,6 +237,7 @@ public static class Startup
                 .AddSingleton<NodeTable>()
                 .AddSingleton<IConnectionManager, ConnectionManager>()
                 .AddScoped<INodeService, NodeService>()
+                .AddScoped<IDataService, DataService>()
                 .AddScoped<IStoreRepository, StoreRepository>()
                 .AddScoped<IStoreManager, StoreManager>()
                 .AddScoped<IWalletRepository, WalletRepository>()
@@ -248,7 +255,6 @@ public static class Startup
                 .AddSingleton<IEventBus, EventBus.EventBus>()
                 .AddSingleton((sp) => clientFactory)
                 .AddServiceModelGrpc(x => x.DefaultMarshallerFactory = MemoryPackMarshallerFactory.Default).Services
-                .AddNodeServiceOptions(opts => {})
                 .AddUpnpService()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
@@ -306,7 +312,6 @@ public static class DataDirectory
 
         if (args.Contains("--resync") || !Path.Exists(versionPath))
         {
-            Console.WriteLine("Performing full resync");
             var storeDir = Path.Join(dataDir, "store");
 
             if (Path.Exists(storeDir))
@@ -386,7 +391,7 @@ rpcpfxpass=
 ; use DNS discovery from "testnet.kryolite.io" to locate seed nodes
 discovery="true"
 
-; custom node to use for initial node download, in url form (http://localhost:11611)
+; custom node to use for initial node download, in url form (http://localhost:11611 or http://80.80.80.80:11611)
 seednode=
 
 ; connection timeout in seconds
@@ -395,7 +400,7 @@ timeout=30
 ; custom data directory location (default ~/.kryolite or %userprofile%\.kryolite)
 datadir=
 
-; logging level (default, trace, debuf, info, warning, error, critical)
+; logging level (default, trace, debug, info, warning, error, critical)
 loglevel="default"
 
 """;

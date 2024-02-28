@@ -35,10 +35,10 @@ internal static class Interop
     public static extern nint rocksdb_free(nint handle);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_get_cf")]
-    public static extern nint rocksdb_get_cf(nint handle, nint read_opts, nint cf, nint key, long keylen, out nint vallen, out nint errorptr);
+    public static extern nint rocksdb_get_cf(nint handle, nint read_opts, nint cf, nint key, nuint keylen, out nuint vallen, out nint errorptr);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_put_cf")]
-    public static extern void rocksdb_put_cf(nint handle, nint write_opts, nint cf, nint key, long keylen, nint val, nint vallen, out nint errorptr);
+    public static extern void rocksdb_put_cf(nint handle, nint write_opts, nint cf, nint key, nuint keylen, nint val, nuint vallen, out nint errorptr);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_readoptions_create")]
     public static extern nint rocksdb_readoptions_create();
@@ -58,16 +58,16 @@ internal static class Interop
     public static extern void rocksdb_writebatch_destroy(nint handle);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_writebatch_put_cf")]
-    public static extern void rocksdb_writebatch_put_cf(nint handle, nint cf, nint key, long keylen, nint val, nint vallen);
+    public static extern void rocksdb_writebatch_put_cf(nint handle, nint cf, nint key, nuint keylen, nint val, nuint vallen);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_writebatch_delete_cf")]
-    public static extern void rocksdb_writebatch_delete_cf(nint handle, nint cf, nint key, long keylen);
+    public static extern void rocksdb_writebatch_delete_cf(nint handle, nint cf, nint key, nuint keylen);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_multi_get_cf")]
-    public unsafe static extern void rocksdb_multi_get_cf(nint handle, nint read_opts, nint[] cfs, int num_keys, nint[] keys, nint[] key_sizes, nint[] values, int[] value_sizes, nint[] errors);
+    public unsafe static extern void rocksdb_multi_get_cf(nint handle, nint read_opts, nint[] cfs, nuint num_keys, nint[] keys, nuint[] key_sizes, nint[] values, nuint[] value_sizes, nint[] errors);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_delete_cf")]
-    public static extern void rocksdb_delete_cf(nint handle, nint write_opts, nint cf, nint key, long keylen, out nint errorptr);
+    public static extern void rocksdb_delete_cf(nint handle, nint write_opts, nint cf, nint key, nuint keylen, out nint errorptr);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_create_iterator_cf")]
     public static extern nint rocksdb_create_iterator_cf(nint handle, nint read_opts, nint cf);
@@ -79,10 +79,10 @@ internal static class Interop
     public static extern void rocksdb_readoptions_set_prefix_same_as_start(nint handle, bool prefixSameAsStart);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_readoptions_set_iterate_lower_bound")]
-    public static extern void rocksdb_readoptions_set_iterate_lower_bound(nint handle, nint key, int keylen);
+    public static extern void rocksdb_readoptions_set_iterate_lower_bound(nint handle, nint key, nuint keylen);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_readoptions_set_iterate_upper_bound")]
-    public static extern void rocksdb_readoptions_set_iterate_upper_bound(nint handle, nint key, int keylen);
+    public static extern void rocksdb_readoptions_set_iterate_upper_bound(nint handle, nint key, nuint keylen);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_iter_seek_to_first")]
     public static extern void rocksdb_iter_seek_to_first(nint handle);
@@ -91,10 +91,10 @@ internal static class Interop
     public static extern void rocksdb_iter_seek_to_last(nint handle);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_iter_seek")]
-    public static unsafe extern void rocksdb_iter_seek(nint handle, byte* key, int key_len);
+    public static unsafe extern void rocksdb_iter_seek(nint handle, byte* key, nuint key_len);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_iter_seek_for_prev")]
-    public static unsafe extern void rocksdb_iter_seek_for_prev(nint handle, byte* key, int key_len);
+    public static unsafe extern void rocksdb_iter_seek_for_prev(nint handle, byte* key, nuint key_len);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_iter_valid")]
     public static extern bool rocksdb_iter_valid(nint handle);
@@ -106,10 +106,10 @@ internal static class Interop
     public static extern void rocksdb_iter_prev(nint handle);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_iter_key")]
-    public static extern nint rocksdb_iter_key(nint handle, out int len);
+    public static extern nint rocksdb_iter_key(nint handle, out nuint len);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_iter_value")]
-    public static extern nint rocksdb_iter_value(nint handle, out int len);
+    public static extern nint rocksdb_iter_value(nint handle, out nuint len);
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_create_column_family")]
     public static extern nint rocksdb_create_column_family(nint handle, nint opts, string name, out nint errorptr);

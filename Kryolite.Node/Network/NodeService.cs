@@ -178,7 +178,7 @@ public class NodeService : INodeService
         return views;
     }
 
-    public bool ShouldSync(PublicKey publicKey, SHA256Hash viewHash, BigInteger weight)
+    public bool ShouldSync(PublicKey publicKey, SHA256Hash viewHash, byte[] weightBytes)
     {
         using var scope = _sp.CreateScope();
         var nodeTable = scope.ServiceProvider.GetRequiredService<NodeTable>();
@@ -190,6 +190,8 @@ public class NodeService : INodeService
         {
             return true;
         }
+
+        var weight = new BigInteger(weightBytes);
 
         if (chainState.Weight > weight)
         {
@@ -330,7 +332,7 @@ public class NodeService : INodeService
 
                 if (!open)
                 {
-                    break;
+                    yield break;
                 }
 
                 data = await channel.Reader.ReadAsync(cancellationToken);
@@ -338,7 +340,7 @@ public class NodeService : INodeService
             catch (Exception ex)
             {
                 _logger.LogDebug(ex, "Client receive stream terminated with exception");
-                break;
+                yield break;
             }
 
             if (data is not null)

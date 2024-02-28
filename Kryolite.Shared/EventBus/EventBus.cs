@@ -9,13 +9,13 @@ public class EventBus : IEventBus
         Subscriptions = new ();
     }
 
-    public Guid Subscribe<TEvent>(Action<TEvent> action) where TEvent : EventBase
+    public Subscription<TEvent> Subscribe<TEvent>(Action<TEvent> action) where TEvent : EventBase
     {
         var type = typeof(TEvent);
 
         lock (_lock)
         {
-            var sub = new Subscription<TEvent>(action);
+            var sub = new Subscription<TEvent>(action, this);
 
             if (!Subscriptions.ContainsKey(type))
             {
@@ -24,7 +24,7 @@ public class EventBus : IEventBus
 
             Subscriptions[typeof(TEvent)].Add(sub);
 
-            return sub.SubscriptionId;
+            return sub;
         }
     }
 
@@ -35,7 +35,7 @@ public class EventBus : IEventBus
             foreach (var subs in Subscriptions)
             {
                 var toRemove = subs.Value.FirstOrDefault(x => x.SubscriptionId == subscriptionId);
-                
+
                 if (toRemove is not null)
                 {
                     subs.Value.Remove(toRemove);

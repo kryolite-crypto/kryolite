@@ -5,11 +5,9 @@ using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[DataContract]
 [MemoryPackable]
 public partial class Address
 {
-    [DataMember]
     public byte[] Buffer { get; set; }
 
     public Address()

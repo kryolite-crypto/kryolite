@@ -31,7 +31,7 @@ public class Iterator : IDisposable
     {
         fixed (byte* ptr = key)
         {
-            Interop.rocksdb_iter_seek(_handle, ptr, key.Length);
+            Interop.rocksdb_iter_seek(_handle, ptr, (nuint)key.Length);
         }
     }
 
@@ -39,7 +39,7 @@ public class Iterator : IDisposable
     {
         fixed (byte* ptr = key)
         {
-            Interop.rocksdb_iter_seek_for_prev(_handle, ptr, key.Length);
+            Interop.rocksdb_iter_seek_for_prev(_handle, ptr, (nuint)key.Length);
         }
     }
 
@@ -62,9 +62,9 @@ public class Iterator : IDisposable
             return [];
         }
 
-        var result = GC.AllocateUninitializedArray<byte>(len, false);
+        var result = GC.AllocateUninitializedArray<byte>((int)len, false);
 
-        Marshal.Copy(ptr, result, 0, len);
+        Marshal.Copy(ptr, result, 0, (int)len);
         Interop.rocksdb_free(ptr);
 
         return result;
@@ -79,9 +79,9 @@ public class Iterator : IDisposable
             return [];
         }
 
-        var result = GC.AllocateUninitializedArray<byte>(len, false);
+        var result = GC.AllocateUninitializedArray<byte>((int)len, false);
 
-        Marshal.Copy(ptr, result, 0, len);
+        Marshal.Copy(ptr, result, 0, (int)len);
 
         // ptr belongs to iterator and should not be freed here
 

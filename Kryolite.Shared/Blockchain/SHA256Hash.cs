@@ -4,11 +4,9 @@ using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[DataContract]
 [MemoryPackable]
 public partial class SHA256Hash : IComparable<SHA256Hash>
 {
-    [DataMember]
     public byte[] Buffer { get; set; }
 
     public SHA256Hash()

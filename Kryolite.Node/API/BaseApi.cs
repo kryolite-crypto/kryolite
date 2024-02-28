@@ -47,7 +47,7 @@ public static class BaseApi
         return builder;
     }
 
-    private static Task<Blocktemplate> GetBlockTemplate(IStoreManager storeManager, string wallet, long? id) => Task.Run(() =>
+    private static Task<BlockTemplate> GetBlockTemplate(IStoreManager storeManager, string wallet, long? id) => Task.Run(() =>
     {
         if (id.HasValue && storeManager.GetCurrentHeight() == id.Value)
         {
@@ -97,7 +97,7 @@ public static class BaseApi
         return storeManager.CallContractMethod(address, callMethod);
     });
 
-    private static Task<bool> PostSolution(IStoreManager storeManager, Blocktemplate blocktemplate) => Task.Run(() =>
+    private static Task<bool> PostSolution(IStoreManager storeManager, BlockTemplate blocktemplate) => Task.Run(() =>
     {
         return storeManager.AddBlock(blocktemplate, true);
     });

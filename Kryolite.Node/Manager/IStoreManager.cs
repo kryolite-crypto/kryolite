@@ -1,4 +1,5 @@
 using Kryolite.EventBus;
+using Kryolite.Grpc.DataService;
 using Kryolite.Node.Blockchain;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
@@ -15,7 +16,7 @@ public interface IStoreManager
     bool AddGenesis(View view);
     bool AddView(View view, bool broadcast, bool castVote);
     bool AddBlock(Block block, bool broadcast);
-    bool AddBlock(Blocktemplate blocktemplate, bool broadcast);
+    bool AddBlock(BlockTemplate blocktemplate, bool broadcast);
     bool AddVote(Vote vote, bool broadcast);
     ExecutionResult AddTransaction(TransactionDto tx, bool broadcast);
 
@@ -34,7 +35,7 @@ public interface IStoreManager
     ICollection<Transaction> GetPendingTransactions();
     List<Transaction> GetTransactions(int pageNum, int pageSize);
     List<Transaction> GetLastNTransctions(Address address, int count);
-    Blocktemplate GetBlocktemplate(Address wallet);
+    BlockTemplate GetBlocktemplate(Address wallet);
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();

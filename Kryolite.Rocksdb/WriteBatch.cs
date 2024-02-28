@@ -17,7 +17,7 @@ public class WriteBatch : IDisposable
     {
         fixed(byte* keyptr = key, valptr = value)
         {
-            Interop.rocksdb_writebatch_put_cf(_handle, _columns[columnFamily].Handle, (nint)keyptr, key.Length, (nint)valptr, value.Length);
+            Interop.rocksdb_writebatch_put_cf(_handle, _columns[columnFamily].Handle, (nint)keyptr, (nuint)key.Length, (nint)valptr, (nuint)value.Length);
         }
     }
 
@@ -25,7 +25,7 @@ public class WriteBatch : IDisposable
     {
         fixed(byte* keyptr = key)
         {
-            Interop.rocksdb_writebatch_delete_cf(_handle, _columns[columnFamily].Handle, (nint)keyptr, key.Length);
+            Interop.rocksdb_writebatch_delete_cf(_handle, _columns[columnFamily].Handle, (nint)keyptr, (nuint)key.Length);
         }
     }
 

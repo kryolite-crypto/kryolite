@@ -19,6 +19,7 @@
     <ProjectReference Include="..\ServiceModel.Grpc.MemoryPackMarshaller\ServiceModel.Grpc.MemoryPackMarshaller.csproj" />
     <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
     <ProjectReference Include="..\Kryolite.Grpc.NodeService\Kryolite.Grpc.NodeService.csproj" />
+    <ProjectReference Include="..\Kryolite.Grpc.DataService\Kryolite.Grpc.DataService.csproj" />
   </ItemGroup>
 
   <ItemGroup>

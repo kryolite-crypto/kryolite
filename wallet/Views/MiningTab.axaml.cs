@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Numerics;
-using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -16,6 +14,7 @@ using Kryolite.EventBus;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
@@ -276,7 +275,7 @@ public partial class MiningTab : UserControl
         WriteLog("Mining started");
     }
 
-    private Blocktemplate LoadBlocktemplate()
+    private BlockTemplate LoadBlocktemplate()
     {
             using var scope = Program.ServiceCollection.CreateScope();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();

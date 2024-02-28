@@ -140,7 +140,7 @@ public class Verifier : IVerifier
         {
             if (!StateCache.GetBlocks().TryGetValue(blockhash, out var block))
             {
-                Logger.LogInformation($"{view.GetHash()} verification failed (reson = block not found)");
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = block not found, blockhash {blockhash})");
                 return false;
             }
 

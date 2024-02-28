@@ -40,7 +40,7 @@ public interface INodeService
     List<ViewResponse> GetViewsForRange(long startHeight, int batchSize);
 
     [OperationContract]
-    bool ShouldSync(PublicKey publicKey, SHA256Hash viewHash, BigInteger weight);
+    bool ShouldSync(PublicKey publicKey, SHA256Hash viewHash, byte[] weight);
 
     [OperationContract]
     void Broadcast(PublicKey publicKey, byte[][] messages);

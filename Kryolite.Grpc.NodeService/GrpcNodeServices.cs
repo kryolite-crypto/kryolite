@@ -1,7 +1,7 @@
 using Kryolite.Grpc.NodeService;
 using ServiceModel.Grpc.DesignTime;
 
-namespace Kryolite.Node.Network;
+namespace Kryolite.Grpc.NodeService;
 
 [ImportGrpcService(typeof(INodeService))]
 [ExportGrpcService(typeof(INodeService), GenerateAspNetExtensions = true)]

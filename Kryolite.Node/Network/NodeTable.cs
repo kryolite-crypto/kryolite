@@ -188,6 +188,7 @@ public class Node : IDisposable
 
         Uri = uri;
 
+        Channel.Dispose();
         Channel = GrpcChannel.ForAddress(uri);
     }
 

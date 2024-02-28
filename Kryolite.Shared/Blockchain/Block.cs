@@ -4,29 +4,15 @@ using MemoryPack;
 
 namespace Kryolite.Shared.Blockchain;
 
-[DataContract]
 [MemoryPackable]
 public partial class Block
 {
-    [DataMember]
     public Address To { get; set; } = Address.NULL_ADDRESS;
-
-    [DataMember]
     public ulong Value { get; init; }
-
-    [DataMember]
     public long Timestamp { get; init; }
-
-    [DataMember]
     public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
-
-    [DataMember]
     public Difficulty Difficulty { get; set; }
-
-    [DataMember]
     public SHA256Hash Nonce { get; set; } = SHA256Hash.NULL_HASH;
-
-    private bool _isVerified = false;
 
     public SHA256Hash GetHash()
     {
@@ -65,11 +51,6 @@ public partial class Block
 
     public bool VerifyNonce()
     {
-        if (_isVerified)
-        {
-            return true;
-        }
-
         var basehash = GetBaseHash();
         var concat = new Concat
         {
@@ -83,7 +64,6 @@ public partial class Block
 
         if(result.CompareTo(target) <= 0)
         {
-            _isVerified = true;
             return true;
         }
 

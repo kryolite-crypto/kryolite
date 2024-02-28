@@ -35,24 +35,14 @@ public static class ValidatorCmd
 
         statusCmd.SetHandler(async (node) =>
         {
-            node = node ?? await ZeroConf.DiscoverNodeAsync();
+            var client = await Program.CreateClient(node);
 
             var repository = new KeyRepository(configuration);
             var pubKey = repository.GetPublicKey();
 
-            using var http = new HttpClient();
+            var validator = client.GetValidator(pubKey.ToAddress().ToString());
 
-            var result = await http.GetAsync($"{node}/validator/{pubKey.ToAddress()}");
-
-            if (!result.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Failed to fetch validator status: {result.StatusCode}, {result.ReasonPhrase}");
-                return;
-            }
-
-            var text = await result.Content.ReadAsStringAsync();
-
-            if (string.IsNullOrEmpty(text))
+            if (validator is null)
             {
                 Console.WriteLine($"NodeAddress: {pubKey}");
                 Console.WriteLine($"RewardAddress: ");
@@ -62,11 +52,9 @@ public static class ValidatorCmd
                 return;
             }
 
-            var stake = JsonSerializer.Deserialize(text, SharedSourceGenerationContext.Default.Validator);
-
-            Console.WriteLine($"NodeAddress: {stake!.NodeAddress}");
-            Console.WriteLine($"RewardAddress: {stake!.RewardAddress}");
-            Console.WriteLine($"Stake: {stake!.Stake}");
+            Console.WriteLine($"NodeAddress: {validator.NodeAddress}");
+            Console.WriteLine($"RewardAddress: {validator.RewardAddress}");
+            Console.WriteLine($"Stake: {validator.Stake}");
             Console.WriteLine($"Status: Enabled");
         }, nodeOption);
 
@@ -90,11 +78,8 @@ public static class ValidatorCmd
 
     private static async Task SendValidatorReg(string? node, TransactionType txType, Address? rewardAddress, IConfiguration configuration)
     {
-        node ??= await ZeroConf.DiscoverNodeAsync();
-
+        var client = await Program.CreateClient(node);
         var repository = new KeyRepository(configuration);
-
-        using var http = new HttpClient();
 
         var tx = new Transaction
         {
@@ -107,18 +92,8 @@ public static class ValidatorCmd
 
         tx.Sign(repository.GetPrivateKey());
 
-        var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
-        var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
+        var result = client.AddTransaction(new TransactionDto(tx));
 
-        var response = await http.PostAsync($"{node}/tx", stringContent);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            Console.WriteLine($"Request failed: {response.StatusCode}");
-            Console.WriteLine(response.Content);
-            return;
-        }
-
-        Console.WriteLine(await response.Content.ReadAsStringAsync());
+        Console.WriteLine(result);
     }
 }

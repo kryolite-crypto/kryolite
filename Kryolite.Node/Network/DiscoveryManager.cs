@@ -104,7 +104,7 @@ public class DiscoveryManager : BackgroundService
     {
         if (_nodeTable.GetNodesCount() == 0)
         {
-            _logger.LogError("Unable to perform node discovery. Make sure DNS requests to testnet.kryolite.io are not blocked or specify your own seed nodes with option '--peers:0 http://127.0.0.1:5000'");
+            _logger.LogError("Unable to perform node discovery. Make sure DNS requests to testnet.kryolite.io are not blocked or set your own seed node with option '--seednode http://127.0.0.1:5000'");
             return;
         }
 

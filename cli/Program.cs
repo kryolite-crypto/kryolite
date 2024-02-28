@@ -1,9 +1,14 @@
 ﻿using System.CommandLine;
 using System.Text.Json;
+using Grpc.Core;
+using Grpc.Net.Client;
 using Kryolite.Cli;
+using Kryolite.Grpc.DataService;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
+using ServiceModel.Grpc.Client;
+using ServiceModel.Grpc.Configuration;
 
 public class Program
 {
@@ -30,5 +35,28 @@ public class Program
         rootCmd.Add(WalletCmd.Build(config));
 
         return await rootCmd.InvokeAsync(args);
+    }
+
+    public static async Task<IDataService> CreateClient(string? node)
+    {
+        node ??= await ZeroConf.DiscoverNodeAsync();
+
+        var opts = new ServiceModelGrpcClientOptions
+        {
+            MarshallerFactory = MemoryPackMarshallerFactory.Default
+        };
+
+        var clientFactory = new ClientFactory(opts)
+            .AddDataServiceClient();
+
+        return clientFactory.CreateClient<IDataService>(GrpcChannel.ForAddress(node, new GrpcChannelOptions
+        {
+            HttpClient = new HttpClient(new SocketsHttpHandler
+            {
+                ConnectTimeout = TimeSpan.FromSeconds(5),
+                KeepAlivePingDelay = TimeSpan.FromSeconds(10),
+                KeepAlivePingTimeout =  TimeSpan.FromSeconds(5)
+            })
+        }));
     }
 }

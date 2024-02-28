@@ -20,6 +20,8 @@ public class StagingManager : TransactionManager, IDisposable
     public IVerifier Verifier { get; set; }
     public List<EventBase> Events { get; } = new();
 
+    private ILoggerFactory _loggerFactory { get; set; }
+
     public override string CHAIN_NAME => "[STAGING] ";
 
     private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, ILoggerFactory loggerFactory) : base(repository, keyRepository, stateCache, loggerFactory.CreateLogger("TransactionManager"))
@@ -28,9 +30,11 @@ public class StagingManager : TransactionManager, IDisposable
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
         StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
         Logger = loggerFactory.CreateLogger<StagingManager>();
+
+        _loggerFactory = loggerFactory;
     }
 
-    public static StagingManager Open(string storeName, IConfiguration configuration, ILoggerFactory loggerFactory)
+    public static StagingManager Open(string storeName, IConfiguration configuration)
     {
         var dataDir = configuration.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
         var storePath = Path.Combine(dataDir, $"store.{storeName}");
@@ -41,9 +45,28 @@ public class StagingManager : TransactionManager, IDisposable
         var stateCache = new StateCache();
         stateCache.SetChainState(repository.GetChainState() ?? new ChainState());
 
-        var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
+        var loglevel = configuration.GetValue<string>("loglevel") switch
+        {
+            "critical" => LogLevel.Critical,
+            "error" => LogLevel.Error,
+            "warning" => LogLevel.Warning,
+            "info" => LogLevel.Information,
+            "debug" => LogLevel.Debug,
+            "trace" => LogLevel.Trace,
+            _ => LogLevel.Warning // only enable warning logs in staging by default
+        };
 
-        return new StagingManager(repository, keyRepository, verifier, stateCache, loggerFactory);
+        var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder
+                .SetMinimumLevel(loglevel)
+                .AddConsole();
+        });
+
+        var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
+        var manager = new StagingManager(repository, keyRepository, verifier, stateCache, loggerFactory);
+
+        return manager;
     }
 
     public bool LoadView(View view)
@@ -172,6 +195,7 @@ public class StagingManager : TransactionManager, IDisposable
 
     public void Dispose()
     {
+        _loggerFactory.Dispose();
         Repository.Close();
     }
 

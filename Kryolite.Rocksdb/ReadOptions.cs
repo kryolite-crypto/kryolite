@@ -35,7 +35,7 @@ public class ReadOptions : IDisposable
         }
         
         Marshal.Copy(key, 0, _iterateLowerBound, key.Length);
-        Interop.rocksdb_readoptions_set_iterate_lower_bound(_handle, _iterateLowerBound, key.Length);
+        Interop.rocksdb_readoptions_set_iterate_lower_bound(_handle, _iterateLowerBound, (nuint)key.Length);
 
         return this;
     }
@@ -49,7 +49,7 @@ public class ReadOptions : IDisposable
         
         Marshal.Copy(key, 0, _iterateUpperBound, key.Length);
 
-        Interop.rocksdb_readoptions_set_iterate_upper_bound(_handle, _iterateUpperBound, key.Length);
+        Interop.rocksdb_readoptions_set_iterate_upper_bound(_handle, _iterateUpperBound, (nuint)key.Length);
         return this;
     }
 

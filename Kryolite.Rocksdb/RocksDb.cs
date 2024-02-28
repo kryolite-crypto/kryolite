@@ -46,7 +46,7 @@ public partial class RocksDb : IDisposable
     {
         fixed(byte* keyptr = key)
         {
-            var result = Interop.rocksdb_get_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, key.Length, out _, out nint errorptr);
+            var result = Interop.rocksdb_get_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, (nuint)key.Length, out _, out nint errorptr);
 
             if (errorptr != 0)
             {
@@ -79,7 +79,7 @@ public partial class RocksDb : IDisposable
     {
         fixed(byte* keyptr = key)
         {
-            var result = Interop.rocksdb_get_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, key.Length, out var vallen, out nint errorptr);
+            var result = Interop.rocksdb_get_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, (nuint)key.Length, out var vallen, out nint errorptr);
 
             if (errorptr != 0)
             {
@@ -111,9 +111,9 @@ public partial class RocksDb : IDisposable
         var cfs = GC.AllocateUninitializedArray<nint>(keys.Length, false);
         var handles = GC.AllocateUninitializedArray<GCHandle>(keys.Length, false);
         var pinned = GC.AllocateUninitializedArray<nint>(keys.Length, false);
-        var keylens = GC.AllocateUninitializedArray<nint>(keys.Length, false);
+        var keylens = GC.AllocateUninitializedArray<nuint>(keys.Length, false);
         var values = GC.AllocateUninitializedArray<nint>(keys.Length, false);
-        var valuelens = GC.AllocateUninitializedArray<int>(keys.Length, false);
+        var valuelens = GC.AllocateUninitializedArray<nuint>(keys.Length, false);
         var errors = GC.AllocateUninitializedArray<nint>(keys.Length, false);
 
         Array.Fill(cfs, _columns[columnFamily].Handle);
@@ -124,10 +124,10 @@ public partial class RocksDb : IDisposable
             
             handles[i] = handle;
             pinned[i] = handle.AddrOfPinnedObject();
-            keylens[i] = keys[i].Length;
+            keylens[i] = (nuint)keys[i].Length;
         }
 
-        Interop.rocksdb_multi_get_cf(_handle, opts.Handle, cfs, keys.Length, pinned, keylens, values, valuelens, errors);
+        Interop.rocksdb_multi_get_cf(_handle, opts.Handle, cfs, (nuint)keys.Length, pinned, keylens, values, valuelens, errors);
 
         for (var i = 0; i < keys.Length; i++)
         {
@@ -140,28 +140,23 @@ public partial class RocksDb : IDisposable
         {
             var valuelen = valuelens[i];
             var valueptr = values[i];
-            var errorptr = errors[i];
 
-            if (errorptr != 0 || valueptr == 0)
+            if (valueptr == 0)
             {
+                var errorptr = errors[i];
+
                 if (errorptr != 0)
                 {
                     Interop.rocksdb_free(errorptr);
-                }
-
-                if (valueptr != 0)
-                {
-                    Interop.rocksdb_free(valueptr);
                 }
 
                 results[i] = [];
                 continue;
             }
 
-            var value = GC.AllocateUninitializedArray<byte>(valuelen, false);
+            var value = GC.AllocateUninitializedArray<byte>((int)valuelen, false);
 
-            Marshal.Copy(valueptr, value, 0, valuelen);
-
+            Marshal.Copy(valueptr, value, 0, (int)valuelen);
             Interop.rocksdb_free(valueptr);
 
             results[i] = value;
@@ -180,7 +175,7 @@ public partial class RocksDb : IDisposable
     {
         fixed(byte* keyptr = key, valptr = value)
         {
-            Interop.rocksdb_put_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, key.Length, (nint)valptr, value.Length, out nint errorptr);
+            Interop.rocksdb_put_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, (nuint)key.Length, (nint)valptr, (nuint)value.Length, out nint errorptr);
 
             if (errorptr != 0)
             {
@@ -199,7 +194,7 @@ public partial class RocksDb : IDisposable
     {
         fixed(byte* keyptr = key)
         {
-            Interop.rocksdb_delete_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, key.Length, out var errorptr);
+            Interop.rocksdb_delete_cf(_handle, opts.Handle, _columns[columnFamily].Handle, (nint)keyptr, (nuint)key.Length, out var errorptr);
 
             if (errorptr != 0)
             {

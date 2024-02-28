@@ -82,7 +82,7 @@ public class StoreManager : TransactionManager, IStoreManager
         return false;
     }
 
-    public bool AddBlock(Blocktemplate blocktemplate, bool broadcast)
+    public bool AddBlock(BlockTemplate blocktemplate, bool broadcast)
     {
         using var _ = rwlock.EnterWriteLockEx();
 
@@ -179,7 +179,7 @@ public class StoreManager : TransactionManager, IStoreManager
         return Repository.GetLastView();
     }
 
-    public Blocktemplate GetBlocktemplate(Address wallet)
+    public BlockTemplate GetBlocktemplate(Address wallet)
     {
         using var _ = rwlock.EnterReadLockEx();
 
@@ -195,7 +195,7 @@ public class StoreManager : TransactionManager, IStoreManager
             Difficulty = chainState.CurrentDifficulty
         };
 
-        return new Blocktemplate
+        return new BlockTemplate
         {
             Height = chainState.Id,
             To = wallet,

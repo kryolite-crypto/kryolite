@@ -2,12 +2,8 @@
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-using Kryolite.Node.Repository;
 using Kryolite.Shared.Dto;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-using System.Net;
 using Microsoft.AspNetCore.Builder;
 
 namespace Kryolite.Daemon;
@@ -16,6 +12,8 @@ internal class Program
 {
     static async Task Main(string[] args)
     {
+        StartupLogoAndVersion.Print();
+
         var builder = WebApplication.CreateSlimBuilder(args)
             .BuildKryoliteNode(args);
 
@@ -40,14 +38,13 @@ internal class Program
         using var scope = app.Services.CreateScope();
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-        var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
         var height = storeManager.GetChainState().Id;
 
         Console.WriteLine($"Starting forced rollback - rebuild from height {0} to {height}");
 
         using (var checkpoint = storeManager.CreateCheckpoint())
-        using (var staging = StagingManager.Open("staging", configuration, loggerFactory))
+        using (var staging = StagingManager.Open("staging", configuration))
         {
             staging.RollbackTo(0);
 

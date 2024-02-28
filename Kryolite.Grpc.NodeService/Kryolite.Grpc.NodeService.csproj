@@ -17,5 +17,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
+    <ProjectReference Include="..\ServiceModel.Grpc.MemoryPackMarshaller\ServiceModel.Grpc.MemoryPackMarshaller.csproj" />
   </ItemGroup>
 </Project>

@@ -129,6 +129,8 @@ public partial class MainWindow : Window
         Task.Run(async () => {
             try
             {
+                Program.App.Start();
+
                 var toAdd = new List<AccountModel>();
                 var balance = 0UL;
                 var pending = 0UL;
@@ -389,8 +391,6 @@ public partial class MainWindow : Window
         _walletManager.CreateWalletFromSeed(seed);
 
         _model.Error = string.Empty;
-
-        Program.App.Start();
 
         Initialize();
     }

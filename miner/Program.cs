@@ -1,21 +1,34 @@
 ﻿using System.Security.Cryptography;
-using System.Text;
 using Kryolite.Shared;
 using System.CommandLine;
-using System.Net;
-using System.Text.Json;
 using System.Diagnostics;
 using System.CommandLine.Parsing;
 using System.Collections.Concurrent;
 using Kryolite.Shared.Blockchain;
+using ServiceModel.Grpc.Client;
+using ServiceModel.Grpc.Configuration;
+using Kryolite.Grpc.DataService;
+using Grpc.Net.Client;
+using Kryolite.Shared.Dto;
+using Grpc.Core;
+
+namespace Kryolite.Miner;
 
 public class Program
 {
     private static ManualResetEvent Pause = new ManualResetEvent(false);
-    private static CancellationTokenSource TokenSource = new CancellationTokenSource();
+    
+    private static CancellationTokenSource StoppingSource = new CancellationTokenSource();
+    private static CancellationTokenSource TokenSource = CancellationTokenSource.CreateLinkedTokenSource(StoppingSource.Token);
 
     public static async Task<int> Main(string[] args)
     {
+        Console.CancelKeyPress += (s, e) =>
+        {
+            StoppingSource.Cancel();
+            e.Cancel = true;
+        };
+
         var rootCmd = new RootCommand("Kryolite Miner");
 
         var nodeOption = new Option<string?>(name: "--url", description: "Node url");
@@ -45,6 +58,24 @@ public class Program
                 return;
             }
 
+            var opts = new ServiceModelGrpcClientOptions
+            {
+                MarshallerFactory = MemoryPackMarshallerFactory.Default
+            };
+
+            var clientFactory = new ClientFactory(opts)
+                .AddDataServiceClient();
+
+            var client = clientFactory.CreateClient<IDataService>(GrpcChannel.ForAddress(url, new GrpcChannelOptions
+            {
+                HttpClient = new HttpClient(new SocketsHttpHandler
+                {
+                    ConnectTimeout = TimeSpan.FromSeconds(5),
+                    KeepAlivePingDelay = TimeSpan.FromSeconds(10),
+                    KeepAlivePingTimeout =  TimeSpan.FromSeconds(5)
+                })
+            }));
+
             Console.WriteLine($"Address\t\t{address}");
             Console.WriteLine("Algorithm\tGrasshopper");
             Console.WriteLine($"Threads\t\t{threads}");
@@ -65,235 +96,146 @@ public class Program
             };
             timer.Start();
 
-            var httpClient = new HttpClient();
-
-            var jobQueue = new List<BlockingCollection<Blocktemplate>>();
+            var jobQueue = new List<BlockingCollection<BlockTemplate>>();
 
             for (var i = 0; i < threads; i++)
             {
-                var observer = new BlockingCollection<Blocktemplate>();
+                var tid = i;
+                var observer = new BlockingCollection<BlockTemplate>();
 
                 jobQueue.Add(observer);
+
                 new Thread(() => {
+                    var stoppingToken = StoppingSource.Token;
 
-                    while (true)
+                    while (!stoppingToken.IsCancellationRequested)
                     {
-                        var blocktemplate = observer.Take();
-                        var token = TokenSource.Token;
-
-                        using var sha256 = SHA256.Create();
-
-                        var concat = new Concat
+                        try
                         {
-                            Buffer = new byte[64]
-                        };
+                            var token = TokenSource.Token;
+                            var blocktemplate = observer.Take(token);
 
-                        var nonce = new Span<byte>(concat.Buffer, 32, 32);
+                            using var sha256 = SHA256.Create();
 
-                        Array.Copy(blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
-
-                        var target = blocktemplate.Difficulty.ToTarget();
-
-                        blockhashes = 0;
-                        var start = DateTime.Now;
-
-                        while (!token.IsCancellationRequested)
-                        {
-                            Random.Shared.NextBytes(nonce);
-
-                            var sha256Hash = Grasshopper.Hash(concat);
-                            var result = sha256Hash.ToBigInteger();
-
-                            if (result.CompareTo(target) <= 0)
+                            var concat = new Concat
                             {
-                                var timespent = DateTime.Now - start;
+                                Buffer = new byte[64]
+                            };
 
-                                if (timespent.TotalSeconds > 0)
+                            var nonce = new Span<byte>(concat.Buffer, 32, 32);
+
+                            Array.Copy(blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
+
+                            var target = blocktemplate.Difficulty.ToTarget();
+
+                            blockhashes = 0;
+                            var start = DateTime.Now;
+
+                            while (!token.IsCancellationRequested)
+                            {
+                                Random.Shared.NextBytes(nonce);
+
+                                var sha256Hash = Grasshopper.Hash(concat);
+                                var result = sha256Hash.ToBigInteger();
+
+                                if (result.CompareTo(target) <= 0)
                                 {
-                                    Console.WriteLine("{0}: Block found! {1:N2} h/s", DateTime.Now, blockhashes / timespent.TotalSeconds);
-                                }
-                                else
-                                {
-                                    Console.WriteLine($"{DateTime.Now}: Block found!");
-                                }
+                                    var timespent = DateTime.Now - start;
 
-                                var bytes = new byte[32];
-                                Array.Copy(concat.Buffer, 32, bytes, 0, 32);
-
-                                var solution = new Blocktemplate
-                                {
-                                    Height = blocktemplate.Height,
-                                    To = blocktemplate.To,
-                                    Difficulty = blocktemplate.Difficulty,
-                                    Nonce = blocktemplate.Nonce,
-                                    Solution = bytes,
-                                    Timestamp = blocktemplate.Timestamp,
-                                    ParentHash = blocktemplate.ParentHash,
-                                    Value = blocktemplate.Value
-                                };
-
-                                _ = Task.Run(async () => {
-                                    var json = JsonSerializer.Serialize(solution, SharedSourceGenerationContext.Default.Blocktemplate);
-                                    using var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                                    int attempts = 0;
-
-                                    do
+                                    if (timespent.TotalSeconds > 0)
                                     {
-                                        try
-                                        {
-                                            var res = await httpClient.PostAsync($"{url}/solution", content);
+                                        Console.WriteLine("{0}: Block found! {1:N2} h/s", DateTime.Now, blockhashes / timespent.TotalSeconds);
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine($"{DateTime.Now}: Block found!");
+                                    }
 
-                                            if (res.IsSuccessStatusCode)
-                                            {
-                                                break;
-                                            }
+                                    var bytes = new byte[32];
+                                    Array.Copy(concat.Buffer, 32, bytes, 0, 32);
 
-                                            Console.WriteLine($"Failed to send solution to node (HTTP_ERR = {res.StatusCode}), retry attempt {attempts++}/5");
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Console.WriteLine($"Failed to send solution to node ({ex.Message}), retry attempt {++attempts}/5");
-                                        }
+                                    var solution = new BlockTemplate
+                                    {
+                                        Height = blocktemplate.Height,
+                                        To = blocktemplate.To,
+                                        Difficulty = blocktemplate.Difficulty,
+                                        Nonce = blocktemplate.Nonce,
+                                        Solution = bytes,
+                                        Timestamp = blocktemplate.Timestamp,
+                                        ParentHash = blocktemplate.ParentHash,
+                                        Value = blocktemplate.Value
+                                    };
 
-                                    } while (attempts < 5);
-                                });
+                                    var res = client.PostSolution(solution);
+
+                                    if (!res)
+                                    {
+                                        break;
+                                    }
+                                }
+
+                                Interlocked.Increment(ref hashes);
+                                Interlocked.Increment(ref blockhashes);
+
+                                if (throttle is not null)
+                                {
+                                    Thread.Sleep(throttle.Value);
+                                }
                             }
+                        }
+                        catch (OperationCanceledException)
+                        {
 
-                            Interlocked.Increment(ref hashes);
-                            Interlocked.Increment(ref blockhashes);
-
-                            if (throttle is not null)
-                            {
-                                Thread.Sleep(throttle.Value);
-                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine("{0} thread {1}: {2}", DateTime.Now, tid, ex.Message);
                         }
                     }
                 }).UnsafeStart();
             }
 
-            await HandleConnectionAsync(jobQueue, httpClient, url!, address);
-        }, nodeOption, walletOption, throttleOption, threadsOption);
-
-        return await rootCmd.InvokeAsync(args);
-    }
-
-    public static async Task HandleConnectionAsync(List<BlockingCollection<Blocktemplate>> queue, HttpClient httpClient, string url, string address)
-    {
-        var current = new Blocktemplate();
-        var restart = false;
-        var attempts = 0;
-
-        while (true)
-        {
-            HttpResponseMessage? request = null;
+            Console.WriteLine("{0}: {1} thread{2} started", DateTime.Now, threads, threads == 1 ? string.Empty : "s");
 
             try
             {
-                request = await httpClient.GetAsync($"{url}/blocktemplate?wallet={address}");
-
-                if (request.StatusCode == HttpStatusCode.BadRequest)
+                await foreach (var blocktemplate in client.SubscribeToBlockTemplates(address, StoppingSource.Token).WithCancellation(StoppingSource.Token))
                 {
-                    Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request.StatusCode}).");
-                    return;
+                    Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate.Height}, diff = {blocktemplate.Difficulty}");
+
+                    var source = TokenSource;
+                    TokenSource = CancellationTokenSource.CreateLinkedTokenSource(StoppingSource.Token);
+                    source.Cancel();
+                    source.Dispose();
+
+                    foreach (var job in jobQueue)
+                    {
+                        job.Add(blocktemplate);
+                    }
                 }
             }
-            catch (Exception) { }
-
-            if (request == null || !request.IsSuccessStatusCode)
+            catch (OperationCanceledException)
             {
-                if (!TokenSource.IsCancellationRequested)
-                {
-                    TokenSource.Cancel();
-                }
-                restart = true;
-                var seconds = Math.Pow(Math.Min(++attempts, 5), 2);
 
-                Console.WriteLine($"Failed to fetch blocktemplate (HTTP_ERR = {request?.StatusCode ?? HttpStatusCode.RequestTimeout}), trying again in {seconds} seconds");
-
-                var newNode = await ZeroConf.DiscoverNodeAsync();
-                if (newNode != null)
-                {
-                    url = newNode;
-                }
-
-                Thread.Sleep(TimeSpan.FromSeconds(seconds));
-                continue;
             }
-
-            attempts = 0;
-
-            var json = await request.Content.ReadAsStringAsync();
-            var blocktemplate = JsonSerializer.Deserialize(json, SharedSourceGenerationContext.Default.Blocktemplate);
-
-            if (!restart && (blocktemplate == null || blocktemplate.ParentHash == current!.ParentHash))
+            catch (RpcException)
             {
-                Thread.Sleep(TimeSpan.FromSeconds(1));
-                continue;
+                Console.WriteLine("{0}: Disconnected", DateTime.Now);
             }
-
-            restart = false;
-            current = blocktemplate;
-
-            Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate?.Height}, diff = {blocktemplate?.Difficulty}");
-
-            TokenSource.Cancel();
-            TokenSource = new CancellationTokenSource();
-
-            Parallel.ForEach(queue, worker => {
-                worker.Add(blocktemplate!);
-            });
-
-            Thread.Sleep(TimeSpan.FromSeconds(1));
-        }
-    }
-
-    public static void RunTest(int threads)
-    {
-        var done = 0;
-
-        var tasks = new List<Thread>();
-        var stokenSource = new CancellationTokenSource();
-
-        for (int x = 0; x < threads; x++)
-        {
-            var t = new Thread(() => {
-                var token = stokenSource.Token;
-                var test = new byte[64];
-                var concat = new Concat()
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.GetType());
+                Console.WriteLine("{0}: {1}", DateTime.Now, ex.Message);
+            }
+            finally
+            {
+                if (!StoppingSource.IsCancellationRequested)
                 {
-                    Buffer = test
-                };
-
-                while (!token.IsCancellationRequested)
-                {
-                    Random.Shared.NextBytes(concat.Buffer);
-
-                    var result = Grasshopper.Hash(concat);
-                    Interlocked.Increment(ref done);
+                    StoppingSource.Cancel();
                 }
-            });
+            }
+        }, nodeOption, walletOption, throttleOption, threadsOption);
 
-            tasks.Add(t);
-            t.IsBackground = true;
-            t.Priority = ThreadPriority.Normal;
-        }
-
-        var sw = Stopwatch.StartNew();
-
-        foreach (var task in tasks)
-        {
-            task.Start();
-        }
-
-        Thread.Sleep(TimeSpan.FromSeconds(10));
-        stokenSource.Cancel();
-
-        sw.Stop();
-
-        Console.WriteLine($"Run took {sw.Elapsed.TotalSeconds}");
-        Console.WriteLine($"Hashrate {done / sw.Elapsed.TotalSeconds}");
-
-        Console.ReadKey();
+        return await rootCmd.InvokeAsync(args);
     }
 }

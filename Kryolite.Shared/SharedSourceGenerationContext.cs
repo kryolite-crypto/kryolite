@@ -17,7 +17,7 @@ namespace Kryolite.Shared;
         typeof(BigIntegerConverter),
     ]
 )]
-[JsonSerializable(typeof(Blocktemplate))]
+[JsonSerializable(typeof(BlockTemplate))]
 [JsonSerializable(typeof(CallMethod))]
 [JsonSerializable(typeof(Contract))]
 [JsonSerializable(typeof(ContractManifest))]

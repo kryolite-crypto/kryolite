@@ -6,7 +6,6 @@ using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[DataContract]
 [MemoryPackable]
 [StructLayout(LayoutKind.Explicit)]
 public partial record struct Difficulty

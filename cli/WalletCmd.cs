@@ -1,7 +1,5 @@
 using System.CommandLine;
-using System.Text.Json;
-using Kryolite.Node;
-using Kryolite.Shared;
+using Kryolite.Wallet;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Cli;

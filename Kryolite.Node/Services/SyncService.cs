@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Threading.Channels;
 
 namespace Kryolite.Node.Services;
@@ -53,6 +54,7 @@ public class SyncManager : BackgroundService
     private void Synchronize(Network.Node node)
     {
         node.IsSyncInProgress = true;
+        var sw = Stopwatch.StartNew();
 
         try
         {
@@ -60,9 +62,8 @@ public class SyncManager : BackgroundService
             var connMan = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
-            var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
 
-            _logger.LogInformation("Initalizing staging context");
+            _logger.LogInformation("[{node}] Initalizing staging context", node.Uri.ToHostname());
 
             ChainState? newState = null;
             IStateCache? stateCache = null;
@@ -71,9 +72,9 @@ public class SyncManager : BackgroundService
             var client = connMan.CreateClient<INodeService>(node);
 
             using (var checkpoint = storeManager.CreateCheckpoint())
-            using (var staging = StagingManager.Open("staging", configuration, loggerFactory))
+            using (var staging = StagingManager.Open("staging", configuration))
             {
-                var commonHeight = FindCommonHeight(staging, client);
+                var commonHeight = FindCommonHeight(staging, node, client);
                 var stagingHeight = staging.GetChainState()?.Id;
 
                 if (stagingHeight > commonHeight)
@@ -81,15 +82,16 @@ public class SyncManager : BackgroundService
                     staging.RollbackTo(commonHeight);
                 }
 
-                _logger.LogInformation($"Staging context loaded to height {staging.GetChainState()?.Id}");
+                _logger.LogInformation("[{node}] Staging context loaded to height {height}", node.Uri.ToHostname(), staging.GetChainState()?.Id);
 
                 var i = commonHeight + 1;
                 var brokenChain = false;
 
-                _logger.LogInformation("Downloading and applying remote chain to staging context (this might take a while)");
+                _logger.LogInformation("[{node}] Downloading and applying remote chain to staging context (this might take a while)", node.Uri.ToHostname());
 
                 while(true)
                 {
+                    _logger.LogInformation("[{node}] Downloading and applying batch {start} - {end}", node.Uri.ToHostname(), i, i + BATCH_SIZE);
                     (bool completed, brokenChain) = DownloadViewRange(client, i, staging);
 
                     if(completed)
@@ -103,6 +105,7 @@ public class SyncManager : BackgroundService
 
                 if (brokenChain)
                 {
+                    _logger.LogInformation("[{node}] Failed to apply remote chain (broken chain received)", node.Uri.ToHostname());
                     node.IsForked = true;
                 }
 
@@ -110,7 +113,7 @@ public class SyncManager : BackgroundService
 
                 if (newState is null)
                 {
-                    _logger.LogInformation("Failed to load chain in staging (chainstate not found)");
+                    _logger.LogInformation("[{node}] Failed to load chain in staging (chainstate not found)", node.Uri.ToHostname());
                     return;
                 }
 
@@ -119,7 +122,13 @@ public class SyncManager : BackgroundService
             }
 
             var chainState = storeManager.GetChainState();
-            _logger.LogInformation($"Staging has height {newState.Id} and weight {newState.Weight}. Compared to local height {chainState.Id} and weight {chainState.Weight}");
+            _logger.LogInformation("[{node}] Staging has height {id} and weight {weight}. Compared to local height {cId} and weight {cWeight}",
+                node.Uri.ToHostname(),
+                newState.Id,
+                newState.Weight,
+                chainState.Id,
+                chainState.Weight
+            );
 
             storeManager.LoadStagingChain("staging", newState, stateCache, events);
 
@@ -127,15 +136,17 @@ public class SyncManager : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogInformation(ex, "ChainSync resulted in error");
+            _logger.LogInformation(ex.Message);
         }
         finally
         {
             node.IsSyncInProgress = false;
+            sw.Stop();
+            _logger.LogInformation("Synhronization completed in {elapsed:N2} seconds", sw.Elapsed.TotalSeconds);
         }
     }
 
-    private long FindCommonHeight(StagingManager stagingManager, INodeService client)
+    private long FindCommonHeight(StagingManager stagingManager, Network.Node node, INodeService client)
     {
         var height = stagingManager.GetChainState()?.Id ?? 0;
 
@@ -156,7 +167,7 @@ public class SyncManager : BackgroundService
 
         var commonHeight = client.FindCommonHeight(queryHashes);
 
-        _logger.LogInformation($"Found common height at {commonHeight}");
+        _logger.LogInformation("[{node}] Found common height at {commonHeight}", node.Uri.ToHostname(), commonHeight);
 
         return commonHeight;
     }

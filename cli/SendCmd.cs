@@ -1,11 +1,17 @@
 using System.CommandLine;
 using System.Text;
 using System.Text.Json;
+using Grpc.Net.Client;
+using Kryolite.Grpc.DataService;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
+using Kryolite.Wallet;
 using MemoryPack;
 using Microsoft.Extensions.Configuration;
+using ServiceModel.Grpc.Client;
+using ServiceModel.Grpc.Configuration;
 
 namespace Kryolite.Cli;
 
@@ -77,7 +83,7 @@ public static class SendCmd
                 Environment.Exit(-1);
             }
 
-            node = node ?? await ZeroConf.DiscoverNodeAsync();
+            var client = await Program.CreateClient(node);
 
             TransactionPayload? transactionPayload = null;
 
@@ -92,8 +98,6 @@ public static class SendCmd
                     }
                 };
             }
-
-            using var http = new HttpClient();
 
             var tx = new Transaction
             {
@@ -115,19 +119,9 @@ public static class SendCmd
 
             tx.Sign(privKey);
 
-            var json = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
-            var stringContent = new StringContent(json, UnicodeEncoding.UTF8, "application/json");
+            var result = client.AddTransaction(new TransactionDto(tx));
 
-            var response = await http.PostAsync($"{node}/tx?wait={wait}", stringContent);
-
-            if (!response.IsSuccessStatusCode)
-            {
-                Console.WriteLine($"Request failed: {response.StatusCode}");
-                Console.WriteLine(response.Content);
-                return;
-            }
-
-            Console.WriteLine(await response.Content.ReadAsStringAsync());
+            Console.WriteLine(result);
         }, fromOption, toOption, amountOption, nodeOption, contractMethodOption, contractParamsOption, waitOption);
 
         return sendCmd;

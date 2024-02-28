@@ -22,7 +22,7 @@ public static class EventApi
     {
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
 
-        var subId = eventBus.Subscribe<ChainState>(async state =>
+        using var subId = eventBus.Subscribe<ChainState>(async state =>
         {
             await ctx.Response.WriteAsync($"data: ");
             await JsonSerializer.SerializeAsync(ctx.Response.Body, state, SharedSourceGenerationContext.Default.ChainState);
@@ -30,14 +30,7 @@ public static class EventApi
             await ctx.Response.Body.FlushAsync();
         });
 
-        try
-        {
-            await ct.WhenCancelled();
-        }
-        finally
-        {
-            eventBus.Unsubscribe(subId);
-        }
+        await ct.WhenCancelled();
     }
 
     private static async Task ListenLedger(HttpContext ctx, string address, IEventBus eventBus, CancellationToken ct)
@@ -45,7 +38,7 @@ public static class EventApi
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
 
         var addr = (Address)address;
-        var subId = eventBus.Subscribe<Ledger>(async ledger =>
+        using var subId = eventBus.Subscribe<Ledger>(async ledger =>
         {
             if (ledger.Address != addr)
             {
@@ -58,14 +51,7 @@ public static class EventApi
             await ctx.Response.Body.FlushAsync();
         });
 
-        try
-        {
-            await ct.WhenCancelled();
-        }
-        finally
-        {
-            eventBus.Unsubscribe(subId);
-        }
+        await ct.WhenCancelled();
     }
 
     private static async Task ListenContract(HttpContext ctx, string address, IEventBus eventBus, CancellationToken ct)
@@ -73,7 +59,7 @@ public static class EventApi
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
 
         var addr = (Address)address;
-        var sub1 = eventBus.Subscribe<ApprovalEventArgs>(async approval =>
+        using var sub1 = eventBus.Subscribe<ApprovalEventArgs>(async approval =>
         {
             if (approval.Contract != addr)
             {
@@ -92,7 +78,7 @@ public static class EventApi
             await ctx.Response.Body.FlushAsync();
         });
 
-        var sub2 = eventBus.Subscribe<ConsumeTokenEventArgs>(async consume =>
+        using var sub2 = eventBus.Subscribe<ConsumeTokenEventArgs>(async consume =>
         {
             if (consume.Contract != addr)
             {
@@ -110,7 +96,7 @@ public static class EventApi
             await ctx.Response.Body.FlushAsync();
         });
 
-        var sub3 = eventBus.Subscribe<GenericEventArgs>(async generic =>
+        using var sub3 = eventBus.Subscribe<GenericEventArgs>(async generic =>
         {
             if (generic.Contract != addr)
             {
@@ -129,7 +115,7 @@ public static class EventApi
             await ctx.Response.Body.FlushAsync();
         });
 
-        var sub4 = eventBus.Subscribe<TransferTokenEventArgs>(async transfer =>
+        using var sub4 = eventBus.Subscribe<TransferTokenEventArgs>(async transfer =>
         {
             if (transfer.Contract != addr)
             {
@@ -148,16 +134,6 @@ public static class EventApi
             await ctx.Response.Body.FlushAsync();
         });
 
-        try
-        {
-            await ct.WhenCancelled();
-        }
-        finally
-        {
-            eventBus.Unsubscribe(sub1);
-            eventBus.Unsubscribe(sub2);
-            eventBus.Unsubscribe(sub3);
-            eventBus.Unsubscribe(sub4);
-        }
+        await ct.WhenCancelled();
     }
 }

@@ -5,12 +5,12 @@ namespace Kryolite.Shared;
 
 public static class ZeroConf
 {
-    public static async Task<string?> DiscoverNodeAsync(int scanTime = 2)
+    public static async Task<string> DiscoverNodeAsync(int scanTime = 2)
     {
         try
         {
             var addresses = new HashSet<IPEndPoint>();
-            var results = await ZeroconfResolver.ResolveAsync("_kryolite._tcp.local.", TimeSpan.FromSeconds(scanTime));
+            var results = await ZeroconfResolver.ResolveAsync("_rpc._kryolite._tcp.local.", TimeSpan.FromSeconds(scanTime));
 
             foreach (var result in results)
             {
@@ -31,9 +31,9 @@ public static class ZeroConf
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex.ToString());
+            Console.WriteLine(ex.Message);
         }
 
-        return null;
+        return string.Empty;
     }
 }

@@ -1,5 +1,6 @@
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Wallet;
 
 namespace Kryolite.Node;
 

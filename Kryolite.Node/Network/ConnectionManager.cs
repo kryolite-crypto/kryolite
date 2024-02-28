@@ -1,4 +1,6 @@
 using System.Collections.Concurrent;
+using System.Threading.Channels;
+using System.Timers;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
@@ -31,7 +33,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     private readonly TimeSpan _timeout;
     private readonly IServiceProvider _sp;
 
-    private int _restoringConnectivity = 0;
+    private readonly PeriodicTimer _timer = new(TimeSpan.FromMinutes(1));
 
     public ConnectionManager(NodeTable nodeTable, IClientFactory clientFactory, IServiceProvider sp, IConfiguration config, ILogger<ConnectionManager> logger)
     {
@@ -78,9 +80,11 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             
             _connectedNodes[node.PublicKey] = connection;
             _nodeTable.MarkNodeAlive(node.PublicKey);
+
+            _timer.Period = TimeSpan.FromSeconds(60);
         };
 
-        NodeDisconnected += async (object? sender, NodeConnection connection) =>
+        NodeDisconnected += (object? sender, NodeConnection connection) =>
         {
             var node = connection.Node;
 
@@ -91,17 +95,19 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
             if (_connectedNodes.Count == 0)
             {
-                await RestoreConnectivity(stoppingToken);
+                _timer.Period = TimeSpan.FromSeconds(15);
             }
         };
 
         try
         {
-            using var timer = new PeriodicTimer(TimeSpan.FromMinutes(1));
-
-            while (!stoppingToken.IsCancellationRequested)
+            while (await _timer.WaitForNextTickAsync(stoppingToken))
             {
-                await timer.WaitForNextTickAsync(stoppingToken);
+                if (_connectedNodes.Count == 0)
+                {
+                    await RestoreConnectivity(stoppingToken);
+                    continue;
+                }
 
                 await DoPeriodicConnectivityTest(stoppingToken);
                 await DoExpiredNodeCleanup();
@@ -111,6 +117,10 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         catch (OperationCanceledException)
         {
             _logger.LogInformation("ConnMan       [DOWN]");
+        }
+        finally
+        {
+            _timer.Dispose();
         }
     }
 
@@ -123,11 +133,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     {
         try
         {
-            if (stoppingToken.IsCancellationRequested)
-            {
-                return;
-            }
-
             var expiringNodes = _nodeTable.GetInactiveNodes();
 
             await Parallel.ForEachAsync(expiringNodes, stoppingToken, async (node, ct) =>
@@ -192,7 +197,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         }
 
         // Remove connections to nodes not in closestNodes anymore
-        // TODO: reace condition
         foreach (var connection in _connectedNodes.Values)
         {
             if (!closestNodes.Any(x => x.PublicKey == connection.Node.PublicKey))
@@ -204,47 +208,22 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
     private async Task RestoreConnectivity(CancellationToken stoppingToken)
     {
-        if (stoppingToken.IsCancellationRequested)
-        {
-            return;
-        }
-
-        var restoring = Interlocked.CompareExchange(ref _restoringConnectivity, 0, 1);
-
-        if (restoring == 1)
-        {
-            return;
-        }
-
         var opts = new ParallelOptions
         {
             MaxDegreeOfParallelism = 4
         };
 
-begin:
         var nodes = _nodeTable.GetAllNodes();
 
         await Parallel.ForEachAsync(nodes, opts, async (node, token) =>
         {
+            if (_connectedNodes.Count > 0)
+            {
+                return;
+            }
+
             try
             {
-                if (node.FailedConnections > 0)
-                {
-                    // Some throttling for nodes with failed connections
-                    // [0, 1, 3, 7, 15, 31, 63, 127]
-                    // This makes the for loop wait at max 63 seconds throttling other 
-                    // connection attempts, not optimal...
-                    var delay = Math.Pow(2, Math.Min(node.FailedConnections, 6)) - 1;
-                    
-                    _logger.LogDebug("Node {hostname} has {count} connection failures, throttling reconnection for {} seconds",
-                        node.Uri.ToHostname(),
-                        node.FailedConnections,
-                        delay
-                    );
-
-                    await Task.Delay(TimeSpan.FromSeconds(delay), stoppingToken);
-                }
-
                 await ConnectTo(node, stoppingToken);
 
                 if (_connectedNodes.Count > 0)
@@ -252,22 +231,11 @@ begin:
                     return;
                 }
             }
-            catch (TaskCanceledException)
-            {
-                // Do nothing, we are shutting down
-            }
             catch (OperationCanceledException)
             {
                 // Do nothing, we are shutting down
             }
         });
-
-        if (_connectedNodes.Count == 0)
-        {
-            goto begin;
-        }
-
-        _restoringConnectivity = 0;
     }
 
     /// <summary>
@@ -323,7 +291,7 @@ begin:
                 var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
                 var chainState = storeManager.GetChainState();
 
-                if (client.ShouldSync(_nodeKey, chainState.ViewHash, chainState.Weight))
+                if (client.ShouldSync(_nodeKey, chainState.ViewHash, chainState.Weight.ToByteArray()))
                 {
                     // Let's add this node to our sync queue
                     SyncManager.AddToQueue(node);
@@ -400,10 +368,11 @@ begin:
         catch (OperationCanceledException)
         {
             // Do nothing, we are shutting down
+            _logger.LogInformation("ocex");
         }
         catch (AuthorizationException)
         {
-            _logger.LogDebug("{node} authentication failed", node.Uri);
+            _logger.LogInformation("{node} authentication failed", node.Uri);
             // Something strange happened, remove node
             _nodeTable.RemoveNode(node);
             _connectedNodes.TryRemove(node.PublicKey, out _);
@@ -411,7 +380,7 @@ begin:
         catch (Exception ex)
         {
             connection.Node.FailedConnections++;
-            _logger.LogDebug("Node {node} got disconnected: {message}", connection.Node.Uri.ToHostname(), ex.Message);
+            _logger.LogInformation("Node {node} got disconnected: {message}", connection.Node.Uri.ToHostname(), ex.Message);
         }
         finally
         {
