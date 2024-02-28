@@ -46,7 +46,7 @@ jobs:
     - name: Publish daemon
       run: dotnet publish daemon -c Release -r ${{ matrix.runtime }} -p:PublishDir=../release/kryolite-${{ matrix.runtime }}-${{ github.ref_name }} ${{ matrix.cross_compile_opts }} -p:Version="${{github.ref_name}}" -p:InformationalVersion="${{github.ref_name}}"
     - name: Publish wallet
-      run: dotnet publish wallet -c Release -r ${{ matrix.runtime }} -p:PublishDir=../release/kryolite-${{ matrix.runtime }}-${{ github.ref_name }} ${{ matrix.cross_compile_opts }} {{ matrix.wallet_opts }} -p:Version="${{github.ref_name}}" -p:InformationalVersion="${{github.ref_name}}"
+      run: dotnet publish wallet -c Release -r ${{ matrix.runtime }} -p:PublishDir=../release/kryolite-${{ matrix.runtime }}-${{ github.ref_name }} ${{ matrix.cross_compile_opts }} ${{ matrix.wallet_opts }} -p:Version="${{github.ref_name}}" -p:InformationalVersion="${{github.ref_name}}"
     - name: Publish cli
       run: dotnet publish cli -c Release -r ${{ matrix.runtime }} -p:PublishDir=../release/kryolite-${{ matrix.runtime }}-${{ github.ref_name }} ${{ matrix.cross_compile_opts }} -p:Version="${{github.ref_name}}" -p:InformationalVersion="${{github.ref_name}}"
     - name: Publish miner
