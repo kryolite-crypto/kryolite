@@ -56,10 +56,10 @@
     <MakeDir Directories="$(PublishDir)Kryolite Wallet.app" Condition="!Exists('$(PublishDir)Kryolite Wallet.app')" />
     <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\Contents" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\Contents')" />
     <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\Contents\Resources" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\Contents\Resources')" />
-    <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\MacOS" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\MacOS')" />
+    <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\Contents\MacOS')" />
     <Copy SourceFiles="Info.plist" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents" />
     <Copy SourceFiles="Assets\kryolite.icns" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\Resources" />
-    <Copy SourceFiles="$(PublishDir)kryolite-wallet" DestinationFolder="$(PublishDir)Kryolite Wallet.app\MacOS" />
-    <Copy SourceFiles="@(libraries)" DestinationFolder="$(PublishDir)Kryolite Wallet.app\MacOS" />
+    <Copy SourceFiles="$(PublishDir)kryolite-wallet" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" />
+    <Copy SourceFiles="@(libraries)" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" />
   </Target>
 </Project>
