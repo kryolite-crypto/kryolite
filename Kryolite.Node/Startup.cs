@@ -124,7 +124,7 @@ public static class Startup
             {
                 c.Protocols = HttpProtocols.Http1;
                 
-                if (ssl)
+                if (rpcssl == "true")
                 {
                     c.UseHttps(rpcpfxpath!, rpcpfxpass);
                 }
@@ -303,9 +303,7 @@ public static class DataDirectory
 {
     public static void EnsureExists(IConfigurationRoot config, string[] args, out string dataDir, out string configPath)
     {
-        var defaultDataDir = Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-        dataDir = config.GetValue("data-dir", defaultDataDir) ?? defaultDataDir;
-
+        dataDir = config.GetDataDir();
         Directory.CreateDirectory(dataDir);
 
         var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");

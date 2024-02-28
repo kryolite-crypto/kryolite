@@ -33,8 +33,6 @@ namespace Kryolite.Wallet
 
             try
             {
-                CreateUriScheme();
-
                 foreach (var arg in args)
                 {
                     if (arg.StartsWith("kryolite:"))
@@ -51,6 +49,8 @@ namespace Kryolite.Wallet
                         break;
                     }
                 }
+
+                CreateUriScheme(dataDir);
 
                 var builder = WebApplication.CreateSlimBuilder(args)
                     .BuildKryoliteNode(args);
@@ -111,7 +111,7 @@ namespace Kryolite.Wallet
                 .WithInterFont()
                 .LogToTrace();
 
-        private static void CreateUriScheme()
+        private static void CreateUriScheme(string dataDir)
         {
             try
             {
@@ -128,7 +128,7 @@ namespace Kryolite.Wallet
                     var definition = $"""
                         [Desktop Entry]
                         Name=Kryolite
-                        Exec="{exePath}" %u
+                        Exec="{exePath}" --data-dir "{dataDir}" %u
                         Type=Application
                         Terminal=false
                         MimeType=x-scheme-handler/kryolite;
@@ -152,7 +152,7 @@ namespace Kryolite.Wallet
                     using var cmd = key?.CreateSubKey(@"shell\open\command");
 
                     key?.SetValue("URL Protocol", "kryolite");
-                    cmd?.SetValue("", $"\"{exePath}\" %1");
+                    cmd?.SetValue("", $"\"{exePath}\" --data-dir \"{dataDir}\" %1");
                 }
 
                 // MacOS registration is done by plist file

@@ -16,6 +16,10 @@ namespace Kryolite.Node;
     ]
 )]
 [JsonSerializable(typeof(ContractEvent))]
+[JsonSerializable(typeof(GenericEventArgs))]
+[JsonSerializable(typeof(ApprovalEventArgs))]
+[JsonSerializable(typeof(ConsumeTokenEventArgs))]
+[JsonSerializable(typeof(TransferTokenEventArgs))]
 public partial class NodeSourceGenerationContext : JsonSerializerContext
 {
 }
