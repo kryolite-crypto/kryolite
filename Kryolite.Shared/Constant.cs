@@ -4,9 +4,9 @@ namespace Kryolite.Shared;
 
 public static class Constant
 {
-    public const string STORE_VERSION = "3";
-    public const string CONFIG_VERSION = "1";
-    public const string NETWORK_NAME = "TYTYRI-2";
+    public const string STORE_VERSION = "4";
+    public const string CONFIG_VERSION = "2";
+    public const string NETWORK_NAME = "TYTYRI-3";
     public const int API_LEVEL = 5;
     public const int MIN_API_LEVEL = 5;
 
@@ -25,10 +25,10 @@ public static class Constant
         "kryo:ad2335i9wfmqg5cdn9d87ey43wt4wef2m6a3zyp7",
         "kryo:abugb869cphn7vywkpv6w7ai2yejrmkbs99dchez",
         "kryo:ac67f596jjayd9gr5n84ubafrkah5682krh5ngn3",
-        "kryo:abtnb65c67b4ckujk3j4jbpu7wp9jra85u3r6gk8" // REMOVE
+        // "kryo:abtnb65c67b4ckujk3j4jbpu7wp9jra85u3r6gk8" // REMOVE
     ];
 
-    public static readonly Address DEV_FEE_ADDRESS = "kryo:adwuufxsu3qyzgy46nr8mev2z54r2d4t7q2p8jbj";
+    public static readonly Address DEV_FEE_ADDRESS = "kryo:aae9j3trpd4np32ew5it9hzgg3hq645kfxbd8azr";
 
     // Placeholder
     public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;
