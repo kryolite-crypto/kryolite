@@ -51,7 +51,12 @@
 
   <Target Name="BundleApp" AfterTargets="AfterPublish">
     <ItemGroup>
-        <libraries Include="$(PublishDir)*.dylib" />
+        <IncludeDylibs Include="$(PublishDir)*.dylib" />
+        <DeleteAfterBuild Include="$(PublishDir)libSkiaSharp.dylib" />
+        <DeleteAfterBuild Include="$(PublishDir)libHarfBuzzSharp.dylib" />
+        <DeleteAfterBuild Include="$(PublishDir)libAvaloniaNative.dylib" />
+        <DeleteAfterBuild Include="$(PublishDir)kryolite-wallet" />
+        <DeleteAfterBuild Include="$(PublishDir)Info.plist" />
     </ItemGroup>
     <MakeDir Directories="$(PublishDir)Kryolite Wallet.app" Condition="!Exists('$(PublishDir)Kryolite Wallet.app')" />
     <MakeDir Directories="$(PublishDir)Kryolite Wallet.app\Contents" Condition="!Exists('$(PublishDir)Kryolite Wallet.app\Contents')" />
@@ -60,8 +65,8 @@
     <Copy SourceFiles="Info.plist" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents" />
     <Copy SourceFiles="Assets\kryolite.icns" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\Resources" />
     <Copy SourceFiles="$(PublishDir)kryolite-wallet" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" />
-    <Copy SourceFiles="@(libraries)" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" />
+    <Copy SourceFiles="@(IncludeDylibs)" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" />
     <Delete Files="$(PublishDir)kryolite-wallet" />
-    <Delete Files="$(PublishDir)Info.plist" />
+    <Delete Files="@(DeleteAfterBuild)" />
   </Target>
 </Project>
