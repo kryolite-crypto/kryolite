@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using DnsClient;
+using Grpc.Core;
 using Grpc.Net.Client;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared.Dto;
@@ -35,14 +36,27 @@ public class DiscoveryManager : BackgroundService
         
         try
         {
-            await LoadSeedNodes(stoppingToken);
-            await DoInitialDiscovery(stoppingToken);
+            using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
+
+            do
+            {
+                try
+                {
+                    await LoadSeedNodes(stoppingToken);
+                    await DoInitialDiscovery(stoppingToken);
+                }
+                catch (RpcException)
+                {
+                    _logger.LogInformation("Unable to contact any nodes, retrying in 15 seconds");
+                }
+
+                break;
+            } while (await timer.WaitForNextTickAsync(stoppingToken));
         }
         catch (OperationCanceledException)
         {
-
+            // stopping, do nothing
         }
-
     }
 
     private async Task LoadSeedNodes(CancellationToken stoppingToken)
