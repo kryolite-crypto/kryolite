@@ -61,5 +61,7 @@
     <Copy SourceFiles="Assets\kryolite.icns" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\Resources" />
     <Copy SourceFiles="$(PublishDir)kryolite-wallet" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" />
     <Copy SourceFiles="@(libraries)" DestinationFolder="$(PublishDir)Kryolite Wallet.app\Contents\MacOS" />
+    <Delete Files="$(PublishDir)kryolite-wallet" />
+    <Delete Files="$(PublishDir)Info.plist" />
   </Target>
 </Project>
