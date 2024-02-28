@@ -193,14 +193,22 @@ public class KryoVM : IDisposable
         }
         catch (WasmtimeException waEx)
         {
-            Context.Logger.LogError(waEx, "contract execution failed");
-
             if (waEx.InnerException is ExitException eEx)
             {
                 exitCode = eEx.ExitCode;
+
+                if (exitCode == 127)
+                {
+                    Context.Logger.LogDebug("Contract execution exited with assert failure");
+                }
+                else
+                {
+                    Context.Logger.LogError(waEx, "contract execution failed with unknown exit code ({err})", exitCode);
+                }
             }
             else
             {
+                Context.Logger.LogError(waEx, "contract execution failed");
                 exitCode = 20;
             }
         }

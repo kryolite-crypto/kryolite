@@ -13,6 +13,7 @@ using Microsoft.Win32;
 using Microsoft.AspNetCore.Builder;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 
 namespace Kryolite.Wallet
 {
@@ -79,10 +80,12 @@ namespace Kryolite.Wallet
 
                 ava.SetupWithLifetime(lifetime);
 
-                app.Lifetime.ApplicationStopping.Register(() =>
+                Console.CancelKeyPress += (s, e) =>
                 {
-                    lifetime.Shutdown(0);
-                });
+                    Dispatcher.UIThread.InvokeAsync(() => lifetime.Shutdown(0));
+                    app.Lifetime.StopApplication();
+                    e.Cancel = true;
+                };
 
                 lifetime.Start(args);
 

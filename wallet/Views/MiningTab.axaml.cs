@@ -18,6 +18,7 @@ using Kryolite.Shared.Dto;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace Kryolite.Wallet;
 
@@ -61,6 +62,12 @@ public partial class MiningTab : UserControl
         _model.Threads = Environment.ProcessorCount.ToString();
 
         var eventBus = Program.ServiceCollection.GetRequiredService<IEventBus>();
+        var lifetime = Program.ServiceCollection.GetRequiredService<IHostApplicationLifetime>();
+
+        lifetime.ApplicationStopping.Register(() => {
+            _stoppingSource.Cancel();
+            _tokenSource.Cancel();
+        });
 
         eventBus.Subscribe<ChainState>(chainState => UpdateStats(chainState));
 
