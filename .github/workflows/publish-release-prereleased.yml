@@ -20,14 +20,17 @@ jobs:
           - runtime: linux-x64
             runner: ubuntu-22.04
             image: ghcr.io/kryolite-crypto/kryolite/publish:v1
+            wallet_opts: -p:UseAppHost=true
             zip_type: tar.gz
           - runtime: linux-arm64
             runner: ubuntu-22.04
             image: ghcr.io/kryolite-crypto/kryolite/publish:v1
             cross_compile_opts: -p:SysRoot=/crossrootfs/arm64 -p:LinkerFlavor=lld -p:ObjCopyName=aarch64-linux-gnu-objcopy
+            wallet_opts: -p:UseAppHost=true
             zip_type: tar.gz
           - runtime: win-x64
             runner: windows-2019
+            wallet_opts: -p:UseAppHost=true
             zip_type: zip
           - runtime: osx-x64
             runner: macos-13
