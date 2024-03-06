@@ -1,50 +1,64 @@
 using System.Numerics;
-using System.Runtime.Serialization;
 using Kryolite.EventBus;
-using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MemoryPackable]
-public partial class ChainState : EventBase
+public sealed class ChainState : EventBase, ISerializable
 {
-    public long Id {  get; set; }
-    /// <summary>
-    /// Total blocks in chain
-    /// </summary>
-    public long Blocks { get; set; }
-    public SHA256Hash ViewHash { get; set; } = SHA256Hash.NULL_HASH;
-    public Difficulty CurrentDifficulty { get; set; }
-    /// <summary>
-    /// Total votes in chain
-    /// </summary>
-    public long Votes { get; set; }
-    /// <summary>
-    /// TotalTransaction in chain
-    /// </summary>
-    public long Transactions { get; set; }
-    public ulong BlockReward { get; set; }
-    [MemoryPackInclude]
-    private byte[] _weight { get; set; } = [];
-    [MemoryPackInclude]
-    private byte[] _totalWork { get; set; } = [];
+    public long Id;
+    public long TotalBlocks;
+    public SHA256Hash ViewHash;
+    public Difficulty CurrentDifficulty;
+    public long TotalVotes;
+    public long TotalTransactions;
+    public ulong BlockReward;
+    public BigInteger Weight;
+    public BigInteger TotalWork;
 
-    [MemoryPackIgnore]
-    public BigInteger Weight { get; set; }
-    [MemoryPackIgnore]
-    public BigInteger TotalWork { get; set; }
-
-    [MemoryPackOnSerializing]
-    void OnSerializing()
+    public ChainState()
     {
-        _weight = Weight.ToByteArray();
-        _totalWork = TotalWork.ToByteArray();
+        ViewHash = new();
     }
 
-    [MemoryPackOnDeserialized]
-    void OnDeserialized()
+    public byte GetSerializerId()
     {
-        Weight = new BigInteger(_weight);
-        TotalWork = new BigInteger(_totalWork);
+        return (byte)SerializerEnum.CHAINSTATE;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(Id) +
+        Serializer.SizeOf(TotalBlocks) +
+        Serializer.SizeOf(ViewHash) +
+        Serializer.SizeOf(CurrentDifficulty.Value) +
+        Serializer.SizeOf(TotalVotes) +
+        Serializer.SizeOf(TotalTransactions) +
+        Serializer.SizeOf(BlockReward) +
+        Serializer.SizeOf(Weight) +
+        Serializer.SizeOf(TotalWork);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Id);
+        serializer.Write(TotalBlocks);
+        serializer.Write(ViewHash);
+        serializer.Write(CurrentDifficulty.Value);
+        serializer.Write(TotalVotes);
+        serializer.Write(TotalTransactions);
+        serializer.Write(BlockReward);
+        serializer.Write(Weight);
+        serializer.Write(TotalWork);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Id);
+        serializer.Read(ref TotalBlocks);
+        serializer.Read(ref ViewHash);
+        serializer.Read(ref CurrentDifficulty.Value);
+        serializer.Read(ref TotalVotes);
+        serializer.Read(ref TotalTransactions);
+        serializer.Read(ref BlockReward);
+        serializer.Read(ref Weight);
+        serializer.Read(ref TotalWork);
     }
 }

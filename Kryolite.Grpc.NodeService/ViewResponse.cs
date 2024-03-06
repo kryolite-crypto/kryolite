@@ -1,28 +1,73 @@
-using System.Runtime.Serialization;
+using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
-using MemoryPack;
 
 namespace Kryolite.Grpc.NodeService;
 
-[DataContract]
-[MemoryPackable]
-public partial class ViewResponse
+public class ViewResponse : ISerializable
 {
-    [DataMember]
-    public View? View { get; set; }
-    [DataMember]
-    public List<Block> Blocks { get; set; } = [];
-    [DataMember]
-    public List<Vote> Votes { get; set; } = [];
-    [DataMember]
-    public List<TransactionDto> Transactions { get; set; } = [];
+    public View? View;
+    public List<Block> Blocks = [];
+    public List<Vote> Votes = [];
+    public List<TransactionDto> Transactions = [];
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.VIEW_RESPONSE;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOfN(View) +
+        Serializer.SizeOf(Blocks) +
+        Serializer.SizeOf(Votes) +
+        Serializer.SizeOf(Transactions);
+
+    public ViewResponse Create<ViewResponse>() where ViewResponse : new()
+    {
+        return new ViewResponse();
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.WriteN(View);
+        serializer.Write(Blocks);
+        serializer.Write(Votes);
+        serializer.Write(Transactions);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.ReadN(ref View);
+        serializer.Read(ref Blocks);
+        serializer.Read(ref Votes);
+        serializer.Read(ref Transactions);
+    }
 }
 
-[DataContract]
-[MemoryPackable]
-public partial class ViewRangeResponse
+public class ViewRangeResponse : ISerializable
 {
-    [DataMember]
-    public List<ViewResponse> Views { get; set; } = new();
+    public List<ViewResponse> Views = [];
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.VIEW_RANGE_RESPONSE;
+    }
+
+    public int GetLength()
+        => Serializer.SizeOf(Views);
+
+    public ViewRangeResponse Create<ViewRangeResponse>() where ViewRangeResponse : new()
+    {
+        return new ViewRangeResponse();
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Write(Views);
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Views);
+    }
 }

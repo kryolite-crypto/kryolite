@@ -1,18 +1,22 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-using MemoryPack;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
+using Kryolite.Shared;
 
 namespace Kryolite.Node.Network;
 
-[MemoryPackable]
-public partial class NodeBroadcast : IBroadcast
+public class NodeBroadcast : IBroadcast
 {
-    public AuthRequest AuthRequest { get; set; }
-    public string Uri { get; set; }
+    public AuthRequest AuthRequest;
+    public string Uri;
 
-    [MemoryPackConstructor]
+    public NodeBroadcast()
+    {
+        AuthRequest = new();
+        Uri = string.Empty;
+    }
+
     public NodeBroadcast(AuthRequest authRequest, string uri)
     {
         AuthRequest = authRequest;
@@ -52,5 +56,26 @@ public partial class NodeBroadcast : IBroadcast
         }
 
         return Task.CompletedTask;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.NODE_BROADCAST;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(AuthRequest) +
+        Serializer.SizeOf(Uri);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(AuthRequest);
+        serializer.Write(Uri);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref AuthRequest);
+        serializer.Read(ref Uri);
     }
 }

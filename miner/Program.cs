@@ -11,6 +11,7 @@ using Kryolite.Grpc.DataService;
 using Grpc.Net.Client;
 using Kryolite.Shared.Dto;
 using Grpc.Core;
+using Kryolite.Grpc.Marshaller;
 
 namespace Kryolite.Miner;
 
@@ -58,9 +59,15 @@ public class Program
                 return;
             }
 
+            Serializer.RegisterTypeResolver(e => e switch
+            {
+                SerializerEnum.BLOCKTEMPLATE => new BlockTemplate(),
+                _ => throw new ArgumentException()
+            });
+
             var opts = new ServiceModelGrpcClientOptions
             {
-                MarshallerFactory = MemoryPackMarshallerFactory.Default
+                MarshallerFactory = MarshallerFactory.Instance
             };
 
             var clientFactory = new ClientFactory(opts)
@@ -124,7 +131,7 @@ public class Program
 
                             var nonce = new Span<byte>(concat.Buffer, 32, 32);
 
-                            Array.Copy(blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
+                            Array.Copy((byte[])blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
 
                             var target = blocktemplate.Difficulty.ToTarget();
 

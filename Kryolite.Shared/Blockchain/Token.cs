@@ -1,16 +1,56 @@
 ﻿using System.Text.Json.Serialization;
-using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MemoryPackable]
-public partial class Token : TokenBase
+public sealed class Token : TokenBase, ISerializable
 {
-    public ulong Id { get; set; }
-    public SHA256Hash TokenId { get; set; } = new();
-    public bool IsConsumed { get; set; }
-    public Address Ledger { get; set; } = new();
-    public Address Contract { get; set; } = new();
+    public ulong Id;
+    public SHA256Hash TokenId;
+    public bool IsConsumed;
+    public Address Ledger;
+    public Address Contract;
+
+    public Token()
+    {
+        TokenId = new();
+        Ledger = new();
+        Contract = new();
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.TOKEN;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(Id) +
+        Serializer.SizeOf(TokenId) +
+        Serializer.SizeOf(IsConsumed) +
+        Serializer.SizeOf(Ledger) +
+        Serializer.SizeOf(Contract);
+
+    public Token Create<Token>() where Token : new()
+    {
+        return new Token();
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Write(Id);
+        serializer.Write(TokenId);
+        serializer.Write(IsConsumed);
+        serializer.Write(Ledger);
+        serializer.Write(Contract);
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Id);
+        serializer.Read(ref TokenId);
+        serializer.Read(ref IsConsumed);
+        serializer.Read(ref Ledger);
+        serializer.Read(ref Contract);
+    }
 }
 
 public class TokenBase

@@ -1,34 +1,28 @@
 using System.Numerics;
-using System.Runtime.Serialization;
-using MemoryPack;
+using System.Runtime.CompilerServices;
 
 namespace Kryolite.Shared;
 
-[MemoryPackable]
-public partial class SHA256Hash : IComparable<SHA256Hash>
+[SkipLocalsInit]
+public sealed class SHA256Hash : IComparable<SHA256Hash>, ISerializable
 {
-    public byte[] Buffer { get; set; }
+    public byte[] Buffer;
 
     public SHA256Hash()
     {
         Buffer = new byte[HASH_SZ];
     }
 
-    [MemoryPackConstructor]
     public SHA256Hash(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
-
-        if (buffer.Length != HASH_SZ)
-        {
-            throw new ArgumentOutOfRangeException(nameof(buffer));
-        }
+        ArgumentOutOfRangeException.ThrowIfNotEqual(buffer.Length, HASH_SZ);
 
         Buffer = buffer;
     }
 
     public override string ToString() => Base32.Kryolite.Encode(Buffer);
-    public static implicit operator byte[] (SHA256Hash hash) => hash.Buffer;
+    public static explicit operator byte[] (SHA256Hash hash) => hash.Buffer;
     public static implicit operator ReadOnlySpan<byte> (SHA256Hash hash) => hash.Buffer;
     public static implicit operator SHA256Hash(byte[] buffer) => new(buffer);
     public static implicit operator SHA256Hash(string hash) => new(Base32.Kryolite.Decode(hash));
@@ -67,6 +61,31 @@ public partial class SHA256Hash : IComparable<SHA256Hash>
     public int CompareTo(SHA256Hash? other)
     {
         return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? []));
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.SHA256;
+    }
+
+    public int GetLength()
+    {
+        return HASH_SZ;
+    }
+
+    public SHA256Hash Create<SHA256Hash>() where SHA256Hash : new()
+    {
+        return new SHA256Hash();
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Buffer, HASH_SZ);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Buffer, HASH_SZ);
     }
 
     public const int HASH_SZ = 32;

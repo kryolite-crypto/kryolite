@@ -2,7 +2,6 @@ using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
-using ServiceModel.Grpc.Channel;
 
 namespace Kryolite.Shared;
 
@@ -42,6 +41,16 @@ public ref partial struct Serializer(ref byte spanRef, int length)
         writer.Advance(length);
     }
 
+    public static void Serialize(long value, IBufferWriter<byte> writer)
+    {
+        var length = sizeof(long);
+        var span = writer.GetSpan(length);
+
+        BitConverter.TryWriteBytes(span, value);
+
+        writer.Advance(length);
+    }
+
     public static T Deserialize<T>(ReadOnlySpan<byte> bytes) where T : ISerializable, new()
     {
         var instance = new T();
@@ -58,14 +67,15 @@ public ref partial struct Serializer(ref byte spanRef, int length)
         return instance;
     }
 
-    public static T Deserialize<T>(ReadOnlySequence<byte> sequence) where T : ISerializable
+    public static T Deserialize<T>(ReadOnlySequence<byte> sequence) where T : ISerializable, new()
     {
-        Console.WriteLine("Deserialize: " + typeof(T).Name);
-        Console.WriteLine(sequence.Length);
-
         var span = sequence.FirstSpan;
-        var header = (SerializerEnum)span[0];
-        var instance = _resolver(header);
+        var instance = new T();
+
+        if (span[0] != instance.GetSerializerId())
+        {
+            ThrowInvalidHeader();
+        }
 
         ref var spanRef = ref MemoryMarshal.GetReference(span[1..]);
         var serializer = new Serializer(ref spanRef, span.Length);
@@ -73,11 +83,6 @@ public ref partial struct Serializer(ref byte spanRef, int length)
         instance.Deserialize(ref serializer);
 
         return (T)instance;
-    }
-
-    public static void RegisterTypeResolver(Func<SerializerEnum, ISerializable> resolver)
-    {
-        _resolver = resolver;
     }
 
     [DoesNotReturn]

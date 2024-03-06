@@ -1,23 +1,19 @@
 using Kryolite.Shared;
-using MemoryPack;
 using NBip32Fast;
 
 namespace Kryolite.Wallet;
 
-[MemoryPackable]
-public partial class Account
+public class Account : ISerializable
 {
-    public uint Id { get; set; }
-    public Address Address { get; set; }
-    public PublicKey PublicKey { get; init; }
-    public string? Description { get; set; }
+    public uint Id;
+    public Address Address;
+    public PublicKey PublicKey;
+    public string? Description;
 
-    [MemoryPackConstructor]
-    public Account(Address address, PublicKey publicKey, string description)
+    public Account()
     {
-        Address = address;
-        PublicKey = publicKey;
-        Description = description;
+        Address = new();
+        PublicKey = new();
     }
 
     public Account(HdKey master, uint id)
@@ -28,5 +24,30 @@ public partial class Account
         Id = id;
         PublicKey = pubKey;
         Address = PublicKey.ToAddress();
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.ACCOUNT;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(Address) +
+        Serializer.SizeOf(PublicKey) +
+        Serializer.SizeOf(Description);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Address);
+        serializer.Write(PublicKey);
+        serializer.Write(Description);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Address);
+        serializer.Read(ref PublicKey);
+        serializer.ReadN(ref Description);
+        Console.WriteLine("account deser " + PublicKey);
     }
 }

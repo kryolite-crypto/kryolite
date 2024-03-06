@@ -8,7 +8,7 @@ public ref partial struct Serializer
 {
     public static int SizeOf(byte[] value)
     {
-        return value.Length;
+        return sizeof(int) + value.Length;
     }
 
     public static int SizeOf(string[]? value)

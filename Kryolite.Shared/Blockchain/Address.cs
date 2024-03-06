@@ -1,29 +1,24 @@
-using System.Runtime.Serialization;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
-using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MemoryPackable]
-public partial class Address
+[SkipLocalsInit]
+public sealed class Address : ISerializable
 {
-    public byte[] Buffer { get; set; }
+    public byte[] Buffer;
 
     public Address()
     {
         Buffer = new byte[ADDRESS_SZ];
     }
 
-    [MemoryPackConstructor]
     public Address(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
-
-        if (buffer.Length != ADDRESS_SZ)
-        {
-            throw new ArgumentOutOfRangeException(nameof(buffer));
-        }
+        ArgumentOutOfRangeException.ThrowIfNotEqual(buffer.Length, ADDRESS_SZ);
 
         Buffer = buffer;
     }
@@ -31,8 +26,8 @@ public partial class Address
     public bool IsContract() => Buffer[0] == (byte)AddressType.CONTRACT;
     public bool IsWallet() => Buffer[0] == (byte)AddressType.WALLET;
     public override string ToString() => Constant.ADDR_PREFIX + Base32.Kryolite.Encode(Buffer);
+    public static explicit operator byte[] (Address address) => address.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
-    public static implicit operator byte[] (Address address) => address.Buffer;
     public static implicit operator Address(byte[] buffer) => new (buffer);
     public static implicit operator Address(Span<byte> buffer) => new(buffer.ToArray());
     public static implicit operator Address(string address) => new(Base32.Kryolite.Decode(address.Split(':').Last()));
@@ -94,6 +89,26 @@ public partial class Address
         var h2 = SHA256.HashData(h1);
 
         return Enumerable.SequenceEqual(h2.Take(4).ToArray(), checksum);
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.ADDRESS;
+    }
+
+    public int GetLength()
+    {
+        return ADDRESS_SZ;
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Buffer, ADDRESS_SZ);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Buffer, ADDRESS_SZ);
     }
 
     public const int ADDRESS_SZ = 25;

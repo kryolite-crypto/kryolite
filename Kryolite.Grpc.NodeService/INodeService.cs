@@ -40,7 +40,7 @@ public interface INodeService
     List<ViewResponse> GetViewsForRange(long startHeight, int batchSize);
 
     [OperationContract]
-    bool ShouldSync(PublicKey publicKey, SHA256Hash viewHash, byte[] weight);
+    SyncResponse ShouldSync(SyncRequest request);
 
     [OperationContract]
     void Broadcast(PublicKey publicKey, byte[][] messages);
@@ -49,5 +49,5 @@ public interface INodeService
     long GenerateChallenge(long nonce);
 
     [OperationContract]
-    IAsyncEnumerable<byte[][]> Listen(AuthRequest request, long challenge, CancellationToken token);
+    IAsyncEnumerable<byte[][]> Listen(AuthRequest request, CancellationToken token);
 }

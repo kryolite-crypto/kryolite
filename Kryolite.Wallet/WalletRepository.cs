@@ -1,6 +1,5 @@
 
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.Configuration;
 using System.Data;
 
@@ -135,12 +134,12 @@ public class WalletRepository : IWalletRepository
     private Wallet Load()
     {
         var bytes = File.ReadAllBytes(StorePath);
-        return MemoryPackSerializer.Deserialize<Wallet>(bytes) ?? throw new Exception("failed to deserialize wallet");
+        return Serializer.Deserialize<Wallet>(bytes) ?? throw new Exception("failed to deserialize wallet");
     }
 
     private void Commit(Wallet container)
     {
-        var bytes = MemoryPackSerializer.Serialize(container);
+        var bytes = Serializer.Serialize<Wallet>(container);
         File.WriteAllBytes(StorePath, bytes);
     }
 }

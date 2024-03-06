@@ -30,8 +30,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Upnp", "Kryolite.U
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Upnp.Tests", "Kryolite.Upnp.Tests\Kryolite.Upnp.Tests.csproj", "{C8402DA1-FF5E-4B30-A659-48F77C0DC0B4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServiceModel.Grpc.MemoryPackMarshaller", "ServiceModel.Grpc.MemoryPackMarshaller\ServiceModel.Grpc.MemoryPackMarshaller.csproj", "{CCC9BCF4-F8BE-448C-92C1-29865B4AAEBE}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Wallet", "Kryolite.Wallet\Kryolite.Wallet.csproj", "{211270E7-ECD3-4B89-97A8-D357214608C4}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Wallet.Tests", "Kryolite.Wallet.Tests\Kryolite.Wallet.Tests.csproj", "{73D8F7A2-0BA3-47B0-BFA1-FDB7266F40A3}"
@@ -39,6 +37,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Grpc.NodeService", "Kryolite.Grpc.NodeService\Kryolite.Grpc.NodeService.csproj", "{00B275FB-9438-48FB-B9AF-948726CCB1DB}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Grpc.DataService", "Kryolite.Grpc.DataService\Kryolite.Grpc.DataService.csproj", "{884A9E71-988B-42F8-8AA6-9D0E46962541}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Grpc.Marshaller", "Kryolite.Grpc.Marshaller\Kryolite.Grpc.Marshaller.csproj", "{FF714DA8-98AA-47BD-A894-1DCE548B587C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -90,10 +90,6 @@ Global
 		{C8402DA1-FF5E-4B30-A659-48F77C0DC0B4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C8402DA1-FF5E-4B30-A659-48F77C0DC0B4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C8402DA1-FF5E-4B30-A659-48F77C0DC0B4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{CCC9BCF4-F8BE-448C-92C1-29865B4AAEBE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{CCC9BCF4-F8BE-448C-92C1-29865B4AAEBE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{CCC9BCF4-F8BE-448C-92C1-29865B4AAEBE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{CCC9BCF4-F8BE-448C-92C1-29865B4AAEBE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{211270E7-ECD3-4B89-97A8-D357214608C4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{211270E7-ECD3-4B89-97A8-D357214608C4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{211270E7-ECD3-4B89-97A8-D357214608C4}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -110,6 +106,10 @@ Global
 		{884A9E71-988B-42F8-8AA6-9D0E46962541}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{884A9E71-988B-42F8-8AA6-9D0E46962541}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{884A9E71-988B-42F8-8AA6-9D0E46962541}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FF714DA8-98AA-47BD-A894-1DCE548B587C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF714DA8-98AA-47BD-A894-1DCE548B587C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF714DA8-98AA-47BD-A894-1DCE548B587C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF714DA8-98AA-47BD-A894-1DCE548B587C}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

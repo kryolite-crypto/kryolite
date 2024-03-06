@@ -3,6 +3,8 @@ using Grpc.Core;
 using Kryolite.Shared;
 using ServiceModel.Grpc.Configuration;
 using System.Runtime.CompilerServices;
+using Kryolite.Grpc.NodeService;
+using System.Buffers;
 
 namespace ServiceModel.Grpc.Marshaller;
 
@@ -13,101 +15,110 @@ public class MarshallerFactory : IMarshallerFactory
 
     internal static void Serialize<T>(T value, SerializationContext context)
     {
-        Console.WriteLine("Serialize " + typeof(T));
-
-        switch (typeof(T).Name)
+        Console.WriteLine("Serialize: " + typeof(T));
+        switch (value)
         {
-            case "Message":
-                Console.WriteLine("msg0");
+            case Message:
                 Serializer.Serialize(new SerializableMessage(), context.GetBufferWriter());
                 break;
-            case "Message`1":
-                Console.WriteLine("msg1");
-                var msg1 = Unsafe.As<Message<ISerializable>>(value);
 
-                if (msg1 is null)
-                {
-                    goto default;
-                }
-
-                Serializer.Serialize(msg1.Value1, context.GetBufferWriter());
+            case Message<long> msg:
+                Serializer.Serialize(msg.Value1, context.GetBufferWriter());
                 break;
-            case "Message`2":
-                Console.WriteLine("msg2");
-                var msg2 = Unsafe.As<Message<ISerializable, ISerializable>>(value);
 
-                if (msg2 is null)
-                {
-                    goto default;
-                }
-
-                Serializer.Serialize(msg2.Value1, context.GetBufferWriter());
-                Serializer.Serialize(msg2.Value2, context.GetBufferWriter());
+            case Message<byte[][]> msg:
+                Serializer.Serialize(new JaggedArrayMessage(msg.Value1), context.GetBufferWriter());
                 break;
-            case "Message`3":
-                Console.WriteLine("msg3");
-                var msg3 = Unsafe.As<Message<ISerializable, ISerializable, ISerializable>>(value);
 
-                if (msg3 is null)
-                {
-                    goto default;
-                }
-
-                Serializer.Serialize(msg3.Value1, context.GetBufferWriter());
-                Serializer.Serialize(msg3.Value2, context.GetBufferWriter());
-                Serializer.Serialize(msg3.Value3, context.GetBufferWriter());
+            case Message<SHA256Hash> msg:
+                Serializer.Serialize(new SerializableMessage<SHA256Hash>(msg.Value1), context.GetBufferWriter());
                 break;
+
+            case Message<PublicKey> msg:
+                Serializer.Serialize(new SerializableMessage<PublicKey>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<SyncRequest> msg:
+                Serializer.Serialize(new SerializableMessage<SyncRequest>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<SyncResponse> msg:
+                Serializer.Serialize(new SerializableMessage<SyncResponse>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<AuthResponse> msg:
+                Serializer.Serialize(new SerializableMessage<AuthResponse>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<AuthRequest> msg:
+                Serializer.Serialize(new SerializableMessage<AuthRequest>(msg.Value1), context.GetBufferWriter());
+                break;
+
             default:
-                throw new InvalidCastException(typeof(T).ToString());
+                throw new InvalidCastException("No serialization handler registered for type: " + typeof(T).ToString());
         }
 
-        Console.WriteLine("done");
         context.Complete();
     }
 
     internal static T Deserialize<T>(DeserializationContext context)
     {
-        try{
-        Console.WriteLine("Deserialize " + typeof(T));
+        Console.WriteLine("Deserialize: " + typeof(T));
 
-        switch (typeof(T).Name)
+        switch (typeof(T))
         {
-            case "Message":
-                return (T)(object)new Message();
-            case "Message`1":
-                Console.WriteLine("Message1");
-                var msg1 = new Message<ISerializable>
-                {
-                    Value1 = Serializer.Deserialize<ISerializable>(context.PayloadAsReadOnlySequence())
-                };
+            case var t when t == typeof(Message):
+                return ToMessage<T>();
 
-                ref var b = ref Unsafe.AsRef(ref msg1);
-                return Unsafe.As<Message<ISerializable>, T>(ref b);
-            case "Message`2":
-                var msg2 = new Message<ISerializable, ISerializable>
-                {
-                    Value1 = Serializer.Deserialize<ISerializable>(context.PayloadAsReadOnlySequence()),
-                    Value2 = Serializer.Deserialize<ISerializable>(context.PayloadAsReadOnlySequence())
-                };
+            case var t when t == typeof(Message<long>):
+                return ToMessage<T>(BitConverter.ToInt64(context.PayloadAsNewBuffer()));
 
-                return (T)(object)msg2;
-            case "Message`3":
-                var msg3 = new Message<ISerializable, ISerializable, ISerializable>
-                {
-                    Value1 = Serializer.Deserialize<ISerializable>(context.PayloadAsReadOnlySequence()),
-                    Value2 = Serializer.Deserialize<ISerializable>(context.PayloadAsReadOnlySequence()),
-                    Value3 = Serializer.Deserialize<ISerializable>(context.PayloadAsReadOnlySequence())
-                };
+            case var t when t == typeof(Message<byte[][]>):
+                return ToMessage<T>(context.PayloadAsReadOnlySequence());
 
-                return (T)(object)msg3;
+            case var t when t == typeof(Message<SHA256Hash>):
+                return ToMessage<T, SHA256Hash>(context.PayloadAsReadOnlySequence());
+
+            case var t1 when t1 == typeof(Message<PublicKey>):
+                return ToMessage<T, PublicKey>(context.PayloadAsReadOnlySequence());
+
+            case var t2 when t2 == typeof(Message<SyncRequest>):
+                return ToMessage<T, SyncRequest>(context.PayloadAsReadOnlySequence());
+
+            case var t3 when t3 == typeof(Message<SyncResponse>):
+                return ToMessage<T, SyncResponse>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<AuthRequest>):
+                return ToMessage<T, AuthRequest>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<AuthResponse>):
+                return ToMessage<T, AuthResponse>(context.PayloadAsReadOnlySequence());
+
             default:
-                throw new InvalidCastException("Target type: " + typeof(T).ToString());
+                throw new InvalidCastException("No deserialization handler registered for type: " + typeof(T).ToString());
         }
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine(ex.ToString());
-            throw new InvalidCastException("Target type: " + typeof(T).ToString());
-        }
+    }
+
+    private static T ToMessage<T>()
+    {
+        return (T)(object)new Message();
+    }
+
+    private static T ToMessage<T, T1>(ReadOnlySequence<byte> buffer) where T1 : ISerializable, new()
+    {
+        var msg = Serializer.Deserialize<SerializableMessage<T1>>(buffer);
+        return (T)(object)new Message<T1>(msg.Value!);
+    }
+
+    private static T ToMessage<T>(long value)
+    {
+        return (T)(object)new Message<long>(value);
+    }
+
+    private static T ToMessage<T>(ReadOnlySequence<byte> buffer)
+    {
+        var msg = Serializer.Deserialize<JaggedArrayMessage>(buffer);
+        Console.WriteLine(msg.Value.Length);
+        return (T)(object)new Message<byte[][]>(msg.Value);
     }
 }

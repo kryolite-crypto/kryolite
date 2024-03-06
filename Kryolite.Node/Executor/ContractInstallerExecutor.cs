@@ -1,6 +1,5 @@
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MemoryPack;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
@@ -18,7 +17,7 @@ public class ContractInstallerExecutor
 
     public ExecutionResult Execute(Transaction tx, View view)
     {
-        var payload = MemoryPackSerializer.Deserialize<TransactionPayload>(tx.Data);
+        var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
 
         if (payload?.Payload is not NewContract newContract)
         {

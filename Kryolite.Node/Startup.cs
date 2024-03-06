@@ -3,6 +3,7 @@ using System.Reflection;
 using DnsClient;
 using Kryolite.EventBus;
 using Kryolite.Grpc.DataService;
+using ServiceModel.Grpc.Marshaller;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
@@ -15,8 +16,6 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Kryolite.Upnp;
 using Kryolite.Wallet;
-using MemoryPack;
-using MemoryPack.Formatters;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -26,6 +25,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ServiceModel.Grpc.Client;
 using ServiceModel.Grpc.Configuration;
+using System.ServiceModel.Channels;
 
 namespace Kryolite.Node;
 
@@ -38,8 +38,6 @@ public static class Startup
             .Build();
 
         DataDirectory.EnsureExists(config, args, out var dataDir, out var configPath);
-
-        RegisterFormatters();
 
         var walletRepository = new WalletRepository(config);
         walletRepository.Backup();
@@ -138,66 +136,6 @@ public static class Startup
         return builder;
     }
 
-    public static void RegisterFormatters()
-    {
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<BlockBroadcast>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NodeBroadcast>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NodeInfoResponse>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<PendingResponse>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionBroadcast>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewBroadcast>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewResponse>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ViewRangeResponse>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<VoteBroadcast>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Address>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Block>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<CallMethod>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Contract>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ContractManifest>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ContractMethod>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ContractParam>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Effect>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<PrivateKey>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<PublicKey>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Ledger>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<NewContract>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<SHA256Hash>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Signature>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Validator>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Token>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Transaction>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionPayload>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<View>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Vote>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Wallet.Wallet>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Wallet.Account>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<Difficulty>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<TransactionDto>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<ChainState>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<AuthRequest>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<AuthResponse>());
-        MemoryPackFormatterProvider.Register(new MemoryPackableFormatter<BlockTemplate>());
-
-        var txPayloadFormatter = new DynamicUnionFormatter<ITransactionPayload>(new[]
-        {
-            ((ushort)0, typeof(NewContract)),
-            ((ushort)1, typeof(CallMethod))
-        });
-
-        MemoryPackFormatterProvider.Register(txPayloadFormatter);
-
-        var packetFormatter = new DynamicUnionFormatter<IBroadcast>(new[]
-        {
-            ((ushort)1, typeof(NodeBroadcast)),
-            ((ushort)5, typeof(ViewBroadcast)),
-            ((ushort)6, typeof(BlockBroadcast)),
-            ((ushort)9, typeof(VoteBroadcast)),
-            ((ushort)12, typeof(TransactionBroadcast))
-        });
-
-        MemoryPackFormatterProvider.Register(packetFormatter);
-    }
-
     public static void UseNodeMiddleware(this IApplicationBuilder app)
     {
         app.UseForwardedHeaders(new ForwardedHeadersOptions
@@ -221,9 +159,51 @@ public static class Startup
 
     public static void AddNodeServices(this IServiceCollection services)
     {
+        /*Serializer.RegisterTypeResolver(header => header switch
+        {
+            SerializerEnum.TRANSACTION => new Transaction(),
+            SerializerEnum.TRANSACTION_DTO => new TransactionDto(),
+            SerializerEnum.PUBLIC_KEY => new PublicKey(),
+            SerializerEnum.PRIVATE_KEY => new PrivateKey(),
+            SerializerEnum.ADDRESS => new Address(),
+            SerializerEnum.SHA256 => new SHA256Hash(),
+            SerializerEnum.SIGNATURE => new Signature(),
+            SerializerEnum.EFFECT => new Effect(),
+            SerializerEnum.BLOCK => new Block(),
+            SerializerEnum.CHAINSTATE => new ChainState(),
+            SerializerEnum.LEDGER => new Ledger(),
+            SerializerEnum.BLOCKTEMPLATE => new BlockTemplate(),
+            SerializerEnum.TOKEN => new Token(),
+            SerializerEnum.NODE_DTO => new NodeDto(),
+            SerializerEnum.VOTE => new Vote(),
+            SerializerEnum.VALIDATOR => new Validator(),
+            SerializerEnum.VIEW => new View(),
+            SerializerEnum.VOTE_BROADCAST => new VoteBroadcast(),
+            SerializerEnum.BLOCK_BROADCAST => new BlockBroadcast(),
+            SerializerEnum.TRANSACTION_BROADCAST => new TransactionBroadcast(),
+            SerializerEnum.VIEW_BROADCAST => new ViewBroadcast(),
+            SerializerEnum.VIEW_RANGE_RESPONSE => new ViewRangeResponse(),
+            SerializerEnum.VIEW_RESPONSE => new ViewResponse(),
+            SerializerEnum.AUTH_RESPONSE => new AuthResponse(),
+            SerializerEnum.AUTH_REQUEST => new AuthRequest(),
+            SerializerEnum.NODE_BROADCAST => new NodeBroadcast(),
+            SerializerEnum.PENDING_RESPONSE => new PendingResponse(),
+            SerializerEnum.TRANSACTION_PAYLOAD => new TransactionPayload(),
+            SerializerEnum.CALL_METHOD => new CallMethod(),
+            SerializerEnum.NEW_CONTRACT => new NewContract(),
+            SerializerEnum.CONTRACT => new Contract(),
+            SerializerEnum.CONTRACT_MANIFEST => new ContractManifest(),
+            SerializerEnum.CONTRACT_METHOD => new ContractMethod(),
+            SerializerEnum.CONTRACT_PARAM => new ContractParam(),
+            SerializerEnum.WALLET => new Wallet.Wallet(),
+            SerializerEnum.ACCOUNT => new Account(),
+            SerializerEnum.MESSAGE => new SerializableMessage(),
+            _ => throw new Exception("invalid header received")
+        });*/
+
         var opts = new ServiceModelGrpcClientOptions
         {
-            MarshallerFactory = MemoryPackMarshallerFactory.Default
+            MarshallerFactory = MarshallerFactory.Instance
         };
 
         var clientFactory = new ClientFactory(opts)
@@ -254,7 +234,7 @@ public static class Startup
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddSingleton<IEventBus, EventBus.EventBus>()
                 .AddSingleton((sp) => clientFactory)
-                .AddServiceModelGrpc(x => x.DefaultMarshallerFactory = MemoryPackMarshallerFactory.Default).Services
+                .AddServiceModelGrpc(x => x.DefaultMarshallerFactory = MarshallerFactory.Instance).Services
                 .AddUpnpService()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy

@@ -1,30 +1,28 @@
-using MemoryPack;
+using System.Runtime.CompilerServices;
 
 namespace Kryolite.Shared;
 
-[MemoryPackable]
-public partial class Effect
+public sealed class Effect : ISerializable
 {
-    public Address From { get; set; }
-    public Address To { get; set; }
-    public ulong Value { get; set; }
-    public Address Contract { get; set; }
-    public SHA256Hash? TokenId { get; set; }
-    public bool ConsumeToken { get; set; }
+    public Address From;
+    public Address To;
+    public ulong Value;
+    public Address Contract;
+    public SHA256Hash? TokenId;
+    public bool ConsumeToken;
 
-    [MemoryPackConstructor]    
     public Effect()
     {
-        From = Address.NULL_ADDRESS;
-        To = Address.NULL_ADDRESS;
-        Contract = Address.NULL_ADDRESS;
+        From = new();
+        To = new();
+        Contract = new();
     }
 
     public Effect(Address contract, Address from, Address to, ulong value, SHA256Hash? tokenId = null, bool consumeToken = false)
     {
-        From = from ?? throw new ArgumentNullException(nameof(from));
-        To = to ?? throw new ArgumentNullException(nameof(to));
-        Contract = contract ?? throw new ArgumentNullException(nameof(contract));
+        From = from;
+        To = to;
+        Contract = contract;
         Value = value;
         TokenId = tokenId;
         ConsumeToken = consumeToken;
@@ -33,5 +31,48 @@ public partial class Effect
     public bool IsTokenEffect()
     {
         return TokenId is not null;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.EFFECT;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(From) +
+        Serializer.SizeOf(To) +
+        Serializer.SizeOf(Value) +
+        Serializer.SizeOf(Contract) +
+        Serializer.SizeOfN(TokenId) +
+        Serializer.SizeOf(ConsumeToken);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(From);
+        serializer.Write(To);
+        serializer.Write(Value);
+        serializer.Write(Contract);
+        serializer.WriteN(TokenId);
+        serializer.Write(ConsumeToken);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref From);
+        serializer.Read(ref To);
+        serializer.Read(ref Value);
+        serializer.Read(ref Contract);
+        serializer.ReadN(ref TokenId);
+        serializer.Read(ref ConsumeToken);
+    }
+
+    public void Fill(List<Effect> items, int count, ref Serializer serializer)
+    {
+        for (var i = 0; i < count; i++)
+        {
+            var item = new Effect();
+            item.Serialize(ref serializer);
+            items.Add(item);
+        }
     }
 }

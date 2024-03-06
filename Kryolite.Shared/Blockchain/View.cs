@@ -1,34 +1,32 @@
-﻿using System.Runtime.Serialization;
-using System.Security.Cryptography;
-using MemoryPack;
+﻿using System.Security.Cryptography;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
-[DataContract]
-[MemoryPackable]
-public partial class View
+public sealed class View : ISerializable
 {
-    [DataMember]
-    public long Id { get; set; }
-    [DataMember]
-    public long Timestamp { get; init; }
-    [DataMember]
-    public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
-    [DataMember]
-    public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
-    [DataMember]
-    public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
-    [DataMember]
-    public List<SHA256Hash> Transactions { get; set; } = new();
-    [DataMember]
-    public List<SHA256Hash> Votes { get; set; } = new();
-    [DataMember]
-    public List<SHA256Hash> Blocks { get; set; } = new();
-    [DataMember]
-    public List<SHA256Hash> Rewards { get; set; } = new();
-    [DataMember]
-    public List<SHA256Hash> ScheduledTransactions { get; set; } = new();
+    public long Id;
+    public long Timestamp;
+    public SHA256Hash LastHash;
+    public PublicKey PublicKey;
+    public Signature Signature;
+    public List<SHA256Hash> Transactions;
+    public List<SHA256Hash> Votes;
+    public List<SHA256Hash> Blocks;
+    public List<SHA256Hash> Rewards;
+    public List<SHA256Hash> ScheduledTransactions;
+
+    public View()
+    {
+        LastHash = new();
+        PublicKey = new();
+        Signature = new();
+        Transactions = new();
+        Votes = new();
+        Blocks = new();
+        Rewards = new();
+        ScheduledTransactions = new();
+    }
 
     public SHA256Hash GetHash()
     {
@@ -36,8 +34,8 @@ public partial class View
         using var stream = new MemoryStream();
 
         stream.Write(BitConverter.GetBytes(Timestamp));
-        stream.Write(LastHash!);
-        stream.Write(PublicKey!);
+        stream.Write((ReadOnlySpan<byte>)LastHash);
+        stream.Write((ReadOnlySpan<byte>)PublicKey);
 
         foreach (var hash in Transactions.Order())
         {
@@ -134,5 +132,58 @@ public partial class View
     public bool IsMilestone()
     {
         return Id % Constant.VOTE_INTERVAL == 0;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.VIEW;
+    }
+
+    public int GetLength()
+    {
+        return
+            Serializer.SizeOf(Id) +
+            Serializer.SizeOf(Timestamp) +
+            Serializer.SizeOf(LastHash) +
+            Serializer.SizeOf(PublicKey) +
+            Serializer.SizeOf(Signature) +
+            Serializer.SizeOf(Transactions) +
+            Serializer.SizeOf(Votes) +
+            Serializer.SizeOf(Blocks) +
+            Serializer.SizeOf(Rewards) +
+            Serializer.SizeOf(ScheduledTransactions);
+    }
+
+    public View Create<View>() where View : new()
+    {
+        return new View();
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Id);
+        serializer.Write(Timestamp);
+        serializer.Write(LastHash);
+        serializer.Write(PublicKey);
+        serializer.Write(Signature);
+        serializer.Write(Transactions);
+        serializer.Write(Votes);
+        serializer.Write(Blocks);
+        serializer.Write(Rewards);
+        serializer.Write(ScheduledTransactions);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Id);
+        serializer.Read(ref Timestamp);
+        serializer.Read(ref LastHash);
+        serializer.Read(ref PublicKey);
+        serializer.Read(ref Signature);
+        serializer.Read(ref Transactions);
+        serializer.Read(ref Votes);
+        serializer.Read(ref Blocks);
+        serializer.Read(ref Rewards);
+        serializer.Read(ref ScheduledTransactions);
     }
 }

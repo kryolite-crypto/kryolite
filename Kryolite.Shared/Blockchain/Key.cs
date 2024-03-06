@@ -1,36 +1,29 @@
-using System.Runtime.Serialization;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using Crypto.RIPEMD;
-using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MemoryPackable]
-public partial class PrivateKey
+public sealed class PrivateKey : ISerializable
 {
-    public byte[] Buffer { get; private init; }
+    public byte[] Buffer;
 
     public PrivateKey()
     {
         Buffer = new byte[PRIVATE_KEY_SZ];
     }
 
-    [MemoryPackConstructor]
     public PrivateKey(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
-
-        if (buffer.Length != PRIVATE_KEY_SZ)
-        {
-            throw new ArgumentOutOfRangeException(nameof(buffer));
-        }
+        ArgumentOutOfRangeException.ThrowIfNotEqual(buffer.Length, PRIVATE_KEY_SZ);
 
         Buffer = buffer;
     }
 
     public override string ToString() => Base32.Kryolite.Encode(Buffer);
-    public static implicit operator byte[] (PrivateKey privateKey) => privateKey.Buffer;
+    public static explicit operator byte[] (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator PrivateKey(byte[] buffer) => new(buffer);
     public static implicit operator PrivateKey(string privKey) => new(Base32.Kryolite.Decode(privKey));
@@ -70,36 +63,49 @@ public partial class PrivateKey
         return hash;
     }
 
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.PRIVATE_KEY;
+    }
+
+    public int GetLength()
+    {
+        return PRIVATE_KEY_SZ;
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Buffer, PRIVATE_KEY_SZ);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Buffer, PRIVATE_KEY_SZ);
+    }
+
     public const int PRIVATE_KEY_SZ = 32;
 }
 
-[DataContract]
-[MemoryPackable]
-public partial class PublicKey
+[SkipLocalsInit]
+public sealed class PublicKey : ISerializable
 {
-    [DataMember]
-    public byte[] Buffer { get; set; }
+    public byte[] Buffer;
 
     public PublicKey()
     {
         Buffer = new byte[PUB_KEY_SZ];
     }
 
-    [MemoryPackConstructor]
     public PublicKey(byte[] buffer)
     {
         ArgumentNullException.ThrowIfNull(buffer);
-
-        if (buffer.Length != PUB_KEY_SZ)
-        {
-            throw new ArgumentOutOfRangeException(nameof(buffer));
-        }
+        ArgumentOutOfRangeException.ThrowIfNotEqual(buffer.Length, PUB_KEY_SZ);
 
         Buffer = buffer;
     }
 
     public override string ToString() => Base32.Kryolite.Encode(Buffer);
-    public static implicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
+    public static explicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator PublicKey(byte[] buffer) => new(buffer);
     public static implicit operator PublicKey(string pubKey) => new(Base32.Kryolite.Decode(pubKey));
@@ -153,6 +159,26 @@ public partial class PublicKey
         var h2 = SHA256.HashData(h1);
 
         return (Address)(byte[])[..addressBytes, ..h2[0..4]];
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.PUBLIC_KEY;
+    }
+
+    public int GetLength()
+    {
+        return PUB_KEY_SZ;
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Buffer, PUB_KEY_SZ);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Buffer, PUB_KEY_SZ);
     }
 
     public const int PUB_KEY_SZ = 32;

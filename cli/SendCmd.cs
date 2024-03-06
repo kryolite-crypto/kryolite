@@ -1,17 +1,10 @@
 using System.CommandLine;
-using System.Text;
 using System.Text.Json;
-using Grpc.Net.Client;
-using Kryolite.Grpc.DataService;
-using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Kryolite.Wallet;
-using MemoryPack;
 using Microsoft.Extensions.Configuration;
-using ServiceModel.Grpc.Client;
-using ServiceModel.Grpc.Configuration;
 
 namespace Kryolite.Cli;
 
@@ -106,7 +99,7 @@ public static class SendCmd
                 To = to,
                 Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Data = transactionPayload != null ? MemoryPackSerializer.Serialize(transactionPayload) : null
+                Data = transactionPayload != null ? Serializer.Serialize<TransactionPayload>(transactionPayload) : []
             };
 
             var privKey = walletRepository.GetPrivateKey(account.PublicKey);

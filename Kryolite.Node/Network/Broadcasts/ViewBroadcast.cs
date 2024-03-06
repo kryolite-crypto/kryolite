@@ -3,32 +3,28 @@ using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Network;
 
-[MemoryPackable]
-public partial class ViewBroadcast : IBroadcast
+public class ViewBroadcast : IBroadcast
 {
-    public SHA256Hash ViewHash { get; set; }
-    public SHA256Hash LastHash { get; set; }
-    public byte[] WeightBytes { get; set; }
+    public SHA256Hash ViewHash;
+    public SHA256Hash LastHash;
+    public BigInteger Weight;
 
-    [MemoryPackConstructor]
-    public ViewBroadcast(SHA256Hash viewHash, SHA256Hash lastHash, byte[] weightBytes)
+    public ViewBroadcast()
     {
-        ViewHash = viewHash;
-        LastHash = lastHash;
-        WeightBytes = weightBytes;
+        ViewHash = new();
+        LastHash = new();
     }
 
     public ViewBroadcast(SHA256Hash viewHash, SHA256Hash lastHash, BigInteger weight)
     {
         ViewHash = viewHash;
         LastHash = lastHash;
-        WeightBytes = weight.ToByteArray();
+        Weight = weight;
     }
 
     public Task Handle(Node node, IServiceProvider provider)
@@ -65,19 +61,17 @@ public partial class ViewBroadcast : IBroadcast
 
         var client = connManager.CreateClient<INodeService>(node);
 
-        var weight = new BigInteger(WeightBytes);
-
         // Check that this view extends our current view
         if (LastHash != chainState.ViewHash)
         {
-            logger.LogDebug("Weight: {weight}", weight);
+            logger.LogDebug("Weight: {weight}", Weight);
             logger.LogDebug("Chainstate: {weight}", chainState.Weight);
-            if (weight > chainState.Weight)
+            if (Weight > chainState.Weight)
             {
                 logger.LogDebug("[{hostname}] Has more weight. Request sync", node.Uri.ToHostname());
                 SyncManager.AddToQueue(node);
             }
-            else if (weight < chainState.Weight)
+            else if (Weight < chainState.Weight)
             {
                 var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
                 var pubKey = keyRepo.GetPublicKey();
@@ -156,5 +150,29 @@ public partial class ViewBroadcast : IBroadcast
         storeManager.AddView(view, true, true);
 
         return Task.CompletedTask;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.VIEW_BROADCAST;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(ViewHash) +
+        Serializer.SizeOf(LastHash) +
+        Serializer.SizeOf(Weight);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(ViewHash);
+        serializer.Write(LastHash);
+        serializer.Write(Weight);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref ViewHash);
+        serializer.Read(ref LastHash);
+        serializer.Read(ref Weight);
     }
 }

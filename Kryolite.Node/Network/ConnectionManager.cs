@@ -1,11 +1,8 @@
 using System.Collections.Concurrent;
-using System.Threading.Channels;
-using System.Timers;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -291,7 +288,16 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
                 var chainState = storeManager.GetChainState();
 
-                if (client.ShouldSync(_nodeKey, chainState.ViewHash, chainState.Weight.ToByteArray()))
+                var syncRequest = new SyncRequest
+                {
+                    PublicKey = _nodeKey,
+                    ViewHash = chainState.ViewHash,
+                    Weight = chainState.Weight
+                };
+
+                var syncResponse = client.ShouldSync(syncRequest);
+
+                if (syncResponse.ShouldSync)
                 {
                     // Let's add this node to our sync queue
                     SyncManager.AddToQueue(node);
@@ -300,12 +306,11 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
             var nonce = Random.Shared.NextInt64();
             var challenge = client.GenerateChallenge(nonce);
-
-            var authRequest = CreateAuthRequest();
+            var authRequest = CreateAuthRequest(challenge);
             
             var auth = false;
 
-            await foreach (var data in client.Listen(authRequest, challenge, cancellationToken))
+            await foreach (var data in client.Listen(authRequest, cancellationToken))
             {
                 node.LastSeen = DateTime.Now;
 
@@ -316,7 +321,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                         throw new AuthorizationException("expected authorization response but got something else");
                     }
 
-                    var authResponse = MemoryPackSerializer.Deserialize<AuthResponse>(data[0]);
+                    var authResponse = Serializer.Deserialize<AuthResponse>(data[0]);
 
                     if (authResponse is null)
                     {
@@ -351,7 +356,22 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 {
                     foreach (var message in data)
                     {
-                        var packet = MemoryPackSerializer.Deserialize<IBroadcast>(message);
+                        if (message.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        var packetId = (SerializerEnum)message[0];
+
+                        IBroadcast? packet = packetId switch
+                        {
+                            SerializerEnum.BLOCK_BROADCAST => Serializer.Deserialize<BlockBroadcast>(message),
+                            SerializerEnum.NODE_BROADCAST => Serializer.Deserialize<NodeBroadcast>(message),
+                            SerializerEnum.TRANSACTION_BROADCAST => Serializer.Deserialize<TransactionBroadcast>(message),
+                            SerializerEnum.VIEW_BROADCAST => Serializer.Deserialize<ViewBroadcast>(message),
+                            SerializerEnum.VOTE_BROADCAST => Serializer.Deserialize<VoteBroadcast>(message),
+                            _ => null
+                        };
 
                         if (packet is not null)
                         {
@@ -361,7 +381,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogDebug("{node} sent malformed broadcast: {message}", node.Uri, ex.Message);
+                    _logger.LogInformation("{node} sent malformed broadcast: {message}", node.Uri, ex.Message);
                 }
             }
         }
@@ -380,6 +400,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         catch (Exception ex)
         {
             connection.Node.FailedConnections++;
+            Console.WriteLine(ex);
             _logger.LogInformation("Node {node} got disconnected: {message}", connection.Node.Uri.ToHostname(), ex.Message);
         }
         finally
@@ -395,12 +416,12 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         }
     }
 
-    private AuthRequest CreateAuthRequest()
+    private AuthRequest CreateAuthRequest(long challenge)
     {
         using var scope = _sp.CreateScope();
 
         var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-        var authRequest = new AuthRequest(_nodeKey, _publicAddr, _port);
+        var authRequest = new AuthRequest(_nodeKey, _publicAddr, _port, challenge);
 
         authRequest.Sign(keyRepo.GetPrivateKey());
 

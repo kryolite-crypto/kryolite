@@ -1,6 +1,5 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MemoryPack;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;
 
@@ -34,7 +33,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 }
             }
 
-            var payload = MemoryPackSerializer.Deserialize<TransactionPayload>(tx.Data);
+            var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
 
             if (payload?.Payload is not CallMethod call)
             {

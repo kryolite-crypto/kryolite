@@ -1,16 +1,11 @@
 using System.CommandLine;
 using System.Text;
 using System.Text.Json;
-using Grpc.Net.Client;
-using Kryolite.Grpc.DataService;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Kryolite.Wallet;
-using MemoryPack;
 using Microsoft.Extensions.Configuration;
-using ServiceModel.Grpc.Client;
-using ServiceModel.Grpc.Configuration;
 
 namespace Kryolite.Cli;
 
@@ -87,7 +82,7 @@ public static class ContractCmd
                 PublicKey = account.PublicKey,
                 To = contract.ToAddress(bytes),
                 Value = 0,
-                Data = MemoryPackSerializer.Serialize(payload),
+                Data = Serializer.Serialize<TransactionPayload>(payload),
                 Timestamp = 69
             };
 

@@ -18,6 +18,6 @@ public unsafe partial class GrasshopperHash
     [Benchmark]
     public byte[] Hash()
     {
-        return Grasshopper.Hash(concat);
+        return (byte[])Grasshopper.Hash(concat);
     }
 }

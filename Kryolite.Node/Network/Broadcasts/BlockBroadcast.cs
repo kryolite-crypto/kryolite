@@ -1,17 +1,19 @@
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Network;
 
-[MemoryPackable]
-public partial class BlockBroadcast : IBroadcast
+public class BlockBroadcast : IBroadcast
 {
-    public SHA256Hash Blockhash { get; set; }
+    public SHA256Hash Blockhash;
 
-    [MemoryPackConstructor]
+    public BlockBroadcast()
+    {
+        Blockhash = new();
+    }
+
     public BlockBroadcast(SHA256Hash blockhash)
     {
         Blockhash = blockhash;
@@ -47,5 +49,25 @@ public partial class BlockBroadcast : IBroadcast
         }
 
         return Task.CompletedTask;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.BLOCK_BROADCAST;
+    }
+
+    public int GetLength()
+    {
+        return SHA256Hash.HASH_SZ;
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Blockhash);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Blockhash.Buffer, SHA256Hash.HASH_SZ);
     }
 }

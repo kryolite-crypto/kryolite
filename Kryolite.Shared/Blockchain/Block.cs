@@ -1,18 +1,22 @@
-﻿using System.Runtime.Serialization;
-using System.Security.Cryptography;
-using MemoryPack;
+﻿using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
-[MemoryPackable]
-public partial class Block
+public sealed class Block : ISerializable
 {
-    public Address To { get; set; } = Address.NULL_ADDRESS;
-    public ulong Value { get; init; }
-    public long Timestamp { get; init; }
-    public SHA256Hash LastHash { get; init; } = SHA256Hash.NULL_HASH;
-    public Difficulty Difficulty { get; set; }
-    public SHA256Hash Nonce { get; set; } = SHA256Hash.NULL_HASH;
+    public Address To;
+    public ulong Value;
+    public long Timestamp;
+    public SHA256Hash LastHash;
+    public Difficulty Difficulty;
+    public SHA256Hash Nonce;
+
+    public Block()
+    {
+        To = new();
+        LastHash = new();
+        Nonce = new();
+    }
 
     public SHA256Hash GetHash()
     {
@@ -68,5 +72,38 @@ public partial class Block
         }
 
         return false;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.BLOCK;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(To) +
+        Serializer.SizeOf(Value) +
+        Serializer.SizeOf(Timestamp) +
+        Serializer.SizeOf(LastHash) +
+        Serializer.SizeOf(Difficulty.Value) +
+        Serializer.SizeOf(Nonce);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(To);
+        serializer.Write(Value);
+        serializer.Write(Timestamp);
+        serializer.Write(LastHash);
+        serializer.Write(Difficulty.Value);
+        serializer.Write(Nonce);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref To.Buffer);
+        serializer.Read(ref Value);
+        serializer.Read(ref Timestamp);
+        serializer.Read(ref LastHash);
+        serializer.Read(ref Difficulty.Value);
+        serializer.Read(ref Nonce.Buffer);
     }
 }

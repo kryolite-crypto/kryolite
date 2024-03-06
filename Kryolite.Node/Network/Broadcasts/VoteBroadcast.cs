@@ -1,17 +1,19 @@
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Network;
 
-[MemoryPackable]
-public partial class VoteBroadcast : IBroadcast
+public class VoteBroadcast : IBroadcast
 {
-    public SHA256Hash Votehash { get; set; }
+    public SHA256Hash Votehash;
 
-    [MemoryPackConstructor]
+    public VoteBroadcast()
+    {
+        Votehash = new();
+    }
+
     public VoteBroadcast(SHA256Hash votehash)
     {
         Votehash = votehash;
@@ -47,5 +49,25 @@ public partial class VoteBroadcast : IBroadcast
         }
 
         return Task.CompletedTask;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.VOTE_BROADCAST;
+    }
+
+    public int GetLength()
+    {
+        return SHA256Hash.HASH_SZ;
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Votehash);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Votehash.Buffer, SHA256Hash.HASH_SZ);
     }
 }

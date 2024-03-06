@@ -3,7 +3,6 @@ using System.Threading.Tasks.Dataflow;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -15,7 +14,7 @@ public class BroadcastManager : BackgroundService
     private readonly ILogger<BroadcastManager> _logger;
     private readonly PublicKey _nodeKey;
 
-    private static TransformBlock<IBroadcast, byte[]> _transform { get; } = new(x => MemoryPackSerializer.Serialize(x));
+    private static TransformBlock<IBroadcast, byte[]> _transform { get; } = new(x => Serializer.Serialize<IBroadcast>(x));
     private static BatchUntilInactiveBlock<byte[]> _batch { get; } = new(100, TimeSpan.FromMilliseconds(50));
     private static BroadcastBlock<byte[][]> _broadcast { get; } = new(x => x);
     private static Channel<byte[][]> _channel = Channel.CreateUnbounded<byte[][]>();

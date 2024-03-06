@@ -39,7 +39,7 @@ public enum SerializerEnum : byte
     WALLET,
     ACCOUNT,
     MESSAGE,
-    MESSAGE_1,
-    MESSAGE_2,
-    MESSAGE_3
+    JAGGED_ARRAY,
+    SYNC_REQUEST,
+    SYNC_RESPONSE
 }

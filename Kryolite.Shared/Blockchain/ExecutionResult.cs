@@ -26,3 +26,18 @@ public enum ExecutionResult
     ORPHAN,
     SCHEDULED
 }
+
+public static class ExecutionResultSerializer
+{
+    public static void Write(this Serializer serializer, ExecutionResult value)
+    {
+        serializer.Write((byte)value);
+    }
+
+    public static void Read(this Serializer serializer, ref ExecutionResult value)
+    {
+        byte b = 0;
+        serializer.Read(ref b);
+        value = (ExecutionResult)b;
+    }
+}

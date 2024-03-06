@@ -1,26 +1,23 @@
-using System.Runtime.Serialization;
 using System.Security.Cryptography;
-using MemoryPack;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Blockchain;
 
-[DataContract]
-[MemoryPackable]
-public partial class Vote
+public sealed class Vote : ISerializable
 {
-    [DataMember]
-    public SHA256Hash ViewHash { get; init; } = SHA256Hash.NULL_HASH;
-    [DataMember]
-    public PublicKey PublicKey { get; init; } = PublicKey.NULL_PUBLIC_KEY;
-    [DataMember]
-    public Signature Signature { get; set; } = Signature.NULL_SIGNATURE;
-    [DataMember]
-    public ulong Stake { get; set; }
-    [DataMember]
-    public Address RewardAddress { get; set; } = Address.NULL_ADDRESS;
+    public SHA256Hash ViewHash;
+    public PublicKey PublicKey;
+    public Signature Signature;
+    public ulong Stake;
+    public Address RewardAddress;
 
-    private bool _isVerified = false;
+    public Vote()
+    {
+        ViewHash = new();
+        PublicKey = new();
+        Signature = new();
+        RewardAddress = new();
+    }
 
     public SHA256Hash GetHash()
     {
@@ -56,11 +53,6 @@ public partial class Vote
 
     public bool Verify()
     {
-        if (_isVerified)
-        {
-            return true;
-        }
-
         var algorithm = new Ed25519();
         using var stream = new MemoryStream();
 
@@ -72,12 +64,41 @@ public partial class Vote
 
         var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
         
-        if (algorithm.Verify(key, stream.ToArray(), Signature))
-        {
-            _isVerified = true;
-            return true;
-        }
+        return algorithm.Verify(key, stream.ToArray(), Signature);
+    }
 
-        return false;
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.VOTE;
+    }
+
+    public Vote Create<Vote>() where Vote : new()
+    {
+        return new Vote();
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(ViewHash) +
+        Serializer.SizeOf(PublicKey) +
+        Serializer.SizeOf(Signature) +
+        Serializer.SizeOf(Stake) +
+        Serializer.SizeOf(RewardAddress);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(ViewHash);
+        serializer.Write(PublicKey);
+        serializer.Write(Signature);
+        serializer.Write(Stake);
+        serializer.Write(RewardAddress);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref ViewHash);
+        serializer.Read(ref PublicKey);
+        serializer.Read(ref Signature);
+        serializer.Read(ref Stake);
+        serializer.Read(ref RewardAddress);
     }
 }

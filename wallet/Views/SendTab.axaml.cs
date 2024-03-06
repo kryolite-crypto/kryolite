@@ -10,7 +10,6 @@ using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
-using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Wallet;
@@ -56,7 +55,7 @@ public partial class SendTab : UserControl
                         }
                     };
 
-                    payload = MemoryPackSerializer.Serialize(transactionPayload);
+                    payload = Serializer.Serialize<TransactionPayload>(transactionPayload);
                 }
 
                 var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();

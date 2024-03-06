@@ -45,8 +45,9 @@ public class DiscoveryManager : BackgroundService
                     await LoadSeedNodes(stoppingToken);
                     await DoInitialDiscovery(stoppingToken);
                 }
-                catch (RpcException)
+                catch (RpcException ex)
                 {
+                    _logger.LogInformation(ex.Message);
                     _logger.LogInformation("Unable to contact any nodes, retrying in 15 seconds");
                 }
 

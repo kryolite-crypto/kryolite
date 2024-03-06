@@ -2,7 +2,6 @@ using Kryolite.Node.Storage;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MemoryPack;
 using Microsoft.Extensions.Configuration;
 using System.Buffers;
 using System.Data;
@@ -48,7 +47,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public View? GetView(SHA256Hash viewHash)
     {
-        var id = Storage.Get("ixViewHash", viewHash);
+        var id = Storage.Get("ixViewHash", (byte[])viewHash);
 
         if (id is null)
         {
@@ -82,19 +81,19 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void Add(Block block)
     {
-        Storage.Put("Block", block.GetHash(), MemoryPackSerializer.Serialize(block), CurrentTransaction);
+        Storage.Put("Block", block.GetHash(), Serializer.Serialize<Block>(block), CurrentTransaction);
     }
 
     public void Add(View view)
     {
         var key = view.Id.ToKey();
-        Storage.Put("View", key, MemoryPackSerializer.Serialize(view), CurrentTransaction);
+        Storage.Put("View", key, Serializer.Serialize<View>(view), CurrentTransaction);
         Storage.Put("ixViewHash", view.GetHash(), key, CurrentTransaction);
     }
 
     public void Add(Vote vote)
     {
-        Storage.Put("Vote", vote.GetHash(), MemoryPackSerializer.Serialize(vote), CurrentTransaction);
+        Storage.Put("Vote", vote.GetHash(), Serializer.Serialize<Vote>(vote), CurrentTransaction);
     }
 
     public void Add(Transaction tx)
@@ -110,7 +109,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         var id = tx.Id.ToKey();
 
         // Transaction
-        Storage.Put("Transaction", id, MemoryPackSerializer.Serialize(tx), CurrentTransaction);
+        Storage.Put("Transaction", id, Serializer.Serialize<Transaction>(tx), CurrentTransaction);
 
         //ixTransactionId index
         Storage.Put("ixTransactionId", transactionId.Buffer, id, CurrentTransaction);
@@ -207,7 +206,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         while (iterator.Valid())
         {
-            var view = MemoryPackSerializer.Deserialize<View>(iterator.Value());
+            var view = Serializer.Deserialize<View>(iterator.Value());
 
             if (view?.Blocks.Count > 0)
             {
@@ -320,12 +319,12 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public Contract? GetContract(Address address)
     {
-        return Storage.Get<Contract>("Contract", address);
+        return Storage.Get<Contract>("Contract", (byte[])address);
     }
 
     public byte[]? GetContractCode(Address address)
     {
-        return Storage.Get("ContractCode", address);
+        return Storage.Get("ContractCode", (byte[])address);
     }
 
     public byte[]? GetLatestSnapshot(Address address)
@@ -537,7 +536,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
             if (!validators.ContainsKey(addr))
             {
-                var validator = MemoryPackSerializer.Deserialize<Validator>(iterator.Value()) ?? throw new Exception("failed to deserialize validator");
+                var validator = Serializer.Deserialize<Validator>(iterator.Value()) ?? throw new Exception("failed to deserialize validator");
                 validators.Add(addr, validator);
             }
 

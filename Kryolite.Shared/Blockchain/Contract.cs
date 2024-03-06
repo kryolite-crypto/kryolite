@@ -1,29 +1,23 @@
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Data.Common;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using Crypto.RIPEMD;
-using MemoryPack;
 
 namespace Kryolite.Shared;
 
-[MemoryPackable]
-public partial class Contract
+public sealed class Contract : ISerializable
 {
-    public Address Address { get; set; }
-    public Address Owner { get; set; }
-    public string Name { get; set; }
-    public ContractManifest Manifest { get; set; }
+    public Address Address;
+    public Address Owner;
+    public string Name;
+    public ContractManifest Manifest;
 
-    [MemoryPackIgnore]
-    public byte[]? CurrentSnapshot { get; set; }
+    public byte[]? CurrentSnapshot;
 
-    [MemoryPackConstructor]
     public Contract()
     {
-        Address = Address.NULL_ADDRESS;
-        Owner = Address.NULL_ADDRESS;
+        Address = new();
+        Owner = new();
         Name = String.Empty;
         Manifest = new();
     }
@@ -60,49 +54,185 @@ public partial class Contract
 
         return (Address)addressBytes.ToArray();
     }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.CONTRACT;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(Address) +
+        Serializer.SizeOf(Owner) +
+        Serializer.SizeOf(Name) +
+        Serializer.SizeOf(Manifest);
+
+    public Contract Create<Contract>() where Contract : new()
+    {
+        return new Contract();
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Address);
+        serializer.Write(Owner);
+        serializer.Write(Name);
+        serializer.Write(Manifest);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Address);
+        serializer.Read(ref Owner);
+        serializer.Read(ref Name);
+        serializer.Read(ref Manifest);
+    }
 }
 
-[MemoryPackable]
-public partial class ContractManifest
+public class ContractManifest : ISerializable
 {
     [JsonPropertyName("name")]
-    public string Name { get; init; } = string.Empty;
+    public string Name;
 
     [JsonPropertyName("url")]
-    public string Url { get; init; } = string.Empty;
+    public string Url;
 
     [JsonPropertyName("api_level")]
-    public int ApiLevel { get; init; }
+    public int ApiLevel;
 
     [JsonPropertyName("methods")]
-    public IReadOnlyCollection<ContractMethod> Methods { get; init; } = [];
+    public List<ContractMethod> Methods;
+
+    public ContractManifest()
+    {
+        Name = string.Empty;
+        Url = string.Empty;
+        Methods = new();
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.CONTRACT_MANIFEST;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(Name) +
+        Serializer.SizeOf(Url) +
+        Serializer.SizeOf(ApiLevel) +
+        Serializer.SizeOf(Methods);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Name);
+        serializer.Write(Url);
+        serializer.Write(ApiLevel);
+        serializer.Write(Methods);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Name);
+        serializer.Read(ref Url);
+        serializer.Read(ref ApiLevel);
+        serializer.Read(ref Methods);
+    }
 }
 
-[MemoryPackable]
-public partial class ContractMethod
+public class ContractMethod : ISerializable
 {
     [JsonPropertyName("name")]
-    public string Name { get; init; } = string.Empty;
+    public string Name;
 
     [JsonPropertyName("description")]
-    public string? Description { get; set; }
+    public string? Description;
 
     [JsonPropertyName("readonly")]
-    public bool IsReadOnly { get; set; }
+    public bool IsReadOnly;
 
     [JsonPropertyName("method_params")]
-    public IReadOnlyList<ContractParam> Params { get; init; } = [];
+    public List<ContractParam> Params;
+
+    public ContractMethod()
+    {
+        Name = string.Empty;
+        Params = new();
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.CONTRACT_METHOD;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(Name) +
+        Serializer.SizeOf(Description) +
+        Serializer.SizeOf(IsReadOnly) +
+        Serializer.SizeOf(Params);
+
+    public ContractMethod Create<ContractMethod>() where ContractMethod : new()
+    {
+        return new ContractMethod();
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Name);
+        serializer.Write(Description);
+        serializer.Write(IsReadOnly);
+        serializer.Write(Params);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Name);
+        serializer.ReadN(ref Description);
+        serializer.Read(ref IsReadOnly);
+        serializer.Read(ref Params);
+    }
 }
 
-[MemoryPackable]
-public partial class ContractParam
+public class ContractParam : ISerializable
 {
     [JsonPropertyName("name")]
-    public string Name { get; init; } = string.Empty;
+    public string Name;
 
     [JsonPropertyName("description")]
-    public string? Description { get; set; }
+    public string? Description;
 
     [JsonPropertyName("param_type")]
-    public string Type { get; init; } = string.Empty;
+    public string Type;
+
+    public ContractParam()
+    {
+        Name = string.Empty;
+        Type = string.Empty;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.CONTRACT_PARAM;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(Name) +
+        Serializer.SizeOf(Description) +
+        Serializer.SizeOf(Type);
+
+    public ContractParam Create<ContractParam>() where ContractParam : new()
+    {
+        return new ContractParam();
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Name);
+        serializer.Write(Description);
+        serializer.Write(Type);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Name);
+        serializer.ReadN(ref Description);
+        serializer.Read(ref Type);
+    }
 }

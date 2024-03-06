@@ -227,7 +227,7 @@ public partial class MiningTab : UserControl
                         var blocktemplate = LoadBlocktemplate();
                         var target = blocktemplate.Difficulty.ToTarget();
 
-                        Array.Copy(blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
+                        Array.Copy((byte[])blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
 
                         while (!token.IsCancellationRequested)
                         {

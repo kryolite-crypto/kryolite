@@ -1,38 +1,27 @@
-using System.Runtime.Serialization;
-using MemoryPack;
+using System.Runtime.CompilerServices;
 
 namespace Kryolite.Shared;
 
-[DataContract]
-[MemoryPackable]
-public partial class Signature : IComparable<Signature>
+[SkipLocalsInit]
+public sealed class Signature : IComparable<Signature>, ISerializable
 {
-        [DataMember]
-    public byte[] Buffer { get; set; }
+    public byte[] Buffer;
 
     public Signature()
     {
         Buffer = new byte[SIGNATURE_SZ];
     }
 
-    [MemoryPackConstructor]
     public Signature(byte[] buffer)
     {
-        if (buffer is null)
-        {
-            throw new ArgumentNullException(nameof(buffer));
-        }
-
-        if (buffer.Length != SIGNATURE_SZ)
-        {
-            throw new ArgumentOutOfRangeException(nameof(buffer));
-        }
+        ArgumentNullException.ThrowIfNull(buffer);
+        ArgumentOutOfRangeException.ThrowIfNotEqual(buffer.Length, SIGNATURE_SZ);
 
         Buffer = buffer;
     }
 
     public override string ToString() => Base32.Kryolite.Encode(Buffer);
-    public static implicit operator byte[] (Signature signature) => signature.Buffer;
+    public static explicit operator byte[] (Signature signature) => signature.Buffer;
     public static implicit operator Span<byte> (Signature signature) => signature.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Signature signature) => signature.Buffer;
     public static implicit operator Signature(byte[] buffer) => new(buffer);
@@ -76,6 +65,31 @@ public partial class Signature : IComparable<Signature>
     public int CompareTo(Signature? other)
     {
         return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? []));
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.SIGNATURE;
+    }
+
+    public int GetLength()
+    {
+        return SIGNATURE_SZ;
+    }
+
+    public Signature Create<Signature>() where Signature : new()
+    {
+        return new Signature();
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(Buffer, SIGNATURE_SZ);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref Buffer, SIGNATURE_SZ);
     }
 
     public const int SIGNATURE_SZ = 64;

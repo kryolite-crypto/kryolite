@@ -1,6 +1,6 @@
 namespace Kryolite.Shared.Blockchain;
 
-public class Concat
+public sealed class Concat
 {
     public byte[] Buffer = new byte[64];
 

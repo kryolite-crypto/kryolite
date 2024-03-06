@@ -4,8 +4,10 @@ using Grpc.Core;
 using Grpc.Net.Client;
 using Kryolite.Cli;
 using Kryolite.Grpc.DataService;
+using Kryolite.Grpc.Marshaller;
 using Kryolite.Node;
 using Kryolite.Shared;
+using Kryolite.Shared.Dto;
 using Microsoft.Extensions.Configuration;
 using ServiceModel.Grpc.Client;
 using ServiceModel.Grpc.Configuration;
@@ -41,9 +43,15 @@ public class Program
     {
         node ??= await ZeroConf.DiscoverNodeAsync();
 
+        Serializer.RegisterTypeResolver(e => e switch
+        {
+            SerializerEnum.TRANSACTION_DTO => new TransactionDto(),
+            _ => throw new ArgumentException()
+        });
+
         var opts = new ServiceModelGrpcClientOptions
         {
-            MarshallerFactory = MemoryPackMarshallerFactory.Default
+            MarshallerFactory = MarshallerFactory.Instance
         };
 
         var clientFactory = new ClientFactory(opts)

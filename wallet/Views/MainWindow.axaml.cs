@@ -3,7 +3,6 @@ using System;
 using Microsoft.Extensions.DependencyInjection;
 using System.Threading.Tasks;
 using Avalonia.Threading;
-using System.Threading.Tasks.Dataflow;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Collections.Generic;
@@ -17,12 +16,9 @@ using System.IO;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using Kryolite.Shared.Blockchain;
-using MemoryPack;
 using Kryolite.Shared.Dto;
 using System.Web;
 using Kryolite.Node.Network;
-using System.Collections;
-using System.Security.Cryptography;
 using Avalonia.Interactivity;
 using Microsoft.Extensions.Hosting;
 
@@ -334,7 +330,7 @@ public partial class MainWindow : Window
                 To = contract.Address,
                 Value = amount,
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Data = MemoryPackSerializer.Serialize(payload)
+                Data = Serializer.Serialize<TransactionPayload>(payload)
             };
 
             transaction.Sign(_walletManager.GetPrivateKey(account.PublicKey));

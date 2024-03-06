@@ -1,7 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.ServiceModel;
 using System.Threading.Channels;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.Grpc.NodeService;
@@ -10,7 +9,6 @@ using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
-using MemoryPack;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
@@ -178,7 +176,7 @@ public class NodeService : INodeService
         return views;
     }
 
-    public bool ShouldSync(PublicKey publicKey, SHA256Hash viewHash, byte[] weightBytes)
+    public SyncResponse ShouldSync(SyncRequest request)
     {
         using var scope = _sp.CreateScope();
         var nodeTable = scope.ServiceProvider.GetRequiredService<NodeTable>();
@@ -186,23 +184,21 @@ public class NodeService : INodeService
 
         var chainState = storeManager.GetChainState();
 
-        if (chainState.ViewHash != viewHash)
+        if (chainState.ViewHash != request.ViewHash)
         {
-            return true;
+            return new SyncResponse(true);
         }
 
-        var weight = new BigInteger(weightBytes);
-
-        if (chainState.Weight > weight)
+        if (chainState.Weight > request.Weight)
         {
             // remote is behind, tell them to sync
-            return true;
+            return new SyncResponse(true);
         }
 
-        if (chainState.Weight < weight)
+        if (chainState.Weight < request.Weight)
         {
             // we are behind, let's sync
-            var node = nodeTable.GetNode(publicKey);
+            var node = nodeTable.GetNode(request.PublicKey);
 
             if (node is not null)
             {
@@ -211,7 +207,7 @@ public class NodeService : INodeService
         }
 
         // different views but equal weight
-        return false;
+        return new SyncResponse(false);
     }
 
     public void Broadcast(PublicKey publicKey, byte[][] messages)
@@ -223,7 +219,22 @@ public class NodeService : INodeService
 
         foreach (var message in messages)
         {
-            var packet = MemoryPackSerializer.Deserialize<IBroadcast>(message);
+            if (message.Length == 0)
+            {
+                continue;
+            }
+
+            var packetId = (SerializerEnum)message[0];
+
+            IBroadcast? packet = packetId switch
+            {
+                SerializerEnum.BLOCK_BROADCAST => Serializer.Deserialize<BlockBroadcast>(message),
+                SerializerEnum.NODE_BROADCAST => Serializer.Deserialize<NodeBroadcast>(message),
+                SerializerEnum.TRANSACTION_BROADCAST => Serializer.Deserialize<TransactionBroadcast>(message),
+                SerializerEnum.VIEW_BROADCAST => Serializer.Deserialize<ViewBroadcast>(message),
+                SerializerEnum.VOTE_BROADCAST => Serializer.Deserialize<VoteBroadcast>(message),
+                _ => null
+            };
 
             if (packet is not null && node is not null)
             {
@@ -240,15 +251,17 @@ public class NodeService : INodeService
         return challenge;
     }
 
-    public IAsyncEnumerable<byte[][]> Listen(AuthRequest authRequest, long challenge, CancellationToken cancellationToken)
+    public IAsyncEnumerable<byte[][]> Listen(AuthRequest authRequest, CancellationToken cancellationToken)
     {
         if (!Authorize(authRequest, out var uri))
         {
             return Empty<byte[][]>();
         }
 
-        var nodeBroadcast = new NodeBroadcast(authRequest, uri.ToString());
+        var challenge = authRequest.Challenge;
+        authRequest.Challenge = 0;
 
+        var nodeBroadcast = new NodeBroadcast(authRequest, uri.ToString());
         BroadcastManager.Broadcast(nodeBroadcast);
 
         var token = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token).Token;
@@ -315,7 +328,7 @@ public class NodeService : INodeService
     {
         var authResponse = CreateAuthResponse(challenge);
 
-        yield return [MemoryPackSerializer.Serialize(authResponse)];
+        yield return [Serializer.Serialize(authResponse)];
 
         var channel = Channel.CreateUnbounded<byte[][]>();
         var action = new ActionBlock<byte[][]>(async msg => await channel.Writer.WriteAsync(msg, cancellationToken));

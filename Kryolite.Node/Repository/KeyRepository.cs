@@ -1,5 +1,4 @@
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node.Repository;
@@ -17,7 +16,7 @@ public class KeyRepository : IKeyRepository
         {
             var wallet = Wallet.Wallet.CreateFromRandomSeed();
             wallet.CreateAccount();
-            var bytes = MemoryPackSerializer.Serialize(wallet);
+            var bytes = Serializer.Serialize<Wallet.Wallet>(wallet);
 
             File.WriteAllBytes(StorePath, bytes);
         }
@@ -26,14 +25,15 @@ public class KeyRepository : IKeyRepository
     public PublicKey GetPublicKey()
     {
         var bytes = File.ReadAllBytes(StorePath);
-        var wallet = MemoryPackSerializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
+        var wallet = Serializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
+        Console.WriteLine("after deser " + wallet.Accounts[0].PublicKey);
         return wallet.Accounts[0].PublicKey;
     }
 
     public PrivateKey GetPrivateKey()
     {
         var bytes = File.ReadAllBytes(StorePath);
-        var wallet = MemoryPackSerializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
+        var wallet = Serializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
         return wallet.GetPrivateKey(wallet.Accounts[0].PublicKey) ?? throw new Exception("node keys not initialized");
     }
 }

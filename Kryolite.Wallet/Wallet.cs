@@ -1,28 +1,25 @@
 using Kryolite.Shared;
-using MemoryPack;
 using NBip32Fast;
 
 namespace Kryolite.Wallet;
 
-[MemoryPackable]
-public partial class Wallet
+public class Wallet : ISerializable
 {
-    public PrivateKey PrivateKey { get; set; }
-    public uint ChainCode { get; set; }
-    public List<Account> Accounts { get; set; } = [];
+    public PrivateKey PrivateKey;
+    public uint ChainCode;
+    public List<Account> Accounts;
 
-    [MemoryPackConstructor]
-    public Wallet(PrivateKey privateKey, uint chainCode, List<Account> accounts)
+    public Wallet()
     {
-        PrivateKey = privateKey;
-        ChainCode = chainCode;
-        Accounts = accounts;
+        PrivateKey = new();
+        Accounts = new();
     }
 
     public Wallet(HdKey hdKey)
     {
         PrivateKey = hdKey.PrivateKey.ToArray();
         ChainCode = 0;
+        Accounts = new();
     }
 
     public static Wallet CreateFromSeed(ReadOnlySpan<byte> seed)
@@ -81,5 +78,34 @@ public partial class Wallet
 
         var master = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(account.Id).Span);
         return Derivation.Ed25519.Derive(master, new KeyPathElement(account.Id, true)).PrivateKey.ToArray();
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.WALLET;
+    }
+
+    public int GetLength() =>
+        Serializer.SizeOf(PrivateKey) +
+        Serializer.SizeOf(ChainCode) +
+        Serializer.SizeOf(Accounts);
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(PrivateKey);
+        serializer.Write(ChainCode);
+        serializer.Write(Accounts);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref PrivateKey);
+        serializer.Read(ref ChainCode);
+        serializer.Read(ref Accounts, () => new Account());
+
+        foreach (var account in Accounts)
+        {
+            Console.WriteLine("wallet deser " + account.PublicKey);
+        }
     }
 }

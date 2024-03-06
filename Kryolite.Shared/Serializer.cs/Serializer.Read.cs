@@ -255,6 +255,7 @@ public ref partial struct Serializer
 
         for (var i = 0; i < dataCount; i++)
         {
+            Console.WriteLine("create " + typeof(T));
             var item = _factory();
             item.Deserialize(ref this);
             target.Add(item);

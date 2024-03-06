@@ -203,9 +203,9 @@ public abstract class TransactionManager
             chainState.Id++;
             chainState.Weight += (work * (totalStake / Constant.MIN_STAKE)) + work;
             chainState.TotalWork += work * blocks.Count;
-            chainState.Votes += votes.Count;
-            chainState.Transactions += toExecute.Count;
-            chainState.Blocks += blocks.Count;
+            chainState.TotalVotes += votes.Count;
+            chainState.TotalTransactions += toExecute.Count;
+            chainState.TotalBlocks += blocks.Count;
             chainState.CurrentDifficulty = DifficultyScale.Scale(chainState, Repository);
             chainState.BlockReward += RewardCalculator.BlockReward(view.Id);
 
@@ -385,7 +385,7 @@ public abstract class TransactionManager
 
         Logger.LogInformation("{CHAIN_NAME}Added block #{blockNumber} in {duration}ms [diff = {difficulty}]",
             CHAIN_NAME,
-            chainState.Blocks + StateCache.GetBlocks().Count,
+            chainState.TotalBlocks + StateCache.GetBlocks().Count,
             sw.Elapsed.TotalMilliseconds,
             block.Difficulty
         );

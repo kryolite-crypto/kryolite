@@ -1,10 +1,8 @@
 ﻿using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using MemoryPack;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using Wasmtime;
 
 namespace Kryolite.Node;
@@ -247,10 +245,10 @@ public class KryoVM : IDisposable
 
         // Set Contract details to smart contract
         var addrPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
-        memory.WriteBuffer(addrPtr, Context!.Contract.Address);
+        memory.WriteBuffer(addrPtr, (byte[])Context!.Contract.Address);
 
         var ownerPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
-        memory.WriteBuffer(ownerPtr, Context!.Contract.Owner);
+        memory.WriteBuffer(ownerPtr, (byte[])Context!.Contract.Owner);
 
         setContract.Invoke(addrPtr, Address.ADDRESS_SZ, ownerPtr, Address.ADDRESS_SZ, (long)Context!.Balance);
         free.Invoke(addrPtr, Address.ADDRESS_SZ);
@@ -258,7 +256,7 @@ public class KryoVM : IDisposable
 
         // Set transaction details to smart contract
         var fromPtr = (int)(malloc.Invoke(Address.ADDRESS_SZ) ?? throw new Exception($"failed to allocate memory"));
-        memory.WriteBuffer(fromPtr, Context.Transaction.From!);
+        memory.WriteBuffer(fromPtr, (byte[])Context.Transaction.From!);
 
         setTransaction.Invoke(fromPtr, Address.ADDRESS_SZ, (long)Context.Transaction.Value);
         free.Invoke(fromPtr, Address.ADDRESS_SZ);
@@ -474,7 +472,7 @@ public class KryoVM : IDisposable
                 To = Context!.Contract.Address,
                 Value = 0,
                 Timestamp = timestamp,
-                Data = MemoryPackSerializer.Serialize(payload),
+                Data = Serializer.Serialize<TransactionPayload>(payload),
                 ExecutionResult = ExecutionResult.SCHEDULED
             };
 

@@ -1,6 +1,5 @@
 ﻿using Kryolite.RocksDb;
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node.Storage;
@@ -101,7 +100,7 @@ internal class RocksDBStorage : IStorage
         return bytes;
     }
 
-    public T? Get<T>(string ixName, byte[] key)
+    public T? Get<T>(string ixName, byte[] key) where T : ISerializable, new()
     {
         byte[] result = Database.Get(ixName, key);
 
@@ -110,7 +109,7 @@ internal class RocksDBStorage : IStorage
             return default;
         }
 
-        return MemoryPackSerializer.Deserialize<T>(result);
+        return Serializer.Deserialize<T>(result);
     }
 
     public byte[][] GetMany(string ixName, byte[][] keys)
@@ -118,7 +117,7 @@ internal class RocksDBStorage : IStorage
         return Database.GetMany(ixName, keys);
     }
 
-    public List<T> GetMany<T>(string ixName, byte[][] keys)
+    public List<T> GetMany<T>(string ixName, byte[][] keys) where T : ISerializable, new()
     {
         var results = Database.GetMany(ixName, keys);
         var items = new List<T>(results.Length);
@@ -130,7 +129,7 @@ internal class RocksDBStorage : IStorage
                 continue;
             }
 
-            var data = MemoryPackSerializer.Deserialize<T>(result);
+            var data = Serializer.Deserialize<T>(result);
 
             if (data is not null)
             {
@@ -152,9 +151,9 @@ internal class RocksDBStorage : IStorage
         Database.Put(ixName, key, bytes);
     }
 
-    public void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity, ITransaction? transaction = null)
+    public void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity, ITransaction? transaction = null) where T : ISerializable, new()
     {
-        var bytes = MemoryPackSerializer.Serialize<T>(entity);
+        var bytes = Serializer.Serialize<T>(entity);
 
         if (transaction is not null)
         {
@@ -199,7 +198,7 @@ internal class RocksDBStorage : IStorage
         return iterator.Value();
     }
 
-    public T? FindFirst<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
+    public T? FindFirst<T>(string ixName, ReadOnlySpan<byte> keyPrefix) where T : ISerializable, new()
     {
         var keySize = Database.KeySize(ixName);
         var upperBound = keyPrefix.ToArray();
@@ -219,7 +218,7 @@ internal class RocksDBStorage : IStorage
             return default(T);
         }
 
-        return MemoryPackSerializer.Deserialize<T>(iterator.Value());
+        return Serializer.Deserialize<T>(iterator.Value());
     }
 
     public List<byte[]> FindAll(string ixName, ReadOnlySpan<byte> keyPrefix)
@@ -248,7 +247,7 @@ internal class RocksDBStorage : IStorage
         return results;
     }
 
-    public List<T> FindAll<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
+    public List<T> FindAll<T>(string ixName, ReadOnlySpan<byte> keyPrefix) where T : ISerializable, new()
     {
         var keySize = Database.KeySize(ixName);
         var upperBound = keyPrefix.ToArray();
@@ -267,7 +266,7 @@ internal class RocksDBStorage : IStorage
 
         while (iterator.Valid())
         {
-            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+            var data = Serializer.Deserialize<T>(iterator.Value());
 
             if (data is not null)
             {
@@ -324,7 +323,7 @@ internal class RocksDBStorage : IStorage
         return results;
     }
 
-    public List<T> FindLast<T>(string ixName, int count)
+    public List<T> FindLast<T>(string ixName, int count) where T : ISerializable, new()
     {
         using var readOptions = new ReadOptions();
         using var iterator = Database.CreateIterator(ixName, readOptions);
@@ -335,7 +334,7 @@ internal class RocksDBStorage : IStorage
 
         while (iterator.Valid())
         {
-            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+            var data = Serializer.Deserialize<T>(iterator.Value());
 
             if (data is not null)
             {
@@ -391,7 +390,7 @@ internal class RocksDBStorage : IStorage
         return results;
     }
 
-    public T? FindLast<T>(string ixName)
+    public T? FindLast<T>(string ixName) where T : ISerializable, new()
     {
         using var readOptions = new ReadOptions();
         using var iterator = Database.CreateIterator(ixName, readOptions);
@@ -403,7 +402,7 @@ internal class RocksDBStorage : IStorage
             return default(T);
         }
 
-        return MemoryPackSerializer.Deserialize<T>(iterator.Value());
+        return Serializer.Deserialize<T>(iterator.Value());
     }
 
     public byte[]? FindLast(string ixName)
@@ -421,7 +420,7 @@ internal class RocksDBStorage : IStorage
         return iterator.Value();
     }
 
-    public T? FindLast<T>(string ixName, ReadOnlySpan<byte> keyPrefix)
+    public T? FindLast<T>(string ixName, ReadOnlySpan<byte> keyPrefix) where T : ISerializable, new()
     {
         var keySize = Database.KeySize(ixName);
         var key = keyPrefix.ToArray();
@@ -442,7 +441,7 @@ internal class RocksDBStorage : IStorage
             return default(T);
         }
 
-        return MemoryPackSerializer.Deserialize<T>(iterator.Value());
+        return Serializer.Deserialize<T>(iterator.Value());
     }
 
     public byte[]? FindLast(string ixName, ReadOnlySpan<byte> keyPrefix)
@@ -469,7 +468,7 @@ internal class RocksDBStorage : IStorage
         return iterator.Value();
     }
 
-    public List<T> GetAll<T>(string ixName)
+    public List<T> GetAll<T>(string ixName) where T : ISerializable, new()
     {
         using var readOptions = new ReadOptions();
         using var iterator = Database.CreateIterator(ixName, readOptions);
@@ -480,7 +479,7 @@ internal class RocksDBStorage : IStorage
 
         while (iterator.Valid())
         {
-            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+            var data = Serializer.Deserialize<T>(iterator.Value());
 
             if (data is not null)
             {
@@ -527,7 +526,7 @@ internal class RocksDBStorage : IStorage
         return 0;
     }
 
-    public List<T> GetRange<T>(string ixName, int count, int toSkip)
+    public List<T> GetRange<T>(string ixName, int count, int toSkip) where T : ISerializable, new()
     {
         using var readOptions = new ReadOptions();
         using var iterator = Database.CreateIterator(ixName, readOptions);
@@ -546,7 +545,7 @@ internal class RocksDBStorage : IStorage
                 continue;
             }
 
-            var data = MemoryPackSerializer.Deserialize<T>(iterator.Value());
+            var data = Serializer.Deserialize<T>(iterator.Value());
 
             if (data is not null)
             {

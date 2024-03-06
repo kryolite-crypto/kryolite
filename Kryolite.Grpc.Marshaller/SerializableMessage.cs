@@ -38,140 +38,91 @@ public readonly struct SerializableMessage : ISerializable
     }
 }
 
-public readonly struct SerializableMessage2 : ISerializable
+public struct SerializableMessage<T> : ISerializable where T : ISerializable, new()
 {
-    internal readonly Message<ISerializable> Message;
+    public T? Value;
 
-    public SerializableMessage2(ISerializable value)
+    public SerializableMessage()
     {
-        Message = new Message<ISerializable>(value);
+
     }
 
-    public SerializableMessage2(Message<ISerializable> message)
+    public SerializableMessage(T value)
     {
-        Message = message;
+        Value = value;
     }
 
     public byte GetSerializerId()
     {
-        return (byte)SerializerEnum.MESSAGE_1;
+        return (byte)SerializerEnum.JAGGED_ARRAY;
     }
 
     public int GetLength() =>
-        Serializer.SizeOf(Message.Value1);
-
-    public void Deserialize(ref Serializer serializer)
-    {
-        serializer.WriteN(Message.Value1);
-    }
+        Serializer.SizeOfN(Value);
 
     public void Serialize(ref Serializer serializer)
     {
-        //ISerializable? value1 = default;
-        //serializer.ReadN(ref value1);
-
+        serializer.WriteN(Value);
     }
 
-    //public T1 Value => Message.Value1;
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.ReadN(ref Value);
+    }
 }
 
-public readonly struct SerializableMessage<T1, T2> : ISerializable 
-    where T1 : ISerializable, new()
-    where T2 : ISerializable, new()
+public struct JaggedArrayMessage : ISerializable
 {
-    internal readonly Message<T1, T2> Message;
+    public byte[][] Value;
 
-    public SerializableMessage(T1 value, T2 value2)
+    public JaggedArrayMessage()
     {
-        Message = new Message<T1, T2>(value, value2);
+        Value = [];
     }
 
-    public SerializableMessage(Message<T1, T2> message)
+    public JaggedArrayMessage(byte[][] value)
     {
-        Message = message;
+        Value = value;
     }
 
     public byte GetSerializerId()
     {
-        return (byte)SerializerEnum.MESSAGE_2;
+        return (byte)SerializerEnum.JAGGED_ARRAY;
     }
 
-    public int GetLength() =>
-        Serializer.SizeOf(Message.Value1) +
-        Serializer.SizeOf(Message.Value2);
-
-    public void Deserialize(ref Serializer serializer)
+    public int GetLength()
     {
-        serializer.Write(Message.Value1);
-        serializer.Write(Message.Value2);
+        var length = sizeof(int);
+
+        for (var i = 0; i < Value.Length; i++)
+        {
+            length += Serializer.SizeOf(Value[i]);
+        }
+
+        return length;
     }
 
     public void Serialize(ref Serializer serializer)
     {
-        T1 value1 = new();
-        T2 value2 = new();
-    
-        serializer.Read(ref value1);
-        serializer.Read(ref value2);
+        serializer.Write(Value.Length);
 
-        Message.Value1 = value1;
-        Message.Value2 = value2;
+        for (var i = 0; i < Value.Length; i++)
+        {
+            serializer.Write(Value[i]);
+        }
     }
-
-    public T1 Value1 => Message.Value1;
-    public T2 Value2 => Message.Value2;
-}
-
-public readonly struct SerializableMessage<T1, T2, T3> : ISerializable 
-    where T1 : ISerializable, new()
-    where T2 : ISerializable, new()
-    where T3 : ISerializable, new()
-{
-    internal readonly Message<T1, T2, T3> Message;
-
-    public SerializableMessage(T1 value, T2 value2, T3 value3)
-    {
-        Message = new Message<T1, T2, T3>(value, value2, value3);
-    }
-
-    public SerializableMessage(Message<T1, T2, T3> message)
-    {
-        Message = message;
-    }
-
-    public byte GetSerializerId()
-    {
-        return (byte)SerializerEnum.MESSAGE_3;
-    }
-
-    public int GetLength() =>
-        Serializer.SizeOf(Message.Value1) +
-        Serializer.SizeOf(Message.Value2) +
-        Serializer.SizeOf(Message.Value3);
 
     public void Deserialize(ref Serializer serializer)
     {
-        serializer.Write(Message.Value1);
-        serializer.Write(Message.Value2);
-        serializer.Write(Message.Value3);
+        var length = 0;
+        serializer.Read(ref length);
+
+        Value = new byte[length][];
+
+        for (var i = 0; i < length; i++)
+        {
+            Value[i] = [];
+            serializer.Read(ref Value[i]);
+        }
     }
-
-    public void Serialize(ref Serializer serializer)
-    {
-        T1 value1 = new();
-        T2 value2 = new();
-        T3 value3 = new();
-    
-        serializer.Read(ref value1);
-        serializer.Read(ref value2);
-        serializer.Read(ref value3);
-
-        Message.Value1 = value1;
-        Message.Value2 = value2;
-        Message.Value3 = value3;
-    }
-
-    public T1 Value1 => Message.Value1;
-    public T2 Value2 => Message.Value2;
-    public T3 Value3 => Message.Value3;
 }

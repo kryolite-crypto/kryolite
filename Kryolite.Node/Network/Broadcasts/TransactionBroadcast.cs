@@ -1,17 +1,19 @@
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared;
-using MemoryPack;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Network;
 
-[MemoryPackable]
-public partial class TransactionBroadcast : IBroadcast
+public class TransactionBroadcast : IBroadcast
 {
-    public SHA256Hash TransactionId { get; set; }
+    public SHA256Hash TransactionId;
 
-    [MemoryPackConstructor]
+    public TransactionBroadcast()
+    {
+        TransactionId = new();
+    }
+
     public TransactionBroadcast(SHA256Hash transactionId)
     {
         TransactionId = transactionId;
@@ -47,5 +49,25 @@ public partial class TransactionBroadcast : IBroadcast
         }
 
         return Task.CompletedTask;
+    }
+
+    public byte GetSerializerId()
+    {
+        return (byte)SerializerEnum.TRANSACTION_BROADCAST;
+    }
+
+    public int GetLength()
+    {
+        return SHA256Hash.HASH_SZ;
+    }
+
+    public void Serialize(ref Serializer serializer)
+    {
+        serializer.Write(TransactionId);
+    }
+
+    public void Deserialize(ref Serializer serializer)
+    {
+        serializer.Read(ref TransactionId.Buffer, SHA256Hash.HASH_SZ);
     }
 }
