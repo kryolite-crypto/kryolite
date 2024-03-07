@@ -6,19 +6,16 @@ using System.CommandLine.Parsing;
 using System.Collections.Concurrent;
 using Kryolite.Shared.Blockchain;
 using ServiceModel.Grpc.Client;
-using ServiceModel.Grpc.Configuration;
 using Kryolite.Grpc.DataService;
 using Grpc.Net.Client;
 using Kryolite.Shared.Dto;
 using Grpc.Core;
-using Kryolite.Grpc.Marshaller;
+using ServiceModel.Grpc.Marshaller;
 
 namespace Kryolite.Miner;
 
 public class Program
 {
-    private static ManualResetEvent Pause = new ManualResetEvent(false);
-    
     private static CancellationTokenSource StoppingSource = new CancellationTokenSource();
     private static CancellationTokenSource TokenSource = CancellationTokenSource.CreateLinkedTokenSource(StoppingSource.Token);
 
@@ -58,12 +55,6 @@ public class Program
                 Console.WriteLine("Invalid --address");
                 return;
             }
-
-            Serializer.RegisterTypeResolver(e => e switch
-            {
-                SerializerEnum.BLOCKTEMPLATE => new BlockTemplate(),
-                _ => throw new ArgumentException()
-            });
 
             var opts = new ServiceModelGrpcClientOptions
             {
@@ -206,7 +197,7 @@ public class Program
 
             try
             {
-                await foreach (var blocktemplate in client.SubscribeToBlockTemplates(address, StoppingSource.Token).WithCancellation(StoppingSource.Token))
+                await foreach (var blocktemplate in client.SubscribeToBlockTemplates((Address)address, StoppingSource.Token).WithCancellation(StoppingSource.Token))
                 {
                     Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate.Height}, diff = {blocktemplate.Difficulty}");
 

@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Shared;
 
@@ -47,6 +48,16 @@ public ref partial struct Serializer(ref byte spanRef, int length)
         var span = writer.GetSpan(length);
 
         BitConverter.TryWriteBytes(span, value);
+
+        writer.Advance(length);
+    }
+
+    public static void Serialize(ExecutionResult value, IBufferWriter<byte> writer)
+    {
+        var length = sizeof(int);
+        var span = writer.GetSpan(length);
+
+        BitConverter.TryWriteBytes(span, (int)value);
 
         writer.Advance(length);
     }

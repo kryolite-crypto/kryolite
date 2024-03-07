@@ -33,7 +33,7 @@ public class DataService : IDataService
         return storeManager.AddTransaction(transaction, true);
     }
 
-    public Validator? GetValidator(string address)
+    public Validator? GetValidator(Address address)
     {
         using var scope = _sp.CreateScope();
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
@@ -49,9 +49,9 @@ public class DataService : IDataService
         return storeManager.AddBlock(blockTemplate, true);
     }
 
-    public async IAsyncEnumerable<BlockTemplate> SubscribeToBlockTemplates(string address, [EnumeratorCancellation] CancellationToken cancellationToken)
+    public async IAsyncEnumerable<BlockTemplate> SubscribeToBlockTemplates(Address address, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        if (!Address.IsValid(address))
+        if (!Address.IsValid(address.ToString()))
         {
             yield break;
         }

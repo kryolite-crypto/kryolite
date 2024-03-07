@@ -27,6 +27,10 @@ public class MarshallerFactory : IMarshallerFactory
                 Serializer.Serialize(msg.Value1, context.GetBufferWriter());
                 break;
 
+            case Message<ExecutionResult> msg:
+                Serializer.Serialize(msg.Value1, context.GetBufferWriter());
+                break;
+
             case Message<View?> msg:
                 Serializer.Serialize(new SerializableMessage<View?>(msg.Value1), context.GetBufferWriter());
                 break;
@@ -63,6 +67,10 @@ public class MarshallerFactory : IMarshallerFactory
                 Serializer.Serialize(new SerializableMessage<PublicKey>(msg.Value1), context.GetBufferWriter());
                 break;
 
+            case Message<Address> msg:
+                Serializer.Serialize(new SerializableMessage<Address>(msg.Value1), context.GetBufferWriter());
+                break;
+
             case Message<SyncRequest> msg:
                 Serializer.Serialize(new SerializableMessage<SyncRequest>(msg.Value1), context.GetBufferWriter());
                 break;
@@ -91,6 +99,10 @@ public class MarshallerFactory : IMarshallerFactory
                 Serializer.Serialize(new SerializableMessage<HashList>(msg.Value1), context.GetBufferWriter());
                 break;
 
+            case Message<BlockTemplate> msg:
+                Serializer.Serialize(new SerializableMessage<BlockTemplate>(msg.Value1), context.GetBufferWriter());
+                break;
+
             default:
                 throw new InvalidCastException("No serialization handler registered for type: " + typeof(T).ToString());
         }
@@ -107,6 +119,9 @@ public class MarshallerFactory : IMarshallerFactory
 
             case var t when t == typeof(Message<long>):
                 return ToMessage<T>(BitConverter.ToInt64(context.PayloadAsNewBuffer()));
+
+            case var t when t == typeof(Message<ExecutionResult>):
+                return ToMessage<T>((ExecutionResult)BitConverter.ToInt32(context.PayloadAsNewBuffer()));
 
             case var t when t == typeof(Message<View?>):
                 return ToMessage<T, View?>(context.PayloadAsReadOnlySequence());
@@ -135,6 +150,9 @@ public class MarshallerFactory : IMarshallerFactory
             case var t1 when t1 == typeof(Message<PublicKey>):
                 return ToMessage<T, PublicKey>(context.PayloadAsReadOnlySequence());
 
+            case var t1 when t1 == typeof(Message<Address>):
+                return ToMessage<T, Address>(context.PayloadAsReadOnlySequence());
+
             case var t2 when t2 == typeof(Message<SyncRequest>):
                 return ToMessage<T, SyncRequest>(context.PayloadAsReadOnlySequence());
 
@@ -156,6 +174,9 @@ public class MarshallerFactory : IMarshallerFactory
             case var t when t == typeof(Message<HashList>):
                 return ToMessage<T, HashList>(context.PayloadAsReadOnlySequence());
 
+            case var t when t == typeof(Message<BlockTemplate>):
+                return ToMessage<T, BlockTemplate>(context.PayloadAsReadOnlySequence());
+
             default:
                 throw new InvalidCastException("No deserialization handler registered for type: " + typeof(T).ToString());
         }
@@ -170,6 +191,11 @@ public class MarshallerFactory : IMarshallerFactory
     {
         var msg = Serializer.Deserialize<SerializableMessage<T1>>(buffer);
         return (T)(object)new Message<T1>(msg.Value!);
+    }
+
+    private static T ToMessage<T>(ExecutionResult value)
+    {
+        return (T)(object)new Message<ExecutionResult>(value);
     }
 
     private static T ToMessage<T>(long value)

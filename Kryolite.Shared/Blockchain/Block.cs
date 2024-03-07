@@ -99,11 +99,11 @@ public sealed class Block : ISerializable
 
     public void Deserialize(ref Serializer serializer)
     {
-        serializer.Read(ref To.Buffer);
+        serializer.Read(ref To);
         serializer.Read(ref Value);
         serializer.Read(ref Timestamp);
         serializer.Read(ref LastHash);
         serializer.Read(ref Difficulty.Value);
-        serializer.Read(ref Nonce.Buffer);
+        serializer.Read(ref Nonce);
     }
 }

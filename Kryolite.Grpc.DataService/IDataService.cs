@@ -12,11 +12,11 @@ public interface IDataService
     ExecutionResult AddTransaction(TransactionDto transaction);
 
     [OperationContract]
-    Validator? GetValidator(string address);
+    Validator? GetValidator(Address address);
 
     [OperationContract]
     bool PostSolution(BlockTemplate blockTemplate);
 
     [OperationContract]
-    IAsyncEnumerable<BlockTemplate> SubscribeToBlockTemplates(string address, CancellationToken token);
+    IAsyncEnumerable<BlockTemplate> SubscribeToBlockTemplates(Address address, CancellationToken token);
 }
