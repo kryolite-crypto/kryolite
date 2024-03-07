@@ -31,6 +31,5 @@
 
   <ItemGroup>
     <TrimmerRootAssembly Include="ServiceModel.Grpc" />
-    <TrimmerRootAssembly Include="ServiceModel.Grpc.MemoryPackMarshaller" />
   </ItemGroup>
 </Project>
