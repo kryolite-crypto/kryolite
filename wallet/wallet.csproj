@@ -12,7 +12,8 @@
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.Extensions.Configuration.Binder.SourceGeneration;Microsoft.AspNetCore.Http.Generated</InterceptorsPreviewNamespaces>
-    <SelfContained>true</SelfContained> 
+    <SelfContained>true</SelfContained>
+    <PublishSelfContained>true</PublishSelfContained>
     <UseAppHost>true</UseAppHost>
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
     <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
