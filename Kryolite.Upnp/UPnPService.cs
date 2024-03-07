@@ -68,7 +68,6 @@ public class UpnpService : BackgroundService
         }
         catch (Exception ex)
         {
-            Console.WriteLine(ex);
             _logger.LogError("Error with Upnp discovery: {error}", ex.Message);
             _logger.LogInformation("Upnp          [FAILED]");
         }

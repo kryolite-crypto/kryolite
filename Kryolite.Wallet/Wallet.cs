@@ -102,10 +102,5 @@ public class Wallet : ISerializable
         serializer.Read(ref PrivateKey);
         serializer.Read(ref ChainCode);
         serializer.Read(ref Accounts, () => new Account());
-
-        foreach (var account in Accounts)
-        {
-            Console.WriteLine("wallet deser " + account.PublicKey);
-        }
     }
 }

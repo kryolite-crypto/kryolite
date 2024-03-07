@@ -68,7 +68,7 @@ public ref partial struct Serializer
         _spanRef = ref next;
     }
 
-    public void WriteN<T>(T? value) where T : ISerializable
+    public void WriteN<T>(T? value) where T : ISerializable?
     {
         var isnull = value is null;
 

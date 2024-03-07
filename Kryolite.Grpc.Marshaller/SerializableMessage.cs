@@ -38,7 +38,7 @@ public readonly struct SerializableMessage : ISerializable
     }
 }
 
-public struct SerializableMessage<T> : ISerializable where T : ISerializable, new()
+public struct SerializableMessage<T> : ISerializable where T : ISerializable?, new()
 {
     public T? Value;
 
@@ -54,7 +54,7 @@ public struct SerializableMessage<T> : ISerializable where T : ISerializable, ne
 
     public byte GetSerializerId()
     {
-        return (byte)SerializerEnum.JAGGED_ARRAY;
+        return (byte)SerializerEnum.MESSAGE_1;
     }
 
     public int GetLength() =>
@@ -68,61 +68,5 @@ public struct SerializableMessage<T> : ISerializable where T : ISerializable, ne
     public void Deserialize(ref Serializer serializer)
     {
         serializer.ReadN(ref Value);
-    }
-}
-
-public struct JaggedArrayMessage : ISerializable
-{
-    public byte[][] Value;
-
-    public JaggedArrayMessage()
-    {
-        Value = [];
-    }
-
-    public JaggedArrayMessage(byte[][] value)
-    {
-        Value = value;
-    }
-
-    public byte GetSerializerId()
-    {
-        return (byte)SerializerEnum.JAGGED_ARRAY;
-    }
-
-    public int GetLength()
-    {
-        var length = sizeof(int);
-
-        for (var i = 0; i < Value.Length; i++)
-        {
-            length += Serializer.SizeOf(Value[i]);
-        }
-
-        return length;
-    }
-
-    public void Serialize(ref Serializer serializer)
-    {
-        serializer.Write(Value.Length);
-
-        for (var i = 0; i < Value.Length; i++)
-        {
-            serializer.Write(Value[i]);
-        }
-    }
-
-    public void Deserialize(ref Serializer serializer)
-    {
-        var length = 0;
-        serializer.Read(ref length);
-
-        Value = new byte[length][];
-
-        for (var i = 0; i < length; i++)
-        {
-            Value[i] = [];
-            serializer.Read(ref Value[i]);
-        }
     }
 }

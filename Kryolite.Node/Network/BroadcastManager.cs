@@ -54,12 +54,15 @@ public class BroadcastManager : BackgroundService
             // We use channel since we can asynchronously wait on it
             await foreach (var bytes in _channel.Reader.ReadAllAsync(stoppingToken))
             {
+                var batch = new BatchBroadcast(bytes);
+                var forward = new BatchForward(_nodeKey, batch);
+
                 try
                 {
                     Parallel.ForEach(_connMan.GetConnectedNodes(), connection =>
                     {
                         var client = _connMan.CreateClient<INodeService>(connection.Node);
-                        client.Broadcast(_nodeKey, bytes);
+                        client.Broadcast(forward);
                     });
                 }
                 catch (AggregateException)

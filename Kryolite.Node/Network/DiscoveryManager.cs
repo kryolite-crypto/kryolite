@@ -141,7 +141,7 @@ public class DiscoveryManager : BackgroundService
             var client = _clientFactory.CreateClient<INodeService>(node.Channel);
             var nodes = client.GetPeers();
 
-            foreach (var peer in nodes)
+            foreach (var peer in nodes.Nodes)
             {
                 downloaded.Add(peer);
             }

@@ -15,6 +15,13 @@ public class SyncRequest : ISerializable
         ViewHash = new();
     }
 
+    public SyncRequest(PublicKey publicKey, SHA256Hash viewHash, BigInteger weight)
+    {
+        PublicKey = publicKey;
+        ViewHash = viewHash;
+        Weight = weight;
+    }
+
     public byte GetSerializerId()
     {
         return (byte)SerializerEnum.SYNC_REQUEST;

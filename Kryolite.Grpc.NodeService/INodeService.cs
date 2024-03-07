@@ -13,7 +13,7 @@ public interface INodeService
     PublicKey GetPublicKey();
 
     [OperationContract]
-    List<NodeDto> GetPeers();
+    NodeListResponse GetPeers();
 
     [OperationContract]
     View? GetViewForId(long id);
@@ -31,23 +31,23 @@ public interface INodeService
     TransactionDto? GetTransaction(SHA256Hash hash);
     
     [OperationContract]
-    void SuggestView(PublicKey publicKey, SHA256Hash viewhash, BigInteger weight);
+    void SuggestView(SyncRequest request);
 
     [OperationContract]
-    long FindCommonHeight(List<SHA256Hash> hashes);
+    long FindCommonHeight(HashList hashlist);
 
     [OperationContract]
-    List<ViewResponse> GetViewsForRange(long startHeight, int batchSize);
+    ViewListResponse GetViewsForRange(ViewListRequest request);
 
     [OperationContract]
     SyncResponse ShouldSync(SyncRequest request);
 
     [OperationContract]
-    void Broadcast(PublicKey publicKey, byte[][] messages);
+    void Broadcast(BatchForward batch);
 
     [OperationContract]
     long GenerateChallenge(long nonce);
 
     [OperationContract]
-    IAsyncEnumerable<byte[][]> Listen(AuthRequest request, CancellationToken token);
+    IAsyncEnumerable<BatchBroadcast> Listen(AuthRequest request, CancellationToken token);
 }

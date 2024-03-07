@@ -5,6 +5,8 @@ using ServiceModel.Grpc.Configuration;
 using System.Runtime.CompilerServices;
 using Kryolite.Grpc.NodeService;
 using System.Buffers;
+using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Dto;
 
 namespace ServiceModel.Grpc.Marshaller;
 
@@ -15,7 +17,6 @@ public class MarshallerFactory : IMarshallerFactory
 
     internal static void Serialize<T>(T value, SerializationContext context)
     {
-        Console.WriteLine("Serialize: " + typeof(T));
         switch (value)
         {
             case Message:
@@ -26,8 +27,32 @@ public class MarshallerFactory : IMarshallerFactory
                 Serializer.Serialize(msg.Value1, context.GetBufferWriter());
                 break;
 
-            case Message<byte[][]> msg:
-                Serializer.Serialize(new JaggedArrayMessage(msg.Value1), context.GetBufferWriter());
+            case Message<View?> msg:
+                Serializer.Serialize(new SerializableMessage<View?>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<Block?> msg:
+                Serializer.Serialize(new SerializableMessage<Block?>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<Vote?> msg:
+                Serializer.Serialize(new SerializableMessage<Vote?>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<TransactionDto?> msg:
+                Serializer.Serialize(new SerializableMessage<TransactionDto?>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<NodeListResponse> msg:
+                Serializer.Serialize(new SerializableMessage<NodeListResponse>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<BatchBroadcast> msg:
+                Serializer.Serialize(new SerializableMessage<BatchBroadcast>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<BatchForward> msg:
+                Serializer.Serialize(new SerializableMessage<BatchForward>(msg.Value1), context.GetBufferWriter());
                 break;
 
             case Message<SHA256Hash> msg:
@@ -54,6 +79,18 @@ public class MarshallerFactory : IMarshallerFactory
                 Serializer.Serialize(new SerializableMessage<AuthRequest>(msg.Value1), context.GetBufferWriter());
                 break;
 
+            case Message<ViewListRequest> msg:
+                Serializer.Serialize(new SerializableMessage<ViewListRequest>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<ViewListResponse> msg:
+                Serializer.Serialize(new SerializableMessage<ViewListResponse>(msg.Value1), context.GetBufferWriter());
+                break;
+
+            case Message<HashList> msg:
+                Serializer.Serialize(new SerializableMessage<HashList>(msg.Value1), context.GetBufferWriter());
+                break;
+
             default:
                 throw new InvalidCastException("No serialization handler registered for type: " + typeof(T).ToString());
         }
@@ -63,8 +100,6 @@ public class MarshallerFactory : IMarshallerFactory
 
     internal static T Deserialize<T>(DeserializationContext context)
     {
-        Console.WriteLine("Deserialize: " + typeof(T));
-
         switch (typeof(T))
         {
             case var t when t == typeof(Message):
@@ -73,8 +108,26 @@ public class MarshallerFactory : IMarshallerFactory
             case var t when t == typeof(Message<long>):
                 return ToMessage<T>(BitConverter.ToInt64(context.PayloadAsNewBuffer()));
 
-            case var t when t == typeof(Message<byte[][]>):
-                return ToMessage<T>(context.PayloadAsReadOnlySequence());
+            case var t when t == typeof(Message<View?>):
+                return ToMessage<T, View?>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<Block?>):
+                return ToMessage<T, Block?>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<Vote?>):
+                return ToMessage<T, Vote?>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<TransactionDto?>):
+                return ToMessage<T, TransactionDto?>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<NodeListResponse>):
+                return ToMessage<T, NodeListResponse?>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<BatchBroadcast>):
+                return ToMessage<T, BatchBroadcast?>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<BatchForward>):
+                return ToMessage<T, BatchForward?>(context.PayloadAsReadOnlySequence());
 
             case var t when t == typeof(Message<SHA256Hash>):
                 return ToMessage<T, SHA256Hash>(context.PayloadAsReadOnlySequence());
@@ -94,6 +147,15 @@ public class MarshallerFactory : IMarshallerFactory
             case var t when t == typeof(Message<AuthResponse>):
                 return ToMessage<T, AuthResponse>(context.PayloadAsReadOnlySequence());
 
+            case var t when t == typeof(Message<ViewListRequest>):
+                return ToMessage<T, ViewListRequest>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<ViewListResponse>):
+                return ToMessage<T, ViewListResponse>(context.PayloadAsReadOnlySequence());
+
+            case var t when t == typeof(Message<HashList>):
+                return ToMessage<T, HashList>(context.PayloadAsReadOnlySequence());
+
             default:
                 throw new InvalidCastException("No deserialization handler registered for type: " + typeof(T).ToString());
         }
@@ -104,7 +166,7 @@ public class MarshallerFactory : IMarshallerFactory
         return (T)(object)new Message();
     }
 
-    private static T ToMessage<T, T1>(ReadOnlySequence<byte> buffer) where T1 : ISerializable, new()
+    private static T ToMessage<T, T1>(ReadOnlySequence<byte> buffer) where T1 : ISerializable?, new()
     {
         var msg = Serializer.Deserialize<SerializableMessage<T1>>(buffer);
         return (T)(object)new Message<T1>(msg.Value!);
@@ -113,12 +175,5 @@ public class MarshallerFactory : IMarshallerFactory
     private static T ToMessage<T>(long value)
     {
         return (T)(object)new Message<long>(value);
-    }
-
-    private static T ToMessage<T>(ReadOnlySequence<byte> buffer)
-    {
-        var msg = Serializer.Deserialize<JaggedArrayMessage>(buffer);
-        Console.WriteLine(msg.Value.Length);
-        return (T)(object)new Message<byte[][]>(msg.Value);
     }
 }

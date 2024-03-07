@@ -165,7 +165,7 @@ public class SyncManager : BackgroundService
             queryHashes.Add(view.GetHash());
         }
 
-        var commonHeight = client.FindCommonHeight(queryHashes);
+        var commonHeight = client.FindCommonHeight(new HashList(queryHashes));
 
         _logger.LogInformation("[{node}] Found common height at {commonHeight}", node.Uri.ToHostname(), commonHeight);
 
@@ -174,9 +174,9 @@ public class SyncManager : BackgroundService
 
     private (bool Completed, bool BrokenChain) DownloadViewRange(INodeService client, long height, StagingManager staging)
     {
-        var views = client.GetViewsForRange(height, BATCH_SIZE);
+        var views = client.GetViewsForRange(new ViewListRequest(height, BATCH_SIZE));
 
-        var pResult = Parallel.ForEach(views.SelectMany(x => x.Blocks), (block, state) =>
+        var pResult = Parallel.ForEach(views.Views.SelectMany(x => x.Blocks), (block, state) =>
         {
             if (!block.VerifyNonce())
             {
@@ -189,7 +189,7 @@ public class SyncManager : BackgroundService
             return (true, true);
         }
 
-        pResult = Parallel.ForEach(views.SelectMany(x => x.Votes), (vote, state) =>
+        pResult = Parallel.ForEach(views.Views.SelectMany(x => x.Votes), (vote, state) =>
         {
             if (!vote.Verify())
             {
@@ -204,7 +204,7 @@ public class SyncManager : BackgroundService
 
         // Transactions are verified later in LoadTransactions method
 
-        foreach (var response in views)
+        foreach (var response in views.Views)
         {
             if (!staging.LoadBlocks(response.Blocks))
             {
@@ -228,6 +228,6 @@ public class SyncManager : BackgroundService
         }
 
         // if count is less than batch size we found the tip of chain!
-        return (views.Count < BATCH_SIZE, false);
+        return (views.Views.Count < BATCH_SIZE, false);
     }
 }

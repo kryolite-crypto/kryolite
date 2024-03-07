@@ -43,9 +43,14 @@ public class NodeService : INodeService
         lifetime.ApplicationStopping.Register(() => _cts.Cancel());
     }
 
-    public List<NodeDto> GetPeers()
+    public NodeListResponse GetPeers()
     {
-        return _nodeTable.GetActiveNodes().Select(x => new NodeDto(x.PublicKey, x.Uri.ToString(), x.LastSeen)).ToList();
+        return new NodeListResponse(_nodeTable
+            .GetActiveNodes()
+            .Select(x => new NodeDto(x.PublicKey, x.Uri
+            .ToString(), x.LastSeen))
+            .ToList()
+        );
     }
 
     public PublicKey GetPublicKey()
@@ -96,7 +101,7 @@ public class NodeService : INodeService
         return new TransactionDto(tx);
     }
 
-    public void SuggestView(PublicKey publicKey, SHA256Hash viewhash, BigInteger weight)
+    public void SuggestView(SyncRequest request)
     {
         using var scope = _sp.CreateScope();
         var nodeTable = scope.ServiceProvider.GetRequiredService<NodeTable>();
@@ -105,17 +110,17 @@ public class NodeService : INodeService
         
         var chainState = storeManager.GetChainState();
 
-        if (chainState.Weight >= weight)
+        if (chainState.Weight >= request.Weight)
         {
             return;
         }
 
-        if (storeManager.GetView(viewhash) is not null)
+        if (storeManager.GetView(request.ViewHash) is not null)
         {
             return;
         }
 
-        var node = nodeTable.GetNode(publicKey);
+        var node = nodeTable.GetNode(request.PublicKey);
 
         if (node is null)
         {
@@ -125,12 +130,12 @@ public class NodeService : INodeService
         SyncManager.AddToQueue(node);
     }
 
-    public long FindCommonHeight(List<SHA256Hash> hashes)
+    public long FindCommonHeight(HashList hashlist)
     {
         using var scope = _sp.CreateScope();
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         
-        foreach (var hash in hashes)
+        foreach (var hash in hashlist.Hashes)
         {
             var view = storeManager.GetView(hash);
 
@@ -143,16 +148,16 @@ public class NodeService : INodeService
         return 0;
     }
 
-    public List<ViewResponse> GetViewsForRange(long startHeight, int batchSize)
+    public ViewListResponse GetViewsForRange(ViewListRequest request)
     {
         using var scope = _sp.CreateScope();
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         
-        var views = new List<ViewResponse>(batchSize);
+        var views = new List<ViewResponse>(request.BatchSize);
 
-        for (var i = 0; i < batchSize; i++)
+        for (var i = 0; i < request.BatchSize; i++)
         {
-            var view = storeManager.GetView(startHeight + i);
+            var view = storeManager.GetView(request.StartHeight + i);
 
             if (view is null)
             {
@@ -173,7 +178,7 @@ public class NodeService : INodeService
             views.Add(response);
         }
 
-        return views;
+        return new ViewListResponse(views);
     }
 
     public SyncResponse ShouldSync(SyncRequest request)
@@ -210,14 +215,14 @@ public class NodeService : INodeService
         return new SyncResponse(false);
     }
 
-    public void Broadcast(PublicKey publicKey, byte[][] messages)
+    public void Broadcast(BatchForward batch)
     {
         using var scope = _sp.CreateScope();
 
         var nodeTable = scope.ServiceProvider.GetRequiredService<NodeTable>();
-        var node = nodeTable.GetNode(publicKey);
+        var node = nodeTable.GetNode(batch.PublicKey);
 
-        foreach (var message in messages)
+        foreach (var message in batch.Batch.Messages)
         {
             if (message.Length == 0)
             {
@@ -251,11 +256,11 @@ public class NodeService : INodeService
         return challenge;
     }
 
-    public IAsyncEnumerable<byte[][]> Listen(AuthRequest authRequest, CancellationToken cancellationToken)
+    public IAsyncEnumerable<BatchBroadcast> Listen(AuthRequest authRequest, CancellationToken cancellationToken)
     {
         if (!Authorize(authRequest, out var uri))
         {
-            return Empty<byte[][]>();
+            return Empty<BatchBroadcast>();
         }
 
         var challenge = authRequest.Challenge;
@@ -324,11 +329,11 @@ public class NodeService : INodeService
         return authResponse;
     }
 
-    private async IAsyncEnumerable<byte[][]> CreateOutboundChannel(long challenge, [EnumeratorCancellation] CancellationToken cancellationToken)
+    private async IAsyncEnumerable<BatchBroadcast> CreateOutboundChannel(long challenge, [EnumeratorCancellation] CancellationToken cancellationToken)
     {
         var authResponse = CreateAuthResponse(challenge);
 
-        yield return [Serializer.Serialize(authResponse)];
+        yield return new BatchBroadcast([Serializer.Serialize(authResponse)]);
 
         var channel = Channel.CreateUnbounded<byte[][]>();
         var action = new ActionBlock<byte[][]>(async msg => await channel.Writer.WriteAsync(msg, cancellationToken));
@@ -358,7 +363,7 @@ public class NodeService : INodeService
 
             if (data is not null)
             {
-                yield return data;
+                yield return new BatchBroadcast(data);
             }
         }
     }

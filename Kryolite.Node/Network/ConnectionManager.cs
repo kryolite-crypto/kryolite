@@ -310,9 +310,11 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             
             var auth = false;
 
-            await foreach (var data in client.Listen(authRequest, cancellationToken))
+            await foreach (var batch in client.Listen(authRequest, cancellationToken))
             {
                 node.LastSeen = DateTime.Now;
+
+                var data = batch.Messages;
 
                 if (!auth)
                 {

@@ -194,7 +194,7 @@ public ref partial struct Serializer
         value.Deserialize(ref this);
     }
 
-    public void ReadN<T>(ref T? value) where T : ISerializable, new()
+    public void ReadN<T>(ref T? value) where T : ISerializable?, new()
     {
         var isnull = false;
 
@@ -255,7 +255,6 @@ public ref partial struct Serializer
 
         for (var i = 0; i < dataCount; i++)
         {
-            Console.WriteLine("create " + typeof(T));
             var item = _factory();
             item.Deserialize(ref this);
             target.Add(item);

@@ -48,6 +48,5 @@ public class Account : ISerializable
         serializer.Read(ref Address);
         serializer.Read(ref PublicKey);
         serializer.ReadN(ref Description);
-        Console.WriteLine("account deser " + PublicKey);
     }
 }

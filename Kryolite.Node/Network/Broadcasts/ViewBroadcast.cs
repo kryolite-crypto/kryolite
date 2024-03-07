@@ -77,7 +77,7 @@ public class ViewBroadcast : IBroadcast
                 var pubKey = keyRepo.GetPublicKey();
 
                 logger.LogDebug("[{hostname}] Has lower weight. Broadcast our current view", node.Uri.ToHostname());
-                client.SuggestView(pubKey, chainState.ViewHash, chainState.Weight);
+                client.SuggestView(new SyncRequest(pubKey, chainState.ViewHash, chainState.Weight));
             }
 
             return Task.CompletedTask;

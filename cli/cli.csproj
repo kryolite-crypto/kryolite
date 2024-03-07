@@ -13,7 +13,7 @@
     <SelfContained>true</SelfContained> 
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
     <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
-  </PropertyGroup>
+      </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
@@ -27,5 +27,10 @@
     <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.linux-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Linux')) And $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) == Arm64" />
     <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.win-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Windows')) And $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) == Arm64" />
     <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('OSX')) And $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) == Arm64" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmerRootAssembly Include="ServiceModel.Grpc" />
+    <TrimmerRootAssembly Include="ServiceModel.Grpc.MemoryPackMarshaller" />
   </ItemGroup>
 </Project>
