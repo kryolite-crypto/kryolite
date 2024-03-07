@@ -52,6 +52,16 @@ public ref partial struct Serializer(ref byte spanRef, int length)
         writer.Advance(length);
     }
 
+    public static void Serialize(bool value, IBufferWriter<byte> writer)
+    {
+        var length = sizeof(bool);
+        var span = writer.GetSpan(length);
+
+        BitConverter.TryWriteBytes(span, value);
+
+        writer.Advance(length);
+    }
+
     public static void Serialize(ExecutionResult value, IBufferWriter<byte> writer)
     {
         var length = sizeof(int);

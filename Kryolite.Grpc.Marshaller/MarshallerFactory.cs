@@ -27,6 +27,10 @@ public class MarshallerFactory : IMarshallerFactory
                 Serializer.Serialize(msg.Value1, context.GetBufferWriter());
                 break;
 
+            case Message<bool> msg:
+                Serializer.Serialize(msg.Value1, context.GetBufferWriter());
+                break;
+
             case Message<ExecutionResult> msg:
                 Serializer.Serialize(msg.Value1, context.GetBufferWriter());
                 break;
@@ -120,6 +124,9 @@ public class MarshallerFactory : IMarshallerFactory
             case var t when t == typeof(Message<long>):
                 return ToMessage<T>(BitConverter.ToInt64(context.PayloadAsNewBuffer()));
 
+            case var t when t == typeof(Message<bool>):
+                return ToMessage<T>(BitConverter.ToBoolean(context.PayloadAsNewBuffer()));
+
             case var t when t == typeof(Message<ExecutionResult>):
                 return ToMessage<T>((ExecutionResult)BitConverter.ToInt32(context.PayloadAsNewBuffer()));
 
@@ -201,5 +208,10 @@ public class MarshallerFactory : IMarshallerFactory
     private static T ToMessage<T>(long value)
     {
         return (T)(object)new Message<long>(value);
+    }
+
+    private static T ToMessage<T>(bool value)
+    {
+        return (T)(object)new Message<bool>(value);
     }
 }
