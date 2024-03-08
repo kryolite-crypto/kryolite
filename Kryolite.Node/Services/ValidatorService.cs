@@ -183,8 +183,10 @@ public class ValidatorService : BackgroundService
 
                         if (view is not null)
                         {
-                            storeManager.AddView(view, true, true);
-                            goto gotview;
+                            if (storeManager.AddView(view, true, true))
+                            {
+                                goto gotview;
+                            }
                         }
                     }
 
