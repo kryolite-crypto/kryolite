@@ -158,6 +158,8 @@ public static class Startup
         var clientFactory = new ClientFactory(opts)
             .AddNodeServiceClient();
 
+        services.AddHttpContextAccessor();
+
         services.AddSingleton<IStorage, RocksDBStorage>()
                 .AddSingleton<IStateCache, StateCache>()
                 .AddSingleton<IKeyRepository, KeyRepository>()
