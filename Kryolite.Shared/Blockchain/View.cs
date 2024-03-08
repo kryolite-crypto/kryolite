@@ -154,11 +154,6 @@ public sealed class View : ISerializable
             Serializer.SizeOf(ScheduledTransactions);
     }
 
-    public View Create<View>() where View : new()
-    {
-        return new View();
-    }
-
     public void Serialize(ref Serializer serializer)
     {
         serializer.Write(Id);

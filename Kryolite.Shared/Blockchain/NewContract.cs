@@ -34,15 +34,12 @@ public sealed class NewContract : ITransactionPayload
     public void Serialize(ref Serializer serializer)
     {
         serializer.Write(Manifest);
-        serializer.Write(Code.AsSpan().Compress());
+        serializer.Write(Code);
     }
 
     public void Deserialize(ref Serializer serializer)
     {
         serializer.Read(ref Manifest);
-
-        byte[] bytes = [];
-        serializer.Read(ref bytes);
-        Code = ((ReadOnlySpan<byte>)bytes).Decompress().ToArray();
+        serializer.Read(ref Code);
     }
 }

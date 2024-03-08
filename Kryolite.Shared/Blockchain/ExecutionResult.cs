@@ -29,12 +29,12 @@ public enum ExecutionResult
 
 public static class ExecutionResultSerializer
 {
-    public static void Write(this Serializer serializer, ExecutionResult value)
+    public static void Write(this ref Serializer serializer, ExecutionResult value)
     {
         serializer.Write((byte)value);
     }
 
-    public static void Read(this Serializer serializer, ref ExecutionResult value)
+    public static void Read(this ref Serializer serializer, ref ExecutionResult value)
     {
         byte b = 0;
         serializer.Read(ref b);

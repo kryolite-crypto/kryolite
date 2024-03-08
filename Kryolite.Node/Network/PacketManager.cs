@@ -25,8 +25,15 @@ public class PacketManager : BackgroundService
         {
             await foreach (var (node, packet) in _channel.Reader.ReadAllAsync(stoppingToken))
             {
-                using var scope = _serviceProvider.CreateScope();
-                await packet.Handle(node, scope.ServiceProvider);
+                try
+                {
+                    using var scope = _serviceProvider.CreateScope();
+                    await packet.Handle(node, scope.ServiceProvider);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogInformation(ex.ToString());
+                }
             }
         }
         catch (OperationCanceledException)

@@ -252,7 +252,7 @@ public static class DataDirectory
             }
         }
 
-        var configVersion = Path.Join(dataDir, $"config.version.{Constant.STORE_VERSION}");
+        var configVersion = Path.Join(dataDir, $"config.version.{Constant.CONFIG_VERSION}");
 
         if (args.Contains("--force-recreate") || !Path.Exists(configVersion))
         {

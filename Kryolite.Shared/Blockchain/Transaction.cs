@@ -31,12 +31,12 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
     public Transaction(TransactionDto tx)
     {
         TransactionType = tx.TransactionType;
-        PublicKey = tx.PublicKey ?? throw new Exception("transaction requires public key");
+        PublicKey = tx.PublicKey;
         To = tx.To;
         Value = tx.Value;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
-        Signature = tx.Signature ?? throw new Exception("transaction requires signature");
+        Signature = tx.Signature;
     }
 
     public void Sign(PrivateKey privateKey)

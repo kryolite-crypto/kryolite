@@ -10,6 +10,7 @@ public class TransactionPayload : ISerializable
     }
 
     public int GetLength() =>
+        sizeof(byte) +
         Serializer.SizeOfN(Payload);
 
     public TransactionPayload Create<TransactionPayload>() where TransactionPayload : new()
@@ -31,6 +32,7 @@ public class TransactionPayload : ISerializable
             break;
             default:
                 serializer.Write((byte)0);
+                serializer.Write(0);
             break;
         }
     }
@@ -51,6 +53,12 @@ public class TransactionPayload : ISerializable
                 var newContract = new NewContract();
                 serializer.Read(ref newContract);
                 Payload = newContract;
+            break;
+            default:
+                byte b = 0;
+                int i = 0;
+                serializer.Read(ref b);
+                serializer.Read(ref i);
             break;
         }
     }

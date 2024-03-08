@@ -5,8 +5,8 @@ namespace Kryolite.Shared;
 public static class Constant
 {
     public const string STORE_VERSION = "4";
-    public const string CONFIG_VERSION = "2";
-    public const string NETWORK_NAME = "TYTYRI-3";
+    public const string CONFIG_VERSION = "3";
+    public const string NETWORK_NAME = "TYTYRI-4";
     public const int API_LEVEL = 5;
     public const int MIN_API_LEVEL = 5;
 
@@ -22,8 +22,8 @@ public static class Constant
 
     public static readonly ImmutableArray<Address> SEED_VALIDATORS =
     [
-        "kryo:adying4q6i54fywmy3fyu9gayfcvsajjq4hq67xx",
-        "kryo:adqfedux7wjvtiazcu766vs77pcq9fdeequmkgxb"
+        "kryo:adcun6jzg5df27gvueh8sc5mctt3wht8qidhx3xd",
+        "kryo:aafj8hfvxa9fsrbpzh9sux3jvqh4zd3skbedzhsc"
     ];
 
     public static readonly Address DEV_FEE_ADDRESS = "kryo:aae9j3trpd4np32ew5it9hzgg3hq645kfxbd8azr";

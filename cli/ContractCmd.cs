@@ -82,8 +82,8 @@ public static class ContractCmd
                 PublicKey = account.PublicKey,
                 To = contract.ToAddress(bytes),
                 Value = 0,
-                Data = Serializer.Serialize<TransactionPayload>(payload),
-                Timestamp = 69
+                Data = Serializer.Serialize(payload),
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
 
             var privKey = walletRepository.GetPrivateKey(account.PublicKey);
@@ -95,7 +95,7 @@ public static class ContractCmd
             }
 
             tx.Sign(privKey);
-
+            
             var result = client.AddTransaction(new TransactionDto(tx));
 
             Console.WriteLine(result);

@@ -11,8 +11,6 @@ public ref partial struct Serializer(ref byte spanRef, int length)
     ref byte _spanRef = ref spanRef;
     ref byte _end = ref Unsafe.Add(ref spanRef, length);
 
-    private static Func<SerializerEnum, ISerializable> _resolver = (e) => null!;
-
     public static byte[] Serialize<T>(T instance) where T : ISerializable
     {
         var length = instance.GetLength();
@@ -22,7 +20,6 @@ public ref partial struct Serializer(ref byte spanRef, int length)
 
         ref var spanRef = ref MemoryMarshal.GetReference(array.AsSpan()[1..]);
         var serializer = new Serializer(ref spanRef, length);
-
         instance.Serialize(ref serializer);
         return array;
     }
@@ -38,7 +35,6 @@ public ref partial struct Serializer(ref byte spanRef, int length)
         var serializer = new Serializer(ref spanRef, length);
 
         instance.Serialize(ref serializer);
-
         writer.Advance(length);
     }
 
@@ -90,7 +86,7 @@ public ref partial struct Serializer(ref byte spanRef, int length)
 
     public static T Deserialize<T>(ReadOnlySequence<byte> sequence) where T : ISerializable, new()
     {
-        var span = sequence.FirstSpan;
+        var span = sequence.ToArray().AsSpan();
         var instance = new T();
 
         if (span[0] != instance.GetSerializerId())
@@ -102,8 +98,7 @@ public ref partial struct Serializer(ref byte spanRef, int length)
         var serializer = new Serializer(ref spanRef, span.Length);
 
         instance.Deserialize(ref serializer);
-
-        return (T)instance;
+        return instance;
     }
 
     [DoesNotReturn]

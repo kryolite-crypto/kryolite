@@ -14,12 +14,12 @@ public enum TransactionType : byte
 
 public static class TransactionTypeSerializer
 {
-    public static void Write(this Serializer serializer, TransactionType value)
+    public static void Write(this ref Serializer serializer, TransactionType value)
     {
         serializer.Write((byte)value);
     }
 
-    public static void Read(this Serializer serializer, ref TransactionType value)
+    public static void Read(this ref Serializer serializer, ref TransactionType value)
     {
         byte b = 0;
         serializer.Read(ref b);

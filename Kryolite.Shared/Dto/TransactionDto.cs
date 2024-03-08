@@ -39,12 +39,7 @@ public class TransactionDto : EventBase, ISerializable
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
-
-        if (PublicKey is not null)
-        {
-            stream.Write(PublicKey ?? throw new Exception("public key required when hashing payment"));
-        }
-
+        stream.Write(PublicKey);
         stream.Write(To);
         stream.Write(BitConverter.GetBytes(Value));
         stream.Write(Data);
@@ -58,11 +53,6 @@ public class TransactionDto : EventBase, ISerializable
     public byte GetSerializerId()
     {
         return (byte)SerializerEnum.TRANSACTION_DTO;
-    }
-
-    public TransactionDto Create<TransactionDto>() where TransactionDto : new()
-    {
-        return new TransactionDto();
     }
 
     public int GetLength() =>

@@ -31,7 +31,7 @@ public class Verifier : IVerifier
 
         if (!tx.Verify())
         {
-            Logger.LogInformation($"{hash} verification failed (reson = invalid signature)");
+            Logger.LogInformation($"{hash} verification failed (reason = invalid signature)");
             return false;
         }
 
