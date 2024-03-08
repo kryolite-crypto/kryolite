@@ -25,7 +25,7 @@ public static class Constant
         "kryo:ad2335i9wfmqg5cdn9d87ey43wt4wef2m6a3zyp7",
         "kryo:abugb869cphn7vywkpv6w7ai2yejrmkbs99dchez",
         "kryo:ac67f596jjayd9gr5n84ubafrkah5682krh5ngn3",
-        "kryo:aay7yr42nacmz7d5jqfmsrxx7u9vqejqqd6n8j3j" // REMOVE
+        //"kryo:aay7yr42nacmz7d5jqfmsrxx7u9vqejqqd6n8j3j" // REMOVE
     ];
 
     public static readonly Address DEV_FEE_ADDRESS = "kryo:aae9j3trpd4np32ew5it9hzgg3hq645kfxbd8azr";

@@ -12,20 +12,15 @@ using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
 using Kryolite.Upnp;
 using Kryolite.Wallet;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using ServiceModel.Grpc.Client;
-using ServiceModel.Grpc.Configuration;
-using System.ServiceModel.Channels;
 
 namespace Kryolite.Node;
 
@@ -162,8 +157,6 @@ public static class Startup
 
         var clientFactory = new ClientFactory(opts)
             .AddNodeServiceClient();
-
-        services.AddHttpContextAccessor();
 
         services.AddSingleton<IStorage, RocksDBStorage>()
                 .AddSingleton<IStateCache, StateCache>()
@@ -328,9 +321,6 @@ seednode=
 
 ; connection timeout in seconds
 timeout=30
-
-; custom data directory location (default ~/.kryolite or %userprofile%\.kryolite)
-datadir=
 
 ; logging level (default, trace, debug, info, warning, error, critical)
 loglevel="default"
