@@ -65,7 +65,7 @@ public class Iterator : IDisposable
         var result = GC.AllocateUninitializedArray<byte>((int)len, false);
 
         Marshal.Copy(ptr, result, 0, (int)len);
-        Interop.rocksdb_free(ptr);
+        //Interop.rocksdb_free(ptr);
 
         return result;
     }
