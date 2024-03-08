@@ -138,11 +138,7 @@ public static class Startup
 
     public static void UseNodeMiddleware(this IApplicationBuilder app)
     {
-        app.UseForwardedHeaders(new ForwardedHeadersOptions
-        {
-            ForwardedHeaders = ForwardedHeaders.XForwardedFor
-        });
-
+        app.UseForwardedHeaders();
         app.UseRouting();
         app.UseCors();
 
@@ -159,48 +155,6 @@ public static class Startup
 
     public static void AddNodeServices(this IServiceCollection services)
     {
-        /*Serializer.RegisterTypeResolver(header => header switch
-        {
-            SerializerEnum.TRANSACTION => new Transaction(),
-            SerializerEnum.TRANSACTION_DTO => new TransactionDto(),
-            SerializerEnum.PUBLIC_KEY => new PublicKey(),
-            SerializerEnum.PRIVATE_KEY => new PrivateKey(),
-            SerializerEnum.ADDRESS => new Address(),
-            SerializerEnum.SHA256 => new SHA256Hash(),
-            SerializerEnum.SIGNATURE => new Signature(),
-            SerializerEnum.EFFECT => new Effect(),
-            SerializerEnum.BLOCK => new Block(),
-            SerializerEnum.CHAINSTATE => new ChainState(),
-            SerializerEnum.LEDGER => new Ledger(),
-            SerializerEnum.BLOCKTEMPLATE => new BlockTemplate(),
-            SerializerEnum.TOKEN => new Token(),
-            SerializerEnum.NODE_DTO => new NodeDto(),
-            SerializerEnum.VOTE => new Vote(),
-            SerializerEnum.VALIDATOR => new Validator(),
-            SerializerEnum.VIEW => new View(),
-            SerializerEnum.VOTE_BROADCAST => new VoteBroadcast(),
-            SerializerEnum.BLOCK_BROADCAST => new BlockBroadcast(),
-            SerializerEnum.TRANSACTION_BROADCAST => new TransactionBroadcast(),
-            SerializerEnum.VIEW_BROADCAST => new ViewBroadcast(),
-            SerializerEnum.VIEW_RANGE_RESPONSE => new ViewRangeResponse(),
-            SerializerEnum.VIEW_RESPONSE => new ViewResponse(),
-            SerializerEnum.AUTH_RESPONSE => new AuthResponse(),
-            SerializerEnum.AUTH_REQUEST => new AuthRequest(),
-            SerializerEnum.NODE_BROADCAST => new NodeBroadcast(),
-            SerializerEnum.PENDING_RESPONSE => new PendingResponse(),
-            SerializerEnum.TRANSACTION_PAYLOAD => new TransactionPayload(),
-            SerializerEnum.CALL_METHOD => new CallMethod(),
-            SerializerEnum.NEW_CONTRACT => new NewContract(),
-            SerializerEnum.CONTRACT => new Contract(),
-            SerializerEnum.CONTRACT_MANIFEST => new ContractManifest(),
-            SerializerEnum.CONTRACT_METHOD => new ContractMethod(),
-            SerializerEnum.CONTRACT_PARAM => new ContractParam(),
-            SerializerEnum.WALLET => new Wallet.Wallet(),
-            SerializerEnum.ACCOUNT => new Account(),
-            SerializerEnum.MESSAGE => new SerializableMessage(),
-            _ => throw new Exception("invalid header received")
-        });*/
-
         var opts = new ServiceModelGrpcClientOptions
         {
             MarshallerFactory = MarshallerFactory.Instance
