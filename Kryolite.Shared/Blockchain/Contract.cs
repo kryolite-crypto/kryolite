@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using Crypto.RIPEMD;
+using Kryolite.ByteSerializer;
 
 namespace Kryolite.Shared;
 

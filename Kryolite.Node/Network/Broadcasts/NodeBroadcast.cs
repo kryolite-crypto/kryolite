@@ -1,8 +1,8 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
-using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
+using Kryolite.ByteSerializer;
+using Kryolite.Transport.Websocket;
 
 namespace Kryolite.Node.Network;
 

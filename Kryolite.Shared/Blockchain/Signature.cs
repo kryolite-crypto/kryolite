@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Kryolite.ByteSerializer;
 
 namespace Kryolite.Shared;
 
