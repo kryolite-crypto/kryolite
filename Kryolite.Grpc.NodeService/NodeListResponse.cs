@@ -1,4 +1,4 @@
-using Kryolite.Shared;
+using Kryolite.ByteSerializer;
 using Kryolite.Shared.Dto;
 
 namespace Kryolite.Grpc.NodeService;

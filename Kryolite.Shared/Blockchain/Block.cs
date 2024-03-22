@@ -1,4 +1,5 @@
 ﻿using System.Security.Cryptography;
+using Kryolite.ByteSerializer;
 
 namespace Kryolite.Shared.Blockchain;
 

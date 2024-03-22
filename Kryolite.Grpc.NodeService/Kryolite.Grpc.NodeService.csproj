@@ -7,15 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Grpc.AspNetCore" Version="2.60.0" />
-    <PackageReference Include="Grpc.Net.Client" Version="2.60.0" />
-    <PackageReference Include="ServiceModel.Grpc" Version="1.8.1" />
-    <PackageReference Include="ServiceModel.Grpc.AspNetCore" Version="1.8.1" />
-    <PackageReference Include="ServiceModel.Grpc.DesignTime" Version="1.8.1" />
-    <PackageReference Include="System.ServiceModel.Primitives" Version="8.0.0" />
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
+    <ProjectReference Include="..\Kryolite.Transport.Websocket\Kryolite.Transport.Websocket.csproj" />
   </ItemGroup>
 </Project>

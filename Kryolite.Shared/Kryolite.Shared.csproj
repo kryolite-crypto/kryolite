@@ -16,6 +16,9 @@
     <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
     <PackageReference Include="SimpleBase" Version="4.0.0" />
     <PackageReference Include="Zeroconf" Version="3.6.11" />
-    <PackageReference Include="ServiceModel.Grpc" Version="1.8.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Kryolite.Serializer/Kryolite.ByteSerializer.csproj" />
   </ItemGroup>
 </Project>

@@ -19,7 +19,7 @@
     <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
     <ProjectReference Include="..\Kryolite.Grpc.NodeService\Kryolite.Grpc.NodeService.csproj" />
     <ProjectReference Include="..\Kryolite.Grpc.DataService\Kryolite.Grpc.DataService.csproj" />
-    <ProjectReference Include="..\Kryolite.Grpc.Marshaller\Kryolite.Grpc.Marshaller.csproj" />
+    <ProjectReference Include="..\Kryolite.Transport.Websocket\Kryolite.Transport.Websocket.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,5 +30,6 @@
     <PackageReference Include="QuikGraph.Graphviz" Version="2.5.0" />
     <PackageReference Include="Makaretu.Dns.Multicast.New" Version="0.31" />
     <PackageReference Include="Wasmtime" Version="17.0.0" />
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 </Project>

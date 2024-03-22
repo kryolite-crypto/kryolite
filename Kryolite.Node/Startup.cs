@@ -3,7 +3,6 @@ using System.Reflection;
 using DnsClient;
 using Kryolite.EventBus;
 using Kryolite.Grpc.DataService;
-using ServiceModel.Grpc.Marshaller;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
@@ -12,6 +11,7 @@ using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
+using Kryolite.Transport.Websocket;
 using Kryolite.Upnp;
 using Kryolite.Wallet;
 using Microsoft.AspNetCore.Builder;
@@ -20,7 +20,6 @@ using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using ServiceModel.Grpc.Client;
 
 namespace Kryolite.Node;
 
@@ -136,6 +135,7 @@ public static class Startup
         app.UseForwardedHeaders();
         app.UseRouting();
         app.UseCors();
+        app.UseKryoliteRpc();
 
         app.UseEndpoints(endpoints =>
         {
@@ -143,21 +143,12 @@ public static class Startup
                 .RegisterBaseApi()
                 .RegisterEventApi();
 
-            endpoints.MapNodeService();
-            endpoints.MapDataService();
+            endpoints.MapKryoliteRpcService("node", channel => new CalleeNodeService(channel, endpoints.ServiceProvider));
         });
     }
 
     public static void AddNodeServices(this IServiceCollection services)
     {
-        var opts = new ServiceModelGrpcClientOptions
-        {
-            MarshallerFactory = MarshallerFactory.Instance
-        };
-
-        var clientFactory = new ClientFactory(opts)
-            .AddNodeServiceClient();
-
         services.AddHttpContextAccessor();
 
         services.AddSingleton<IStorage, RocksDBStorage>()
@@ -182,8 +173,7 @@ public static class Startup
                 .AddHostedService<DiscoveryManager>()
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddSingleton<IEventBus, EventBus.EventBus>()
-                .AddSingleton((sp) => clientFactory)
-                .AddServiceModelGrpc(x => x.DefaultMarshallerFactory = MarshallerFactory.Instance).Services
+                .AddServiceEndpoint("ws", channel => new CalleeNodeService())
                 .AddUpnpService()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy

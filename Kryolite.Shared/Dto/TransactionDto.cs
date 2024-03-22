@@ -1,4 +1,5 @@
-﻿using Kryolite.EventBus;
+﻿using Kryolite.ByteSerializer;
+using Kryolite.EventBus;
 using Kryolite.Shared.Blockchain;
 using System.Security.Cryptography;
 

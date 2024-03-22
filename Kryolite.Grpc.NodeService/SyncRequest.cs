@@ -1,4 +1,5 @@
 using System.Numerics;
+using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 
 namespace Kryolite.Grpc.NodeService;

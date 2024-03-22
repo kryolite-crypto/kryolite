@@ -1,5 +1,6 @@
 using System.Threading.Tasks.Dataflow;
 
+namespace Kryolite.Node.Network;
 
 /// <summary>
 /// Provides a dataflow block that batches inputs into arrays.
