@@ -1,4 +1,5 @@
-﻿using Kryolite.Shared;
+using Kryolite.ByteSerializer;
+using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 using System.Text.Json;

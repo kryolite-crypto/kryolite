@@ -1,5 +1,5 @@
-using System.Buffers;
 using BenchmarkDotNet.Attributes;
+using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 

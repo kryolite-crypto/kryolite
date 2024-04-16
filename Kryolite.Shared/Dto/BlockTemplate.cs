@@ -1,3 +1,5 @@
+using Kryolite.ByteSerializer;
+
 namespace Kryolite.Shared.Dto;
 
 public class BlockTemplate : ISerializable

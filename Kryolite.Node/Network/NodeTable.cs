@@ -1,9 +1,7 @@
-using System.Net;
 using System.Numerics;
-using Grpc.Core;
-using Grpc.Net.Client;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Transport.Websocket;
 
 namespace Kryolite.Node.Network;
 
@@ -71,7 +69,7 @@ public class NodeTable
         return _nodes.Where(x => x.LastSeen < DateTime.UtcNow.AddHours(-24)).ToList();
     }
 
-    public void AddNode(PublicKey key, Uri uri, GrpcChannel? channel = null)
+    public void AddNode(PublicKey key, Uri uri, WebsocketChannel channel)
     {
         if (key == _serverKey)
         {
@@ -84,17 +82,13 @@ public class NodeTable
 
         if (node is null)
         {
-            node = channel is not null ? 
-                new Node(key, uri, channel) :
-                new Node(key, uri);
-
+            node = new Node(key, uri, channel);
             _nodes.Add(node);
 
             NodeAdded?.Invoke(this, node);
         }
 
-        // Update existing node details
-        node.UpdateUri(node.Uri);
+        node.Uri = uri;
         node.LastSeen = DateTime.Now;
     }
 
@@ -152,49 +146,26 @@ public class NodeTable
     }
 }
 
-public class Node : IDisposable
+public class Node
 {
     public PublicKey PublicKey { get; set; }
     public DateTime LastSeen { get; set; }
     public NodeStatus Status { get; set; }
-    public GrpcChannel Channel { get; private set; }
-    public Uri Uri { get; private set; }
+    public Uri Uri { get; set; }
+    public WebsocketChannel Channel => _channel;
     
     public int FailedConnections = 0;
     public bool IsSyncInProgress { get; set; }
     public bool IsForked { get; set; }
 
-    public Node(PublicKey publicKey, Uri uri)
+    private WebsocketChannel _channel;
+
+    public Node(PublicKey publicKey, Uri uri, WebsocketChannel channel)
     {
         PublicKey = publicKey;
         Uri = uri;
 
-        Channel = GrpcChannel.ForAddress(uri);
-    }
-
-    public Node(PublicKey publicKey, Uri uri, GrpcChannel channel)
-    {
-        PublicKey = publicKey;
-        Uri = uri;
-        Channel = channel;
-    }
-
-    public void UpdateUri(Uri uri)
-    {
-        if (uri == Uri)
-        {
-            return;
-        }
-
-        Uri = uri;
-
-        Channel.Dispose();
-        Channel = GrpcChannel.ForAddress(uri);
-    }
-
-    public void Dispose()
-    {
-        Channel.Dispose();
+        _channel = channel;
     }
 }
 

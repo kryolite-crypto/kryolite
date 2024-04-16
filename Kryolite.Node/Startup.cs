@@ -80,17 +80,16 @@ public static class Startup
         {
             var logger = x.ApplicationServices.GetRequiredService<ILogger<StartupLog>>();
             var config = x.ApplicationServices.GetRequiredService<IConfiguration>();
-            
+
             var ssl = config.GetValue<bool>("ssl");
             var bind = config.GetValue<string>("bind");
             var port = config.GetValue<int>("port");
             var pfxpath = config.GetValue<string>("pfxpath");
             var pfxpass = config.GetValue<string>("pfxpass");
 
-            // GRPC, Node Communication
-            x.Listen(IPAddress.Parse(bind ?? "127.0.0.1"), port, c => 
-            { 
-                c.Protocols = HttpProtocols.Http2;
+            x.Listen(IPAddress.Parse(bind ?? "127.0.0.1"), port, c =>
+            {
+                c.Protocols = HttpProtocols.Http1;
 
                 if (ssl)
                 {
@@ -98,30 +97,6 @@ public static class Startup
                 }
 
                 logger.LogInformation("rpc:\t{schema}://{bind}:{rpcport}", ssl ? "https" : "http", bind, port);
-            });
-
-            var rpcssl = config.GetValue<string?>("rpcssl");
-            var rpcbind = config.GetValue<string>("rpcbind");
-            var rpcportstr = config.GetValue<string?>("rpcport");
-            var rpcpfxpath = config.GetValue<string>("pfxpath");
-            var rpcpfxpass = config.GetValue<string>("pfxpass");
-
-            if (string.IsNullOrEmpty(rpcbind) || !int.TryParse(rpcportstr, out var rpcport))
-            {
-                return;
-            }
-
-            // API
-            x.Listen(IPAddress.Parse(rpcbind), rpcport, c => 
-            {
-                c.Protocols = HttpProtocols.Http1;
-                
-                if (rpcssl == "true")
-                {
-                    c.UseHttps(rpcpfxpath!, rpcpfxpass);
-                }
-
-                logger.LogInformation("rpc-json:\t{schema}://{bind}:{rpcport}", rpcssl == "true" ? "https" : "http", rpcbind, rpcport);
             });
         });
 
@@ -141,9 +116,8 @@ public static class Startup
         {
             endpoints
                 .RegisterBaseApi()
-                .RegisterEventApi();
-
-            endpoints.MapKryoliteRpcService("node", channel => new CalleeNodeService(channel, endpoints.ServiceProvider));
+                .RegisterEventApi()
+                .RegisterWebsocketEndpoint();
         });
     }
 
@@ -173,7 +147,7 @@ public static class Startup
                 .AddHostedService<DiscoveryManager>()
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddSingleton<IEventBus, EventBus.EventBus>()
-                .AddServiceEndpoint("ws", channel => new CalleeNodeService())
+                .AddKryoliteRpcService((channel, sp) => new CalleeNodeService(channel, sp))
                 .AddUpnpService()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
@@ -201,7 +175,7 @@ public static class StartupLogoAndVersion
 {
     public static void Print()
     {
-        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly()!, typeof(AssemblyInformationalVersionAttribute)) 
+        var attr = Attribute.GetCustomAttribute(Assembly.GetEntryAssembly()!, typeof(AssemblyInformationalVersionAttribute))
             as AssemblyInformationalVersionAttribute;
 
         Console.ForegroundColor = ConsoleColor.Cyan;
@@ -297,13 +271,6 @@ upnp="true"
 
 ; enable mdns
 mdns="true"
-
-; rpc-json configuration, not enabled by default
-rpcssl=
-rpcbind=
-rpcport=
-rpcpfxpath=
-rpcpfxpass=
 
 ; use DNS discovery from "testnet.kryolite.io" to locate seed nodes
 discovery="true"

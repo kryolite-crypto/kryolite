@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 using Kryolite.Shared.Dto;
 using NSec.Cryptography;

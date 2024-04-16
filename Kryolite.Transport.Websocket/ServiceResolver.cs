@@ -2,12 +2,13 @@ using Kryolite.ByteSerializer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Transport.Websocket;
 
 public static class ServiceResolver
 {
-    private static Func<WebsocketChannel, IWebsocketService>? _generator;
+    private static Func<WebsocketChannel, IServiceProvider, IWebsocketService>? _generator;
     private static IServiceProvider? _serviceProvider;
 
     /// <summary>
@@ -25,31 +26,10 @@ public static class ServiceResolver
     /// </summary>
     /// <param name="path"></param>
     /// <param name="generator"></param>
-    public static void MapKryoliteRpcService(this IEndpointRouteBuilder builder, string path, Func<WebsocketChannel, IWebsocketService> generator)
+    public static IServiceCollection AddKryoliteRpcService(this IServiceCollection builder, Func<WebsocketChannel, IServiceProvider, IWebsocketService> generator)
     {
         _generator = generator;
-
-        builder.MapGet(path, async (HttpContext ctx, CancellationToken cancellationToken) =>
-        {
-            if (!ctx.WebSockets.IsWebSocketRequest)
-            {
-                ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
-                return;
-            }
-
-            if (!Authorize(ctx))
-            {
-                    ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                    return;
-            }
-
-            using var webSocket = await ctx.WebSockets.AcceptWebSocketAsync();
-
-            var tcs = new TaskCompletionSource();
-
-            cancellationToken.Register(() => tcs.TrySetResult());
-            await tcs.Task;
-        });
+        return builder;
     }
 
     /// <summary>
@@ -65,7 +45,12 @@ public static class ServiceResolver
             return TransportException.ThrowNotRegistered<IWebsocketService>();
         }
 
-        return _generator(channel);
+        if (_serviceProvider is null)
+        {
+            return TransportException.ThrowNotRegistered<IWebsocketService>();
+        }
+
+        return _generator(channel, _serviceProvider);
     }
 
     /// <summary>

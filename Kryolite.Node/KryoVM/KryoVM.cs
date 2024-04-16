@@ -1,4 +1,5 @@
-﻿using Kryolite.Shared;
+using Kryolite.ByteSerializer;
+using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 using System.Security.Cryptography;
@@ -134,7 +135,7 @@ public class KryoVM : IDisposable
                 {
                     case byte[] arr:
                         var ptr = (int)(malloc.Invoke(arr.Length) ?? throw new Exception($"failed to allocate memory"));
-    
+
                         // Write buffer to program
                         memory.WriteBuffer(ptr, arr);
 
@@ -265,12 +266,13 @@ public class KryoVM : IDisposable
         setView.Invoke(Context.View.Id, Context.View.Timestamp);
     }
 
-    private void RegisterAPI() 
+    private void RegisterAPI()
     {
-        Linker.Define("env", "__transfer", Function.FromCallback<int, long>(Store, (Caller caller, int address, long value) => {
+        Linker.Define("env", "__transfer", Function.FromCallback<int, long>(Store, (Caller caller, int address, long value) =>
+        {
             var memory = caller.GetMemory("memory");
 
-            if (memory is null) 
+            if (memory is null)
             {
                 return;
             }
@@ -282,7 +284,7 @@ public class KryoVM : IDisposable
 
             var addr = memory.ReadAddress(address);
 
-            if (addr is null) 
+            if (addr is null)
             {
                 throw new ExitException(101);
             }
@@ -298,7 +300,8 @@ public class KryoVM : IDisposable
             Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, addr, (ulong)value));
         }));
 
-        Linker.Define("env", "__approval", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {
+        Linker.Define("env", "__approval", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) =>
+        {
             var memory = caller.GetMemory("memory");
 
             if (memory is null)
@@ -317,7 +320,8 @@ public class KryoVM : IDisposable
             Context!.Events.Add(eventData);
         }));
 
-        Linker.Define("env", "__transfer_token", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) => {
+        Linker.Define("env", "__transfer_token", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) =>
+        {
             var memory = caller.GetMemory("memory");
 
             if (memory is null)
@@ -341,7 +345,8 @@ public class KryoVM : IDisposable
             Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, from, to, 0, tokenId));
         }));
 
-        Linker.Define("env", "__consume_token", Function.FromCallback<int, int>(Store, (Caller caller, int ownerPtr, int tokenIdPtr) => {
+        Linker.Define("env", "__consume_token", Function.FromCallback<int, int>(Store, (Caller caller, int ownerPtr, int tokenIdPtr) =>
+        {
             var memory = caller.GetMemory("memory");
 
             if (memory is null)
@@ -360,7 +365,8 @@ public class KryoVM : IDisposable
             Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, Context.Contract.Address, eventData.Owner, 0, eventData.TokenId, true));
         }));
 
-        Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int ptr, int len) => {
+        Linker.Define("env", "__println", Function.FromCallback(Store, (Caller caller, int ptr, int len) =>
+        {
             var mem = caller.GetMemory("memory");
 
             if (mem is null)
@@ -372,7 +378,8 @@ public class KryoVM : IDisposable
             Context?.Logger.LogDebug($"LOG: {Encoding.UTF8.GetString(msg)}");
         }));
 
-        Linker.Define("env", "__append_event", Function.FromCallback(Store, (Caller caller, int ptr, int len) => {
+        Linker.Define("env", "__append_event", Function.FromCallback(Store, (Caller caller, int ptr, int len) =>
+        {
             var mem = caller.GetMemory("memory");
 
             if (mem is null)
@@ -384,7 +391,8 @@ public class KryoVM : IDisposable
             Context!.EventData.Add(Encoding.UTF8.GetString(msg));
         }));
 
-        Linker.Define("env", "__publish_event", Function.FromCallback(Store, (Caller caller) => {
+        Linker.Define("env", "__publish_event", Function.FromCallback(Store, (Caller caller) =>
+        {
             var memory = caller.GetMemory("memory");
 
             if (memory is null)
@@ -403,7 +411,8 @@ public class KryoVM : IDisposable
             Context!.EventData.Clear();
         }));
 
-        Linker.Define("env", "__return", Function.FromCallback(Store, (Caller caller, int ptr, int len) => {
+        Linker.Define("env", "__return", Function.FromCallback(Store, (Caller caller, int ptr, int len) =>
+        {
             var mem = caller.GetMemory("memory");
 
             if (mem is null)
@@ -415,17 +424,20 @@ public class KryoVM : IDisposable
             Context!.Returns = str;
         }));
 
-        Linker.Define("env", "__rand", Function.FromCallback<float>(Store, (Caller caller) => {
+        Linker.Define("env", "__rand", Function.FromCallback<float>(Store, (Caller caller) =>
+        {
             return Context!.Rand.NextSingle();
         }));
 
-        Linker.Define("env", "__exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) => {
+        Linker.Define("env", "__exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) =>
+        {
             throw new ExitException(exitCode);
         }));
 
-        Linker.Define("env", "__hash_data", Function.FromCallback(Store, (Caller caller, int dataPtr, int dataLen, int destPtr, int destLen) => {
+        Linker.Define("env", "__hash_data", Function.FromCallback(Store, (Caller caller, int dataPtr, int dataLen, int destPtr, int destLen) =>
+        {
             var mem = caller.GetMemory("memory") ?? throw new Exception("memory not found");
-            
+
             var data = mem.GetSpan<byte>(dataPtr, dataLen);
             var dest = mem.GetSpan<byte>(destPtr, destLen);
 
@@ -435,7 +447,8 @@ public class KryoVM : IDisposable
             }
         }));
 
-        Linker.Define("env", "__schedule_param", Function.FromCallback(Store, (Caller caller, int paramPtr, int paramLen) => {
+        Linker.Define("env", "__schedule_param", Function.FromCallback(Store, (Caller caller, int paramPtr, int paramLen) =>
+        {
             var mem = caller.GetMemory("memory");
 
             if (mem is null)
@@ -447,7 +460,8 @@ public class KryoVM : IDisposable
             Context!.MethodParams.Add(param);
         }));
 
-        Linker.Define("env", "__schedule", Function.FromCallback(Store, (Caller caller, int methodPtr, int methodLen, long timestamp) => {
+        Linker.Define("env", "__schedule", Function.FromCallback(Store, (Caller caller, int methodPtr, int methodLen, long timestamp) =>
+        {
             var mem = caller.GetMemory("memory");
 
             if (mem is null)
@@ -466,7 +480,8 @@ public class KryoVM : IDisposable
                 }
             };
 
-            var transaction = new Transaction {
+            var transaction = new Transaction
+            {
                 TransactionType = TransactionType.CONTRACT_SCHEDULED_SELF_CALL,
                 PublicKey = Context!.Transaction.PublicKey,
                 To = Context!.Contract.Address,
@@ -483,99 +498,123 @@ public class KryoVM : IDisposable
         }));
 
         // WASI shims
-        Linker.Define("wasi_snapshot_preview1", "environ_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int environ, int environ_buf) => {
+        Linker.Define("wasi_snapshot_preview1", "environ_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int environ, int environ_buf) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "environ_sizes_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int environCount, int environSize) => {
+        Linker.Define("wasi_snapshot_preview1", "environ_sizes_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int environCount, int environSize) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "clock_time_get", Function.FromCallback<int, long, int, int>(Store, (Caller caller, int number, long precision, int time) => {
+        Linker.Define("wasi_snapshot_preview1", "clock_time_get", Function.FromCallback<int, long, int, int>(Store, (Caller caller, int number, long precision, int time) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_close", Function.FromCallback<int, int>(Store, (Caller caller, int fd) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_close", Function.FromCallback<int, int>(Store, (Caller caller, int fd) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_fdstat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int fdStat) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_fdstat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int fdStat) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_fdstat_set_flags", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int flags) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_fdstat_set_flags", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int flags) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_prestat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int bufPtr) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_prestat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int bufPtr) =>
+        {
             return 8; // __WASI_ERRNO_BADF
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_prestat_dir_name", Function.FromCallback<int, int, int, int>(Store, (Caller caller, int fd, int pathPtr, int pathLen) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_prestat_dir_name", Function.FromCallback<int, int, int, int>(Store, (Caller caller, int fd, int pathPtr, int pathLen) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_read", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int fd, int iovsPtr, int iovsLen, int nreadPtr) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_read", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int fd, int iovsPtr, int iovsLen, int nreadPtr) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_seek", Function.FromCallback<int, long, int, int, int>(Store, (Caller caller, int fd, long offset, int whence, int offsetOutPtr) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_seek", Function.FromCallback<int, long, int, int, int>(Store, (Caller caller, int fd, long offset, int whence, int offsetOutPtr) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_write", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int fd, int iovsPtr, int iovsLen, int nwrittenPtr) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_write", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int fd, int iovsPtr, int iovsLen, int nwrittenPtr) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_advise", Function.FromCallback<int, long, long, int, int>(Store, (Caller caller, int fd, long offset, long len, int advice) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_advise", Function.FromCallback<int, long, long, int, int>(Store, (Caller caller, int fd, long offset, long len, int advice) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_filestat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int size) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_filestat_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int fd, int size) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_filestat_set_size", Function.FromCallback<int, long, int>(Store, (Caller caller, int fd, long size) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_filestat_set_size", Function.FromCallback<int, long, int>(Store, (Caller caller, int fd, long size) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_pread", Function.FromCallback<int, int, int, long, int, int>(Store, (Caller caller, int fd, int size, int a, long b, int c) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_pread", Function.FromCallback<int, int, int, long, int, int>(Store, (Caller caller, int fd, int size, int a, long b, int c) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "fd_readdir", Function.FromCallback<int, int, int, long, int, int>(Store, (Caller caller, int fd, int buf, int len, long cookie, int retptr0) => {
+        Linker.Define("wasi_snapshot_preview1", "fd_readdir", Function.FromCallback<int, int, int, long, int, int>(Store, (Caller caller, int fd, int buf, int len, long cookie, int retptr0) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "path_open", Function.FromCallback<int, int, int, int, int, long, long, int, int, int>(Store, (Caller caller, int fd, int dirflags, int pathPtr, int pathLen, int ofFlags, long fsRightsBase, long fsRightsInheriting, int fdFlags, int openedFdPtr) => {
+        Linker.Define("wasi_snapshot_preview1", "path_open", Function.FromCallback<int, int, int, int, int, long, long, int, int, int>(Store, (Caller caller, int fd, int dirflags, int pathPtr, int pathLen, int ofFlags, long fsRightsBase, long fsRightsInheriting, int fdFlags, int openedFdPtr) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "path_filestat_get", Function.FromCallback<int, int, int, int, int, int>(Store, (Caller caller, int fd, int flags, int path, int retptr0, int a) => {
+        Linker.Define("wasi_snapshot_preview1", "path_filestat_get", Function.FromCallback<int, int, int, int, int, int>(Store, (Caller caller, int fd, int flags, int path, int retptr0, int a) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "path_readlink", Function.FromCallback<int, int, int, int, int, int, int>(Store, (Caller caller, int fd, int path, int buf, int buf_len, int retptr0, int a) => {
+        Linker.Define("wasi_snapshot_preview1", "path_readlink", Function.FromCallback<int, int, int, int, int, int, int>(Store, (Caller caller, int fd, int path, int buf, int buf_len, int retptr0, int a) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "path_unlink_file", Function.FromCallback<int, int, int, int>(Store, (Caller caller, int fd, int path, int a) => {
+        Linker.Define("wasi_snapshot_preview1", "path_unlink_file", Function.FromCallback<int, int, int, int>(Store, (Caller caller, int fd, int path, int a) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "poll_oneoff", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int inPtr, int outPtr, int nsubscriptions, int u) => {
+        Linker.Define("wasi_snapshot_preview1", "poll_oneoff", Function.FromCallback<int, int, int, int, int>(Store, (Caller caller, int inPtr, int outPtr, int nsubscriptions, int u) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "proc_exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) => {
+        Linker.Define("wasi_snapshot_preview1", "proc_exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) =>
+        {
 
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "sched_yield", Function.FromCallback<int>(Store, (Caller caller) => {
+        Linker.Define("wasi_snapshot_preview1", "sched_yield", Function.FromCallback<int>(Store, (Caller caller) =>
+        {
             return 0;
         }));
 
-        Linker.Define("wasi_snapshot_preview1", "random_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int buf, int len) => {
+        Linker.Define("wasi_snapshot_preview1", "random_get", Function.FromCallback<int, int, int>(Store, (Caller caller, int buf, int len) =>
+        {
             return 0;
         }));
     }

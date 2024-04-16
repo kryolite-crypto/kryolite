@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Text.Json;
+using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -38,20 +39,20 @@ public static class SendCmd
         {
             IsRequired = false
         };
-        
+
         var waitOption = new Option<bool>("--wait", "Wait for transaction to execute")
         {
             IsRequired = false
         };
 
-        sendCmd.AddValidator(result => 
+        sendCmd.AddValidator(result =>
         {
-            if(!Address.IsValid(result.GetValueForOption(fromOption) ?? string.Empty))
+            if (!Address.IsValid(result.GetValueForOption(fromOption) ?? string.Empty))
             {
                 result.ErrorMessage = "Invalid 'from' address";
             }
 
-            if(!Address.IsValid(result.GetValueForOption(toOption) ?? string.Empty))
+            if (!Address.IsValid(result.GetValueForOption(toOption) ?? string.Empty))
             {
                 result.ErrorMessage = "Invalid 'to' address";
             }
@@ -69,7 +70,7 @@ public static class SendCmd
             var walletRepository = new WalletRepository(configuration);
             var account = walletRepository.GetAccount(from);
 
-            if(account is null)
+            if (account is null)
             {
                 Console.WriteLine("Wallet not found from wallet.blob");
                 Console.WriteLine("'" + from + "'");

@@ -56,20 +56,19 @@ public class BroadcastManager : BackgroundService
             await foreach (var bytes in _channel.Reader.ReadAllAsync(stoppingToken))
             {
                 var batch = new BatchBroadcast(bytes);
-                var forward = new BatchForward(_nodeKey, batch);
+                var data = Serializer.Serialize(batch);
 
                 try
                 {
                     Parallel.ForEach(_connMan.GetConnectedNodes(), connection =>
                     {
                         var client = _connMan.CreateClient<INodeService>(connection.Node);
-                        client.Broadcast(forward);
+                        client.Broadcast(data);
                     });
                 }
-                catch (AggregateException)
+                catch (OperationCanceledException)
                 {
-                    // This gets thrown when client is unavailable
-                    // just swallow it as we dont care if target client misses broadcast
+                    // This gets thrown when client is disconnected
                 }
             }
         }

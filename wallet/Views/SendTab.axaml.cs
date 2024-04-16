@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
+using Kryolite.ByteSerializer;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -21,11 +22,12 @@ public partial class SendTab : UserControl
     public SendTab()
     {
         AvaloniaXamlLoader.Load(this);
-        
+
         Model = new();
         DataContext = Model;
 
-        Model.SendTransactionClicked += async (object? sender, EventArgs args) => {
+        Model.SendTransactionClicked += async (object? sender, EventArgs args) =>
+        {
             try
             {
                 using var scope = Program.ServiceCollection.CreateScope();
@@ -67,7 +69,8 @@ public partial class SendTab : UserControl
                         .ToUnixTimeMilliseconds();
                 }
 
-                var transaction = new Transaction {
+                var transaction = new Transaction
+                {
                     TransactionType = TransactionType.PAYMENT,
                     PublicKey = Model.SelectedWallet.PublicKey,
                     To = Model.Recipient,
@@ -76,7 +79,7 @@ public partial class SendTab : UserControl
                     Data = payload
                 };
 
-                if(TopLevel.GetTopLevel(this) is not Window window)
+                if (TopLevel.GetTopLevel(this) is not Window window)
                 {
                     return;
                 }

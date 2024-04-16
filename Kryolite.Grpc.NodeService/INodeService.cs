@@ -28,8 +28,5 @@ public interface INodeService : IWebsocketService
     ViewListResponse GetViewsForRange(ViewListRequest request);
 
     SyncResponse ShouldSync(SyncRequest request);
-
-    void Broadcast(BatchForward batch);
-
-    IAsyncEnumerable<BatchBroadcast> Listen(AuthRequest request, CancellationToken token);
+    Task Broadcast(byte[] data);
 }
