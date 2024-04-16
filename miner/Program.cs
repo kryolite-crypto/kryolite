@@ -1,16 +1,14 @@
-﻿using System.Security.Cryptography;
+using System.Security.Cryptography;
 using Kryolite.Shared;
 using System.CommandLine;
 using System.Diagnostics;
 using System.CommandLine.Parsing;
 using System.Collections.Concurrent;
 using Kryolite.Shared.Blockchain;
-using ServiceModel.Grpc.Client;
 using Kryolite.Grpc.DataService;
-using Grpc.Net.Client;
 using Kryolite.Shared.Dto;
-using Grpc.Core;
-using ServiceModel.Grpc.Marshaller;
+using System.Text;
+using System.Text.Json;
 
 namespace Kryolite.Miner;
 
@@ -41,8 +39,9 @@ public class Program
         var threadsOption = new Option<int>(name: "--threads", description: "Thread count", getDefaultValue: () => 1);
         rootCmd.AddGlobalOption(threadsOption);
 
-        rootCmd.SetHandler(async (node, address, throttle, threads) => {
-            var url = (node ?? await ZeroConf.DiscoverNodeAsync(5) ?? string.Empty).Trim('/');
+        rootCmd.SetHandler(async (node, address, throttle, threads) =>
+        {
+            var url = node ?? await ZeroConf.DiscoverNodeAsync(5) ?? string.Empty;
 
             if (string.IsNullOrEmpty(url))
             {
@@ -56,37 +55,26 @@ public class Program
                 return;
             }
 
-            var opts = new ServiceModelGrpcClientOptions
-            {
-                MarshallerFactory = MarshallerFactory.Instance
-            };
-
-            var clientFactory = new ClientFactory(opts)
-                .AddDataServiceClient();
-
-            var client = clientFactory.CreateClient<IDataService>(GrpcChannel.ForAddress(url, new GrpcChannelOptions
-            {
-                HttpClient = new HttpClient(new SocketsHttpHandler
-                {
-                    ConnectTimeout = TimeSpan.FromSeconds(5),
-                    KeepAlivePingDelay = TimeSpan.FromSeconds(10),
-                    KeepAlivePingTimeout =  TimeSpan.FromSeconds(5)
-                })
-            }));
-
             Console.WriteLine($"Address\t\t{address}");
             Console.WriteLine("Algorithm\tGrasshopper");
             Console.WriteLine($"Threads\t\t{threads}");
 
             Console.WriteLine($"Connecting to {url}");
 
+            var uri = new Uri(new Uri(url), $"?address={address}");
+            var client = new HttpClient();
+
             var hashes = 0UL;
             var blockhashes = 0UL;
             var sw = Stopwatch.StartNew();
 
-            var timer = new System.Timers.Timer(TimeSpan.FromMinutes(2));
-            timer.AutoReset = true;
-            timer.Elapsed += (sender, e) => {
+            var timer = new System.Timers.Timer(TimeSpan.FromMinutes(2))
+            {
+                AutoReset = true
+            };
+
+            timer.Elapsed += (sender, e) =>
+            {
                 if (sw.Elapsed.TotalSeconds > 0)
                 {
                     Console.WriteLine("Hashrate: {0:N2} h/s", hashes / sw.Elapsed.TotalSeconds);
@@ -103,7 +91,8 @@ public class Program
 
                 jobQueue.Add(observer);
 
-                new Thread(() => {
+                new Thread(() =>
+                {
                     var stoppingToken = StoppingSource.Token;
 
                     while (!stoppingToken.IsCancellationRequested)
@@ -164,12 +153,10 @@ public class Program
                                         Value = blocktemplate.Value
                                     };
 
-                                    var res = client.PostSolution(solution);
+                                    var payload = JsonSerializer.Serialize(blocktemplate, SharedSourceGenerationContext.Default.BlockTemplate);
+                                    var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-                                    if (!res)
-                                    {
-                                        break;
-                                    }
+                                    _ = client.PostAsync(uri, content);
                                 }
 
                                 Interlocked.Increment(ref hashes);
@@ -197,8 +184,25 @@ public class Program
 
             try
             {
-                await foreach (var blocktemplate in client.SubscribeToBlockTemplates((Address)address, StoppingSource.Token).WithCancellation(StoppingSource.Token))
+                using var streamReader = new StreamReader(await client.GetStreamAsync(url, StoppingSource.Token));
+
+                while (!streamReader.EndOfStream)
                 {
+                    var message = await streamReader.ReadLineAsync(StoppingSource.Token);
+
+                    if (message is null)
+                    {
+                        continue;
+                    }
+
+                    var blocktemplate = JsonSerializer.Deserialize(message, SharedSourceGenerationContext.Default.BlockTemplate);
+
+                    if (blocktemplate is null)
+                    {
+                        Console.WriteLine("Received invalid blocktemplate from node...");
+                        return;
+                    }
+
                     Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate.Height}, diff = {blocktemplate.Difficulty}");
 
                     var source = TokenSource;
@@ -211,14 +215,12 @@ public class Program
                         job.Add(blocktemplate);
                     }
                 }
+
+                Console.WriteLine("{0}: Disconnected", DateTime.Now);
             }
             catch (OperationCanceledException)
             {
 
-            }
-            catch (RpcException)
-            {
-                Console.WriteLine("{0}: Disconnected", DateTime.Now);
             }
             catch (Exception ex)
             {
