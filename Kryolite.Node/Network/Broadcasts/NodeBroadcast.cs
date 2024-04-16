@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Node.Repository;
 using Kryolite.ByteSerializer;
 using Kryolite.Transport.Websocket;
+using Microsoft.Extensions.Hosting;
 
 namespace Kryolite.Node.Network;
 
@@ -42,6 +43,7 @@ public class NodeBroadcast : IBroadcast
 
         var nodeTable = scope.ServiceProvider.GetRequiredService<NodeTable>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
+        var lifetime = scope.ServiceProvider.GetRequiredService<IHostApplicationLifetime>();
 
         logger.LogDebug("Received NodeBroadcast from {hostname}", node.Uri.ToHostname());
 
@@ -49,7 +51,8 @@ public class NodeBroadcast : IBroadcast
 
         if (node is null)
         {
-            nodeTable.AddNode(AuthRequest.PublicKey, new Uri(Uri));
+            var uri = new Uri(Uri);
+            nodeTable.AddNode(AuthRequest.PublicKey, uri, WebsocketChannel.ForAddress(uri, lifetime.ApplicationStopping));
 
             // Rebroadcast
             BroadcastManager.Broadcast(this);

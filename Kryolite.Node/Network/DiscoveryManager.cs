@@ -1,13 +1,11 @@
 using System.Collections.Concurrent;
 using DnsClient;
-using Grpc.Core;
-using Grpc.Net.Client;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared.Dto;
+using Kryolite.Transport.Websocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ServiceModel.Grpc.Client;
 
 namespace Kryolite.Node.Network;
 
@@ -33,7 +31,7 @@ public class DiscoveryManager : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("DiscMan       [UP]");
-        
+
         try
         {
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(15));
@@ -45,7 +43,7 @@ public class DiscoveryManager : BackgroundService
                     await LoadSeedNodes(stoppingToken);
                     await DoInitialDiscovery(stoppingToken);
                 }
-                catch (RpcException ex)
+                catch (Exception ex)
                 {
                     _logger.LogInformation(ex.Message);
                     _logger.LogInformation("Unable to contact any nodes, retrying in 15 seconds");
@@ -96,22 +94,21 @@ public class DiscoveryManager : BackgroundService
                 continue;
             }
 
-            var channel = GrpcChannel.ForAddress(uri);
-
-            var result = await channel.ConnectAsync(stoppingToken).WithTimeout(_timeout, stoppingToken);
+            var channel = WebsocketChannel.ForAddress(uri, stoppingToken);
+            var (result, reason) = await channel.Ping();
 
             if (!result)
             {
-                _logger.LogInformation("Failed to download nodes from seed {hostname}", url);
+                _logger.LogInformation("Failed to download nodes from seed {hostname}: {reason}", url, reason);
                 continue;
             }
 
             var client = _clientFactory.CreateClient<INodeService>(channel);
             var publicKey = client.GetPublicKey();
 
-            await channel.ShutdownAsync();
-
             _nodeTable.AddNode(publicKey, uri, channel);
+
+            await channel.Disconnect(stoppingToken);
         }
     }
 
@@ -126,11 +123,11 @@ public class DiscoveryManager : BackgroundService
         var activeNodes = _nodeTable.GetActiveNodes();
         var downloaded = new ConcurrentBag<NodeDto>();
 
-        await Parallel.ForEachAsync(activeNodes, async (node, ct) => 
+        await Parallel.ForEachAsync(activeNodes, async (node, ct) =>
         {
             _logger.LogInformation("Downloading nodes from {node}", node.Uri);
 
-            var result = await node.Channel.ConnectAsync(stoppingToken).WithTimeout(_timeout, stoppingToken);
+            var result = await node.Channel.Connect().WithTimeout(_timeout, stoppingToken);
 
             if (!result)
             {

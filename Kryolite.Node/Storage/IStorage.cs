@@ -1,6 +1,6 @@
 ﻿
+using Kryolite.ByteSerializer;
 using Kryolite.RocksDb;
-using Kryolite.Shared;
 
 namespace Kryolite.Node.Storage;
 

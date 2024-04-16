@@ -1,9 +1,3 @@
-using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Threading.Channels;
-using System.Threading.Tasks.Dataflow;
-using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
@@ -11,6 +5,7 @@ using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Kryolite.Transport.Websocket;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -21,6 +16,7 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
     private readonly NodeTable _nodeTable;
     private readonly IServiceProvider _sp;
     private readonly ILogger<NodeService> _logger;
+    private readonly IHttpContextAccessor _context;
     private readonly CancellationTokenSource _cts = new();
     private readonly PublicKey _nodeKey;
 
@@ -32,6 +28,7 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
         _sp = serviceProvider;
         _nodeTable = serviceProvider.GetRequiredService<NodeTable>();
         _logger = serviceProvider.GetRequiredService<ILogger<NodeService>>();
+        _context = serviceProvider.GetRequiredService<IHttpContextAccessor>();
 
         var keyRepository = serviceProvider.GetRequiredService<IKeyRepository>();
         _nodeKey = keyRepository.GetPublicKey();
@@ -209,145 +206,9 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
         return new SyncResponse(false);
     }
 
-    public virtual void Broadcast(BatchForward batch)
+    public Task Broadcast(byte[] data)
     {
-        using var scope = _sp.CreateScope();
-
-        var nodeTable = scope.ServiceProvider.GetRequiredService<NodeTable>();
-        var node = nodeTable.GetNode(batch.PublicKey);
-
-        foreach (var message in batch.Batch.Messages)
-        {
-            if (message.Length == 0)
-            {
-                continue;
-            }
-
-            var packetId = (SerializerEnum)message[0];
-
-            IBroadcast? packet = packetId switch
-            {
-                SerializerEnum.BLOCK_BROADCAST => Serializer.Deserialize<BlockBroadcast>(message),
-                SerializerEnum.NODE_BROADCAST => Serializer.Deserialize<NodeBroadcast>(message),
-                SerializerEnum.TRANSACTION_BROADCAST => Serializer.Deserialize<TransactionBroadcast>(message),
-                SerializerEnum.VIEW_BROADCAST => Serializer.Deserialize<ViewBroadcast>(message),
-                SerializerEnum.VOTE_BROADCAST => Serializer.Deserialize<VoteBroadcast>(message),
-                _ => null
-            };
-
-            if (packet is not null && node is not null)
-            {
-                PacketManager.Handle(node, packet, CancellationToken.None);
-            }
-        }
-    }
-
-    public virtual IAsyncEnumerable<BatchBroadcast> Listen(AuthRequest authRequest, CancellationToken cancellationToken)
-    {
-        if (!Authorize(authRequest, out var uri))
-        {
-            return Empty<BatchBroadcast>();
-        }
-
-        var nodeBroadcast = new NodeBroadcast(authRequest, uri.ToString());
-        BroadcastManager.Broadcast(nodeBroadcast);
-
-        var token = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, _cts.Token).Token;
-
-        return CreateOutboundChannel(token);
-    }
-
-    private bool Authorize(AuthRequest authRequest, [NotNullWhen(true)] out Uri? uri)
-    {
-        uri = null;
-
-        if (_nodeKey == authRequest.PublicKey)
-        {
-            return false;
-        }
-
-        if (!authRequest.Verify())
-        {
-            _logger.LogDebug("AuthRequest verification failed");
-            return false;
-        }
-
-        if (authRequest.NetworkName != Constant.NETWORK_NAME)
-        {
-            _logger.LogDebug("Invalid network name");
-            return false;
-        }
-
-        if (authRequest.ApiLevel < Constant.MIN_API_LEVEL)
-        {
-            _logger.LogDebug("Too low apilevel");
-            return false;
-        }
-
-        if (!string.IsNullOrEmpty(authRequest.PublicUri))
-        {
-            uri = new Uri(authRequest.PublicUri);
-            _nodeTable.AddNode(authRequest.PublicKey, uri);
-        }
-        else
-        {
-            var builder = new UriBuilder("http", _context.HttpContext!.Connection.RemoteIpAddress!.ToString(), authRequest.Port);
-            uri = builder.Uri;
-            _nodeTable.AddNode(authRequest.PublicKey, uri);
-        }
-
-        return true;
-    }
-
-    private AuthResponse CreateAuthResponse()
-    {
-        using var scope = _sp.CreateScope();
-        var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-
-        var authResponse = new AuthResponse(_nodeKey, Random.Shared.NextInt64());
-
-        authResponse.Sign(keyRepo.GetPrivateKey());
-
-        return authResponse;
-    }
-
-    private async IAsyncEnumerable<BatchBroadcast> CreateOutboundChannel([EnumeratorCancellation] CancellationToken cancellationToken)
-    {
-        var authResponse = CreateAuthResponse();
-
-        yield return new BatchBroadcast([Serializer.Serialize(authResponse)]);
-
-        var channel = Channel.CreateUnbounded<byte[][]>();
-        var action = new ActionBlock<byte[][]>(async msg => await channel.Writer.WriteAsync(msg, cancellationToken));
-
-        using var sub = BroadcastManager.Subscribe(action);
-
-        while (!cancellationToken.IsCancellationRequested)
-        {
-            byte[][]? data = null;
-
-            try
-            {
-                var open = await channel.Reader.WaitToReadAsync(cancellationToken);
-
-                if (!open)
-                {
-                    yield break;
-                }
-
-                data = await channel.Reader.ReadAsync(cancellationToken);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogDebug(ex, "Client receive stream terminated with exception");
-                yield break;
-            }
-
-            if (data is not null)
-            {
-                yield return new BatchBroadcast(data);
-            }
-        }
+        return _channel.SendDuplex(data, _cts.Token);
     }
 
     public virtual ArraySegment<byte> CallMethod(byte method, ArraySegment<byte> payload)
@@ -357,11 +218,4 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
 
     public static NodeService CreateClient(WebsocketChannel channel, IServiceProvider serviceProvider)
         => new CallerNodeService(channel, serviceProvider);
-
-#pragma warning disable CS1998 // Async method lacks 'await' operators and will run synchronously
-    private static async IAsyncEnumerable<T> Empty<T>()
-    {
-        yield break;
-    }
-#pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 }

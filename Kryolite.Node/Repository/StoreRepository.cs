@@ -1,3 +1,4 @@
+using Kryolite.ByteSerializer;
 using Kryolite.Node.Storage;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
@@ -550,15 +551,15 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void AddDueTransaction(Transaction tx)
     {
-            var id = tx.Id.ToKey();
-            var ts = tx.Timestamp.ToKey();
+        var id = tx.Id.ToKey();
+        var ts = tx.Timestamp.ToKey();
 
-            Span<byte> tsKey = stackalloc byte[(sizeof(long) * 2)]; // timestamp + id
-            
-            ts.CopyTo(tsKey);
-            id.CopyTo(tsKey[sizeof(long)..]);
+        Span<byte> tsKey = stackalloc byte[(sizeof(long) * 2)]; // timestamp + id
 
-            Storage.Put("ixScheduledTransaction", tsKey, id, CurrentTransaction);
+        ts.CopyTo(tsKey);
+        id.CopyTo(tsKey[sizeof(long)..]);
+
+        Storage.Put("ixScheduledTransaction", tsKey, id, CurrentTransaction);
     }
 
     public List<Transaction> GetDueTransactions(long timestamp, bool delete)
@@ -635,7 +636,7 @@ public class StoreRepository : IStoreRepository, IDisposable
     public void ReplaceDbFrom(string storeName)
     {
         var dataDir = Configuration?.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
-        
+
         var activeStore = Path.Combine(dataDir, $"store");
         var stagingStore = Path.Combine(dataDir, $"store.{storeName}");
 

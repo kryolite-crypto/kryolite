@@ -21,6 +21,7 @@ using System.Web;
 using Kryolite.Node.Network;
 using Avalonia.Interactivity;
 using Microsoft.Extensions.Hosting;
+using Kryolite.ByteSerializer;
 
 namespace Kryolite.Wallet;
 
@@ -31,7 +32,7 @@ public partial class MainWindow : Window
     private IEventBus _eventBus;
     private IConnectionManager _connMan;
 
-    private FileSystemWatcher _watcher = new ();
+    private FileSystemWatcher _watcher = new();
     private MainWindowViewModel _model = new MainWindowViewModel();
     public ConcurrentDictionary<Address, Account> Accounts;
 
@@ -43,7 +44,7 @@ public partial class MainWindow : Window
         _eventBus = Program.ServiceCollection.GetService<IEventBus>() ?? throw new ArgumentNullException(nameof(IEventBus));
         _connMan = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
 
-        Accounts = new (_walletManager.GetAccounts());
+        Accounts = new(_walletManager.GetAccounts());
         DataContext = _model;
 
         AvaloniaXamlLoader.Load(this);
@@ -63,37 +64,44 @@ public partial class MainWindow : Window
             }
         };
 
-        _model.ViewLogClicked += (object? sender, EventArgs args) => {
+        _model.ViewLogClicked += (object? sender, EventArgs args) =>
+        {
             var dialog = new LogViewerDialog();
             dialog.Show(this);
         };
 
-        _model.AboutClicked += (object? sender, EventArgs args) => {
+        _model.AboutClicked += (object? sender, EventArgs args) =>
+        {
             var dialog = new AboutDialog();
             dialog.Show(this);
         };
 
         _connMan.NodeConnected += async (object? sender, NodeConnection connection) =>
         {
-            await Dispatcher.UIThread.InvokeAsync(() => {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
                 _model.ConnectedPeers = _connMan.GetConnectedNodes().Count();
             });
         };
 
         _connMan.NodeDisconnected += async (object? sender, NodeConnection connection) =>
         {
-            await Dispatcher.UIThread.InvokeAsync(() => {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
                 _model.ConnectedPeers = _connMan.GetConnectedNodes().Count();
             });
         };
 
-        _eventBus.Subscribe<ChainState>(async state => {
-            await Dispatcher.UIThread.InvokeAsync(() => {
+        _eventBus.Subscribe<ChainState>(async state =>
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
                 _model.Blocks = state.Id;
             });
         });
 
-        _eventBus.Subscribe<Ledger>(async ledger => {
+        _eventBus.Subscribe<Ledger>(async ledger =>
+        {
             if (!Accounts.ContainsKey(ledger.Address))
             {
                 return;
@@ -114,7 +122,8 @@ public partial class MainWindow : Window
                 return tm;
             }).ToList();
 
-            await Dispatcher.UIThread.InvokeAsync(() => {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
                 _model.State.UpdateWallet(ledger, txs);
             });
         });
@@ -122,7 +131,8 @@ public partial class MainWindow : Window
 
     private void Initialize()
     {
-        Task.Run(async () => {
+        Task.Run(async () =>
+        {
             try
             {
                 Program.App.Start();
@@ -187,13 +197,15 @@ public partial class MainWindow : Window
             }
         });
 
-        Task.Run(async () => {
+        Task.Run(async () =>
+        {
             using var scope = Program.ServiceCollection.CreateScope();
             var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
 
             var state = blockchainManager.GetChainState();
 
-            await Dispatcher.UIThread.InvokeAsync(() => {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
                 _model.Blocks = state.Id;
             });
         });
@@ -324,7 +336,8 @@ public partial class MainWindow : Window
                 Payload = methodCall
             };
 
-            var transaction = new Transaction {
+            var transaction = new Transaction
+            {
                 TransactionType = TransactionType.PAYMENT,
                 PublicKey = account.PublicKey,
                 To = contract.Address,
@@ -337,7 +350,8 @@ public partial class MainWindow : Window
 
             var result = _storeManager.AddTransaction(new TransactionDto(transaction), true);
 
-            await Dispatcher.UIThread.InvokeAsync(async () => {
+            await Dispatcher.UIThread.InvokeAsync(async () =>
+            {
                 await ConfirmDialog.Show($"Transaction Status: {result}", true, this);
             });
         }

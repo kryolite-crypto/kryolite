@@ -46,6 +46,5 @@ public enum SerializerEnum : byte
     NODELIST_RESPONSE,
     VIEWLIST_RESPONSE,
     VIEWLIST_REQUEST,
-    BATCH_FORWARD,
     HASH_LIST
 }

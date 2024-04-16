@@ -1,4 +1,5 @@
-﻿using Kryolite.RocksDb;
+﻿using Kryolite.ByteSerializer;
+using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 

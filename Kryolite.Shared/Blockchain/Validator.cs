@@ -1,3 +1,4 @@
+using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 
 namespace Kryolite.Shared;

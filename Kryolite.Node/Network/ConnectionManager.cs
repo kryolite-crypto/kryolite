@@ -1,13 +1,14 @@
 using System.Collections.Concurrent;
+using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
+using Kryolite.Transport.Websocket;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using ServiceModel.Grpc.Client;
 
 namespace Kryolite.Node.Network;
 
@@ -24,11 +25,11 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     private readonly int _port;
 
     private readonly NodeTable _nodeTable;
-    private readonly IClientFactory _clientFactory;
     private readonly ConcurrentDictionary<PublicKey, NodeConnection> _connectedNodes = new();
     private readonly ILogger<ConnectionManager> _logger;
     private readonly TimeSpan _timeout;
     private readonly IServiceProvider _sp;
+    private readonly IClientFactory _clientFactory;
 
     private readonly PeriodicTimer _timer = new(TimeSpan.FromMinutes(1));
 
@@ -107,7 +108,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 }
 
                 await DoPeriodicConnectivityTest(stoppingToken);
-                await DoExpiredNodeCleanup();
+                await DoExpiredNodeCleanup(stoppingToken);
                 await AdjustConnectionsToClosestNodes(stoppingToken);
             }
         }
@@ -136,7 +137,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             {
                 try
                 {
-                    var success = await node.Channel.ConnectAsync(stoppingToken).WithTimeout(_timeout, stoppingToken);
+                    var (success, _) = await node.Channel.Ping();
 
                     if (success)
                     {
@@ -162,16 +163,14 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     /// <summary>
     /// Cleanup nodes that have been inactive for over 24 hours
     /// </summary>
-    private async Task DoExpiredNodeCleanup()
+    private async Task DoExpiredNodeCleanup(CancellationToken stoppingToken)
     {
         var expiringNodes = _nodeTable.GetExpiringNodes();
 
         foreach (var node in expiringNodes)
         {
             _nodeTable.RemoveNode(node);
-
-            await node.Channel.ShutdownAsync();
-            node.Dispose();
+            await node.Channel.Disconnect(stoppingToken);
         }
     }
 
@@ -198,7 +197,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         {
             if (!closestNodes.Any(x => x.PublicKey == connection.Node.PublicKey))
             {
-                await connection.Node.Channel.ShutdownAsync();
+                await connection.Node.Channel.Disconnect(stoppingToken);
             }
         }
     }
@@ -259,7 +258,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     }
 
     /// <summary>
-    /// Task to hold live connection, will be closed after disconnectiong happens and reconnect attempts do not work
+    /// Task to hold live connection, will be closed after disconnecting
     /// </summary>
     /// <param name="node"></param>
     /// <param name="cancellationToken"></param>
@@ -271,7 +270,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
         try
         {
-            var success = await node.Channel.ConnectAsync(cancellationToken).WithTimeout(_timeout, cancellationToken);
+            var authRequest = CreateAuthRequest();
+            var success = node.Channel.Connect(authRequest, out _);
 
             if (!success)
             {
@@ -304,40 +304,31 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 }
             }
 
-            var nonce = Random.Shared.NextInt64();
-            var challenge = client.GenerateChallenge(nonce);
-            var authRequest = CreateAuthRequest(challenge);
-            
             var auth = false;
 
-            await foreach (var batch in client.Listen(authRequest, cancellationToken))
+            await foreach (var batch in node.Channel.Broadcasts.Reader.ReadAllAsync(cancellationToken))
             {
                 node.LastSeen = DateTime.Now;
 
-                var data = batch.Messages;
+                if (batch.Count == 0)
+                {
+                    continue;
+                }
+
+                var data = Serializer.Deserialize<BatchBroadcast>(batch);
 
                 if (!auth)
                 {
-                    if (data.Length != 1)
+                    if (data.Messages.Length != 1)
                     {
                         throw new AuthorizationException("expected authorization response but got something else");
                     }
 
-                    var authResponse = Serializer.Deserialize<AuthResponse>(data[0]);
-
-                    if (authResponse is null)
-                    {
-                        throw new AuthorizationException("expected authorization response but deserialization failed");
-                    }
+                    var authResponse = Serializer.Deserialize<AuthResponse>(data.Messages[0]) ?? throw new AuthorizationException("expected authorization response but deserialization failed");
 
                     if (authResponse.PublicKey != node.PublicKey)
                     {
                         throw new AuthorizationException($"expected authorization response to have public key '{node.PublicKey}' but got '{authResponse.PublicKey}'");
-                    }
-
-                    if (authResponse.Nonce != nonce)
-                    {
-                        throw new AuthorizationException($"expected authorization response to have nonce '{nonce}' but got '{authResponse.Nonce}'");
                     }
 
                     if (!authResponse.Verify())
@@ -356,7 +347,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 
                 try
                 {
-                    foreach (var message in data)
+                    foreach (var message in data.Messages)
                     {
                         if (message.Length == 0)
                         {
@@ -407,7 +398,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         }
         finally
         {
-            await connection.Node.Channel.ShutdownAsync();
+            await connection.Node.Channel.Disconnect(cancellationToken);
 
             if (wasConnected)
             {
@@ -418,12 +409,12 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         }
     }
 
-    private AuthRequest CreateAuthRequest(long challenge)
+    private AuthRequest CreateAuthRequest()
     {
         using var scope = _sp.CreateScope();
 
         var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-        var authRequest = new AuthRequest(_nodeKey, _publicAddr, _port, challenge);
+        var authRequest = new AuthRequest(_nodeKey, _publicAddr, _port);
 
         authRequest.Sign(keyRepo.GetPrivateKey());
 

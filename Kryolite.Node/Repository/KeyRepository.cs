@@ -1,3 +1,4 @@
+using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 

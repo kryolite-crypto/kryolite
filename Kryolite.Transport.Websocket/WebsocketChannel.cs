@@ -1,8 +1,12 @@
-﻿using System.Buffers;
+using System.Buffers;
+using System.Buffers.Text;
 using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using System.Net;
 using System.Net.WebSockets;
 using System.Threading.Channels;
+using Kryolite.ByteSerializer;
+using Kryolite.Shared;
 
 namespace Kryolite.Transport.Websocket;
 
@@ -26,6 +30,8 @@ public class WebsocketChannel : IDisposable
     private static readonly byte[] _unaryRequest = [1];
     private static readonly byte[] _unaryReply = [2];
 
+    private static readonly HttpClient _httpClient = new();
+
     public long BytesSent { get; private set; }
     public long BytesReceived { get; private set; }
     public long MessagesSent { get; private set; }
@@ -45,7 +51,47 @@ public class WebsocketChannel : IDisposable
         return new WebsocketChannel(uri, ws, token);
     }
 
-    public bool Connect([NotNullWhen(false)]out string? reason)
+    public async ValueTask<(bool, string)> Ping()
+    {
+        try
+        {
+            if (_ws.State == WebSocketState.Connecting || _ws.State == WebSocketState.Open)
+            {
+                return (true, string.Empty);
+            }
+
+            var result = await _httpClient.GetAsync(new Uri(_uri, "?action=ping"), _cts.Token);
+
+            return (result.IsSuccessStatusCode, result.ReasonPhrase ?? string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+
+    public async ValueTask<(AuthResponse?, string)> GetPublicKey()
+    {
+        try
+        {
+            var result = await _httpClient.GetAsync(new Uri(_uri, "?action=whois"), _cts.Token);
+
+            if (!result.IsSuccessStatusCode)
+            {
+                return (null, result.ReasonPhrase ?? string.Empty);
+            }
+
+            var bytes = await result.Content.ReadAsByteArrayAsync();
+
+            return (Serializer.Deserialize<AuthResponse>(bytes), string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return (null, ex.ToString());
+        }
+    }
+
+    public bool Connect(AuthRequest authRequest, [NotNullWhen(false)] out string? reason)
     {
         reason = null;
 
@@ -59,6 +105,9 @@ public class WebsocketChannel : IDisposable
             if (_ws is not ClientWebSocket ws)
             {
                 ws = new ClientWebSocket();
+
+                var auth = Serializer.Serialize(authRequest);
+                ws.Options.SetRequestHeader("Authorize", Convert.ToBase64String(auth));
 
                 _ws.Dispose();
                 _ws = ws;
@@ -167,7 +216,8 @@ public class WebsocketChannel : IDisposable
             var length = (int)stream.Length;
             var data = new ArraySegment<byte>(stream.GetBuffer()).Slice(0, length);
 
-            _ = Task.Run(async () => {
+            _ = Task.Run(async () =>
+            {
                 switch (data[0])
                 {
                     case 0:
