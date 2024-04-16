@@ -61,7 +61,7 @@ public class Program
 
             Console.WriteLine($"Connecting to {url}");
 
-            var uri = new Uri(new Uri(url), $"?address={address}");
+            var uri = new Uri(url);
             var client = new HttpClient();
 
             var hashes = 0UL;
@@ -156,7 +156,7 @@ public class Program
                                     var payload = JsonSerializer.Serialize(blocktemplate, SharedSourceGenerationContext.Default.BlockTemplate);
                                     var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-                                    _ = client.PostAsync(uri, content);
+                                    _ = client.PostAsync(new Uri(uri, "blocktemplate"), content);
                                 }
 
                                 Interlocked.Increment(ref hashes);
@@ -184,7 +184,7 @@ public class Program
 
             try
             {
-                using var streamReader = new StreamReader(await client.GetStreamAsync(url, StoppingSource.Token));
+                using var streamReader = new StreamReader(await client.GetStreamAsync(new Uri(uri, $"blocktemplate/{address}/listen"), StoppingSource.Token));
 
                 while (!streamReader.EndOfStream)
                 {

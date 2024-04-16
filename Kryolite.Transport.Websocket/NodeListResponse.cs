@@ -1,7 +1,7 @@
 using Kryolite.ByteSerializer;
 using Kryolite.Shared.Dto;
 
-namespace Kryolite.Grpc.NodeService;
+namespace Kryolite.Transport.Websocket;
 
 public class NodeListResponse : ISerializable
 {

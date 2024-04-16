@@ -58,6 +58,12 @@ public class DiscoveryManager : BackgroundService
         }
     }
 
+    /// <summary>
+    /// Download seed nodes, verify their public key and add them to NodeTable
+    /// </summary>
+    /// <param name="stoppingToken"></param>
+    /// <returns></returns>
+    /// <exception cref="InvalidOperationException"></exception>
     private async Task LoadSeedNodes(CancellationToken stoppingToken)
     {
         var discovery = _configuration.GetValue<bool>("discovery");
@@ -103,15 +109,31 @@ public class DiscoveryManager : BackgroundService
                 continue;
             }
 
-            var client = _clientFactory.CreateClient<INodeService>(channel);
-            var publicKey = client.GetPublicKey();
+            var (authResponse, error) = await channel.GetPublicKey();
 
-            _nodeTable.AddNode(publicKey, uri, channel);
+            if (authResponse is null)
+            {
+                _logger.LogInformation("Failed to request node public key {hostname}: {error}", url, error);
+                continue;
+            }
+
+            if (!authResponse.Verify())
+            {
+                _logger.LogInformation("Node signature failed {hostname}", url);
+                continue;
+            }
+
+            _nodeTable.AddNode(authResponse.PublicKey, uri, channel);
 
             await channel.Disconnect(stoppingToken);
         }
     }
 
+    /// <summary>
+    /// Download peers from known nodes and add them to NodeTable
+    /// </summary>
+    /// <param name="stoppingToken"></param>
+    /// <returns></returns>
     private async Task DoInitialDiscovery(CancellationToken stoppingToken)
     {
         if (_nodeTable.GetNodesCount() == 0)
@@ -127,18 +149,15 @@ public class DiscoveryManager : BackgroundService
         {
             _logger.LogInformation("Downloading nodes from {node}", node.Uri);
 
-            var result = await node.Channel.Connect().WithTimeout(_timeout, stoppingToken);
+            var (peerList, error) = await node.Channel.GetPeers();
 
-            if (!result)
+            if (peerList is null)
             {
-                _logger.LogInformation("Failed to download nodes from {hostname}", node.Uri.ToHostname());
+                _logger.LogInformation("Failed to download nodes from {hostname}: {error}", node.Uri.ToHostname(), error);
                 return;
             }
 
-            var client = _clientFactory.CreateClient<INodeService>(node.Channel);
-            var nodes = client.GetPeers();
-
-            foreach (var peer in nodes.Nodes)
+            foreach (var peer in peerList.Nodes)
             {
                 downloaded.Add(peer);
             }
@@ -150,7 +169,7 @@ public class DiscoveryManager : BackgroundService
 
         Parallel.ForEach(distinct, nodeDto =>
         {
-            _nodeTable.AddNode(nodeDto.PublicKey, new Uri(nodeDto.Url));
+            _nodeTable.AddNode(nodeDto.PublicKey, new Uri(nodeDto.Url), WebsocketChannel.ForAddress(new Uri(nodeDto.Url), stoppingToken));
         });
     }
 }
