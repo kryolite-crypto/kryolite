@@ -7,6 +7,7 @@ using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Shared.Dto;
 using Kryolite.Transport.Websocket;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -40,6 +41,22 @@ public static class WebsocketApi
 
                         ctx.Response.StatusCode = StatusCodes.Status200OK;
                         await ctx.Response.BodyWriter.WriteAsync(Serializer.Serialize(authResponse));
+                    }
+                    break;
+                case "peers":
+                    {
+                        using var scope2 = sp.CreateScope();
+                        
+                        var nodeTable2 = scope2.ServiceProvider.GetRequiredService<NodeTable>();
+                        var peerList = new NodeListResponse(nodeTable2
+                            .GetActiveNodes()
+                            .Select(x => new NodeDto(x.PublicKey, x.Uri
+                            .ToString(), x.LastSeen))
+                            .ToList()
+                        );
+
+                        ctx.Response.StatusCode = StatusCodes.Status200OK;
+                        await ctx.Response.BodyWriter.WriteAsync(Serializer.Serialize(peerList));
                     }
                     break;
                 default:

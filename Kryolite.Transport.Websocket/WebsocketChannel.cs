@@ -51,6 +51,10 @@ public class WebsocketChannel : IDisposable
         return new WebsocketChannel(uri, ws, token);
     }
 
+    /// <summary>
+    /// Test connection to node
+    /// </summary>
+    /// <returns></returns>
     public async ValueTask<(bool, string)> Ping()
     {
         try
@@ -70,6 +74,10 @@ public class WebsocketChannel : IDisposable
         }
     }
 
+    /// <summary>
+    /// Get public key from node
+    /// </summary>
+    /// <returns></returns>
     public async ValueTask<(AuthResponse?, string)> GetPublicKey()
     {
         try
@@ -84,6 +92,31 @@ public class WebsocketChannel : IDisposable
             var bytes = await result.Content.ReadAsByteArrayAsync();
 
             return (Serializer.Deserialize<AuthResponse>(bytes), string.Empty);
+        }
+        catch (Exception ex)
+        {
+            return (null, ex.ToString());
+        }
+    }
+
+    /// <summary>
+    /// Get peers from node
+    /// </summary>
+    /// <returns></returns>
+    public async ValueTask<(NodeListResponse?, string)> GetPeers()
+    {
+        try
+        {
+            var result = await _httpClient.GetAsync(new Uri(_uri, "?action=peers"), _cts.Token);
+
+            if (!result.IsSuccessStatusCode)
+            {
+                return (null, result.ReasonPhrase ?? string.Empty);
+            }
+
+            var bytes = await result.Content.ReadAsByteArrayAsync();
+
+            return (Serializer.Deserialize<NodeListResponse>(bytes), string.Empty);
         }
         catch (Exception ex)
         {

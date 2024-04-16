@@ -15,6 +15,7 @@ public static class EventApi
         builder.MapGet("chainstate/listen", ListenChainstate);
         builder.MapGet("ledger/{address}/listen", ListenLedger);
         builder.MapGet("contract/{address}/listen", ListenContract);
+        builder.MapGet("blocktemplate/{address}/listen", ListenBlockTemplate);
 
         return builder;
     }
@@ -34,14 +35,8 @@ public static class EventApi
         await ct.WhenCancelled();
     }
 
-    private static async Task ListenBlocktemplate(HttpContext ctx, IEventBus eventBus, IStoreManager storeManager, CancellationToken ct)
+    private static async Task ListenBlockTemplate(HttpContext ctx, string address, IEventBus eventBus, IStoreManager storeManager, CancellationToken ct)
     {
-        if (!ctx.Request.Query.TryGetValue("address", out var address))
-        {
-            ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-            return;
-        }
-
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
 
         using var subId = eventBus.Subscribe<ChainState>(async state =>
