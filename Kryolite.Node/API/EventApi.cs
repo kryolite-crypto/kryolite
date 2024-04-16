@@ -1,3 +1,4 @@
+using System.Net;
 using System.Text.Json;
 using Kryolite.EventBus;
 using Kryolite.Shared;
@@ -26,6 +27,29 @@ public static class EventApi
         {
             await ctx.Response.WriteAsync($"data: ");
             await JsonSerializer.SerializeAsync(ctx.Response.Body, state, SharedSourceGenerationContext.Default.ChainState);
+            await ctx.Response.WriteAsync($"\n\n");
+            await ctx.Response.Body.FlushAsync();
+        });
+
+        await ct.WhenCancelled();
+    }
+
+    private static async Task ListenBlocktemplate(HttpContext ctx, IEventBus eventBus, IStoreManager storeManager, CancellationToken ct)
+    {
+        if (!ctx.Request.Query.TryGetValue("address", out var address))
+        {
+            ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            return;
+        }
+
+        ctx.Response.Headers.Append("Content-Type", "text/event-stream");
+
+        using var subId = eventBus.Subscribe<ChainState>(async state =>
+        {
+            var blocktemplate = storeManager.GetBlocktemplate(address.ToString());
+
+            await ctx.Response.WriteAsync($"data: ");
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, blocktemplate, SharedSourceGenerationContext.Default.BlockTemplate);
             await ctx.Response.WriteAsync($"\n\n");
             await ctx.Response.Body.FlushAsync();
         });
