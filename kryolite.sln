@@ -36,8 +36,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Wallet.Tests", "Kr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Grpc.NodeService", "Kryolite.Grpc.NodeService\Kryolite.Grpc.NodeService.csproj", "{00B275FB-9438-48FB-B9AF-948726CCB1DB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Grpc.DataService", "Kryolite.Grpc.DataService\Kryolite.Grpc.DataService.csproj", "{884A9E71-988B-42F8-8AA6-9D0E46962541}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Transport.WebSocket", "Kryolite.Transport.Websocket\Kryolite.Transport.Websocket.csproj", "{933052D2-04A8-44F0-90F4-A3E9A71AA738}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.ByteSerializer", "Kryolite.Serializer\Kryolite.ByteSerializer.csproj", "{33832747-6FF2-46D8-B6D8-DAA494082048}"
@@ -104,10 +102,6 @@ Global
 		{00B275FB-9438-48FB-B9AF-948726CCB1DB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{00B275FB-9438-48FB-B9AF-948726CCB1DB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{00B275FB-9438-48FB-B9AF-948726CCB1DB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{884A9E71-988B-42F8-8AA6-9D0E46962541}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{884A9E71-988B-42F8-8AA6-9D0E46962541}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{884A9E71-988B-42F8-8AA6-9D0E46962541}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{884A9E71-988B-42F8-8AA6-9D0E46962541}.Release|Any CPU.Build.0 = Release|Any CPU
 		{933052D2-04A8-44F0-90F4-A3E9A71AA738}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{933052D2-04A8-44F0-90F4-A3E9A71AA738}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{933052D2-04A8-44F0-90F4-A3E9A71AA738}.Release|Any CPU.ActiveCfg = Release|Any CPU

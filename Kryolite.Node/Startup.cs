@@ -2,7 +2,6 @@ using System.Net;
 using System.Reflection;
 using DnsClient;
 using Kryolite.EventBus;
-using Kryolite.Grpc.DataService;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
@@ -110,6 +109,7 @@ public static class Startup
         app.UseForwardedHeaders();
         app.UseRouting();
         app.UseCors();
+        app.UseWebSockets();
         app.UseKryoliteRpc();
 
         app.UseEndpoints(endpoints =>
@@ -130,8 +130,7 @@ public static class Startup
                 .AddSingleton<IKeyRepository, KeyRepository>()
                 .AddSingleton<NodeTable>()
                 .AddSingleton<IConnectionManager, ConnectionManager>()
-                .AddScoped<INodeService, NodeService>()
-                .AddScoped<IDataService, DataService>()
+                .AddSingleton<IClientFactory, ClientFactory>()
                 .AddScoped<IStoreRepository, StoreRepository>()
                 .AddScoped<IStoreManager, StoreManager>()
                 .AddScoped<IWalletRepository, WalletRepository>()

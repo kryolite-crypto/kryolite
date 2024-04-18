@@ -41,7 +41,7 @@ public class VoteBroadcast : IBroadcast
             return Task.CompletedTask;
         }
 
-        var client = connManager.CreateClient<INodeService>(node);
+        var client = connManager.CreateClient(node);
         var vote = client.GetVote(Votehash);
 
         if (vote is not null)

@@ -18,8 +18,6 @@
 
   <ItemGroup>
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
-    <ProjectReference Include="..\Kryolite.Grpc.DataService\Kryolite.Grpc.DataService.csproj" />
-    <ProjectReference Include="..\Kryolite.Grpc.Marshaller\Kryolite.Grpc.Marshaller.csproj" />
   </ItemGroup>
 
   <ItemGroup>

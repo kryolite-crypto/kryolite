@@ -178,7 +178,7 @@ public class ValidatorService : BackgroundService
 
                     foreach (var node in nodes)
                     {
-                        var client = connectionManager.CreateClient<INodeService>(node);
+                        var client = connectionManager.CreateClient(node);
                         var view = client.GetViewForId(nextId);
 
                         if (view is not null)

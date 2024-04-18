@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Text;
 using System.Text.Json;
+using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -96,7 +97,12 @@ public static class ContractCmd
 
             tx.Sign(privKey);
             
-            var result = client.AddTransaction(new TransactionDto(tx));
+            var txjson = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
+            using var content = new StringContent(txjson, Encoding.UTF8, "application/json");
+
+            var result = await client.PostAsync("tx", content);
+
+            Console.WriteLine(await result.Content.ReadAsStringAsync());
 
             Console.WriteLine(result);
             Console.WriteLine(contract.ToAddress(bytes));

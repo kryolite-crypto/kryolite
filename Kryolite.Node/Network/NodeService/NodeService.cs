@@ -16,7 +16,6 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
     private readonly NodeTable _nodeTable;
     private readonly IServiceProvider _sp;
     private readonly ILogger<NodeService> _logger;
-    private readonly IHttpContextAccessor _context;
     private readonly CancellationTokenSource _cts = new();
     private readonly PublicKey _nodeKey;
 
@@ -28,7 +27,6 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
         _sp = serviceProvider;
         _nodeTable = serviceProvider.GetRequiredService<NodeTable>();
         _logger = serviceProvider.GetRequiredService<ILogger<NodeService>>();
-        _context = serviceProvider.GetRequiredService<IHttpContextAccessor>();
 
         var keyRepository = serviceProvider.GetRequiredService<IKeyRepository>();
         _nodeKey = keyRepository.GetPublicKey();

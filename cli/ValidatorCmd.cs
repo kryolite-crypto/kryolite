@@ -1,4 +1,6 @@
 using System.CommandLine;
+using System.Text;
+using System.Text.Json;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -37,7 +39,8 @@ public static class ValidatorCmd
             var repository = new KeyRepository(configuration);
             var pubKey = repository.GetPublicKey();
 
-            var validator = client.GetValidator(pubKey.ToAddress().ToString());
+            var result = await client.GetAsync($"validator/{pubKey.ToAddress()}");
+            var validator = JsonSerializer.Deserialize(await result.Content.ReadAsStringAsync(), SharedSourceGenerationContext.Default.Validator);
 
             if (validator is null)
             {
@@ -89,7 +92,12 @@ public static class ValidatorCmd
 
         tx.Sign(repository.GetPrivateKey());
 
-        var result = client.AddTransaction(new TransactionDto(tx));
+        var payload = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
+        using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+
+        var result = await client.PostAsync("tx", content);
+
+        Console.WriteLine(await result.Content.ReadAsStringAsync());
 
         Console.WriteLine(result);
     }
