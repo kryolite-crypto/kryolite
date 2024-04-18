@@ -23,7 +23,8 @@ public static class Constant
     public static readonly ImmutableArray<Address> SEED_VALIDATORS =
     [
         "kryo:adcun6jzg5df27gvueh8sc5mctt3wht8qidhx3xd",
-        "kryo:aafj8hfvxa9fsrbpzh9sux3jvqh4zd3skbedzhsc"
+        "kryo:aafj8hfvxa9fsrbpzh9sux3jvqh4zd3skbedzhsc",
+        "kryo:abgb3hiv63mwsitjizvh53ph5drab5xcu28ngzxb" // TODO: remove
     ];
 
     public static readonly Address DEV_FEE_ADDRESS = "kryo:aae9j3trpd4np32ew5it9hzgg3hq645kfxbd8azr";

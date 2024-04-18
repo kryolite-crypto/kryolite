@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.Text;
 using System.Text.Json;
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
@@ -113,9 +114,12 @@ public static class SendCmd
 
             tx.Sign(privKey);
 
-            var result = client.AddTransaction(new TransactionDto(tx));
+            var payload = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
+            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-            Console.WriteLine(result);
+            var result = await client.PostAsync("tx", content);
+
+            Console.WriteLine(await result.Content.ReadAsStringAsync());
         }, fromOption, toOption, amountOption, nodeOption, contractMethodOption, contractParamsOption, waitOption);
 
         return sendCmd;

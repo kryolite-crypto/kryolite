@@ -1,11 +1,7 @@
 ﻿using System.CommandLine;
-using Grpc.Net.Client;
 using Kryolite.Cli;
-using Kryolite.Grpc.DataService;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
-using ServiceModel.Grpc.Client;
-using ServiceModel.Grpc.Marshaller;
 
 public class Program
 {
@@ -34,26 +30,15 @@ public class Program
         return await rootCmd.InvokeAsync(args);
     }
 
-    public static async Task<IDataService> CreateClient(string? node)
+    public static async Task<HttpClient> CreateClient(string? node)
     {
         node ??= await ZeroConf.DiscoverNodeAsync();
 
-        var opts = new ServiceModelGrpcClientOptions
+        var client = new HttpClient()
         {
-            MarshallerFactory = MarshallerFactory.Instance
+            BaseAddress = new (node)
         };
 
-        var clientFactory = new ClientFactory(opts)
-            .AddDataServiceClient();
-
-        return clientFactory.CreateClient<IDataService>(GrpcChannel.ForAddress(node, new GrpcChannelOptions
-        {
-            HttpClient = new HttpClient(new SocketsHttpHandler
-            {
-                ConnectTimeout = TimeSpan.FromSeconds(5),
-                KeepAlivePingDelay = TimeSpan.FromSeconds(10),
-                KeepAlivePingTimeout =  TimeSpan.FromSeconds(5)
-            })
-        }));
+        return client;
     }
 }

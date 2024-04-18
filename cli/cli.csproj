@@ -13,12 +13,10 @@
     <SelfContained>true</SelfContained> 
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
     <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
-      </PropertyGroup>
+  </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
-    <ProjectReference Include="..\Kryolite.Grpc.DataService\Kryolite.Grpc.DataService.csproj" />
-    <ProjectReference Include="..\Kryolite.Grpc.Marshaller\Kryolite.Grpc.Marshaller.csproj" />
     <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
     <ProjectReference Include="..\Kryolite.Node\Kryolite.Node.csproj" />
   </ItemGroup>

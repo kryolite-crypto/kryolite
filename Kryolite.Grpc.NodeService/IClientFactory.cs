@@ -1,11 +1,8 @@
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
 using Kryolite.Transport.Websocket;
 
 namespace Kryolite.Grpc.NodeService;
 
-public interface IClientFactory : IWebsocketService
+public interface IClientFactory
 {
-    T CreateClient<T>(WebsocketChannel channel);
+    INodeService CreateClient(WebsocketChannel channel);
 }

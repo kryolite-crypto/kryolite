@@ -18,8 +18,6 @@
     <ProjectReference Include="..\Kryolite.Upnp\Kryolite.Upnp.csproj" />
     <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
     <ProjectReference Include="..\Kryolite.Grpc.NodeService\Kryolite.Grpc.NodeService.csproj" />
-    <ProjectReference Include="..\Kryolite.Grpc.DataService\Kryolite.Grpc.DataService.csproj" />
-    <ProjectReference Include="..\Kryolite.Transport.Websocket\Kryolite.Transport.Websocket.csproj" />
   </ItemGroup>
 
   <ItemGroup>

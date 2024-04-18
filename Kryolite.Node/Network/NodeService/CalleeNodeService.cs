@@ -81,4 +81,37 @@ public sealed class CalleeNodeService(WebsocketChannel channel, IServiceProvider
         var response = base.ShouldSync(request);
         return Serializer.Serialize(response);
     }
+
+    public override ArraySegment<byte> CallMethod(byte methodByte, ArraySegment<byte> payload)
+    {
+        var method = (NodeServiceMethod)methodByte;
+
+        switch (method)
+        {
+            case NodeServiceMethod.GET_PEERS:
+                return GetPeers();
+            case NodeServiceMethod.GET_PUBLIC_KEY:
+                return GetPublicKey();
+            case NodeServiceMethod.GET_VIEW_FOR_ID:
+                return GetViewForId(payload);
+            case NodeServiceMethod.GET_VIEW_FOR_HASH:
+                return GetViewForHash(payload);
+            case NodeServiceMethod.GET_BLOCK:
+                return GetBlock(payload);
+            case NodeServiceMethod.GET_VOTE:
+                return GetVote(payload);
+            case NodeServiceMethod.GET_TRANSACTION:
+                return GetTransaction(payload);
+            case NodeServiceMethod.SUGGEST_VIEW:
+                return SuggestView(payload);
+            case NodeServiceMethod.FIND_COMMON_HEIGHT:
+                return FindCommonHeight(payload);
+            case NodeServiceMethod.GET_VIEWS_FOR_RANGE:
+                return GetViewsForRange(payload);
+            case NodeServiceMethod.SHOULD_SYNC:
+                return ShouldSync(payload);
+            default:
+                throw new NotImplementedException(methodByte.ToString());
+        }
+    }
 }

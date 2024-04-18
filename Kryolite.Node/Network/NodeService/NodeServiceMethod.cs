@@ -12,5 +12,5 @@ public enum NodeServiceMethod : byte
     FIND_COMMON_HEIGHT,
     GET_VIEWS_FOR_RANGE,
     SHOULD_SYNC,
-    GENERATE_CHALLENGE
+    GET_TRANSACTION
 }

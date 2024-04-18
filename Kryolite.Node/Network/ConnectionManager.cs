@@ -281,7 +281,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 return;
             }
 
-            var client = _clientFactory.CreateClient<INodeService>(node.Channel);
+            var client = _clientFactory.CreateClient(node.Channel);
 
             using (var scope = _sp.CreateScope())
             {
@@ -295,7 +295,9 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                     Weight = chainState.Weight
                 };
 
+                Console.WriteLine("Start ShouldSync");
                 var syncResponse = client.ShouldSync(syncRequest);
+                Console.WriteLine("End ShouldSync");
 
                 if (syncResponse.ShouldSync)
                 {
@@ -426,14 +428,14 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         return _connectedNodes.Values.ToList();
     }
 
-    public T CreateClient<T>(NodeConnection connection) where T : class
+    public INodeService CreateClient(NodeConnection connection)
     {
-        return _clientFactory.CreateClient<T>(connection.Node.Channel);
+        return _clientFactory.CreateClient(connection.Node.Channel);
     }
 
-    public T CreateClient<T>(Node node) where T : class
+    public INodeService CreateClient(Node node)
     {
-        return _clientFactory.CreateClient<T>(node.Channel);
+        return _clientFactory.CreateClient(node.Channel);
     }
 }
 

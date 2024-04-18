@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.CommandLine.Parsing;
 using System.Collections.Concurrent;
 using Kryolite.Shared.Blockchain;
-using Kryolite.Grpc.DataService;
 using Kryolite.Shared.Dto;
 using System.Text;
 using System.Text.Json;
@@ -61,8 +60,10 @@ public class Program
 
             Console.WriteLine($"Connecting to {url}");
 
-            var uri = new Uri(url);
-            var client = new HttpClient();
+            var client = new HttpClient()
+            {
+                BaseAddress = new Uri(url)
+            };
 
             var hashes = 0UL;
             var blockhashes = 0UL;
@@ -154,9 +155,9 @@ public class Program
                                     };
 
                                     var payload = JsonSerializer.Serialize(blocktemplate, SharedSourceGenerationContext.Default.BlockTemplate);
-                                    var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                                    using var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-                                    _ = client.PostAsync(new Uri(uri, "blocktemplate"), content);
+                                    _ = client.PostAsync("blocktemplate", content);
                                 }
 
                                 Interlocked.Increment(ref hashes);
@@ -184,7 +185,7 @@ public class Program
 
             try
             {
-                using var streamReader = new StreamReader(await client.GetStreamAsync(new Uri(uri, $"blocktemplate/{address}/listen"), StoppingSource.Token));
+                using var streamReader = new StreamReader(await client.GetStreamAsync($"blocktemplate/{address}/listen", StoppingSource.Token));
 
                 while (!streamReader.EndOfStream)
                 {

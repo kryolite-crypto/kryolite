@@ -60,7 +60,7 @@ public class ViewBroadcast : IBroadcast
             return Task.CompletedTask;
         }
 
-        var client = connManager.CreateClient<INodeService>(node);
+        var client = connManager.CreateClient(node);
 
         // Check that this view extends our current view
         if (LastHash != chainState.ViewHash)

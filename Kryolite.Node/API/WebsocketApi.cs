@@ -40,7 +40,7 @@ public static class WebsocketApi
                         var authResponse = CreateAuthResponse(sp);
 
                         ctx.Response.StatusCode = StatusCodes.Status200OK;
-                        await ctx.Response.BodyWriter.WriteAsync(Serializer.Serialize(authResponse));
+                        await ctx.Response.BodyWriter.WriteAsync(Serializer.Serialize(authResponse), cancellationToken);
                     }
                     break;
                 case "peers":
@@ -56,7 +56,7 @@ public static class WebsocketApi
                         );
 
                         ctx.Response.StatusCode = StatusCodes.Status200OK;
-                        await ctx.Response.BodyWriter.WriteAsync(Serializer.Serialize(peerList));
+                        await ctx.Response.BodyWriter.WriteAsync(Serializer.Serialize(peerList), cancellationToken);
                     }
                     break;
                 default:
@@ -74,6 +74,14 @@ public static class WebsocketApi
         }
 
         var authorization = ctx.Request.Headers.Authorization.ToString();
+        Console.WriteLine(authorization);
+
+        if (authorization is null)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status400BadRequest;
+            return;
+        }
+
         var authRequest = Serializer.Deserialize<AuthRequest>(Convert.FromBase64String(authorization));
 
         if (!Authorize(ctx, authRequest, sp, out var uri, out var publicKey))
@@ -97,6 +105,7 @@ public static class WebsocketApi
         try
         {
             var authResponse = CreateAuthResponse(sp);
+
             // TODO: avoid double serialize (Custom BatchBroadcast for this purpose?)
             await channel.SendDuplex(Serializer.Serialize(new BatchBroadcast([Serializer.Serialize(authResponse)])), ctx.RequestAborted);
 
@@ -151,8 +160,11 @@ public static class WebsocketApi
         }
         catch (OperationCanceledException)
         {
+            Console.WriteLine("ocex");
             // Do nothing
         }
+
+        Console.WriteLine("Request disconnected");
     }
 
     private static bool Authorize(HttpContext ctx, AuthRequest authRequest, IServiceProvider sp, [NotNullWhen(true)] out Uri? uri, [NotNullWhen(true)] out PublicKey? publicKey)

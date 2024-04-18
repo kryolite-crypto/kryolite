@@ -41,7 +41,7 @@ public class BlockBroadcast : IBroadcast
             return Task.CompletedTask;
         }
 
-        var client = connManager.CreateClient<INodeService>(node);
+        var client = connManager.CreateClient(node);
         var block = client.GetBlock(Blockhash);
 
         if (block is not null)

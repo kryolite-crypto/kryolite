@@ -2,7 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Kryolite.Serializer/Kryolite.ByteSerializer.csproj" />
-    <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
+    <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -93,7 +93,7 @@ public sealed class CallerNodeService(WebsocketChannel channel, IServiceProvider
     public override TransactionDto? GetTransaction(SHA256Hash hash)
     {
         var writer = new ArrayBufferWriter<byte>(1);
-        writer.GetSpan()[0] = (byte)NodeServiceMethod.GET_VOTE;
+        writer.GetSpan()[0] = (byte)NodeServiceMethod.GET_TRANSACTION;
         writer.Advance(1);
 
         Serializer.Serialize(hash, writer);

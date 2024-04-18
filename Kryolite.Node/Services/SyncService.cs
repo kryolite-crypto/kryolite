@@ -69,7 +69,7 @@ public class SyncManager : BackgroundService
             IStateCache? stateCache = null;
             List<EventBase>? events = null;
 
-            var client = connMan.CreateClient<INodeService>(node);
+            var client = connMan.CreateClient(node);
 
             using (var checkpoint = storeManager.CreateCheckpoint())
             using (var staging = StagingManager.Open("staging", configuration))
