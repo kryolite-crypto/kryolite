@@ -24,7 +24,7 @@ public class NodeBroadcast : IBroadcast
         Uri = uri;
     }
 
-    public Task Handle(Node node, IServiceProvider provider)
+    public Task Handle(NodeConnection connection, IServiceProvider provider)
     {
         using var scope = provider.CreateScope();
 
@@ -45,14 +45,14 @@ public class NodeBroadcast : IBroadcast
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<NodeBroadcast>>();
         var lifetime = scope.ServiceProvider.GetRequiredService<IHostApplicationLifetime>();
 
-        logger.LogDebug("Received NodeBroadcast from {hostname}", node.Uri.ToHostname());
+        logger.LogDebug("Received NodeBroadcast from {hostname}", connection.Node.Uri.ToHostname());
 
         var exists = nodeTable.GetNode(AuthRequest.PublicKey);
 
-        if (node is null)
+        if (exists is null)
         {
             var uri = new Uri(Uri);
-            nodeTable.AddNode(AuthRequest.PublicKey, uri, WebsocketChannel.ForAddress(uri, lifetime.ApplicationStopping));
+            nodeTable.AddNode(AuthRequest.PublicKey, uri);
 
             // Rebroadcast
             BroadcastManager.Broadcast(this);

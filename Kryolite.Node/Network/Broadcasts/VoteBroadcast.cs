@@ -20,7 +20,7 @@ public class VoteBroadcast : IBroadcast
         Votehash = votehash;
     }
 
-    public Task Handle(Node node, IServiceProvider provider)
+    public Task Handle(NodeConnection connection, IServiceProvider provider)
     {
         using var scope = provider.CreateScope();
 
@@ -28,20 +28,20 @@ public class VoteBroadcast : IBroadcast
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBroadcast>>();
 
-        if (node.IsSyncInProgress)
+        if (connection.Node.IsSyncInProgress)
         {
             logger.LogDebug("Ignoring VoteBroadcast, sync in progress");
             return Task.CompletedTask;
         }
 
-        logger.LogDebug("Received VoteBroadcast from {hostname}", node.Uri.ToHostname());
+        logger.LogDebug("Received VoteBroadcast from {hostname}", connection.Node.Uri.ToHostname());
 
         if (storeManager.VoteExists(Votehash))
         {
             return Task.CompletedTask;
         }
 
-        var client = connManager.CreateClient(node);
+        var client = connManager.CreateClient(connection);
         var vote = client.GetVote(Votehash);
 
         if (vote is not null)

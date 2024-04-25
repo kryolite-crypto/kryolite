@@ -17,7 +17,7 @@ public class SyncManager : BackgroundService
 {
     private const int BATCH_SIZE = 1000;
 
-    private static Channel<Network.Node> _channel = Channel.CreateBounded<Network.Node>(3);
+    private static Channel<NodeConnection> _channel = Channel.CreateBounded<NodeConnection>(3);
     private IServiceProvider _serviceProvider;
     private ILogger<SyncManager> _logger;
 
@@ -27,7 +27,7 @@ public class SyncManager : BackgroundService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public static void AddToQueue(Network.Node node)
+    public static void AddToQueue(NodeConnection node)
     {
         _channel.Writer.TryWrite(node);
     }
@@ -51,9 +51,9 @@ public class SyncManager : BackgroundService
         _logger.LogInformation("SyncMan       [DOWN]");
     }
 
-    private void Synchronize(Network.Node node)
+    private void Synchronize(NodeConnection connection)
     {
-        node.IsSyncInProgress = true;
+        connection.Node.IsSyncInProgress = true;
         var sw = Stopwatch.StartNew();
 
         try
@@ -63,18 +63,18 @@ public class SyncManager : BackgroundService
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-            _logger.LogInformation("[{node}] Initalizing staging context", node.Uri.ToHostname());
+            _logger.LogInformation("[{node}] Initalizing staging context", connection.Node.Uri.ToHostname());
 
             ChainState? newState = null;
             IStateCache? stateCache = null;
             List<EventBase>? events = null;
 
-            var client = connMan.CreateClient(node);
+            var client = connMan.CreateClient(connection);
 
             using (var checkpoint = storeManager.CreateCheckpoint())
             using (var staging = StagingManager.Open("staging", configuration))
             {
-                var commonHeight = FindCommonHeight(staging, node, client);
+                var commonHeight = FindCommonHeight(staging, connection.Node, client);
                 var stagingHeight = staging.GetChainState()?.Id;
 
                 if (stagingHeight > commonHeight)
@@ -82,16 +82,16 @@ public class SyncManager : BackgroundService
                     staging.RollbackTo(commonHeight);
                 }
 
-                _logger.LogInformation("[{node}] Staging context loaded to height {height}", node.Uri.ToHostname(), staging.GetChainState()?.Id);
+                _logger.LogInformation("[{node}] Staging context loaded to height {height}", connection.Node.Uri.ToHostname(), staging.GetChainState()?.Id);
 
                 var i = commonHeight + 1;
                 var brokenChain = false;
 
-                _logger.LogInformation("[{node}] Downloading and applying remote chain to staging context (this might take a while)", node.Uri.ToHostname());
+                _logger.LogInformation("[{node}] Downloading and applying remote chain to staging context (this might take a while)", connection.Node.Uri.ToHostname());
 
                 while(true)
                 {
-                    _logger.LogInformation("[{node}] Downloading and applying batch {start} - {end}", node.Uri.ToHostname(), i, i + BATCH_SIZE);
+                    _logger.LogInformation("[{node}] Downloading and applying batch {start} - {end}", connection.Node.Uri.ToHostname(), i, i + BATCH_SIZE);
                     (bool completed, brokenChain) = DownloadViewRange(client, i, staging);
 
                     if(completed)
@@ -105,15 +105,15 @@ public class SyncManager : BackgroundService
 
                 if (brokenChain)
                 {
-                    _logger.LogInformation("[{node}] Failed to apply remote chain (broken chain received)", node.Uri.ToHostname());
-                    node.IsForked = true;
+                    _logger.LogInformation("[{node}] Failed to apply remote chain (broken chain received)", connection.Node.Uri.ToHostname());
+                    connection.Node.IsForked = true;
                 }
 
                 newState = staging.GetChainState();
 
                 if (newState is null)
                 {
-                    _logger.LogInformation("[{node}] Failed to load chain in staging (chainstate not found)", node.Uri.ToHostname());
+                    _logger.LogInformation("[{node}] Failed to load chain in staging (chainstate not found)", connection.Node.Uri.ToHostname());
                     return;
                 }
 
@@ -123,7 +123,7 @@ public class SyncManager : BackgroundService
 
             var chainState = storeManager.GetChainState();
             _logger.LogInformation("[{node}] Staging has height {id} and weight {weight}. Compared to local height {cId} and weight {cWeight}",
-                node.Uri.ToHostname(),
+                connection.Node.Uri.ToHostname(),
                 newState.Id,
                 newState.Weight,
                 chainState.Id,
@@ -140,7 +140,7 @@ public class SyncManager : BackgroundService
         }
         finally
         {
-            node.IsSyncInProgress = false;
+            connection.Node.IsSyncInProgress = false;
             sw.Stop();
             _logger.LogInformation("Synhronization completed in {elapsed:N2} seconds", sw.Elapsed.TotalSeconds);
         }

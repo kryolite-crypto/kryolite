@@ -62,7 +62,7 @@ public class BroadcastManager : BackgroundService
                 {
                     Parallel.ForEach(_connMan.GetConnectedNodes(), connection =>
                     {
-                        var client = _connMan.CreateClient(connection.Node);
+                        var client = _connMan.CreateClient(connection);
                         client.Broadcast(data);
                     });
                 }

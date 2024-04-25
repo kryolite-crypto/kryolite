@@ -20,7 +20,7 @@ public class BlockBroadcast : IBroadcast
         Blockhash = blockhash;
     }
 
-    public Task Handle(Node node, IServiceProvider provider)
+    public Task Handle(NodeConnection connection, IServiceProvider provider)
     {
         using var scope = provider.CreateScope();
 
@@ -28,20 +28,20 @@ public class BlockBroadcast : IBroadcast
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBroadcast>>();
 
-        if (node.IsSyncInProgress)
+        if (connection.Node.IsSyncInProgress)
         {
             logger.LogDebug("Ignoring BlockBroadcast, sync in progress");
             return Task.CompletedTask;
         }
 
-        logger.LogDebug("Received BlockBroadcast from {hostname}", node.Uri.ToHostname());
+        logger.LogDebug("Received BlockBroadcast from {hostname}", connection.Node.Uri.ToHostname());
 
         if (storeManager.BlockExists(Blockhash))
         {
             return Task.CompletedTask;
         }
 
-        var client = connManager.CreateClient(node);
+        var client = connManager.CreateClient(connection);
         var block = client.GetBlock(Blockhash);
 
         if (block is not null)

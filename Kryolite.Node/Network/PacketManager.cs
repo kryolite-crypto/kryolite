@@ -7,7 +7,7 @@ namespace Kryolite.Node.Network;
 
 public class PacketManager : BackgroundService
 {
-    private static Channel<(Node, IBroadcast)> _channel = Channel.CreateUnbounded<(Node, IBroadcast)>();
+    private static Channel<(NodeConnection, IBroadcast)> _channel = Channel.CreateUnbounded<(NodeConnection, IBroadcast)>();
     private readonly ILogger<PacketManager> _logger;
     private readonly IServiceProvider _serviceProvider;
 
@@ -44,8 +44,8 @@ public class PacketManager : BackgroundService
         _logger.LogInformation("PackMan       [DOWN]");
     }
 
-    public static ValueTask Handle(Node node, IBroadcast packet, CancellationToken token)
+    public static ValueTask Handle(NodeConnection connection, IBroadcast packet, CancellationToken token)
     {
-        return _channel.Writer.WriteAsync((node, packet), token);
+        return _channel.Writer.WriteAsync((connection, packet), token);
     }
 }

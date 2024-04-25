@@ -12,14 +12,14 @@ namespace Kryolite.Transport.Websocket;
 
 public class WebsocketChannel : IDisposable
 {
-    public bool IsConnected => _connection?.Socket.State == WebSocketState.Open;
+    public bool IsConnected => _ws?.State == WebSocketState.Open;
 
     public Channel<ArraySegment<byte>> Broadcasts => _duplex;
     public CancellationToken ConnectionToken => _cts.Token;
 
+    private WebSocket? _ws;
     private readonly Uri _uri;
     private int _msgId;
-    private Connection? _connection;
     private CancellationTokenSource _cts;
     private byte[] _msgBuf = new byte[4];
 
@@ -38,19 +38,16 @@ public class WebsocketChannel : IDisposable
     public long MessagesSent { get; private set; }
     public long MessagesReceived { get; private set; }
 
-    public WebsocketChannel(Uri uri, WebSocket ws, CancellationToken token)
+    public WebsocketChannel(Uri uri, CancellationToken token)
     {
-        Console.WriteLine("Create wtih ws");
         _uri = uri;
         _cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-        _connection = new (this, ws, _cts.Token);
     }
 
-    private WebsocketChannel(Uri uri, CancellationToken token)
+    public WebsocketChannel(Uri uri, WebSocket ws, CancellationToken token) : this (uri, token)
     {
-        Console.WriteLine("Create");
-        _uri = uri;
-        _cts = CancellationTokenSource.CreateLinkedTokenSource(token);
+        _ws = ws;
+        _ = Receive(_cts.Token);
     }
 
     public static WebsocketChannel ForAddress(Uri uri, CancellationToken token)
@@ -133,28 +130,26 @@ public class WebsocketChannel : IDisposable
     {
         reason = null;
 
+        if (_ws is not null)
+        {
+            // If other code works as designed, we should not get into this if bracket
+            TransportException.Throw();
+        }
+
         try
         {
-            if (_connection?.Socket.State == WebSocketState.Connecting || _connection?.Socket.State == WebSocketState.Open)
-            {
-                return true;
-            }
-
-            if (_connection is not null)
-            {
-                _connection.Dispose();
-            }
-
             var uriBuilder = new UriBuilder(_uri)
             {
                 Scheme = _uri.Scheme == "https" ? "wss" : "ws"
             };
-
+            
             var ws = new ClientWebSocket();
             ws.Options.SetRequestHeader("Authorization", Convert.ToBase64String(Serializer.Serialize(authRequest)));
             ws.ConnectAsync(uriBuilder.Uri, _cts.Token).Wait(TimeSpan.FromSeconds(30), _cts.Token);
 
-            _connection = new Connection(this, ws, _cts.Token);
+            _ws = ws;
+
+            _ = Receive(_cts.Token);
 
             return true;
         }
@@ -177,7 +172,7 @@ public class WebsocketChannel : IDisposable
 
     public async Task SendDuplex(byte[] payload, CancellationToken token)
     {
-        if (_connection is null)
+        if (_ws is null)
         {
             TransportException.Throw();
         }
@@ -189,8 +184,8 @@ public class WebsocketChannel : IDisposable
 
         await _lock.WaitAsync(token);
 
-        await _connection.Socket.SendAsync(_duplexMessage, WebSocketMessageType.Binary, false, token);
-        await _connection.Socket.SendAsync(payload, WebSocketMessageType.Binary, true, token);
+        await _ws.SendAsync(_duplexMessage, WebSocketMessageType.Binary, false, token);
+        await _ws.SendAsync(payload, WebSocketMessageType.Binary, true, token);
 
         MessagesSent++;
         BytesSent += _duplexMessage.Length + payload.Length;
@@ -200,7 +195,7 @@ public class WebsocketChannel : IDisposable
 
     public async Task<ArraySegment<byte>> SendUnary(ArrayBufferWriter<byte> writer, CancellationToken token)
     {
-        if (_connection is null)
+        if (_ws is null)
         {
             TransportException.Throw();
         }
@@ -225,9 +220,9 @@ public class WebsocketChannel : IDisposable
             TransportException.Throw();
         }
 
-        await _connection.Socket.SendAsync(_unaryRequest, WebSocketMessageType.Binary, false, token);
-        await _connection.Socket.SendAsync(_msgBuf, WebSocketMessageType.Binary, false, token);
-        await _connection.Socket.SendAsync(writer.WrittenMemory, WebSocketMessageType.Binary, true, token);
+        await _ws.SendAsync(_unaryRequest, WebSocketMessageType.Binary, false, token);
+        await _ws.SendAsync(_msgBuf, WebSocketMessageType.Binary, false, token);
+        await _ws.SendAsync(writer.WrittenMemory, WebSocketMessageType.Binary, true, token);
 
         MessagesSent++;
         BytesSent += _unaryRequest.Length + _msgBuf.Length + writer.WrittenCount;
@@ -256,7 +251,16 @@ public class WebsocketChannel : IDisposable
             return Task.CompletedTask;
         }
 
-        return _connection?.Socket.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token) ?? Task.CompletedTask;
+        try
+        {
+            return _ws?.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token) ?? Task.CompletedTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // The remote party closed the WebSocket connection without completing the close handshake
+        }
+
+        return Task.CompletedTask;
     }
 
     public T CreateClient<T>() where T : IWebsocketService<T> => ServiceResolver.CreateClient<T>(this);
@@ -265,94 +269,74 @@ public class WebsocketChannel : IDisposable
     {
         _duplex.Writer.Complete();
         _cts.Dispose();
-        _connection?.Dispose();
+        _ws?.Dispose();
     }
 
-    private class Connection : IDisposable
+    private async Task Receive(CancellationToken token)
     {
-        public WebSocket Socket => _ws;
-
-        private WebsocketChannel _channel;
-        private WebSocket _ws;
-        private CancellationTokenSource _cts;
-
-        public Connection(WebsocketChannel channel, WebSocket ws, CancellationToken token)
+        if (_ws is null)
         {
-            _channel = channel;
-            _ws = ws;
-            _cts = CancellationTokenSource.CreateLinkedTokenSource(token);
-            
-            _ = Receive(_cts.Token);
+            TransportException.Throw();
         }
 
-        private async Task Receive(CancellationToken token)
+        var buffer = new byte[1024 * 32];
+
+        while (!token.IsCancellationRequested && _ws.State == WebSocketState.Open)
         {
-            var buffer = new byte[1024 * 32];
+            var result = await _ws.ReceiveAsync(buffer, token);
 
-            Console.WriteLine("Start Recv");
+            using var stream = new MemoryStream(result.Count);
+            stream.Write(buffer.AsSpan(0, result.Count));
 
-            while (!token.IsCancellationRequested && _ws.State == WebSocketState.Open)
+            // Read all data
+            while (!result.EndOfMessage)
             {
-                var result = await _ws.ReceiveAsync(buffer, token);
-
-                using var stream = new MemoryStream(result.Count);
+                result = await _ws.ReceiveAsync(buffer, token);
                 stream.Write(buffer.AsSpan(0, result.Count));
+            }
 
-                Console.WriteLine("Recv");
+            if (result.MessageType == WebSocketMessageType.Close)
+            {
+                await Disconnect(token);
+                _cts.Cancel();
+                break;
+            }
 
-                // Read all data
-                while (!result.EndOfMessage)
+            var length = (int)stream.Length;
+            var data = new ArraySegment<byte>(stream.GetBuffer()).Slice(0, length);
+
+            _ = Task.Run(async () =>
+            {
+                try
                 {
-                    result = await _ws.ReceiveAsync(buffer, token);
-                    stream.Write(buffer.AsSpan(0, result.Count));
-                }
-
-                if (result.MessageType == WebSocketMessageType.Close)
-                {
-                    await _channel.Disconnect(token);
-                    _cts.Cancel();
-                    break;
-                }
-
-                var length = (int)stream.Length;
-                var data = new ArraySegment<byte>(stream.GetBuffer()).Slice(0, length);
-
-                _ = Task.Run(async () =>
-                {
-                    try
-                    {
-                    Console.WriteLine("PAcket: " + data[0]);
                     switch (data[0])
                     {
                         case 0:
-                            await _channel._duplex.Writer.WriteAsync(data.Slice(1), token);
+                            await _duplex.Writer.WriteAsync(data.Slice(1), token);
                             break;
                         case 1:
                             var idBytes = data.Slice(1, 4);
                             var method = data[5];
                             var payload = data.Slice(6);
 
-                            Console.WriteLine("Method " + method);
-
-                            var service = ServiceResolver.Resolve(_channel);
+                            var service = ServiceResolver.Resolve(this);
                             var result = service.CallMethod(method, payload);
 
-                            await _channel._lock.WaitAsync(token);
+                            await _lock.WaitAsync(token);
 
                             await _ws.SendAsync(_unaryReply, WebSocketMessageType.Binary, false, token);
                             await _ws.SendAsync(idBytes, WebSocketMessageType.Binary, false, token);
                             await _ws.SendAsync(result, WebSocketMessageType.Binary, true, token);
 
-                            _channel._lock.Release();
+                            _lock.Release();
                             break;
                         case 2:
-                            Console.WriteLine("Unary response");
                             var idBytes2 = data.Slice(1, 4);
                             var payload2 = data.Slice(5);
 
                             var msgId = BitConverter.ToInt32(idBytes2);
 
-                            if (_channel._requests.TryRemove(msgId, out var tcs))
+                            if (_requests.TryRemove(msgId, out var tcs))
                             {
                                 tcs.SetResult(payload2);
                             }
@@ -362,23 +346,15 @@ public class WebsocketChannel : IDisposable
                             TransportException.Throw();
                             break;
                     }
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine(ex);
-                    }
-                }, token);
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine(ex);
+                }
+            }, token);
 
-                _channel.MessagesReceived++;
-                _channel.BytesReceived += length;
-            }
-        }
-
-        public void Dispose()
-        {
-            _ws.Abort();
-            _ws.Dispose();
-            _cts.Dispose();
+            MessagesReceived++;
+            BytesReceived += length;
         }
     }
 }

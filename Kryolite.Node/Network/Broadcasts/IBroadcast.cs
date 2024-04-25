@@ -5,5 +5,5 @@ namespace Kryolite.Node.Network;
 
 public partial interface IBroadcast : ISerializable
 {
-    public Task Handle(Node node, IServiceProvider provider);
+    public Task Handle(NodeConnection connection, IServiceProvider provider);
 }

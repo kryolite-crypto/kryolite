@@ -20,7 +20,7 @@ public class TransactionBroadcast : IBroadcast
         TransactionId = transactionId;
     }
 
-    public Task Handle(Node node, IServiceProvider provider)
+    public Task Handle(NodeConnection connection, IServiceProvider provider)
     {
         using var scope = provider.CreateScope();
 
@@ -28,20 +28,20 @@ public class TransactionBroadcast : IBroadcast
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBroadcast>>();
 
-        if (node.IsSyncInProgress)
+        if (connection.Node.IsSyncInProgress)
         {
             logger.LogDebug("Ignoring TransactionBroadcast, sync in progress");
             return Task.CompletedTask;
         }
 
-        logger.LogDebug("Received TransactionBroadcast from {hostname}", node.Uri.ToHostname());
+        logger.LogDebug("Received TransactionBroadcast from {hostname}", connection.Node.Uri.ToHostname());
 
         if (storeManager.TransactionExists(TransactionId))
         {
             return Task.CompletedTask;
         }
 
-        var client = connManager.CreateClient(node);
+        var client = connManager.CreateClient(connection);
         var tx = client.GetTransaction(TransactionId);
 
         if (tx is not null)
