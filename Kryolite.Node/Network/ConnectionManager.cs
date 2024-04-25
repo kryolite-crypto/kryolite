@@ -112,9 +112,10 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 await AdjustConnectionsToClosestNodes(stoppingToken);
             }
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
             _logger.LogInformation("ConnMan       [DOWN]");
+            _logger.LogInformation(ex, "");
         }
         finally
         {
@@ -137,7 +138,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             {
                 try
                 {
-                    var (success, _) = await node.Channel.Ping();
+                    using var channel = WebsocketChannel.ForAddress(node.Uri, stoppingToken);
+                    var (success, _) = await channel.Ping();
 
                     if (success)
                     {
@@ -170,7 +172,11 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         foreach (var node in expiringNodes)
         {
             _nodeTable.RemoveNode(node);
-            await node.Channel.Disconnect(stoppingToken);
+
+            if (_connectedNodes.TryGetValue(node.PublicKey, out var connection))
+            {
+                await connection.Channel.Disconnect(stoppingToken);
+            }
         }
     }
 
@@ -197,7 +203,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         {
             if (!closestNodes.Any(x => x.PublicKey == connection.Node.PublicKey))
             {
-                await connection.Node.Channel.Disconnect(stoppingToken);
+                await connection.Channel.Disconnect(stoppingToken);
             }
         }
     }
@@ -247,168 +253,44 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
         _logger.LogInformation("Connecting to {hostname}", node.Uri.ToHostname());
 
-        var tcs = new TaskCompletionSource();
-        var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-        var connection = new NodeConnection(node, cts);
+        var channel = WebsocketChannel.ForAddress(node.Uri, stoppingToken);
 
-        _ = ConnectionTask(connection, tcs, cts.Token);
+        var (identity, error) = await channel.GetPublicKey();
 
-        // Wait for connection attempt to complete
-        await tcs.Task.WaitAsync(stoppingToken);
-    }
-
-    /// <summary>
-    /// Task to hold live connection, will be closed after disconnecting
-    /// </summary>
-    /// <param name="node"></param>
-    /// <param name="cancellationToken"></param>
-    /// <returns></returns>
-    private async Task ConnectionTask(NodeConnection connection, TaskCompletionSource tcs, CancellationToken cancellationToken)
-    {
-        var wasConnected = true;
-        var node = connection.Node;
-
-        try
+        if (identity is null)
         {
-            var authRequest = CreateAuthRequest();
-            var success = node.Channel.Connect(authRequest, out _);
-
-            if (!success)
-            {
-                connection.Node.FailedConnections++;
-                wasConnected = false;
-                tcs.SetResult();
-                return;
-            }
-
-            var client = _clientFactory.CreateClient(node.Channel);
-
-            using (var scope = _sp.CreateScope())
-            {
-                var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
-                var chainState = storeManager.GetChainState();
-
-                var syncRequest = new SyncRequest
-                {
-                    PublicKey = _nodeKey,
-                    ViewHash = chainState.ViewHash,
-                    Weight = chainState.Weight
-                };
-
-                Console.WriteLine("Start ShouldSync");
-                var syncResponse = client.ShouldSync(syncRequest);
-                Console.WriteLine("End ShouldSync");
-
-                if (syncResponse.ShouldSync)
-                {
-                    // Let's add this node to our sync queue
-                    SyncManager.AddToQueue(node);
-                }
-            }
-
-            var auth = false;
-
-            await foreach (var batch in node.Channel.Broadcasts.Reader.ReadAllAsync(cancellationToken))
-            {
-                node.LastSeen = DateTime.Now;
-
-                if (batch.Count == 0)
-                {
-                    continue;
-                }
-
-                var data = Serializer.Deserialize<BatchBroadcast>(batch);
-
-                if (!auth)
-                {
-                    if (data.Messages.Length != 1)
-                    {
-                        throw new AuthorizationException("expected authorization response but got something else");
-                    }
-
-                    var authResponse = Serializer.Deserialize<AuthResponse>(data.Messages[0]) ?? throw new AuthorizationException("expected authorization response but deserialization failed");
-
-                    if (authResponse.PublicKey != node.PublicKey)
-                    {
-                        throw new AuthorizationException($"expected authorization response to have public key '{node.PublicKey}' but got '{authResponse.PublicKey}'");
-                    }
-
-                    if (!authResponse.Verify())
-                    {
-                        throw new AuthorizationException($"authorization response verification failed");
-                    }
-
-                    // reset failed connections counter and mark node connected
-                    node.FailedConnections = 0;
-                    NodeConnected?.Invoke(this, connection);
-                    tcs.SetResult();
-
-                    auth = true;
-                    continue;
-                }
-                
-                try
-                {
-                    foreach (var message in data.Messages)
-                    {
-                        if (message.Length == 0)
-                        {
-                            continue;
-                        }
-
-                        var packetId = (SerializerEnum)message[0];
-
-                        IBroadcast? packet = packetId switch
-                        {
-                            SerializerEnum.BLOCK_BROADCAST => Serializer.Deserialize<BlockBroadcast>(message),
-                            SerializerEnum.NODE_BROADCAST => Serializer.Deserialize<NodeBroadcast>(message),
-                            SerializerEnum.TRANSACTION_BROADCAST => Serializer.Deserialize<TransactionBroadcast>(message),
-                            SerializerEnum.VIEW_BROADCAST => Serializer.Deserialize<ViewBroadcast>(message),
-                            SerializerEnum.VOTE_BROADCAST => Serializer.Deserialize<VoteBroadcast>(message),
-                            _ => null
-                        };
-
-                        if (packet is not null)
-                        {
-                            await PacketManager.Handle(node, packet, cancellationToken);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogInformation("{node} sent malformed broadcast: {message}", node.Uri, ex.Message);
-                }
-            }
+            _logger.LogInformation("Failed to query public key from {hostname}: {error}", node.Uri.ToHostname(), error);
+            return;
         }
-        catch (OperationCanceledException)
+
+        if (!identity.Verify())
         {
-            // Do nothing, we are shutting down
-            _logger.LogInformation("ocex");
+            _logger.LogInformation("Signature verification for {hostname} failed", node.Uri.ToHostname());
+            return;
         }
-        catch (AuthorizationException)
-        {
-            _logger.LogInformation("{node} authentication failed", node.Uri);
-            // Something strange happened, remove node
-            _nodeTable.RemoveNode(node);
-            _connectedNodes.TryRemove(node.PublicKey, out _);
-        }
-        catch (Exception ex)
-        {
-            connection.Node.FailedConnections++;
-            Console.WriteLine(ex);
-            _logger.LogInformation("Node {node} got disconnected: {message}", connection.Node.Uri.ToHostname(), ex.Message);
-        }
-        finally
-        {
-            await connection.Node.Channel.Disconnect(cancellationToken);
 
-            if (wasConnected)
-            {
-                NodeDisconnected?.Invoke(this, connection);
-            }
-
-            tcs.TrySetResult();
+        if (identity.PublicKey != node.PublicKey)
+        {
+            node.PublicKey = identity.PublicKey;
         }
+
+        if (_connectedNodes.ContainsKey(node.PublicKey))
+        {
+            return;
+        }
+
+        var authrequest = CreateAuthRequest();
+
+        if (!channel.Connect(authrequest, out var error2))
+        {
+            _logger.LogInformation("Connecting to {hostname} failed: {error}", node.Uri.ToHostname(), error2);
+            return;
+        }
+
+        var connection = new NodeConnection(channel, node);
+
+        // Let the connection task run in background
+        _ = ConnectionTask(connection);
     }
 
     private AuthRequest CreateAuthRequest()
@@ -430,19 +312,138 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
     public INodeService CreateClient(NodeConnection connection)
     {
-        return _clientFactory.CreateClient(connection.Node.Channel);
+        return _clientFactory.CreateClient(connection.Channel);
     }
 
-    public INodeService CreateClient(Node node)
+    public Task StartListening(Uri uri, PublicKey publicKey, WebsocketChannel channel)
     {
-        return _clientFactory.CreateClient(node.Channel);
+        if (_connectedNodes.ContainsKey(publicKey))
+        {
+            return Task.CompletedTask;
+        }
+
+        var node = new Node(publicKey, uri);
+        var connection = new NodeConnection(channel, node);
+
+        _connectedNodes.TryAdd(publicKey, connection);
+        _nodeTable.AddNode(publicKey, uri);
+
+        connection.Node = _nodeTable.GetNode(publicKey)!;
+
+        return ConnectionTask(connection);
+    }
+
+    /// <summary>
+    /// Task to hold live connection, will be closed after disconnecting
+    /// </summary>
+    /// <param name="node"></param>
+    /// <returns></returns>
+    private async Task ConnectionTask(NodeConnection connection)
+    {
+        _connectedNodes.TryAdd(connection.Node.PublicKey, connection);
+
+        var node = connection.Node;
+
+        try
+        {
+            var client = _clientFactory.CreateClient(connection.Channel);
+
+            using (var scope = _sp.CreateScope())
+            {
+                var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+                var chainState = storeManager.GetChainState();
+
+                var syncRequest = new SyncRequest
+                {
+                    PublicKey = _nodeKey,
+                    ViewHash = chainState.ViewHash,
+                    Weight = chainState.Weight
+                };
+
+                if (client.ShouldSync(syncRequest).ShouldSync)
+                {
+                    // Let's add this node to our sync queue
+                    SyncManager.AddToQueue(connection);
+                }
+            }
+
+            node.Status = NodeStatus.ALIVE;
+
+            await foreach (var batch in connection.Channel.Broadcasts.Reader.ReadAllAsync(connection.Channel.ConnectionToken))
+            {
+                node.LastSeen = DateTime.Now;
+
+                if (batch.Count == 0)
+                {
+                    continue;
+                }
+                
+                try
+                {
+                    var data = Serializer.Deserialize<BatchBroadcast>(batch);
+
+                    foreach (var message in data.Messages)
+                    {
+                        if (message.Length == 0)
+                        {
+                            continue;
+                        }
+
+                        var packetId = (SerializerEnum)message[0];
+
+                        IBroadcast? packet = packetId switch
+                        {
+                            SerializerEnum.BLOCK_BROADCAST => Serializer.Deserialize<BlockBroadcast>(message),
+                            SerializerEnum.NODE_BROADCAST => Serializer.Deserialize<NodeBroadcast>(message),
+                            SerializerEnum.TRANSACTION_BROADCAST => Serializer.Deserialize<TransactionBroadcast>(message),
+                            SerializerEnum.VIEW_BROADCAST => Serializer.Deserialize<ViewBroadcast>(message),
+                            SerializerEnum.VOTE_BROADCAST => Serializer.Deserialize<VoteBroadcast>(message),
+                            _ => null
+                        };
+
+                        if (packet is not null)
+                        {
+                            await PacketManager.Handle(connection, packet, connection.Channel.ConnectionToken);
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogInformation("{node} sent malformed broadcast: {message}", node.Uri, ex.Message);
+                }
+            }
+        }
+        catch (OperationCanceledException ocex)
+        {
+            // Do nothing, we are shutting down
+            _logger.LogDebug(ocex, "");
+        }
+        catch (AuthorizationException)
+        {
+            _logger.LogInformation("{node} authentication failed", node.Uri);
+            // Something strange happened, remove node
+            _nodeTable.RemoveNode(node);
+            _connectedNodes.TryRemove(node.PublicKey, out _);
+        }
+        catch (Exception ex)
+        {
+            connection.Node.FailedConnections++;
+            _logger.LogInformation("Node {node} got disconnected: {message}", connection.Node.Uri.ToHostname(), ex.Message);
+            _logger.LogDebug(ex, "");
+        }
+        finally
+        {
+            node.Status = NodeStatus.DEAD;
+            connection.Channel.Dispose();
+            NodeDisconnected?.Invoke(this, connection);
+        }
     }
 }
 
-public class NodeConnection(Node node, CancellationTokenSource cts)
+public class NodeConnection(WebsocketChannel channel, Node node)
 {
-    public Node Node { get; } = node;
-    public CancellationTokenSource CancellationTokenSource { get; } = cts;
+    public WebsocketChannel Channel { get; set; } = channel;
+    public Node Node { get; set; } = node;
 }
 
 public class AuthorizationException : Exception

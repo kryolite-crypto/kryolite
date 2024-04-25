@@ -69,7 +69,7 @@ public class NodeTable
         return _nodes.Where(x => x.LastSeen < DateTime.UtcNow.AddHours(-24)).ToList();
     }
 
-    public void AddNode(PublicKey key, Uri uri, WebsocketChannel channel)
+    public void AddNode(PublicKey key, Uri uri)
     {
         if (key == _serverKey)
         {
@@ -82,7 +82,7 @@ public class NodeTable
 
         if (node is null)
         {
-            node = new Node(key, uri, channel);
+            node = new Node(key, uri);
             _nodes.Add(node);
 
             NodeAdded?.Invoke(this, node);
@@ -152,20 +152,15 @@ public class Node
     public DateTime LastSeen { get; set; }
     public NodeStatus Status { get; set; }
     public Uri Uri { get; set; }
-    public WebsocketChannel Channel => _channel;
     
     public int FailedConnections = 0;
     public bool IsSyncInProgress { get; set; }
     public bool IsForked { get; set; }
 
-    private WebsocketChannel _channel;
-
-    public Node(PublicKey publicKey, Uri uri, WebsocketChannel channel)
+    public Node(PublicKey publicKey, Uri uri)
     {
         PublicKey = publicKey;
         Uri = uri;
-
-        _channel = channel;
     }
 }
 

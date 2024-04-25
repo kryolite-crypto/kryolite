@@ -109,6 +109,7 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
             return;
         }
 
+        // TODO: Get PublicKey from connection, or have the SyncRequest message be signed
         var node = nodeTable.GetNode(request.PublicKey);
 
         if (node is null)
@@ -116,7 +117,9 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
             return;
         }
 
-        SyncManager.AddToQueue(node);
+        var connection = new NodeConnection(_channel, node);
+
+        SyncManager.AddToQueue(connection);
     }
 
     public virtual long FindCommonHeight(HashList hashlist)
@@ -192,12 +195,16 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
         if (chainState.Weight < request.Weight)
         {
             // we are behind, let's sync
+            // TODO: Get PublicKey from connection, or have the SyncRequest message be signed
             var node = nodeTable.GetNode(request.PublicKey);
 
-            if (node is not null)
+            if (node is null)
             {
-                SyncManager.AddToQueue(node);
+                return new SyncResponse(false);
             }
+
+            var connection = new NodeConnection(_channel, node);
+            SyncManager.AddToQueue(connection);
         }
 
         // different views but equal weight

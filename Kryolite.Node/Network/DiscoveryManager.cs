@@ -100,7 +100,7 @@ public class DiscoveryManager : BackgroundService
                 continue;
             }
 
-            var channel = WebsocketChannel.ForAddress(uri, stoppingToken);
+            using var channel = WebsocketChannel.ForAddress(uri, stoppingToken);
             var (result, reason) = await channel.Ping();
 
             if (!result)
@@ -123,7 +123,7 @@ public class DiscoveryManager : BackgroundService
                 continue;
             }
 
-            _nodeTable.AddNode(authResponse.PublicKey, uri, channel);
+            _nodeTable.AddNode(authResponse.PublicKey, uri);
 
             await channel.Disconnect(stoppingToken);
         }
@@ -138,7 +138,17 @@ public class DiscoveryManager : BackgroundService
     {
         if (_nodeTable.GetNodesCount() == 0)
         {
-            _logger.LogError("Unable to perform node discovery. Make sure DNS requests to testnet.kryolite.io are not blocked or set your own seed node with option '--seednode http://127.0.0.1:5000'");
+            var discovery = _configuration.GetValue<bool>("discovery");
+
+            if (discovery)
+            {
+                _logger.LogError("Unable to perform node discovery. Make sure DNS requests to testnet.kryolite.io are not blocked or set your own seed node with option '--seednode http://127.0.0.1:5000'");
+            }
+            else
+            {
+                _logger.LogError("Discovery is disabled, manually add seed node with option '--seednode'");
+            }
+
             return;
         }
 
@@ -149,7 +159,9 @@ public class DiscoveryManager : BackgroundService
         {
             _logger.LogInformation("Downloading nodes from {node}", node.Uri);
 
-            var (peerList, error) = await node.Channel.GetPeers();
+            using var channel = WebsocketChannel.ForAddress(node.Uri, stoppingToken);
+
+            var (peerList, error) = await channel.GetPeers();
 
             if (peerList is null)
             {
@@ -169,7 +181,7 @@ public class DiscoveryManager : BackgroundService
 
         Parallel.ForEach(distinct, nodeDto =>
         {
-            _nodeTable.AddNode(nodeDto.PublicKey, new Uri(nodeDto.Url), WebsocketChannel.ForAddress(new Uri(nodeDto.Url), stoppingToken));
+            _nodeTable.AddNode(nodeDto.PublicKey, new Uri(nodeDto.Url));
         });
     }
 }

@@ -28,7 +28,7 @@ public class ViewBroadcast : IBroadcast
         Weight = weight;
     }
 
-    public Task Handle(Node node, IServiceProvider provider)
+    public Task Handle(NodeConnection connection, IServiceProvider provider)
     {
         using var scope = provider.CreateScope();
 
@@ -36,21 +36,21 @@ public class ViewBroadcast : IBroadcast
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBroadcast>>();
 
-        if (node.IsSyncInProgress)
+        if (connection.Node.IsSyncInProgress)
         {
             logger.LogDebug("Ignoring ViewBroadcast, sync in progress");
             return Task.CompletedTask;
         }
 
-        if (node.IsForked && storeManager.GetView(LastHash) is null)
+        if (connection.Node.IsForked && storeManager.GetView(LastHash) is null)
         {
             logger.LogDebug("Ignoring ViewBroadcast, node has fork");
             return Task.CompletedTask;
         }
 
-        node.IsForked = false;
+        connection.Node.IsForked = false;
 
-        logger.LogDebug("Received ViewBroadcast from {hostname}", node.Uri.ToHostname());
+        logger.LogDebug("Received ViewBroadcast from {hostname}", connection.Node.Uri.ToHostname());
 
         var chainState = storeManager.GetChainState();
 
@@ -60,7 +60,7 @@ public class ViewBroadcast : IBroadcast
             return Task.CompletedTask;
         }
 
-        var client = connManager.CreateClient(node);
+        var client = connManager.CreateClient(connection);
 
         // Check that this view extends our current view
         if (LastHash != chainState.ViewHash)
@@ -69,29 +69,29 @@ public class ViewBroadcast : IBroadcast
             logger.LogDebug("Chainstate: {weight}", chainState.Weight);
             if (Weight > chainState.Weight)
             {
-                logger.LogDebug("[{hostname}] Has more weight. Request sync", node.Uri.ToHostname());
-                SyncManager.AddToQueue(node);
+                logger.LogDebug("[{hostname}] Has more weight. Request sync", connection.Node.Uri.ToHostname());
+                SyncManager.AddToQueue(connection);
             }
             else if (Weight < chainState.Weight)
             {
                 var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
                 var pubKey = keyRepo.GetPublicKey();
 
-                logger.LogDebug("[{hostname}] Has lower weight. Broadcast our current view", node.Uri.ToHostname());
+                logger.LogDebug("[{hostname}] Has lower weight. Broadcast our current view", connection.Node.Uri.ToHostname());
                 client.SuggestView(new SyncRequest(pubKey, chainState.ViewHash, chainState.Weight));
             }
 
             return Task.CompletedTask;
         }
 
-        logger.LogDebug("Download view {} from {hostname}", ViewHash, node.Uri.ToHostname());
+        logger.LogDebug("Download view {} from {hostname}", ViewHash, connection.Node.Uri.ToHostname());
 
         var view = client.GetViewForHash(ViewHash);
 
         if (view is null)
         {
-            logger.LogInformation("[{hostname}] ViewRequest failed", node.Uri.ToHostname());
-            SyncManager.AddToQueue(node);
+            logger.LogInformation("[{hostname}] ViewRequest failed", connection.Node.Uri.ToHostname());
+            SyncManager.AddToQueue(connection);
             return Task.CompletedTask;
         }
 
@@ -99,7 +99,7 @@ public class ViewBroadcast : IBroadcast
 
         if (chainState.ViewHash != view.LastHash)
         {
-            logger.LogDebug("Discarding view {id} from {hostname}, due to invalid LastHash", view.Id, node.Uri.ToHostname());
+            logger.LogDebug("Discarding view {id} from {hostname}, due to invalid LastHash", view.Id, connection.Node.Uri.ToHostname());
             return Task.CompletedTask;
         }
 

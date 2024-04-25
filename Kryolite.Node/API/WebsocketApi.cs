@@ -46,7 +46,7 @@ public static class WebsocketApi
                 case "peers":
                     {
                         using var scope2 = sp.CreateScope();
-                        
+
                         var nodeTable2 = scope2.ServiceProvider.GetRequiredService<NodeTable>();
                         var peerList = new NodeListResponse(nodeTable2
                             .GetActiveNodes()
@@ -74,7 +74,6 @@ public static class WebsocketApi
         }
 
         var authorization = ctx.Request.Headers.Authorization.ToString();
-        Console.WriteLine(authorization);
 
         if (authorization is null)
         {
@@ -91,80 +90,14 @@ public static class WebsocketApi
         }
 
         using var scope = sp.CreateScope();
-        var nodeTable = scope.ServiceProvider.GetRequiredService<NodeTable>();
+        var connectionManager = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
 
         var ws = await ctx.WebSockets.AcceptWebSocketAsync();
         var channel = new WebsocketChannel(uri, ws, ctx.RequestAborted);
 
-        ctx.Response.RegisterForDispose(channel);
-
-        nodeTable.AddNode(authRequest.PublicKey, uri, channel);
-
         BroadcastManager.Broadcast(new NodeBroadcast(authRequest, uri.ToString()));
 
-        try
-        {
-            var authResponse = CreateAuthResponse(sp);
-
-            // TODO: avoid double serialize (Custom BatchBroadcast for this purpose?)
-            await channel.SendDuplex(Serializer.Serialize(new BatchBroadcast([Serializer.Serialize(authResponse)])), ctx.RequestAborted);
-
-            // Handle outgoing broadcasts to this WebsocketChannel
-            var actionBlock = new ActionBlock<byte[][]>(async messages =>
-            {
-                await channel.SendDuplex(Serializer.Serialize(new BatchBroadcast(messages)), ctx.RequestAborted);
-            });
-
-            using var sub = BroadcastManager.Subscribe(actionBlock);
-            var node = nodeTable.GetNode(publicKey);
-
-            // Handle incoming broadcasts (this will block until disconnected)
-            await foreach (var data in channel.Broadcasts.Reader.ReadAllAsync(channel.ConnectionToken))
-            {
-                node!.LastSeen = DateTime.Now;
-
-                if (data.Count == 0)
-                {
-                    continue;
-                }
-
-                var messageType = (SerializerEnum)data[0];
-
-                if (messageType != SerializerEnum.BATCH_BROADCAST)
-                {
-                    continue;
-                }
-
-                var batch = Serializer.Deserialize<BatchBroadcast>(data);
-
-                foreach (var message in batch.Messages)
-                {
-                    var packetId = (SerializerEnum)message[0];
-
-                    IBroadcast? packet = packetId switch
-                    {
-                        SerializerEnum.BLOCK_BROADCAST => Serializer.Deserialize<BlockBroadcast>(message),
-                        SerializerEnum.NODE_BROADCAST => Serializer.Deserialize<NodeBroadcast>(message),
-                        SerializerEnum.TRANSACTION_BROADCAST => Serializer.Deserialize<TransactionBroadcast>(message),
-                        SerializerEnum.VIEW_BROADCAST => Serializer.Deserialize<ViewBroadcast>(message),
-                        SerializerEnum.VOTE_BROADCAST => Serializer.Deserialize<VoteBroadcast>(message),
-                        _ => null
-                    };
-
-                    if (packet is not null && node is not null)
-                    {
-                        await PacketManager.Handle(node, packet, CancellationToken.None);
-                    }
-                }
-            }
-        }
-        catch (OperationCanceledException)
-        {
-            Console.WriteLine("ocex");
-            // Do nothing
-        }
-
-        Console.WriteLine("Request disconnected");
+        await connectionManager.StartListening(uri, authRequest.PublicKey, channel);
     }
 
     private static bool Authorize(HttpContext ctx, AuthRequest authRequest, IServiceProvider sp, [NotNullWhen(true)] out Uri? uri, [NotNullWhen(true)] out PublicKey? publicKey)
