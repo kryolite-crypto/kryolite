@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
@@ -208,8 +210,7 @@ public partial class MiningTab : UserControl
             var thread = new Thread(() => {
                 try
                 {
-                    using var sha256 = SHA256.Create();
-                    var buf = new byte[32];
+                    var buf = new Span<byte>(new byte[32]);
 
                     var concat = new Concat
                     {
@@ -234,7 +235,7 @@ public partial class MiningTab : UserControl
                         {
                             Random.Shared.NextBytes(nonce);
 
-                            Argon2.Hash(concat, buf);
+                            Argon2.Hash(concat.Buffer, buf);
 
                             var result = new BigInteger(buf, true, true);
 
