@@ -1,11 +1,7 @@
-using Kryolite.Shared.Algorithm;
 using Kryolite.Shared.Blockchain;
-using System.Diagnostics;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 
-namespace Kryolite.Shared;
+namespace Kryolite.Shared.Algorithm;
 
 public static class Grasshopper
 {

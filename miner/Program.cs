@@ -8,6 +8,7 @@ using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using System.Text;
 using System.Text.Json;
+using Kryolite.Shared.Algorithm;
 
 namespace Kryolite.Miner;
 
@@ -56,7 +57,7 @@ public class Program
             }
 
             Console.WriteLine($"Address\t\t{address}");
-            Console.WriteLine("Algorithm\tGrasshopper");
+            Console.WriteLine("Algorithm\tArgon2id");
             Console.WriteLine($"Threads\t\t{threads}");
 
             Console.WriteLine($"Connecting to {url}");
@@ -124,7 +125,7 @@ public class Program
                             {
                                 Random.Shared.NextBytes(nonce);
 
-                                var sha256Hash = Grasshopper.Hash(concat);
+                                var sha256Hash = Argon2.Hash(concat);
                                 var result = sha256Hash.ToBigInteger();
 
                                 if (result.CompareTo(target) <= 0)

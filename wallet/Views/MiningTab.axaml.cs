@@ -13,6 +13,7 @@ using AvaloniaEdit;
 using Kryolite.EventBus;
 using Kryolite.Node;
 using Kryolite.Shared;
+using Kryolite.Shared.Algorithm;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using LiveChartsCore.Defaults;
@@ -233,7 +234,7 @@ public partial class MiningTab : UserControl
                         {
                             Random.Shared.NextBytes(nonce);
 
-                            Grasshopper.Hash(concat, buf);
+                            Argon2.Hash(concat, buf);
 
                             var result = new BigInteger(buf, true, true);
 

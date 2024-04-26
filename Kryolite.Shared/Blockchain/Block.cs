@@ -1,5 +1,6 @@
 ﻿using System.Security.Cryptography;
 using Kryolite.ByteSerializer;
+using Kryolite.Shared.Algorithm;
 
 namespace Kryolite.Shared.Blockchain;
 
@@ -62,7 +63,7 @@ public sealed class Block : ISerializable
             Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? []).ToArray()
         };
 
-        var hash = Grasshopper.Hash(concat);
+        var hash = Argon2.Hash(concat);
 
         var target = Difficulty.ToTarget();
         var result = hash.ToBigInteger();
