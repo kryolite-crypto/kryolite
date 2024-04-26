@@ -146,7 +146,7 @@ public class DiscoveryManager : BackgroundService
             }
             else
             {
-                _logger.LogError("Discovery is disabled, manually add seed node with option '--seednode'");
+                _logger.LogWarning("Discovery is disabled, manually add seed node with option '--seednode'");
             }
 
             return;

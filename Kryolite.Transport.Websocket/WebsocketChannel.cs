@@ -279,35 +279,35 @@ public class WebsocketChannel : IDisposable
             TransportException.Throw();
         }
 
-        var buffer = new byte[1024 * 32];
-
-        while (!token.IsCancellationRequested && _ws.State == WebSocketState.Open)
+        try
         {
-            var result = await _ws.ReceiveAsync(buffer, token);
+            var buffer = new byte[1024 * 32];
 
-            using var stream = new MemoryStream(result.Count);
-            stream.Write(buffer.AsSpan(0, result.Count));
-
-            // Read all data
-            while (!result.EndOfMessage)
+            while (!token.IsCancellationRequested && _ws.State == WebSocketState.Open)
             {
-                result = await _ws.ReceiveAsync(buffer, token);
+                var result = await _ws.ReceiveAsync(buffer, token);
+
+                using var stream = new MemoryStream(result.Count);
                 stream.Write(buffer.AsSpan(0, result.Count));
-            }
 
-            if (result.MessageType == WebSocketMessageType.Close)
-            {
-                await Disconnect(token);
-                _cts.Cancel();
-                break;
-            }
+                // Read all data
+                while (!result.EndOfMessage)
+                {
+                    result = await _ws.ReceiveAsync(buffer, token);
+                    stream.Write(buffer.AsSpan(0, result.Count));
+                }
 
-            var length = (int)stream.Length;
-            var data = new ArraySegment<byte>(stream.GetBuffer()).Slice(0, length);
+                if (result.MessageType == WebSocketMessageType.Close)
+                {
+                    await Disconnect(token);
+                    _cts.Cancel();
+                    break;
+                }
 
-            _ = Task.Run(async () =>
-            {
-                try
+                var length = (int)stream.Length;
+                var data = new ArraySegment<byte>(stream.GetBuffer()).Slice(0, length);
+
+                _ = Task.Run(async () =>
                 {
                     switch (data[0])
                     {
@@ -346,15 +346,15 @@ public class WebsocketChannel : IDisposable
                             TransportException.Throw();
                             break;
                     }
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine(ex);
-                }
-            }, token);
+                }, token);
 
-            MessagesReceived++;
-            BytesReceived += length;
+                MessagesReceived++;
+                BytesReceived += length;
+            }
+        }
+        finally
+        {
+            _cts.Cancel();
         }
     }
 }

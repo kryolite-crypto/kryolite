@@ -115,7 +115,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         catch (OperationCanceledException ex)
         {
             _logger.LogInformation("ConnMan       [DOWN]");
-            _logger.LogInformation(ex, "");
+            _logger.LogDebug(ex, "");
         }
         finally
         {

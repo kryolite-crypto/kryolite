@@ -142,7 +142,7 @@ public class SyncManager : BackgroundService
         {
             connection.Node.IsSyncInProgress = false;
             sw.Stop();
-            _logger.LogInformation("Synhronization completed in {elapsed:N2} seconds", sw.Elapsed.TotalSeconds);
+            _logger.LogInformation("Synchronization completed in {elapsed:N2} seconds", sw.Elapsed.TotalSeconds);
         }
     }
 
