@@ -7,6 +7,7 @@ namespace Kryolite.Shared;
 
 [JsonSourceGenerationOptions(
     PropertyNameCaseInsensitive = true,
+    IncludeFields = true,
     Converters = [
         typeof(AddressConverter),
         typeof(PrivateKeyConverter),

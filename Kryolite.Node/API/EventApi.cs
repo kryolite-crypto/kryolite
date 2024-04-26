@@ -2,9 +2,11 @@ using System.Net;
 using System.Text.Json;
 using Kryolite.EventBus;
 using Kryolite.Shared;
+using Kryolite.Shared.Dto;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Hosting;
 
 namespace Kryolite.Node.API;
 
@@ -20,41 +22,62 @@ public static class EventApi
         return builder;
     }
 
-    private static async Task ListenChainstate(HttpContext ctx, IEventBus eventBus, CancellationToken ct)
+    private static async Task ListenChainstate(HttpContext ctx, IEventBus eventBus, IHostApplicationLifetime lifetime, CancellationToken ct)
     {
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping, ct);
+        var token = cts.Token;
 
         using var subId = eventBus.Subscribe<ChainState>(async state =>
         {
-            await ctx.Response.WriteAsync($"data: ");
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, state, SharedSourceGenerationContext.Default.ChainState);
-            await ctx.Response.WriteAsync($"\n\n");
-            await ctx.Response.Body.FlushAsync();
+            await ctx.Response.WriteAsync($"data: ", token);
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, state, SharedSourceGenerationContext.Default.ChainState, token);
+            await ctx.Response.WriteAsync($"\n\n", token);
+            await ctx.Response.Body.FlushAsync(token);
         });
 
-        await ct.WhenCancelled();
+        await token.WhenCancelled();
     }
 
-    private static async Task ListenBlockTemplate(HttpContext ctx, string address, IEventBus eventBus, IStoreManager storeManager, CancellationToken ct)
+    private static async Task ListenBlockTemplate(HttpContext ctx, string address, IEventBus eventBus, IStoreManager storeManager, IHostApplicationLifetime lifetime, CancellationToken ct)
     {
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping, ct);
+        var token = cts.Token;
+
+        var template = storeManager.GetBlocktemplate(address.ToString());
+        await PublishBlockTemplate(ctx, template, token);
 
         using var subId = eventBus.Subscribe<ChainState>(async state =>
         {
             var blocktemplate = storeManager.GetBlocktemplate(address.ToString());
-
-            await ctx.Response.WriteAsync($"data: ");
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, blocktemplate, SharedSourceGenerationContext.Default.BlockTemplate);
-            await ctx.Response.WriteAsync($"\n\n");
-            await ctx.Response.Body.FlushAsync();
+            await PublishBlockTemplate(ctx, blocktemplate, token);
         });
 
-        await ct.WhenCancelled();
+        await token.WhenCancelled();
     }
 
-    private static async Task ListenLedger(HttpContext ctx, string address, IEventBus eventBus, CancellationToken ct)
+    private static async Task PublishBlockTemplate(HttpContext ctx, BlockTemplate blocktemplate, CancellationToken cancellationToken)
+    {
+        if (blocktemplate is null)
+        {
+            return;
+        }
+
+        await ctx.Response.WriteAsync($"data: ", cancellationToken);
+        await JsonSerializer.SerializeAsync(ctx.Response.Body, blocktemplate, SharedSourceGenerationContext.Default.BlockTemplate, cancellationToken);
+        await ctx.Response.WriteAsync($"\n\n", cancellationToken);
+        await ctx.Response.Body.FlushAsync(cancellationToken);
+    }
+
+    private static async Task ListenLedger(HttpContext ctx, string address, IEventBus eventBus, IHostApplicationLifetime lifetime, CancellationToken ct)
     {
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping, ct);
+        var token = cts.Token;
 
         var addr = (Address)address;
         using var subId = eventBus.Subscribe<Ledger>(async ledger =>
@@ -64,18 +87,21 @@ public static class EventApi
                 return;
             }
 
-            await ctx.Response.WriteAsync($"data: ");
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, ledger, SharedSourceGenerationContext.Default.Ledger);
-            await ctx.Response.WriteAsync($"\n\n");
-            await ctx.Response.Body.FlushAsync();
+            await ctx.Response.WriteAsync($"data: ", token);
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, ledger, SharedSourceGenerationContext.Default.Ledger, token);
+            await ctx.Response.WriteAsync($"\n\n", token);
+            await ctx.Response.Body.FlushAsync(token);
         });
 
-        await ct.WhenCancelled();
+        await token.WhenCancelled();
     }
 
-    private static async Task ListenContract(HttpContext ctx, string address, IEventBus eventBus, CancellationToken ct)
+    private static async Task ListenContract(HttpContext ctx, string address, IEventBus eventBus, IHostApplicationLifetime lifetime, CancellationToken ct)
     {
         ctx.Response.Headers.Append("Content-Type", "text/event-stream");
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping, ct);
+        var token = cts.Token;
 
         var addr = (Address)address;
         using var sub1 = eventBus.Subscribe<ApprovalEventArgs>(async approval =>
@@ -91,10 +117,10 @@ public static class EventApi
                 Event = approval
             };
 
-            await ctx.Response.WriteAsync($"data: ");
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent);
-            await ctx.Response.WriteAsync($"\n\n");
-            await ctx.Response.Body.FlushAsync();
+            await ctx.Response.WriteAsync($"data: ", token);
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent, token);
+            await ctx.Response.WriteAsync($"\n\n", token);
+            await ctx.Response.Body.FlushAsync(token);
         });
 
         using var sub2 = eventBus.Subscribe<ConsumeTokenEventArgs>(async consume =>
@@ -110,9 +136,9 @@ public static class EventApi
                 Event = consume
             };
 
-            await ctx.Response.WriteAsync($"data: ");
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent);
-            await ctx.Response.Body.FlushAsync();
+            await ctx.Response.WriteAsync($"data: ", token);
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent, token);
+            await ctx.Response.Body.FlushAsync(token);
         });
 
         using var sub3 = eventBus.Subscribe<GenericEventArgs>(async generic =>
@@ -128,10 +154,10 @@ public static class EventApi
                 Event = generic
             };
 
-            await ctx.Response.WriteAsync($"data: ");
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent);
-            await ctx.Response.WriteAsync($"\n\n");
-            await ctx.Response.Body.FlushAsync();
+            await ctx.Response.WriteAsync($"data: ", token);
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent, token);
+            await ctx.Response.WriteAsync($"\n\n", token);
+            await ctx.Response.Body.FlushAsync(token);
         });
 
         using var sub4 = eventBus.Subscribe<TransferTokenEventArgs>(async transfer =>
@@ -147,12 +173,12 @@ public static class EventApi
                 Event = transfer
             };
 
-            await ctx.Response.WriteAsync($"data: ");
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent);
-            await ctx.Response.WriteAsync($"\n\n");
-            await ctx.Response.Body.FlushAsync();
+            await ctx.Response.WriteAsync($"data: ", token);
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, payload, NodeSourceGenerationContext.Default.ContractEvent, token);
+            await ctx.Response.WriteAsync($"\n\n", token);
+            await ctx.Response.Body.FlushAsync(token);
         });
 
-        await ct.WhenCancelled();
+        await token.WhenCancelled();
     }
 }

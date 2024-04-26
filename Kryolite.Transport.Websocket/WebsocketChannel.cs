@@ -97,7 +97,7 @@ public class WebsocketChannel : IDisposable
         }
         catch (Exception ex)
         {
-            return (null, ex.ToString());
+            return (null, ex.Message);
         }
     }
 
@@ -122,7 +122,7 @@ public class WebsocketChannel : IDisposable
         }
         catch (Exception ex)
         {
-            return (null, ex.ToString());
+            return (null, ex.Message);
         }
     }
 
@@ -300,7 +300,6 @@ public class WebsocketChannel : IDisposable
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
                     await Disconnect(token);
-                    _cts.Cancel();
                     break;
                 }
 

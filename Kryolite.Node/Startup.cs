@@ -159,6 +159,7 @@ public static class Startup
                     options.SerializerOptions.TypeInfoResolverChain.Add(SharedSourceGenerationContext.Default);
                     options.SerializerOptions.TypeInfoResolverChain.Add(NodeSourceGenerationContext.Default);
                     options.SerializerOptions.PropertyNameCaseInsensitive = true;
+                    options.SerializerOptions.IncludeFields = true;
                     options.SerializerOptions.Converters.Add(new AddressConverter());
                     options.SerializerOptions.Converters.Add(new PrivateKeyConverter());
                     options.SerializerOptions.Converters.Add(new PublicKeyConverter());
