@@ -5,6 +5,7 @@ namespace Kryolite.Node;
 
 [JsonSourceGenerationOptions(
     PropertyNameCaseInsensitive = true,
+    IncludeFields = true,
     Converters = [
         typeof(AddressConverter),
         typeof(PrivateKeyConverter),

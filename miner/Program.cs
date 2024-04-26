@@ -13,7 +13,7 @@ namespace Kryolite.Miner;
 
 public class Program
 {
-    private static CancellationTokenSource StoppingSource = new CancellationTokenSource();
+    private static readonly CancellationTokenSource StoppingSource = new();
     private static CancellationTokenSource TokenSource = CancellationTokenSource.CreateLinkedTokenSource(StoppingSource.Token);
 
     public static async Task<int> Main(string[] args)
@@ -21,6 +21,7 @@ public class Program
         Console.CancelKeyPress += (s, e) =>
         {
             StoppingSource.Cancel();
+            TokenSource.Cancel();
             e.Cancel = true;
         };
 
@@ -130,15 +131,6 @@ public class Program
                                 {
                                     var timespent = DateTime.Now - start;
 
-                                    if (timespent.TotalSeconds > 0)
-                                    {
-                                        Console.WriteLine("{0}: Block found! {1:N2} h/s", DateTime.Now, blockhashes / timespent.TotalSeconds);
-                                    }
-                                    else
-                                    {
-                                        Console.WriteLine($"{DateTime.Now}: Block found!");
-                                    }
-
                                     var bytes = new byte[32];
                                     Array.Copy(concat.Buffer, 32, bytes, 0, 32);
 
@@ -154,10 +146,28 @@ public class Program
                                         Value = blocktemplate.Value
                                     };
 
-                                    var payload = JsonSerializer.Serialize(blocktemplate, SharedSourceGenerationContext.Default.BlockTemplate);
+                                    var payload = JsonSerializer.Serialize(solution, SharedSourceGenerationContext.Default.BlockTemplate);
                                     using var content = new StringContent(payload, Encoding.UTF8, "application/json");
 
-                                    _ = client.PostAsync("blocktemplate", content);
+                                    var task = client.PostAsync("solution", content, token);
+                                    task.Wait(token);
+
+                                    if (timespent.TotalSeconds > 0)
+                                    {
+                                        Console.WriteLine("{0}: [{1}] Block found! {2:N2} h/s", 
+                                            DateTime.Now,
+                                            task.Result.IsSuccessStatusCode ? "SUCCESS" : "FAILED",
+                                            blockhashes / timespent.TotalSeconds
+                                        );
+                                    }
+                                    else
+                                    {
+                                        Console.WriteLine("{0}: [{1}] Block found!", 
+                                            DateTime.Now,
+                                            task.Result.IsSuccessStatusCode ? "SUCCESS" : "FAILED"
+                                        );
+                                        Console.WriteLine(task.Result.ReasonPhrase);
+                                    }
                                 }
 
                                 Interlocked.Increment(ref hashes);
@@ -185,18 +195,20 @@ public class Program
 
             try
             {
-                using var streamReader = new StreamReader(await client.GetStreamAsync($"blocktemplate/{address}/listen", StoppingSource.Token));
+                var token = StoppingSource.Token;
+                using var streamReader = new StreamReader(await client.GetStreamAsync($"blocktemplate/{address}/listen", token));
 
-                while (!streamReader.EndOfStream)
+                while (!token.IsCancellationRequested)
                 {
-                    var message = await streamReader.ReadLineAsync(StoppingSource.Token);
+                    var message = await streamReader.ReadLineAsync(token);
 
                     if (message is null)
                     {
-                        continue;
+                        // Stream ended
+                        return;
                     }
 
-                    var blocktemplate = JsonSerializer.Deserialize(message, SharedSourceGenerationContext.Default.BlockTemplate);
+                    var blocktemplate = JsonSerializer.Deserialize(message.Replace("data: ", string.Empty), SharedSourceGenerationContext.Default.BlockTemplate);
 
                     if (blocktemplate is null)
                     {
@@ -207,14 +219,17 @@ public class Program
                     Console.WriteLine($"{DateTime.Now}: New job #{blocktemplate.Height}, diff = {blocktemplate.Difficulty}");
 
                     var source = TokenSource;
-                    TokenSource = CancellationTokenSource.CreateLinkedTokenSource(StoppingSource.Token);
+                    TokenSource = CancellationTokenSource.CreateLinkedTokenSource(token);
                     source.Cancel();
                     source.Dispose();
 
                     foreach (var job in jobQueue)
                     {
-                        job.Add(blocktemplate);
+                        job.Add(blocktemplate, token);
                     }
+
+                    // Message ends with \n\n so read the extra line ending
+                    await streamReader.ReadLineAsync(token);
                 }
 
                 Console.WriteLine("{0}: Disconnected", DateTime.Now);
@@ -225,7 +240,6 @@ public class Program
             }
             catch (Exception ex)
             {
-                Console.WriteLine(ex.GetType());
                 Console.WriteLine("{0}: {1}", DateTime.Now, ex.Message);
             }
             finally

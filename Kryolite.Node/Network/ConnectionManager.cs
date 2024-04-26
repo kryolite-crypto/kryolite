@@ -260,6 +260,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         if (identity is null)
         {
             _logger.LogInformation("Failed to query public key from {hostname}: {error}", node.Uri.ToHostname(), error);
+            node.Status = NodeStatus.DEAD;
             return;
         }
 
