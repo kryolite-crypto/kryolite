@@ -105,8 +105,6 @@ public class Program
                             var token = TokenSource.Token;
                             var blocktemplate = observer.Take(token);
 
-                            using var sha256 = SHA256.Create();
-
                             var concat = new Concat
                             {
                                 Buffer = new byte[64]
@@ -157,7 +155,7 @@ public class Program
                                     {
                                         Console.WriteLine("{0}: [{1}] Block found! {2:N2} h/s", 
                                             DateTime.Now,
-                                            task.Result.IsSuccessStatusCode ? "SUCCESS" : "FAILED",
+                                            task.Result.IsSuccessStatusCode ? "SUCCESS" : "REJECTED",
                                             blockhashes / timespent.TotalSeconds
                                         );
                                     }
@@ -165,7 +163,7 @@ public class Program
                                     {
                                         Console.WriteLine("{0}: [{1}] Block found!", 
                                             DateTime.Now,
-                                            task.Result.IsSuccessStatusCode ? "SUCCESS" : "FAILED"
+                                            task.Result.IsSuccessStatusCode ? "SUCCESS" : "REJECTED"
                                         );
                                         Console.WriteLine(task.Result.ReasonPhrase);
                                     }
