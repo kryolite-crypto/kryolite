@@ -1,9 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Net.WebSockets;
-using System.Threading.Channels;
-using System.Threading.Tasks.Dataflow;
 using Kryolite.ByteSerializer;
-using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
@@ -13,6 +9,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.API;
@@ -89,11 +86,15 @@ public static class WebsocketApi
             return;
         }
 
+        var ws = await ctx.WebSockets.AcceptWebSocketAsync();
+        var lifetime = sp.GetRequiredService<IHostApplicationLifetime>();
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping, cancellationToken);
+
+        var channel = new WebsocketChannel(uri, ws, cts.Token);
+
         using var scope = sp.CreateScope();
         var connectionManager = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
-
-        var ws = await ctx.WebSockets.AcceptWebSocketAsync();
-        var channel = new WebsocketChannel(uri, ws, ctx.RequestAborted);
 
         BroadcastManager.Broadcast(new NodeBroadcast(authRequest, uri.ToString()));
 

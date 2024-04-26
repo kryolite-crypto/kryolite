@@ -181,11 +181,6 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
 
         var chainState = storeManager.GetChainState();
 
-        if (chainState.ViewHash != request.ViewHash)
-        {
-            return new SyncResponse(true);
-        }
-
         if (chainState.Weight > request.Weight)
         {
             // remote is behind, tell them to sync
