@@ -6,7 +6,7 @@ public static class Constant
 {
     public const string STORE_VERSION = "4";
     public const string CONFIG_VERSION = "3";
-    public const string NETWORK_NAME = "TYTYRI-4";
+    public const string NETWORK_NAME = "TYTYRI-5";
     public const int API_LEVEL = 5;
     public const int MIN_API_LEVEL = 5;
 
