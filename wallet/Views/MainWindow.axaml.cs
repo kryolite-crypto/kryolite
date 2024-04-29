@@ -22,6 +22,7 @@ using Kryolite.Node.Network;
 using Avalonia.Interactivity;
 using Microsoft.Extensions.Hosting;
 using Kryolite.ByteSerializer;
+using System.Text;
 
 namespace Kryolite.Wallet;
 
@@ -276,7 +277,9 @@ public partial class MainWindow : Window
             }
 
             var contractAddress = (Address)parts[1];
-            var methodCall = JsonSerializer.Deserialize(HttpUtility.UrlDecode(parts[3]), SharedSourceGenerationContext.Default.CallMethod);
+
+            var json = Encoding.UTF8.GetString(Convert.FromHexString(parts[3]));
+            var methodCall = JsonSerializer.Deserialize(json, SharedSourceGenerationContext.Default.CallMethod);
 
             var contract = _storeManager.GetContract(contractAddress);
 
