@@ -83,7 +83,8 @@ public class StagingManager : TransactionManager, IDisposable
 
     public bool LoadTransactions(List<TransactionDto> transactions)
     {
-        var result = Parallel.ForEach(transactions, (txDto, state) => {
+        var result = Parallel.ForEach(transactions, (txDto, state) =>
+        {
             var tx = new Transaction(txDto);
 
             if (!Verifier.Verify(tx))
@@ -91,7 +92,7 @@ public class StagingManager : TransactionManager, IDisposable
                 state.Stop();
             }
 
-            lock(_lock)
+            lock (_lock)
             {
                 if (!AddTransactionInternal(tx, false))
                 {
@@ -105,13 +106,14 @@ public class StagingManager : TransactionManager, IDisposable
 
     public bool LoadBlocks(List<Block> blocks)
     {
-        var result = Parallel.ForEach(blocks, (block, state) => {
+        var result = Parallel.ForEach(blocks, (block, state) =>
+        {
             if (!Verifier.Verify(block))
             {
                 state.Stop();
             }
 
-            lock(_lock)
+            lock (_lock)
             {
                 if (!AddBlockInternal(block, false))
                 {
@@ -125,13 +127,14 @@ public class StagingManager : TransactionManager, IDisposable
 
     public bool LoadVotes(List<Vote> votes)
     {
-        var result = Parallel.ForEach(votes, (vote, state) => {
+        var result = Parallel.ForEach(votes, (vote, state) =>
+        {
             if (!Verifier.Verify(vote))
             {
                 state.Stop();
             }
 
-            lock(_lock)
+            lock (_lock)
             {
                 if (!AddVoteInternal(vote, false))
                 {
@@ -269,7 +272,7 @@ public class StagingManager : TransactionManager, IDisposable
         Repository.UpdateWallets(ledgers.Values);
         Repository.UpdateContracts(contracts.Values);
         Repository.UpdateTokens(tokens.Values);
-        
+
         foreach (var validator in validators.Values)
         {
             Repository.SetStake(validator.NodeAddress, validator);
@@ -332,7 +335,8 @@ public class StagingManager : TransactionManager, IDisposable
                 // Don't refund the scheduled execution to sender, only the base transactions
                 if (!isScheduled)
                 {
-                    transfer.To(from, tx.Value, out _);
+                    var total = tx.Value + tx.SpentFee;
+                    transfer.To(from, total, out _);
                 }
                 break;
             case TransactionType.CONTRACT:
@@ -350,7 +354,8 @@ public class StagingManager : TransactionManager, IDisposable
                 // Don't refund the scheduled execution to sender, only the base transactions
                 if (!isScheduled)
                 {
-                    transfer.To(from, tx.Value, out _);
+                    var total = tx.Value + tx.SpentFee;
+                    transfer.To(from, total, out _);
                 }
 
                 Repository.DeleteContractSnapshot(to, view.Id);

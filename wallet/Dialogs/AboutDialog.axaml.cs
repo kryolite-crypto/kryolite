@@ -16,6 +16,8 @@ public partial class AboutDialog : Window
 {
     private AboutDialogViewModel Model = new();
 
+    partial void InitializeComponent();
+
     public AboutDialog()
     {
         InitializeComponent();

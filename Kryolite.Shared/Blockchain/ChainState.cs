@@ -13,6 +13,7 @@ public sealed class ChainState : EventBase, ISerializable
     public long TotalVotes;
     public long TotalTransactions;
     public ulong BlockReward;
+    public ulong CollectedFees;
     public BigInteger Weight;
     public BigInteger TotalWork;
 

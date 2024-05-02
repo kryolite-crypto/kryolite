@@ -5,7 +5,7 @@ using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Node.Procedure;
 
-public class Stake(IStoreRepository Repository, WalletCache Ledger, ValidatorCache Validators)
+public readonly ref struct Stake(IStoreRepository Repository, WalletCache Ledger, ValidatorCache Validators)
 {
     public void Reserve(Address address, ulong value, out Ledger wallet)
     {
@@ -65,6 +65,6 @@ public class Stake(IStoreRepository Repository, WalletCache Ledger, ValidatorCac
             Ledger.Add(address, wallet);
         }
 
-        wallet.Pending = checked (wallet.Pending + value);
+        wallet.Pending = checked(wallet.Pending + value);
     }
 }

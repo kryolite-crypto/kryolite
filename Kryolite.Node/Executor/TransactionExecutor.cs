@@ -1,4 +1,4 @@
-﻿using Kryolite.Shared.Blockchain;
+using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
@@ -17,13 +17,14 @@ public class TransactionExecutor
     public ExecutionResult Execute(Transaction tx)
     {
         Context.Transfer.To(tx.To, tx.Value, out var wallet);
-        wallet.Pending = checked (wallet.Pending - tx.Value);
+        wallet.Pending = checked(wallet.Pending - tx.Value);
 
         return ExecutionResult.SUCCESS;
     }
 
     public void Rollback(Transaction tx)
     {
+        // Refund only the value but no spent gas fees
         if (!Context.Transfer.From(tx.To, tx.Value, out _, out _))
         {
             throw new Exception("failed to rollback transactions");

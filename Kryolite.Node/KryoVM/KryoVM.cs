@@ -17,6 +17,12 @@ public class KryoVM : IDisposable
     private Store Store { get; set; }
     private Instance Instance { get; set; }
 
+    public ulong Fuel
+    {
+        get => Store.Fuel;
+        set => Store.Fuel = value;
+    }
+
     private KryoVM(ReadOnlySpan<byte> bytes)
     {
         Engine = new Engine(new Config()
@@ -45,9 +51,6 @@ public class KryoVM : IDisposable
                 Console.WriteLine($"{exp.Name}");
             }
         }
-
-        // TODO: placeholder
-        Store.Fuel = 1000000000;
 
         RegisterAPI();
 
@@ -486,6 +489,7 @@ public class KryoVM : IDisposable
                 PublicKey = Context!.Transaction.PublicKey,
                 To = Context!.Contract.Address,
                 Value = 0,
+                MaxFee = (uint)(Context.Balance % uint.MaxValue), // TODO: Need better way to set maxfee for scheduled self call
                 Timestamp = timestamp,
                 Data = Serializer.Serialize<TransactionPayload>(payload),
                 ExecutionResult = ExecutionResult.SCHEDULED

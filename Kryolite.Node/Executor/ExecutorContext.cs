@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using Kryolite.EventBus;
 using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
@@ -20,7 +20,7 @@ public class ExecutorContext : IExecutorContext
 
     public ValidatorCache Validators { get; private set; }
     public WalletCache Ledger { get; private set; }
-    public Transfer Transfer { get; private set; }
+    public Transfer Transfer => new Transfer(Repository, Ledger, Validators);
 
     public ExecutorContext(IStoreRepository repository, WalletCache wallets, ValidatorCache validators, View view, ulong totalStake, long height)
     {
@@ -30,7 +30,6 @@ public class ExecutorContext : IExecutorContext
         View = view ?? throw new ArgumentNullException(nameof(view));
         TotalStake = totalStake;
         Height = height;
-        Transfer = new Transfer(Repository, Ledger, Validators);
     }
 
     public Random GetRand()

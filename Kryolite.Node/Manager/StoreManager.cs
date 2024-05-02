@@ -293,7 +293,7 @@ public class StoreManager : TransactionManager, IStoreManager
 
         return null;
     }
-    
+
     public string? CallContractMethod(Address address, CallMethod call)
     {
         using var _ = rwlock.EnterReadLockEx();
@@ -405,7 +405,7 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterReadLockEx();
         return StateCache.GetVotes().Values;
-    }    
+    }
 
     public ICollection<Transaction> GetPendingTransactions()
     {
@@ -531,11 +531,12 @@ public class StoreManager : TransactionManager, IStoreManager
     public ulong GetEstimatedStakeReward(Address address, long milestoneId)
     {
         var tmpView = new View() { Id = milestoneId };
+        var tmpState = new ChainState();
         var transactions = new List<Transaction>();
 
         using (var _ = rwlock.EnterReadLockEx())
         {
-            HandleEpochChange(tmpView, transactions);
+            HandleEpochChange(tmpView, tmpState, transactions);
         }
 
         return transactions

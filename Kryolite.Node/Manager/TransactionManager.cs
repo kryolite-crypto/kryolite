@@ -91,7 +91,7 @@ public abstract class TransactionManager
             var height = view.Id;
 
             var toExecute = new List<Transaction>(view.Transactions.Count + view.Blocks.Count + view.Votes.Count);
-            var blocks = new List<Block>(view.Blocks.Count );
+            var blocks = new List<Block>(view.Blocks.Count);
             var votes = new List<Vote>(view.Votes.Count);
             var totalStake = 0UL;
             var seedStake = 0UL;
@@ -134,7 +134,7 @@ public abstract class TransactionManager
             {
                 if (StateCache.GetLedgers().TryGetValue(entry.Value.To, out var ledger))
                 {
-                    ledger.Pending = checked (ledger.Pending - entry.Value.Value);
+                    ledger.Pending = checked(ledger.Pending - entry.Value.Value);
                 }
             }
 
@@ -182,13 +182,13 @@ public abstract class TransactionManager
 
             if (view.IsEpoch())
             {
-                HandleEpochChange(view, toExecute);
+                HandleEpochChange(view, chainState, toExecute);
             }
 
             var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetValidators(), StateCache.GetCurrentView(), totalStake - seedStake, height);
             var executor = new Executor.Executor(context, Logger);
 
-            executor.Execute(toExecute, view);
+            executor.Execute(toExecute, view, chainState);
 
             if (blocks.Count > 0)
             {
@@ -292,7 +292,7 @@ public abstract class TransactionManager
         return false;
     }
 
-    protected void HandleEpochChange(View view, List<Transaction> toExecute)
+    protected void HandleEpochChange(View view, ChainState chainState, List<Transaction> toExecute)
     {
         var milestones = Constant.EPOCH_LENGTH / Constant.VOTE_INTERVAL;
         var epochEnd = view.Id;
@@ -331,7 +331,7 @@ public abstract class TransactionManager
 
                 if (!aggregatedVotes.TryGetValue(address, out var validator))
                 {
-                    aggregatedVotes.Add(address, new (vote.PublicKey, vote.RewardAddress, vote.Stake));
+                    aggregatedVotes.Add(address, new(vote.PublicKey, vote.RewardAddress, vote.Stake));
                     continue;
                 }
 
@@ -342,12 +342,15 @@ public abstract class TransactionManager
 
         foreach (var agg in aggregatedVotes)
         {
+            var stakeReward = (ulong)Math.Floor(checked(totalReward * (agg.Value.CumulatedStake / (double)totalStake)));
+            var collectedFees = (ulong)Math.Floor(checked(chainState.CollectedFees * (agg.Value.CumulatedStake / (double)totalStake)));
+
             var voteReward = new Transaction
             {
                 TransactionType = TransactionType.STAKE_REWARD,
                 PublicKey = agg.Value.PublicKey,
                 To = agg.Value.RewardAddress,
-                Value = (ulong)Math.Floor(checked(totalReward * (agg.Value.CumulatedStake / (double)totalStake))),
+                Value = stakeReward + collectedFees,
                 Timestamp = view.Timestamp
             };
 
@@ -366,6 +369,8 @@ public abstract class TransactionManager
         };
 
         toExecute.Add(devFee);
+
+        chainState.CollectedFees = 0;
     }
 
     protected bool AddBlockInternal(Block block, bool broadcast)
@@ -408,7 +413,9 @@ public abstract class TransactionManager
         {
             var transfer = new Transfer(Repository, StateCache.GetLedgers(), StateCache.GetValidators());
 
-            if (!transfer.From(tx.From!, tx.Value, out var executionResult, out var from))
+            var totalValue = tx.Value + (ulong)tx.MaxFee;
+
+            if (!transfer.From(tx.From!, totalValue, out var executionResult, out var from))
             {
                 tx.ExecutionResult = executionResult;
                 return false;
@@ -428,7 +435,7 @@ public abstract class TransactionManager
 
             return true;
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
             Logger.LogError(ex, "{CHAIN_NAME}AddTransaction error", CHAIN_NAME);
         }
@@ -467,7 +474,7 @@ public abstract class TransactionManager
 
             return true;
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
             Logger.LogError(ex, "{CHAIN_NAME}AddValidatorRegisteration error", CHAIN_NAME);
         }
@@ -505,7 +512,7 @@ public abstract class TransactionManager
 
             return true;
         }
-        catch (Exception ex) 
+        catch (Exception ex)
         {
             Logger.LogError(ex, "{CHAIN_NAME}AddValidatorDeregisteration error", CHAIN_NAME);
         }

@@ -65,12 +65,18 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
             using var vm = KryoVM.LoadFromSnapshot(code, contract.CurrentSnapshot)
                 .WithContext(vmContext);
 
+            var fuelStart = tx.MaxFee - tx.SpentFee;
+
+            vm.Fuel = fuelStart;
+            Logger.LogDebug("Set fuel to {fuel}", vm.Fuel);
+
             Logger.LogDebug("Executing contract {contractName}:{methodName}", contract.Name, call.Method);
             var ret = vm.CallMethod(methodName, [.. methodParams], out _);
             Logger.LogDebug("Contract result = {result}", ret);
 
             if (ret != 0)
             {
+                tx.SpentFee += (uint)(fuelStart - vm.Fuel);
                 tx.Effects.Clear();
                 return ExecutionResult.CONTRACT_EXECUTION_FAILED;
             }
@@ -142,6 +148,8 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
             Context.AddEvents(vmContext.Events);
 
             contract.CurrentSnapshot = vm.TakeSnapshot();
+
+            tx.SpentFee += (uint)(fuelStart - vm.Fuel);
 
             return ExecutionResult.SUCCESS;
         }

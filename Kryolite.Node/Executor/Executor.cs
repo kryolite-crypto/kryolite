@@ -1,4 +1,4 @@
-﻿using Kryolite.Shared;
+using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 
@@ -25,7 +25,7 @@ public class Executor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public void Execute(List<Transaction> transactions, View view)
+    public void Execute(List<Transaction> transactions, View view, ChainState chainState)
     {
         // Collect due transactions
         var dueTransactions = Context.GetRepository().GetDueTransactions(view.Timestamp, true);
@@ -60,12 +60,12 @@ public class Executor
                 case TransactionType.DEV_REWARD:
                 case TransactionType.STAKE_REWARD:
                 case TransactionType.BLOCK_REWARD:
-                        var wallet = Context.GetOrNewWallet(tx.To);
-                        wallet.Pending += tx.Value;
+                    var wallet = Context.GetOrNewWallet(tx.To);
+                    wallet.Pending += tx.Value;
 
-                        view.Rewards.Add(tx.CalculateHash());
+                    view.Rewards.Add(tx.CalculateHash());
 
-                        goto case TransactionType.PAYMENT;
+                    goto case TransactionType.PAYMENT;
                 case TransactionType.PAYMENT:
                 case TransactionType.CONTRACT_SCHEDULED_SELF_CALL:
                     if (tx.Timestamp > view.Timestamp)
@@ -80,6 +80,10 @@ public class Executor
                     if (tx.To.IsContract())
                     {
                         tx.ExecutionResult = ContractExecutor.Execute(tx, view);
+
+                        // Refund unspent gas fee
+                        var unspentFee = tx.MaxFee - tx.SpentFee;
+                        Context.Transfer.To(tx.From!, unspentFee, out _);
                     }
 
                     if (tx.ExecutionResult != ExecutionResult.SUCCESS)
@@ -106,6 +110,8 @@ public class Executor
                     tx.ExecutionResult = ContractInstallerExecutor.Execute(tx, view);
                     break;
             }
+
+            chainState.CollectedFees += tx.SpentFee;
         }
 
         Context.Save();

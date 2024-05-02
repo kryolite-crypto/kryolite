@@ -13,6 +13,8 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
     public PublicKey PublicKey;
     public Address To;
     public ulong Value;
+    public uint MaxFee;
+    public uint SpentFee;
     public byte[] Data;
     public long Timestamp;
     public Signature Signature;
@@ -35,6 +37,7 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         PublicKey = tx.PublicKey;
         To = tx.To;
         Value = tx.Value;
+        MaxFee = tx.MaxFee;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;
@@ -51,6 +54,7 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         stream.Write((ReadOnlySpan<byte>)PublicKey);
         stream.Write((ReadOnlySpan<byte>)To);
         stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(BitConverter.GetBytes(MaxFee));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Flush();
@@ -67,12 +71,13 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         stream.Write((ReadOnlySpan<byte>)PublicKey);
         stream.Write((ReadOnlySpan<byte>)To);
         stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(BitConverter.GetBytes(MaxFee));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Flush();
 
         var key = NSec.Cryptography.PublicKey.Import(algorithm, (ReadOnlySpan<byte>)PublicKey, KeyBlobFormat.RawPublicKey);
-        
+
         return algorithm.Verify(key, stream.ToArray(), (ReadOnlySpan<byte>)Signature);
     }
 
@@ -90,6 +95,7 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
 
         stream.Write((ReadOnlySpan<byte>)To);
         stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(BitConverter.GetBytes(MaxFee));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Flush();
@@ -97,6 +103,16 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
 
         return sha256.ComputeHash(stream);
     }
+
+    public int CalculateFee() =>
+        Serializer.SizeOf(TransactionType) +
+        Serializer.SizeOf(Value) +
+        Serializer.SizeOf(MaxFee) +
+        Serializer.SizeOf(Timestamp) +
+        Serializer.SizeOf(PublicKey) +
+        Serializer.SizeOf(To) +
+        Serializer.SizeOf(Signature) +
+        Data.Length;
 
     public int CompareTo(Transaction? other)
     {
@@ -112,6 +128,8 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         Serializer.SizeOf(Id) +
         Serializer.SizeOf(TransactionType) +
         Serializer.SizeOf(Value) +
+        Serializer.SizeOf(MaxFee) +
+        Serializer.SizeOf(SpentFee) +
         Serializer.SizeOf(Timestamp) +
         Serializer.SizeOf(PublicKey) +
         Serializer.SizeOf(To) +
@@ -125,6 +143,8 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         serializer.Write(Id);
         serializer.Write(TransactionType);
         serializer.Write(Value);
+        serializer.Write(MaxFee);
+        serializer.Write(SpentFee);
         serializer.Write(Timestamp);
         serializer.Write(PublicKey);
         serializer.Write(To);
@@ -139,6 +159,8 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         serializer.Read(ref Id);
         serializer.Read(ref TransactionType);
         serializer.Read(ref Value);
+        serializer.Read(ref MaxFee);
+        serializer.Read(ref SpentFee);
         serializer.Read(ref Timestamp);
         serializer.Read(ref PublicKey);
         serializer.Read(ref To);

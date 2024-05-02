@@ -1,4 +1,4 @@
-﻿using Kryolite.ByteSerializer;
+using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 using Kryolite.Shared.Blockchain;
 using System.Security.Cryptography;
@@ -11,6 +11,7 @@ public class TransactionDto : EventBase, ISerializable
     public PublicKey PublicKey;
     public Address To;
     public ulong Value;
+    public uint MaxFee;
     public byte[] Data;
     public long Timestamp;
     public Signature Signature;
@@ -29,6 +30,7 @@ public class TransactionDto : EventBase, ISerializable
         PublicKey = tx.PublicKey;
         To = tx.To;
         Value = tx.Value;
+        MaxFee = tx.MaxFee;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;
@@ -43,6 +45,7 @@ public class TransactionDto : EventBase, ISerializable
         stream.Write(PublicKey);
         stream.Write(To);
         stream.Write(BitConverter.GetBytes(Value));
+        stream.Write(BitConverter.GetBytes(MaxFee));
         stream.Write(Data);
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Flush();
@@ -61,9 +64,10 @@ public class TransactionDto : EventBase, ISerializable
         Serializer.SizeOf(PublicKey) +
         Serializer.SizeOf(To) +
         Serializer.SizeOf(Value) +
+        Serializer.SizeOf(MaxFee) +
         Serializer.SizeOf(Timestamp) +
         Serializer.SizeOf(Signature) +
-        Serializer.SizeOf(Data);
+        Data.Length;
 
     public void Serialize(ref Serializer serializer)
     {

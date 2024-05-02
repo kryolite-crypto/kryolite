@@ -33,7 +33,12 @@ public sealed class Contract : ISerializable
 
     public Address ToAddress(byte[] code)
     {
-        var bytes = Owner.Buffer.ToList();
+        return ToAddress(Owner, code);
+    }
+
+    public static Address ToAddress(Address owner, byte[] code)
+    {
+        var bytes = owner.Buffer.ToList();
         bytes.AddRange(code);
 
         using var sha256 = SHA256.Create();

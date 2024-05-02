@@ -25,19 +25,19 @@ public class Verifier : IVerifier
 
         if (StateCache.GetTransactions().ContainsKey(hash) || Store.TransactionExists(hash))
         {
-            Logger.LogInformation($"{hash} already exists");
+            Logger.LogDebug($"{hash} already exists");
+            return false;
+        }
+
+        if (tx.PublicKey is null || tx.PublicKey == PublicKey.NULL_PUBLIC_KEY)
+        {
+            Logger.LogInformation($"{hash} verification failed (reason = null public key)");
             return false;
         }
 
         if (!tx.Verify())
         {
             Logger.LogInformation($"{hash} verification failed (reason = invalid signature)");
-            return false;
-        }
-
-        if (tx.PublicKey is null || tx.PublicKey == PublicKey.NULL_PUBLIC_KEY)
-        {
-            Logger.LogInformation("Validator registeration verification failed (reason = null public key)");
             return false;
         }
 
@@ -260,17 +260,26 @@ public class Verifier : IVerifier
             return false;
         }
 
-        if (!tx.To.IsContract())
+        if (tx.To.IsContract())
         {
-            if (tx.Value == 0)
+            // Fee has to be bigger than calculated base fee due to added gas fees
+            if (tx.MaxFee < tx.CalculateFee())
             {
-                Logger.LogInformation("Payment verification failed (reason = zero payment)");
+                Logger.LogInformation($"{tx.CalculateHash()} verification failed (reason = invalid fee)");
+                return false;
+            }
+        }
+        else
+        {
+            if (tx.MaxFee != tx.CalculateFee())
+            {
+                Logger.LogInformation($"{tx.CalculateHash()} verification failed (reason = invalid fee)");
                 return false;
             }
 
-            if (tx.Data?.Length > 8)
+            if (tx.Value == 0)
             {
-                Logger.LogInformation("Payment verification failed (reason = extra data payload)");
+                Logger.LogInformation("Payment verification failed (reason = zero payment)");
                 return false;
             }
         }
@@ -280,10 +289,15 @@ public class Verifier : IVerifier
 
     private bool VerifyContract(Transaction tx)
     {
-        // TODO: Actually verify to address points to the contract address
-        if (tx.To is null || tx.To == Address.NULL_ADDRESS || !tx.To.IsContract())
+        if (tx.To != Address.NULL_ADDRESS)
         {
-            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address not set)");
+            Logger.LogInformation("Validator registeration verification failed (reason = 'to' address set)");
+            return false;
+        }
+
+        if (tx.MaxFee < tx.CalculateFee())
+        {
+            Logger.LogInformation($"{tx.CalculateHash()} verification failed (reason = invalid fee)");
             return false;
         }
 
@@ -297,7 +311,13 @@ public class Verifier : IVerifier
             Logger.LogInformation($"Validator registeration verification failed (reason = tx has value {tx.Value})");
             return false;
         }
-        
+
+        if (tx.MaxFee != 0)
+        {
+            Logger.LogInformation($"{tx.CalculateHash()} verification failed (reason = extra fee)");
+            return false;
+        }
+
         // do not allow seed validator registeration
         if (Constant.SEED_VALIDATORS.Contains(tx.From!))
         {
@@ -330,7 +350,13 @@ public class Verifier : IVerifier
             Logger.LogInformation($"Validator deregisteration verification failed (reason = tx has value {tx.Value})");
             return false;
         }
-        
+
+        if (tx.MaxFee != 0)
+        {
+            Logger.LogInformation($"{tx.CalculateHash()} verification failed (reason = extra fee)");
+            return false;
+        }
+
         // do not allow seed validator deregisteration
         if (Constant.SEED_VALIDATORS.Contains(tx.From!))
         {
