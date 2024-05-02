@@ -31,7 +31,7 @@ public partial class SendTab : UserControl
             try
             {
                 using var scope = Program.ServiceCollection.CreateScope();
-                var blockchainManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
+                var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
                 var walletManager = scope.ServiceProvider.GetRequiredService<IWalletManager>();
 
                 if (Model.Recipient is null || Model.SelectedWallet is null || Model.Amount is null || !Address.IsValid(Model.Recipient))
@@ -79,6 +79,8 @@ public partial class SendTab : UserControl
                     Data = payload
                 };
 
+                transaction.MaxFee = (uint)storeManager.GetTransactionFeeEstimate(transaction);
+
                 if (TopLevel.GetTopLevel(this) is not Window window)
                 {
                     return;
@@ -93,7 +95,7 @@ public partial class SendTab : UserControl
 
                 transaction.Sign(walletManager.GetPrivateKey(Model.SelectedWallet!.PublicKey));
 
-                var result = blockchainManager.AddTransaction(new TransactionDto(transaction), true);
+                var result = storeManager.AddTransaction(new TransactionDto(transaction), true);
 
                 if (!Model.Addresses.Contains(Model.Recipient))
                 {

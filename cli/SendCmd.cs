@@ -101,8 +101,16 @@ public static class SendCmd
                 To = to,
                 Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Data = transactionPayload != null ? Serializer.Serialize<TransactionPayload>(transactionPayload) : []
+                Data = transactionPayload is not null ? Serializer.Serialize(transactionPayload) : []
             };
+
+            var txjson = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
+            using var content = new StringContent(txjson, Encoding.UTF8, "application/json");
+
+            var result = await client.PostAsync("tx/fee", content);
+            var fee = uint.Parse(await result.Content.ReadAsStringAsync());
+
+            Console.WriteLine($"Transaction fee: {fee / 1_000_000} kryo");
 
             var privKey = walletRepository.GetPrivateKey(account.PublicKey);
 
@@ -115,11 +123,11 @@ public static class SendCmd
             tx.Sign(privKey);
 
             var payload = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
-            using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+            using var content2 = new StringContent(payload, Encoding.UTF8, "application/json");
 
-            var result = await client.PostAsync("tx", content);
+            var result2 = await client.PostAsync("tx", content);
 
-            Console.WriteLine(await result.Content.ReadAsStringAsync());
+            Console.WriteLine(await result2.Content.ReadAsStringAsync());
         }, fromOption, toOption, amountOption, nodeOption, contractMethodOption, contractParamsOption, waitOption);
 
         return sendCmd;

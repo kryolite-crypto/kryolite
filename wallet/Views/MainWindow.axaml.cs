@@ -320,10 +320,27 @@ public partial class MainWindow : Window
                 });
             }
 
+            var payload = new TransactionPayload
+            {
+                Payload = methodCall
+            };
+
+            var transaction = new Transaction
+            {
+                TransactionType = TransactionType.PAYMENT,
+                To = contract.Address,
+                Value = amount,
+                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                Data = Serializer.Serialize<TransactionPayload>(payload)
+            };
+
+            var fee = _storeManager.GetTransactionFeeEstimate(transaction);
+
             var account = await AuthorizePaymentDialog.Show(
                 method.Description ?? method.Name,
                 methodParams,
                 amount,
+                fee,
                 contract,
                 _model.State.Accounts,
                 this
@@ -334,20 +351,7 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var payload = new TransactionPayload
-            {
-                Payload = methodCall
-            };
-
-            var transaction = new Transaction
-            {
-                TransactionType = TransactionType.PAYMENT,
-                PublicKey = account.PublicKey,
-                To = contract.Address,
-                Value = amount,
-                Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
-                Data = Serializer.Serialize<TransactionPayload>(payload)
-            };
+            transaction.PublicKey = account.PublicKey;
 
             transaction.Sign(_walletManager.GetPrivateKey(account.PublicKey));
 

@@ -34,6 +34,10 @@
                 <TextBlock x:Name="MethodName" FontWeight="Bold" Margin="10 5, 10, 0" />
                 <TextBlock Text="Amount" Margin="10, 20, 10, 0" />
                 <TextBlock x:Name="Value" FontWeight="Bold" Margin="10, 5, 10, 0" />
+                <TextBlock Text="Estimated Fee" Margin="10, 20, 10, 0" />
+                <TextBlock x:Name="Fee" FontWeight="Bold" Margin="10, 5, 10, 0" />
+                <TextBlock Text="Total" Margin="10, 20, 10, 0" />
+                <TextBlock x:Name="Total" FontWeight="Bold" Margin="10, 5, 10, 0" />
                 <TextBlock Text="Parameters" Margin="10, 20, 10, 0" />
                 <ItemsRepeater x:Name="MethodParams">
                     <ItemsRepeater.Layout>

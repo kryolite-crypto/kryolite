@@ -1,3 +1,4 @@
+using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Network;
@@ -294,7 +295,7 @@ public class StoreManager : TransactionManager, IStoreManager
         return null;
     }
 
-    public string? CallContractMethod(Address address, CallMethod call)
+    public string? CallContractMethod(Address address, CallMethod call, out ulong gasFee)
     {
         using var _ = rwlock.EnterReadLockEx();
 
@@ -333,7 +334,11 @@ public class StoreManager : TransactionManager, IStoreManager
         using var vm = KryoVM.LoadFromSnapshot(code, snapshot)
             .WithContext(vmContext);
 
+        vm.Fuel = ulong.MaxValue;
+
         var ret = vm.CallMethod(methodName, methodParams.ToArray(), out var json);
+
+        gasFee = ulong.MaxValue - vm.Fuel;
 
         return json;
     }
@@ -549,5 +554,25 @@ public class StoreManager : TransactionManager, IStoreManager
     {
         using var _ = rwlock.EnterReadLockEx();
         return Repository.GetLastHeightContainingBlock();
+    }
+
+    public ulong GetTransactionFeeEstimate(Transaction tx)
+    {
+        if (!tx.To.IsContract())
+        {
+            return (ulong)tx.CalculateFee();
+        }
+
+        var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
+
+        if (payload?.Payload is not CallMethod call)
+        {
+            return 0UL;
+        }
+
+        CallContractMethod(tx.To, call, out var gasFee);
+
+        // Add 10% extra as the smart contract execution might vary. Might not be enough in all cases...
+        return gasFee * 10;
     }
 }

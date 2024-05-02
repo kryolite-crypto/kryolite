@@ -18,7 +18,7 @@ public partial class AuthorizePaymentDialog : Window
         AvaloniaXamlLoader.Load(this);
     }
 
-    public static async Task<AccountModel?> Show(string method, List<ParamModel> methodParams, ulong amount, Contract contract, ObservableCollection<AccountModel> wallets, Window owner)
+    public static async Task<AccountModel?> Show(string method, List<ParamModel> methodParams, ulong amount, ulong fee, Contract contract, ObservableCollection<AccountModel> wallets, Window owner)
     {
         AuthorizePaymentDialog? dialog = null;
 
@@ -40,6 +40,8 @@ public partial class AuthorizePaymentDialog : Window
             var bAddress = dialog.FindControl<TextBlock>("Address");
             var bUrl = dialog.FindControl<TextBlock>("Url");
             var bWallets = dialog.FindControl<ComboBox>("Wallets");
+            var bFee = dialog.FindControl<TextBlock>("Fee");
+            var bTotal = dialog.FindControl<TextBlock>("Total");
 
             await Dispatcher.UIThread.InvokeAsync(() => {
                 bMethod!.Text = method;
@@ -49,6 +51,8 @@ public partial class AuthorizePaymentDialog : Window
                 bAddress!.Text = contract.Address.ToString();
                 bUrl!.Text = contract.Manifest.Url;
                 bWallets!.ItemsSource = wallets;
+                bFee!.Text = $"{fee / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO";
+                bTotal!.Text = $"{(amount + fee) / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO";
             });
         };
 

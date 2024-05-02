@@ -46,7 +46,7 @@ public interface IStoreManager
     List<Transaction> GetTransactionsAtHeight(long height);
     Transaction? GetTransactionForHash(SHA256Hash hash);
     Ledger? GetLedger(Address address);
-    string? CallContractMethod(Address address, CallMethod call);
+    string? CallContractMethod(Address address, CallMethod call, out ulong gasFee);
     Token? GetToken(Address contract, SHA256Hash tokenId);
     List<Token> GetTokens(Address address);
     List<Token> GetContractTokens(Address contractAddress);
@@ -56,4 +56,5 @@ public interface IStoreManager
     Checkpoint CreateCheckpoint();
     ulong GetEstimatedStakeReward(Address address, long milestoneId);
     long GetLastHeightContainingBlock();
+    ulong GetTransactionFeeEstimate(Transaction tx);
 }

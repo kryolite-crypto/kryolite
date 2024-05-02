@@ -43,6 +43,7 @@ public static class BaseApi
         builder.MapPost("contract/{address}/call", CallContractMethod);
         builder.MapPost("tx", PostTransaction);
         builder.MapPost("tx/batch", PostTransactions);
+        builder.MapPost("tx/fee", EstimateTransactionFee);
 
         return builder;
     }
@@ -94,7 +95,7 @@ public static class BaseApi
 
         ctx.Response.ContentType = "application/json";
 
-        return storeManager.CallContractMethod(address, callMethod);
+        return storeManager.CallContractMethod(address, callMethod, out _);
     });
 
     private static Task<bool> PostSolution(IStoreManager storeManager, BlockTemplate blocktemplate) => Task.Run(() =>
@@ -116,21 +117,21 @@ public static class BaseApi
         {
             return new TransactionStatusDto(tx.CalculateHash(), result.ToString());
         }
-        
+
         /*if (wait)
         {
             // wait max 2 minutes for execution
             var expires = DateTime.Now.AddMinutes(2);
-            
+
             while (expires > DateTime.Now)
             {
                 result = storeManager.GetTransactionForHash(tx.CalculateHash())?.ExecutionResult ?? ExecutionResult.UNKNOWN;
-                
+
                 if (result != ExecutionResult.PENDING)
                 {
                     break;
                 }
-                
+
                 await Task.Delay(1000);
             }
         }*/
@@ -226,7 +227,7 @@ public static class BaseApi
     private static Task<string> GetTransactionGraph(IStoreManager storeManager, long startHeight) => Task.Run(() =>
     {
         var currentHeight = storeManager.GetChainState().Id;
-    
+
         var types = new Dictionary<SHA256Hash, string>((int)(currentHeight - startHeight));
         var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true);
 
@@ -311,7 +312,7 @@ public static class BaseApi
                 algorithm.CommonVertexFormat.Style = GraphvizVertexStyle.Filled;
                 algorithm.CommonVertexFormat.Size = new GraphvizSizeF(0.08f, 0.08f);
                 algorithm.CommonVertexFormat.FixedSize = true;
-                
+
                 algorithm.CommonEdgeFormat.Length = 1;
                 algorithm.CommonEdgeFormat.PenWidth = 0.4;
                 algorithm.CommonEdgeFormat.StrokeColor = GraphvizColor.WhiteSmoke;
@@ -332,27 +333,27 @@ public static class BaseApi
                             args.VertexFormat.ToolTip = $"View";
                             args.VertexFormat.FillColor = darkslategray1;
                             args.VertexFormat.StrokeColor = darkslategray1;
-                        break;
+                            break;
                         case "view":
                             args.VertexFormat.ToolTip = $"View";
                             args.VertexFormat.FillColor = darkslategray1;
                             args.VertexFormat.StrokeColor = darkslategray1;
-                        break;
+                            break;
                         case "block":
                             args.VertexFormat.ToolTip = $"Block";
                             args.VertexFormat.FillColor = goldenrod2;
                             args.VertexFormat.StrokeColor = goldenrod2;
-                        break;
+                            break;
                         case "vote":
                             args.VertexFormat.ToolTip = $"Vote";
                             args.VertexFormat.FillColor = deepskyblue;
                             args.VertexFormat.StrokeColor = deepskyblue;
-                        break;
+                            break;
                         case "tx":
                             args.VertexFormat.ToolTip = $"Transaction";
                             args.VertexFormat.FillColor = darkslateblue;
                             args.VertexFormat.StrokeColor = darkslateblue;
-                        break;
+                            break;
                     }
                 };
             });
@@ -425,5 +426,10 @@ public static class BaseApi
     private static Task<IEnumerable<NodeDto>> GetKnownNodes(NodeTable nodeTable) => Task.Run(() =>
     {
         return nodeTable.GetAllNodes().Select(x => new NodeDto(x.PublicKey, x.Uri.ToHostname(), x.LastSeen));
+    });
+
+    private static Task<ulong> EstimateTransactionFee(IStoreManager storeManager, TransactionDto tx) => Task.Run(() =>
+    {
+        return storeManager.GetTransactionFeeEstimate(new Transaction(tx));
     });
 }

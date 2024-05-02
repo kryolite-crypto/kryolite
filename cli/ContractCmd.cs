@@ -87,6 +87,16 @@ public static class ContractCmd
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
 
+            var txjson = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
+            using var content = new StringContent(txjson, Encoding.UTF8, "application/json");
+
+            var result = await client.PostAsync("tx/fee", content);
+            var fee = uint.Parse(await result.Content.ReadAsStringAsync());
+
+            Console.WriteLine($"Transaction fee: {fee / 1_000_000} kryo");
+
+            tx.MaxFee = fee;
+
             var privKey = walletRepository.GetPrivateKey(account.PublicKey);
 
             if (privKey is null)
@@ -97,15 +107,13 @@ public static class ContractCmd
 
             tx.Sign(privKey);
             
-            var txjson = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
-            using var content = new StringContent(txjson, Encoding.UTF8, "application/json");
+            var txjson2 = JsonSerializer.Serialize(tx, SharedSourceGenerationContext.Default.Transaction);
+            using var content2 = new StringContent(txjson2, Encoding.UTF8, "application/json");
 
-            var result = await client.PostAsync("tx", content);
+            var result2 = await client.PostAsync("tx", content2);
 
-            Console.WriteLine(await result.Content.ReadAsStringAsync());
-
-            Console.WriteLine(result);
-            Console.WriteLine(contract.ToAddress(bytes));
+            Console.WriteLine(await result2.Content.ReadAsStringAsync());
+            Console.WriteLine("Contract address: " + contract.ToAddress(bytes));
         }, fromOption, fileOption, nodeOption);
 
         return contractCmd;

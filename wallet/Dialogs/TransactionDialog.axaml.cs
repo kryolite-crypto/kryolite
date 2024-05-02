@@ -27,6 +27,8 @@ public partial class TransactionDialog : Window
             var transactionIdContainer = dialog.FindControl<TextBlock>("TransactionId");
             var toContainer = dialog.FindControl<TextBlock>("To");
             var valueContainer = dialog.FindControl<TextBlock>("Value");
+            var feeContainer = dialog.FindControl<TextBlock>("Fee");
+            var totalContainer = dialog.FindControl<TextBlock>("Total");
 
             await Dispatcher.UIThread.InvokeAsync(() => {
                 if (transactionIdContainer is not null)
@@ -42,6 +44,16 @@ public partial class TransactionDialog : Window
                 if (valueContainer is not null)
                 {
                     valueContainer.Text = $"{tx.Value / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO";
+                }
+
+                if (feeContainer is not null)
+                {
+                    feeContainer.Text = $"{tx.MaxFee / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO";
+                }
+
+                if (totalContainer is not null)
+                {
+                    totalContainer.Text = $"{(tx.Value + tx.MaxFee) / (decimal)Constant.DECIMAL_MULTIPLIER} KRYO";
                 }
             });
         };

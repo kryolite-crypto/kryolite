@@ -34,6 +34,10 @@
             <TextBlock x:Name="To" FontWeight="Bold" Margin="10, 5, 10, 0" DockPanel.Dock="Top" />
             <TextBlock Text="Amount" Margin="10, 20, 10, 0" DockPanel.Dock="Top" />
             <TextBlock x:Name="Value" FontWeight="Bold" Margin="10, 5, 10, 0" DockPanel.Dock="Top" />
+            <TextBlock Text="Estimated Fee" Margin="10, 20, 10, 0" DockPanel.Dock="Top" />
+            <TextBlock x:Name="Fee" FontWeight="Bold" Margin="10, 5, 10, 0" DockPanel.Dock="Top" />
+            <TextBlock Text="Total" Margin="10, 20, 10, 0" DockPanel.Dock="Top" />
+            <TextBlock x:Name="Total" FontWeight="Bold" Margin="10, 5, 10, 0" DockPanel.Dock="Top" />
         </DockPanel>
     </Panel>
 </Window>
