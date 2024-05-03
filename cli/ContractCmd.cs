@@ -81,7 +81,6 @@ public static class ContractCmd
             {
                 TransactionType = TransactionType.CONTRACT,
                 PublicKey = account.PublicKey,
-                To = contract.ToAddress(bytes),
                 Value = 0,
                 Data = Serializer.Serialize(payload),
                 Timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
@@ -93,7 +92,7 @@ public static class ContractCmd
             var result = await client.PostAsync("tx/fee", content);
             var fee = uint.Parse(await result.Content.ReadAsStringAsync());
 
-            Console.WriteLine($"Transaction fee: {fee / 1_000_000} kryo");
+            Console.WriteLine($"Transaction fee: {fee / 1_000_000d} kryo");
 
             tx.MaxFee = fee;
 

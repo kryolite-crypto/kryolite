@@ -40,6 +40,8 @@ public class ContractInstallerExecutor
         using var vm = KryoVM.LoadFromCode(newContract.Code)
             .WithContext(vmContext);
 
+        vm.Fuel = 1_000_000;
+
         vm.Initialize();
 
         ctx.AddContract(contract);

@@ -334,13 +334,13 @@ public partial class MainWindow : Window
                 Data = Serializer.Serialize<TransactionPayload>(payload)
             };
 
-            var fee = _storeManager.GetTransactionFeeEstimate(transaction);
+            transaction.MaxFee = (uint)_storeManager.GetTransactionFeeEstimate(transaction);
 
             var account = await AuthorizePaymentDialog.Show(
                 method.Description ?? method.Name,
                 methodParams,
                 amount,
-                fee,
+                transaction.MaxFee,
                 contract,
                 _model.State.Accounts,
                 this

@@ -2,6 +2,8 @@ using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared;
 using Kryolite.Transport.Websocket;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Network;
 
@@ -84,34 +86,43 @@ public sealed class CalleeNodeService(WebsocketChannel channel, IServiceProvider
 
     public override ArraySegment<byte> CallMethod(byte methodByte, ArraySegment<byte> payload)
     {
-        var method = (NodeServiceMethod)methodByte;
-
-        switch (method)
+        try
         {
-            case NodeServiceMethod.GET_PEERS:
-                return GetPeers();
-            case NodeServiceMethod.GET_PUBLIC_KEY:
-                return GetPublicKey();
-            case NodeServiceMethod.GET_VIEW_FOR_ID:
-                return GetViewForId(payload);
-            case NodeServiceMethod.GET_VIEW_FOR_HASH:
-                return GetViewForHash(payload);
-            case NodeServiceMethod.GET_BLOCK:
-                return GetBlock(payload);
-            case NodeServiceMethod.GET_VOTE:
-                return GetVote(payload);
-            case NodeServiceMethod.GET_TRANSACTION:
-                return GetTransaction(payload);
-            case NodeServiceMethod.SUGGEST_VIEW:
-                return SuggestView(payload);
-            case NodeServiceMethod.FIND_COMMON_HEIGHT:
-                return FindCommonHeight(payload);
-            case NodeServiceMethod.GET_VIEWS_FOR_RANGE:
-                return GetViewsForRange(payload);
-            case NodeServiceMethod.SHOULD_SYNC:
-                return ShouldSync(payload);
-            default:
-                throw new NotImplementedException(methodByte.ToString());
+            var method = (NodeServiceMethod)methodByte;
+
+            switch (method)
+            {
+                case NodeServiceMethod.GET_PEERS:
+                    return GetPeers();
+                case NodeServiceMethod.GET_PUBLIC_KEY:
+                    return GetPublicKey();
+                case NodeServiceMethod.GET_VIEW_FOR_ID:
+                    return GetViewForId(payload);
+                case NodeServiceMethod.GET_VIEW_FOR_HASH:
+                    return GetViewForHash(payload);
+                case NodeServiceMethod.GET_BLOCK:
+                    return GetBlock(payload);
+                case NodeServiceMethod.GET_VOTE:
+                    return GetVote(payload);
+                case NodeServiceMethod.GET_TRANSACTION:
+                    return GetTransaction(payload);
+                case NodeServiceMethod.SUGGEST_VIEW:
+                    return SuggestView(payload);
+                case NodeServiceMethod.FIND_COMMON_HEIGHT:
+                    return FindCommonHeight(payload);
+                case NodeServiceMethod.GET_VIEWS_FOR_RANGE:
+                    return GetViewsForRange(payload);
+                case NodeServiceMethod.SHOULD_SYNC:
+                    return ShouldSync(payload);
+                default:
+                    throw new NotImplementedException(methodByte.ToString());
+            }
+        }
+        catch (Exception ex)
+        {
+            var logger = serviceProvider.GetRequiredService<ILogger<CalleeNodeService>>();
+            logger.LogError(ex, "");
+            throw new Exception("", ex);
         }
     }
 }

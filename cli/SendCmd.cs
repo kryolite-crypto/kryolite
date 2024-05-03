@@ -110,7 +110,7 @@ public static class SendCmd
             var result = await client.PostAsync("tx/fee", content);
             var fee = uint.Parse(await result.Content.ReadAsStringAsync());
 
-            Console.WriteLine($"Transaction fee: {fee / 1_000_000} kryo");
+            Console.WriteLine($"Transaction fee: {fee / 1_000_000d} kryo");
 
             var privKey = walletRepository.GetPrivateKey(account.PublicKey);
 

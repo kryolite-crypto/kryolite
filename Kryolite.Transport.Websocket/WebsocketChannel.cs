@@ -233,7 +233,10 @@ public class WebsocketChannel : IDisposable
             .WaitAsync(TimeSpan.FromSeconds(30), token)
             .ContinueWith((result) =>
             {
-                _requests.TryRemove(msgId, out _);
+                if (_requests.TryRemove(msgId, out var task))
+                {
+                    task.SetCanceled();
+                }
 
                 if (result.Exception is not null)
                 {

@@ -112,11 +112,11 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         Serializer.SizeOf(PublicKey) +
         Serializer.SizeOf(To) +
         Serializer.SizeOf(Signature) +
-        Data.Length;
+        Serializer.SizeOf(Data);
 
     public int CompareTo(Transaction? other)
     {
-        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)CalculateHash(), (ReadOnlySpan<byte>)(other?.CalculateHash() ?? new byte[0]));
+        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)CalculateHash(), (ReadOnlySpan<byte>)(other?.CalculateHash() ?? Array.Empty<byte>()));
     }
 
     public byte GetSerializerId()

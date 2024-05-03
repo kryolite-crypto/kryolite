@@ -67,7 +67,7 @@ public class TransactionDto : EventBase, ISerializable
         Serializer.SizeOf(MaxFee) +
         Serializer.SizeOf(Timestamp) +
         Serializer.SizeOf(Signature) +
-        Data.Length;
+        Serializer.SizeOf(Data);
 
     public void Serialize(ref Serializer serializer)
     {

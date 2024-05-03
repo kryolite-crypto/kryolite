@@ -53,6 +53,7 @@ public partial class ValidatorTab : UserControl
             var pubKey = keyRepository.GetPublicKey();
             var address = pubKey.ToAddress();
 
+            var ledger = storeManager.GetLedger(address);
             var validator = storeManager.GetStake(address);
             var chainState = storeManager.GetChainState();
 
@@ -98,7 +99,7 @@ public partial class ValidatorTab : UserControl
                 Model.Votes = votes;
                 Model.AccumulatedReward = estimatedReward;
                 Model.NextEpoch = endOfEpoch;
-                Model.SetBalance(validator?.Stake ?? 0UL);
+                Model.SetBalance(validator?.Stake ?? ledger?.Balance ?? 0UL);
             });
         }
         catch (Exception ex)
@@ -233,6 +234,8 @@ public partial class ValidatorTab : UserControl
                 Value = (ulong)(amount * Constant.DECIMAL_MULTIPLIER),
                 Timestamp = DateTimeOffset.Now.ToUnixTimeMilliseconds()
             };
+
+            tx.MaxFee = (uint)storeManager.GetTransactionFeeEstimate(tx);
 
             tx.Sign(keyRepository.GetPrivateKey());
 
