@@ -47,6 +47,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Content Include="..\licenses.txt" CopyToPublishDirectory="Always" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Content Include="Info.plist" CopyToPublishDirectory="Always" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
   </ItemGroup>
 

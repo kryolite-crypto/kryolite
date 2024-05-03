@@ -30,6 +30,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <TrimmerRootAssembly Include="ServiceModel.Grpc" />
+    <Content Include="..\licenses.txt" CopyToPublishDirectory="Always" />
   </ItemGroup>
 </Project>

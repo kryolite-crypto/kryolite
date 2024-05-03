@@ -13,6 +13,7 @@ public partial class TransactionDtoEx
     public Address From { get; set; }
     public Address To { get; set; }
     public ulong Value { get; set; }
+    public uint MaxFee { get; set; }
     public byte[]? Data { get; set; }
     public long Timestamp { get; set; }
     public Signature Signature { get; set; }
@@ -27,6 +28,7 @@ public partial class TransactionDtoEx
         From = tx.PublicKey.ToAddress();
         To = tx.To;
         Value = tx.Value;
+        MaxFee = tx.MaxFee;
         Data = tx.Data;
         Timestamp = tx.Timestamp;
         Signature = tx.Signature;

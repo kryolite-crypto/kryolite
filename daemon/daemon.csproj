@@ -30,4 +30,8 @@
     <TrimmerRootAssembly Include="SimpleBase" />
     <TrimmerRootAssembly Include="Makaretu.Dns" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\licenses.txt" CopyToPublishDirectory="Always" />
+  </ItemGroup>
 </Project>

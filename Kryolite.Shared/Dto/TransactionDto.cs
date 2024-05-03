@@ -75,6 +75,7 @@ public class TransactionDto : EventBase, ISerializable
         serializer.Write(PublicKey);
         serializer.Write(To);
         serializer.Write(Value);
+        serializer.Write(MaxFee);
         serializer.Write(Timestamp);
         serializer.Write(Signature);
         serializer.Write(Data);
@@ -86,6 +87,7 @@ public class TransactionDto : EventBase, ISerializable
         serializer.Read(ref PublicKey);
         serializer.Read(ref To);
         serializer.Read(ref Value);
+        serializer.Read(ref MaxFee);
         serializer.Read(ref Timestamp);
         serializer.Read(ref Signature);
         serializer.Read(ref Data);

@@ -4,7 +4,7 @@ namespace Kryolite.Shared;
 
 public static class Constant
 {
-    public const string STORE_VERSION = "4";
+    public const string STORE_VERSION = "5";
     public const string CONFIG_VERSION = "3";
     public const string NETWORK_NAME = "TYTYRI-5";
     public const int API_LEVEL = 5;

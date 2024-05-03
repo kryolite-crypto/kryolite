@@ -28,4 +28,7 @@
     <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('OSX')) And $([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture) == Arm64" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="..\licenses.txt" CopyToPublishDirectory="Always" />
+  </ItemGroup>
 </Project>

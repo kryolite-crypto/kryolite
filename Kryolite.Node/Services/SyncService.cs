@@ -63,7 +63,7 @@ public class SyncManager : BackgroundService
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-            _logger.LogInformation("[{node}] Initalizing staging context", connection.Node.Uri.ToHostname());
+            _logger.LogInformation("[{node}] Initializing staging context", connection.Node.Uri.ToHostname());
 
             ChainState? newState = null;
             IStateCache? stateCache = null;
