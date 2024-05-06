@@ -89,7 +89,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             _logger.LogInformation("Disconnected from {node}", node.Uri.ToHostname());
 
             _nodeTable.MarkNodeDead(node.PublicKey);
-            _connectedNodes.TryRemove(node.PublicKey, out _);
 
             if (_connectedNodes.Count == 0)
             {
@@ -370,6 +369,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
             node.Status = NodeStatus.ALIVE;
 
+            NodeConnected?.Invoke(this, connection);
+
             await foreach (var batch in connection.Channel.Broadcasts.Reader.ReadAllAsync(connection.Channel.ConnectionToken))
             {
                 node.LastSeen = DateTime.Now;
@@ -424,7 +425,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             _logger.LogInformation("{node} authentication failed", node.Uri);
             // Something strange happened, remove node
             _nodeTable.RemoveNode(node);
-            _connectedNodes.TryRemove(node.PublicKey, out _);
         }
         catch (Exception ex)
         {
@@ -436,6 +436,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         {
             node.Status = NodeStatus.DEAD;
             connection.Channel.Dispose();
+            _connectedNodes.TryRemove(node.PublicKey, out _);
             NodeDisconnected?.Invoke(this, connection);
         }
     }
