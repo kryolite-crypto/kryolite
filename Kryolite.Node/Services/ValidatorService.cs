@@ -178,15 +178,19 @@ public class ValidatorService : BackgroundService
 
                     foreach (var node in nodes)
                     {
-                        var client = connectionManager.CreateClient(node);
-                        var view = client.GetViewForId(nextId);
-
-                        if (view is not null)
+                        try
                         {
-                            if (storeManager.AddView(view, true, true))
+                            var client = connectionManager.CreateClient(node);
+                            var view = client.GetViewForId(nextId);
+
+                            if (view is not null && storeManager.AddView(view, true, true))
                             {
                                 goto gotview;
                             }
+                        }
+                        catch (Exception ex)
+                        {
+                            logger.LogDebug("Validator failed to query view from {node}: {error}", node.Node.Uri, ex.Message);
                         }
                     }
 
