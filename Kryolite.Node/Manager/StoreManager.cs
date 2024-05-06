@@ -572,7 +572,8 @@ public class StoreManager : TransactionManager, IStoreManager
 
         CallContractMethod(tx.To, call, out var gasFee);
 
-        // Add 10% extra as the smart contract execution might vary. Might not be enough in all cases...
-        return gasFee * 10;
+        // Add 10% extra as the smart contract execution might vary.
+        // Might not be enough in all cases...
+        return (ulong)Math.Ceiling(gasFee * 1.1d);
     }
 }

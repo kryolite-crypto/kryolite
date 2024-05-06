@@ -74,9 +74,10 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
             var ret = vm.CallMethod(methodName, [.. methodParams], out _);
             Logger.LogDebug("Contract result = {result}", ret);
 
+            tx.SpentFee += (uint)(fuelStart - vm.Fuel);
+
             if (ret != 0)
             {
-                tx.SpentFee += (uint)(fuelStart - vm.Fuel);
                 tx.Effects.Clear();
                 return ExecutionResult.CONTRACT_EXECUTION_FAILED;
             }
@@ -116,8 +117,6 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
             Context.AddEvents(vmContext.Events);
 
             contract.CurrentSnapshot = vm.TakeSnapshot();
-
-            tx.SpentFee += (uint)(fuelStart - vm.Fuel);
 
             return ExecutionResult.SUCCESS;
         }
