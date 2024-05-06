@@ -142,7 +142,7 @@ public class ExecutorContext : IExecutorContext
 
     public void AddToken(Token token)
     {
-        Tokens.Add((token.Contract, token.TokenId), token);
+        Tokens.TryAdd((token.Contract, token.TokenId), token);
     }
 
     public List<EventBase> GetEvents()

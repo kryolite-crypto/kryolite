@@ -325,6 +325,12 @@ public class KryoVM : IDisposable
 
         Linker.Define("env", "__transfer_token", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) =>
         {
+            // Deprecated
+            throw new NotImplementedException();
+        }));
+
+        Linker.Define("env", "__transfer_token", Function.FromCallback(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr, int namePtr, int nameLen, int descPtr, int descLen) =>
+        {
             var memory = caller.GetMemory("memory");
 
             if (memory is null)
@@ -332,9 +338,11 @@ public class KryoVM : IDisposable
                 return;
             }
 
-            var tokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address");
-            var from = memory.ReadAddress(fromPtr) ?? throw new Exception("__transfer_token: null 'from' address");
-            var to = memory.ReadAddress(toPtr) ?? throw new Exception("__transfer_token: null 'to' address");
+            var tokenId = memory.ReadU256(tokenIdPtr);
+            var from = memory.ReadAddress(fromPtr);
+            var to = memory.ReadAddress(toPtr);
+            var name = memory.ReadString(namePtr, nameLen, Encoding.UTF8);
+            var desc = memory.ReadString(descPtr, descLen, Encoding.UTF8);
 
             var eventData = new TransferTokenEventArgs
             {
@@ -344,6 +352,16 @@ public class KryoVM : IDisposable
                 TokenId = tokenId
             };
 
+            var token = new Token
+            {
+                TokenId = tokenId,
+                Ledger = to,
+                Name = name,
+                Description = desc,
+                Contract = Context!.Contract.Address
+            };
+
+            Context!.Tokens.Add(token);
             Context!.Events.Add(eventData);
             Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, from, to, 0, tokenId));
         }));

@@ -81,62 +81,30 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 return ExecutionResult.CONTRACT_EXECUTION_FAILED;
             }
 
-            const string getTokenName = "GetToken";
-            var hasGetToken = contract.Manifest.Methods.Any(x => x.Name == getTokenName);
+            foreach (var token in vmContext.Tokens)
+            {
+                Context.AddToken(token);
+            }
 
             foreach (var effect in tx.Effects)
             {
                 var wallet = Context.GetOrNewWallet(effect.To);
 
-                if (hasGetToken && effect.TokenId is not null)
+                // Handle token effect
+                if (effect.TokenId is not null)
                 {
-                    var token = Context.GetToken(contract.Address, effect.TokenId);
-
-                    if (token is null)
-                    {
-                        var result = vm.CallMethod(getTokenName, [effect.TokenId], out var json);
-
-                        if (result != 0)
-                        {
-                            Logger.LogDebug("GetToken failed for {tokenId}, error code = {result}", effect.TokenId, result);
-                            continue;
-                        }
-
-                        if (json is null)
-                        {
-                            Logger.LogDebug("GetToken failed for {tokenId}, error = json output null", effect.TokenId);
-                            continue;
-                        }
-
-                        var tokenBase = JsonSerializer.Deserialize(json, SharedSourceGenerationContext.Default.TokenBase);
-
-                        if (tokenBase is null)
-                        {
-                            Logger.LogDebug("GetToken failed for {tokenId}, error = failed to parse json", effect.TokenId);
-                            continue;
-                        }
-
-                        token = new Token()
-                        {
-                            TokenId = effect.TokenId,
-                            Ledger = wallet.Address,
-                            Name = tokenBase.Name,
-                            Description = tokenBase.Description,
-                            Contract = contract.Address
-                        };
-
-                        Context.AddToken(token);
-                    }
-
+                    var token = Context.GetToken(contract.Address, effect.TokenId) ?? throw new Exception($"Context is missing token {effect.TokenId}");
                     token.Ledger = wallet.Address;
                     token.IsConsumed = effect.ConsumeToken;
                 }
 
-                if (!Context.Transfer.From(tx.To, effect.Value, out var executionResult, out _))
+                // Take funds from contract
+                if (!Context.Transfer.From(contract.Address, effect.Value, out var executionResult, out _))
                 {
                     return executionResult;
                 }
 
+                // Add funds to recipient
                 Context.Transfer.To(effect.To, effect.Value, out _);
             }
 
