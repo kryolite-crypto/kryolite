@@ -323,12 +323,6 @@ public class KryoVM : IDisposable
             Context!.Events.Add(eventData);
         }));
 
-        Linker.Define("env", "__transfer_token", Function.FromCallback<int, int, int>(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr) =>
-        {
-            // Deprecated
-            throw new NotImplementedException();
-        }));
-
         Linker.Define("env", "__transfer_token", Function.FromCallback(Store, (Caller caller, int fromPtr, int toPtr, int tokenIdPtr, int namePtr, int nameLen, int descPtr, int descLen) =>
         {
             var memory = caller.GetMemory("memory");
@@ -378,8 +372,8 @@ public class KryoVM : IDisposable
             var eventData = new ConsumeTokenEventArgs
             {
                 Contract = Context!.Contract.Address,
-                Owner = memory.ReadAddress(ownerPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address"),
-                TokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__transfer_token: null 'tokenIdPtr' address")
+                Owner = memory.ReadAddress(ownerPtr) ?? throw new Exception("__consume_token: null 'tokenIdPtr' address"),
+                TokenId = memory.ReadU256(tokenIdPtr) ?? throw new Exception("__consume_token: null 'tokenIdPtr' address")
             };
 
             Context!.Events.Add(eventData);
