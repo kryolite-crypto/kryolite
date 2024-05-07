@@ -56,43 +56,71 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
         _nodeTable.NodeAdded += async (object? sender, Node node) =>
         {
-            if (_connectedNodes.Count < Constant.MAX_PEERS)
+            try
             {
-                await ConnectTo(node, stoppingToken);
+                if (_connectedNodes.Count < Constant.MAX_PEERS)
+                {
+                    await ConnectTo(node, stoppingToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
             }
         };
 
         _nodeTable.NodeAlive += async (object? sender, Node node) =>
         {
-            if (_connectedNodes.Count < Constant.MAX_PEERS)
+            try
             {
-                await ConnectTo(node, stoppingToken);
+                if (_connectedNodes.Count < Constant.MAX_PEERS)
+                {
+                    await ConnectTo(node, stoppingToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
             }
         };
 
         NodeConnected += (object? sender, NodeConnection connection) =>
         {
-            var node = connection.Node;
+            try
+            {
+                var node = connection.Node;
 
-            _logger.LogInformation("Connected to {node}", node.Uri.ToHostname());
-            
-            _connectedNodes[node.PublicKey] = connection;
-            _nodeTable.MarkNodeAlive(node.PublicKey);
+                _logger.LogInformation("Connected to {node}", node.Uri.ToHostname());
+                
+                _connectedNodes[node.PublicKey] = connection;
+                _nodeTable.MarkNodeAlive(node.PublicKey);
 
-            _timer.Period = TimeSpan.FromSeconds(60);
+                _timer.Period = TimeSpan.FromSeconds(60);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
+            }
         };
 
         NodeDisconnected += (object? sender, NodeConnection connection) =>
         {
-            var node = connection.Node;
-
-            _logger.LogInformation("Disconnected from {node}", node.Uri.ToHostname());
-
-            _nodeTable.MarkNodeDead(node.PublicKey);
-
-            if (_connectedNodes.Count == 0)
+            try
             {
-                _timer.Period = TimeSpan.FromSeconds(15);
+                var node = connection.Node;
+
+                _logger.LogInformation("Disconnected from {node}", node.Uri.ToHostname());
+
+                _nodeTable.MarkNodeDead(node.PublicKey);
+
+                if (_connectedNodes.Count == 0)
+                {
+                    _timer.Period = TimeSpan.FromSeconds(15);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
             }
         };
 
@@ -115,6 +143,10 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         {
             _logger.LogInformation("ConnMan       [DOWN]");
             _logger.LogDebug(ex, "");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex, "");
         }
         finally
         {
@@ -153,11 +185,21 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 {
                     _nodeTable.MarkNodeDead(node.PublicKey);
                 }
+                catch (Exception ex)
+                {
+                    _logger.LogInformation(ex.Message);
+                    _logger.LogDebug(string.Empty, ex);
+                }
             });
         }
         catch (TaskCanceledException)
         {
             // We're shutting down, do nothing
+        }
+        catch (Exception ex)
+        {
+            _logger.LogInformation(ex.Message);
+            _logger.LogDebug(string.Empty, ex);
         }
     }
 
@@ -170,11 +212,19 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
         foreach (var node in expiringNodes)
         {
-            _nodeTable.RemoveNode(node);
-
-            if (_connectedNodes.TryGetValue(node.PublicKey, out var connection))
+            try
             {
-                await connection.Channel.Disconnect(stoppingToken);
+                _nodeTable.RemoveNode(node);
+
+                if (_connectedNodes.TryGetValue(node.PublicKey, out var connection))
+                {
+                    await connection.Channel.Disconnect(stoppingToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
+                _logger.LogDebug(string.Empty, ex);
             }
         }
     }
@@ -189,20 +239,36 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         // Connect to new nodes
         foreach (var node in closestNodes)
         {
-            if (_connectedNodes.ContainsKey(node.PublicKey))
+            try
             {
-                continue;
-            }
+                if (_connectedNodes.ContainsKey(node.PublicKey))
+                {
+                    continue;
+                }
 
-            await ConnectTo(node, stoppingToken);
+                await ConnectTo(node, stoppingToken);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
+                _logger.LogDebug(string.Empty, ex);
+            }
         }
 
         // Remove connections to nodes not in closestNodes anymore
         foreach (var connection in _connectedNodes.Values)
         {
-            if (!closestNodes.Any(x => x.PublicKey == connection.Node.PublicKey))
+            try
             {
-                await connection.Channel.Disconnect(stoppingToken);
+                if (!closestNodes.Any(x => x.PublicKey == connection.Node.PublicKey))
+                {
+                    await connection.Channel.Disconnect(stoppingToken);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
+                _logger.LogDebug(string.Empty, ex);
             }
         }
     }
@@ -236,6 +302,11 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             {
                 // Do nothing, we are shutting down
             }
+            catch (Exception ex)
+            {
+                _logger.LogInformation(ex.Message);
+                _logger.LogDebug(string.Empty, ex);
+            }
         });
     }
 
@@ -258,7 +329,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
         if (identity is null)
         {
-            _logger.LogInformation("Failed to query public key from {hostname}: {error}", node.Uri.ToHostname(), error);
+            _logger.LogInformation("{hostname}: {error}", node.Uri.ToHostname(), error);
             node.Status = NodeStatus.DEAD;
             return;
         }
