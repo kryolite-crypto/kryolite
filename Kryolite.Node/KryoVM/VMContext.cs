@@ -13,7 +13,6 @@ public class VMContext
     public ILogger Logger { get; }
     public Random Rand { get; set; }
     public List<object> EventData { get; set; } = new ();
-    public List<Token> Tokens { get; set; } = new ();
     public ulong Balance { get; set; }
     public string? Returns { get; set; }
     public List<EventBase> Events { get; set; } = new ();

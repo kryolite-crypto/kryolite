@@ -297,48 +297,61 @@ public class StoreManager : TransactionManager, IStoreManager
 
     public string? CallContractMethod(Address address, CallMethod call, out ulong gasFee)
     {
+        var payload = new TransactionPayload
+        {
+            Payload = call
+        };
+
+        var tx = new Transaction
+        {
+            To = address,
+            Data = Serializer.Serialize(payload)
+        };
+
+        return CallContractMethod(tx, out gasFee);
+    }
+
+    public string? CallContractMethod(Transaction tx, out ulong gasFee)
+    {
         using var _ = rwlock.EnterReadLockEx();
 
-        var contract = Repository.GetContract(address) ?? throw new Exception(ExecutionResult.INVALID_CONTRACT.ToString());
+        var contract = Repository.GetContract(tx.To) ?? throw new Exception(ExecutionResult.INVALID_CONTRACT.ToString());
+        var snapshot = Repository.GetLatestSnapshot(tx.To) ?? throw new Exception(ExecutionResult.CONTRACT_SNAPSHOT_MISSING.ToString());
+        var balance = GetBalance(tx.To);
 
-        var snapshot = Repository.GetLatestSnapshot(address);
+        // Tx value would be transferred to contract balance before execution
+        balance += tx.Value;
 
-        if (snapshot == null)
+        var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
+
+        if (payload?.Payload is not CallMethod call)
         {
-            throw new Exception(ExecutionResult.CONTRACT_SNAPSHOT_MISSING.ToString());
+            gasFee = 0;
+            return null;
         }
-
-        var balance = GetBalance(address);
 
         var methodName = $"{call.Method}";
-        var method = contract.Manifest?.Methods
-            .Where(x => x.Name == methodName)
-            .FirstOrDefault();
-
-        if (method == null)
-        {
-            throw new Exception(ExecutionResult.INVALID_METHOD.ToString());
-        }
-
         var methodParams = new List<object>();
+        var method = (contract.Manifest?.Methods
+            .Where(x => x.Name == methodName)
+            .FirstOrDefault()) ?? throw new Exception(ExecutionResult.INVALID_METHOD.ToString());
 
         if (call.Params is not null)
         {
             methodParams.AddRange(call.Params);
         }
 
-        var vmContext = new VMContext(Repository.GetLastView()!, contract, new Transaction { To = address }, Random.Shared, Logger, balance);
-
+        var vmContext = new VMContext(Repository.GetLastView()!, contract, tx, Random.Shared, Logger, balance);
         var code = Repository.GetContractCode(contract.Address);
 
         using var vm = KryoVM.LoadFromSnapshot(code, snapshot)
             .WithContext(vmContext);
 
-        vm.Fuel = ulong.MaxValue;
+        vm.Fuel = uint.MaxValue;
 
-        var ret = vm.CallMethod(methodName, methodParams.ToArray(), out var json);
+        var ret = vm.CallMethod(methodName, [.. methodParams], out var json);
 
-        gasFee = ulong.MaxValue - vm.Fuel;
+        gasFee = uint.MaxValue - vm.Fuel;
 
         return json;
     }
@@ -563,17 +576,10 @@ public class StoreManager : TransactionManager, IStoreManager
             return (ulong)tx.CalculateFee();
         }
 
-        var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
-
-        if (payload?.Payload is not CallMethod call)
-        {
-            return 0UL;
-        }
-
-        CallContractMethod(tx.To, call, out var gasFee);
+        CallContractMethod(tx, out var gasFee);
 
         // Add 10% extra as the smart contract execution might vary.
         // Might not be enough in all cases...
-        return (ulong)Math.Ceiling(gasFee * 1.1d);
+        return (ulong)(tx.CalculateFee() + Math.Ceiling(gasFee * 1.1d));
     }
 }

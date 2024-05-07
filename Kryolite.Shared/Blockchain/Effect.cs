@@ -12,6 +12,10 @@ public sealed class Effect : ISerializable
     public SHA256Hash? TokenId;
     public bool ConsumeToken;
 
+    // Transient properties
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+
     public Effect()
     {
         From = new();

@@ -75,6 +75,11 @@ public class Executor
                         continue;
                     }
 
+                    if (tx.TransactionType == TransactionType.PAYMENT || tx.TransactionType == TransactionType.CONTRACT_SCHEDULED_SELF_CALL)
+                    {
+                        tx.SpentFee = (uint)tx.CalculateFee();
+                    }
+
                     tx.ExecutionResult = TransactionExecutor.Execute(tx);
 
                     if (tx.To.IsContract())
@@ -107,6 +112,7 @@ public class Executor
                         continue;
                     }
 
+                    tx.SpentFee = (uint)tx.CalculateFee();
                     tx.ExecutionResult = ContractInstallerExecutor.Execute(tx, view);
                     break;
             }

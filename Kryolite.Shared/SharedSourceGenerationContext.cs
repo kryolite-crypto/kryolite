@@ -24,7 +24,6 @@ namespace Kryolite.Shared;
 [JsonSerializable(typeof(ContractManifest))]
 [JsonSerializable(typeof(GithubRelease))]
 [JsonSerializable(typeof(Ledger))]
-[JsonSerializable(typeof(TokenBase))]
 [JsonSerializable(typeof(Token))]
 [JsonSerializable(typeof(Validator))]
 [JsonSerializable(typeof(ChainStateDto))]

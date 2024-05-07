@@ -523,7 +523,6 @@ internal class RocksDBStorage : IStorage
         }
 
         Database.Put("Key", [], BitConverter.GetBytes(0UL));
-
         return 0;
     }
 

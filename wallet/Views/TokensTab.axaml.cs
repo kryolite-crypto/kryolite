@@ -150,7 +150,7 @@ public partial class TokensTab : UserControl
             var collection = new List<TokenModel>();
 
             using var scope = Program.ServiceCollection.CreateScope();
-            var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new ArgumentNullException(nameof(IStoreManager));
+            var blockchainManager = scope.ServiceProvider.GetService<IStoreManager>() ?? throw new NullReferenceException(nameof(IStoreManager));
 
             foreach (var wallet in accounts)
             {
@@ -164,7 +164,7 @@ public partial class TokensTab : UserControl
                         IsConsumed = token.IsConsumed
                     });
 
-                collection.AddRange(tokens.ToList());
+                collection.AddRange(tokens);
             }
 
             Model.Tokens = new ObservableCollection<TokenModel>(collection);

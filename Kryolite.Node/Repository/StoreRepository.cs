@@ -6,6 +6,7 @@ using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Configuration;
 using System.Buffers;
 using System.Data;
+using System.Runtime.InteropServices;
 
 namespace Kryolite.Node.Repository;
 
@@ -376,45 +377,48 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void AddToken(Token token)
     {
-        Span<byte> keyBuf = stackalloc byte[84];
+        Span<byte> keyBuf = stackalloc byte[58];
 
         if (token.Id == 0)
         {
             token.Id = Storage.NextKey(CurrentTransaction);
         }
 
-        var id = BitConverter.GetBytes(token.Id);
-        Storage.Put("Token", id, token, CurrentTransaction);
+        var id = token.Id.ToKey();
+        Storage.Put("Token", id, Serializer.Serialize(token), CurrentTransaction);
 
         // ContractAddress_TokenId
-        var tokenIx = keyBuf.Slice(0, 58);
+        var tokenIx = keyBuf[..58];
         token.Contract.Buffer.CopyTo(tokenIx);
-        token.TokenId.Buffer.CopyTo(tokenIx.Slice(Address.ADDRESS_SZ));
+        token.TokenId.Buffer.CopyTo(tokenIx[Address.ADDRESS_SZ..]);
 
         Storage.Put("ixTokenId", tokenIx, id, CurrentTransaction);
 
         // LedgerAddress_Key
-        var ledgerIx = keyBuf.Slice(0, 34);
+        var ledgerIx = keyBuf[..34];
         token.Ledger.Buffer.CopyTo(ledgerIx);
-        id.CopyTo(ledgerIx.Slice(Address.ADDRESS_SZ));
+        id.CopyTo(ledgerIx[Address.ADDRESS_SZ..]);
 
         Storage.Put("ixTokenLedger", ledgerIx, id, CurrentTransaction);
     }
 
     public void UpdateToken(Token token)
     {
-        Span<byte> keyBuf = stackalloc byte[34];
-
-        var id = BitConverter.GetBytes(token.Id);
-        var oldToken = Storage.Get<Token>("Token", id);
-
-        if (oldToken is not null)
+        if (token.Id != 0)
         {
-            // LedgerAddress_Key
-            token.Ledger.Buffer.CopyTo(keyBuf);
-            id.CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
+            Span<byte> keyBuf = stackalloc byte[34];
+            var id = BitConverter.GetBytes(token.Id);
 
-            Storage.Delete("ixTokenLedger", keyBuf, CurrentTransaction);
+            var oldToken = Storage.Get<Token>("Token", id);
+
+            if (oldToken is not null)
+            {
+                // LedgerAddress_Key
+                token.Ledger.Buffer.CopyTo(keyBuf);
+                id.CopyTo(keyBuf[Address.ADDRESS_SZ..]);
+
+                Storage.Delete("ixTokenLedger", keyBuf, CurrentTransaction);
+            }
         }
 
         AddToken(token);
@@ -477,12 +481,13 @@ public class StoreRepository : IStoreRepository, IDisposable
     public List<Token> GetTokens(Address ledger)
     {
         var keys = Storage.FindAll("ixTokenLedger", ledger.Buffer);
-        return Storage.GetMany<Token>("Token", keys.ToArray());
+        return Storage.GetMany<Token>("Token", [.. keys]);
     }
 
     public List<Token> GetContractTokens(Address contractAddress)
     {
-        return Storage.FindAll<Token>("Token", contractAddress.Buffer);
+        var keys = Storage.FindAll("ixTokenId", contractAddress.Buffer);
+        return Storage.GetMany<Token>("Token", [.. keys]);
     }
 
     public long? GetTimestamp(SHA256Hash transactionId)

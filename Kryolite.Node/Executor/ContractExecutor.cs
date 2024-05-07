@@ -82,11 +82,6 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 return ExecutionResult.CONTRACT_EXECUTION_FAILED;
             }
 
-            foreach (var token in vmContext.Tokens)
-            {
-                Context.AddToken(token);
-            }
-
             foreach (var effect in tx.Effects)
             {
                 var wallet = Context.GetOrNewWallet(effect.To);
@@ -94,14 +89,31 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 // Handle token effect
                 if (effect.TokenId is not null)
                 {
-                    var token = Context.GetToken(contract.Address, effect.TokenId) ?? throw new Exception($"Context is missing token {effect.TokenId}");
-                    token.Ledger = wallet.Address;
+                    var token = Context.GetToken(contract.Address, effect.TokenId);
+
+                    if (token is null)
+                    {
+                        // Create new token
+                        token = new Token
+                        {
+                            TokenId = effect.TokenId,
+                            Ledger = effect.To,
+                            Name = effect.Name,
+                            Description = effect.Description,
+                            Contract = contract.Address
+                        };
+
+                        Context.AddToken(token);
+                    }
+
+                    token.Ledger = effect.To;
                     token.IsConsumed = effect.ConsumeToken;
                 }
 
                 // Take funds from contract
                 if (!Context.Transfer.From(contract.Address, effect.Value, out var executionResult, out _))
                 {
+                    // TODO: if this fails, we should rollback previous effects or else they will be only partially added
                     return executionResult;
                 }
 

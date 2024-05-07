@@ -338,6 +338,11 @@ public class KryoVM : IDisposable
             var name = memory.ReadString(namePtr, nameLen, Encoding.UTF8);
             var desc = memory.ReadString(descPtr, descLen, Encoding.UTF8);
 
+            if (Context!.Logger.IsEnabled(LogLevel.Debug))
+            {
+                Context!.Logger.LogDebug("Transfer token {id} ({name} - {desc}) from {from} to {to}", tokenId, name, desc, from, to);
+            }
+
             var eventData = new TransferTokenEventArgs
             {
                 Contract = Context!.Contract.Address,
@@ -346,18 +351,14 @@ public class KryoVM : IDisposable
                 TokenId = tokenId
             };
 
-            var token = new Token
+            var effect = new Effect(Context!.Contract.Address, from, to, 0, tokenId)
             {
-                TokenId = tokenId,
-                Ledger = to,
                 Name = name,
-                Description = desc,
-                Contract = Context!.Contract.Address
+                Description = desc
             };
 
-            Context!.Tokens.Add(token);
             Context!.Events.Add(eventData);
-            Context!.Transaction.Effects.Add(new Effect(Context!.Contract.Address, from, to, 0, tokenId));
+            Context!.Transaction.Effects.Add(effect);
         }));
 
         Linker.Define("env", "__consume_token", Function.FromCallback<int, int>(Store, (Caller caller, int ownerPtr, int tokenIdPtr) =>
@@ -439,9 +440,9 @@ public class KryoVM : IDisposable
             Context!.Returns = str;
         }));
 
-        Linker.Define("env", "__rand", Function.FromCallback<float>(Store, (Caller caller) =>
+        Linker.Define("env", "__rand", Function.FromCallback(Store, (Caller caller) =>
         {
-            return Context!.Rand.NextSingle();
+            return Context!.Rand.Next();
         }));
 
         Linker.Define("env", "__exit", Function.FromCallback<int>(Store, (Caller caller, int exitCode) =>

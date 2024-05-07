@@ -3,19 +3,23 @@ using Kryolite.ByteSerializer;
 
 namespace Kryolite.Shared;
 
-public sealed class Token : TokenBase, ISerializable
+public sealed class Token : ISerializable
 {
     public ulong Id;
     public SHA256Hash TokenId;
     public bool IsConsumed;
     public Address Ledger;
     public Address Contract;
+    public string Name;
+    public string Description;
 
     public Token()
     {
         TokenId = new();
         Ledger = new();
         Contract = new();
+        Name = string.Empty;
+        Description = string.Empty;
     }
 
     public byte GetSerializerId()
@@ -28,36 +32,29 @@ public sealed class Token : TokenBase, ISerializable
         Serializer.SizeOf(TokenId) +
         Serializer.SizeOf(IsConsumed) +
         Serializer.SizeOf(Ledger) +
-        Serializer.SizeOf(Contract);
+        Serializer.SizeOf(Contract) +
+        Serializer.SizeOf(Name) +
+        Serializer.SizeOf(Description);
 
-    public Token Create<Token>() where Token : new()
-    {
-        return new Token();
-    }
-
-    public void Deserialize(ref Serializer serializer)
+    public void Serialize(ref Serializer serializer)
     {
         serializer.Write(Id);
         serializer.Write(TokenId);
         serializer.Write(IsConsumed);
         serializer.Write(Ledger);
         serializer.Write(Contract);
+        serializer.Write(Name);
+        serializer.Write(Description);
     }
 
-    public void Serialize(ref Serializer serializer)
+    public void Deserialize(ref Serializer serializer)
     {
         serializer.Read(ref Id);
         serializer.Read(ref TokenId);
         serializer.Read(ref IsConsumed);
         serializer.Read(ref Ledger);
         serializer.Read(ref Contract);
+        serializer.Read(ref Name);
+        serializer.Read(ref Description);
     }
-}
-
-public class TokenBase
-{
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = string.Empty;
-    [JsonPropertyName("description")]
-    public string Description { get; set; } = string.Empty;
 }
