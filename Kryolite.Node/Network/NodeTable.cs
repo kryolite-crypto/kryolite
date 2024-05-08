@@ -149,6 +149,7 @@ public class NodeTable
 public class Node
 {
     public PublicKey PublicKey { get; set; }
+    public DateTime FirstSeen { get; } = DateTime.UtcNow;
     public DateTime LastSeen { get; set; }
     public NodeStatus Status { get; set; }
     public Uri Uri { get; set; }

@@ -93,8 +93,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 _logger.LogInformation("Connected to {node}", node.Uri.ToHostname());
                 
                 _connectedNodes[node.PublicKey] = connection;
-                _nodeTable.MarkNodeAlive(node.PublicKey);
-
                 _timer.Period = TimeSpan.FromSeconds(60);
             }
             catch (Exception ex)
@@ -110,8 +108,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 var node = connection.Node;
 
                 _logger.LogInformation("Disconnected from {node}", node.Uri.ToHostname());
-
-                _nodeTable.MarkNodeDead(node.PublicKey);
 
                 if (_connectedNodes.Count == 0)
                 {
@@ -342,6 +338,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             node.PublicKey = identity.PublicKey;
         }
 
+        _nodeTable.MarkNodeAlive(node.PublicKey);
+
         if (_connectedNodes.ContainsKey(node.PublicKey))
         {
             return;
@@ -436,8 +434,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                     SyncManager.AddToQueue(connection);
                 }
             }
-
-            node.Status = NodeStatus.ALIVE;
 
             NodeConnected?.Invoke(this, connection);
 

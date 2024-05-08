@@ -1,4 +1,3 @@
-using System.Text;
 using Kryolite.ByteSerializer;
 
 namespace Kryolite.Shared.Dto;
@@ -7,6 +6,7 @@ public class NodeDto : ISerializable
 {
     public PublicKey PublicKey;
     public string Url;
+    public DateTimeOffset FirstSeen;
     public DateTimeOffset LastSeen;
 
     public NodeDto()
@@ -15,10 +15,11 @@ public class NodeDto : ISerializable
         Url = string.Empty;
     }
 
-    public NodeDto(PublicKey publicKey, string url, DateTime lastSeen)
+    public NodeDto(PublicKey publicKey, string url, DateTime firstSeen, DateTime lastSeen)
     {
         PublicKey = publicKey;
         Url = url;
+        FirstSeen = firstSeen;
         LastSeen = lastSeen;
     }
 
@@ -32,18 +33,15 @@ public class NodeDto : ISerializable
         return
             Serializer.SizeOf(PublicKey) +
             Serializer.SizeOf(Url) +
+            Serializer.SizeOf(FirstSeen) +
             Serializer.SizeOf(LastSeen);
-    }
-
-    public NodeDto Create<NodeDto>() where NodeDto : new()
-    {
-        return new NodeDto();
     }
 
     public void Serialize(ref Serializer serializer)
     {
         serializer.Write(PublicKey);
         serializer.Write(Url);
+        serializer.Write(FirstSeen);
         serializer.Write(LastSeen);
     }
 
@@ -51,6 +49,7 @@ public class NodeDto : ISerializable
     {
         serializer.Read(ref PublicKey);
         serializer.Read(ref Url);
+        serializer.Read(ref FirstSeen);
         serializer.Read(ref LastSeen);
     }
 }

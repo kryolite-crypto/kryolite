@@ -58,10 +58,10 @@ public static class BaseApi
         return storeManager.GetBlocktemplate(wallet);
     });
 
-    private static Task<IEnumerable<string>> GetPeers(IConnectionManager connectionManager) => Task.Run(() =>
+    private static Task<IEnumerable<PeerStatsDto>> GetPeers(IConnectionManager connectionManager) => Task.Run(() =>
     {
         var hosts = connectionManager.GetConnectedNodes()
-            .Select(x => x.Node.Uri.ToHostname());
+            .Select(x => new PeerStatsDto(x));
 
         return hosts;
     });
@@ -425,7 +425,7 @@ public static class BaseApi
 
     private static Task<IEnumerable<NodeDto>> GetKnownNodes(NodeTable nodeTable) => Task.Run(() =>
     {
-        return nodeTable.GetAllNodes().Select(x => new NodeDto(x.PublicKey, x.Uri.ToHostname(), x.LastSeen));
+        return nodeTable.GetAllNodes().Select(x => new NodeDto(x.PublicKey, x.Uri.ToHostname(), x.FirstSeen, x.LastSeen));
     });
 
     private static Task<ulong> EstimateTransactionFee(IStoreManager storeManager, TransactionDto tx) => Task.Run(() =>

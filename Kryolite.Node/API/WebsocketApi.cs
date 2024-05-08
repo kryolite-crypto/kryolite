@@ -47,8 +47,7 @@ public static class WebsocketApi
                         var nodeTable2 = scope2.ServiceProvider.GetRequiredService<NodeTable>();
                         var peerList = new NodeListResponse(nodeTable2
                             .GetActiveNodes()
-                            .Select(x => new NodeDto(x.PublicKey, x.Uri
-                            .ToString(), x.LastSeen))
+                            .Select(x => new NodeDto(x.PublicKey, x.Uri.ToString(), x.FirstSeen, x.LastSeen))
                             .ToList()
                         );
 
