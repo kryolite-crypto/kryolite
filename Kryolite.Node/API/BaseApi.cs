@@ -365,7 +365,7 @@ public static class BaseApi
     {
         if (!Address.IsValid(address))
         {
-            throw new Exception("invalid address");
+            return null;
         }
 
         return storeManager.GetLedger(address);
@@ -375,7 +375,7 @@ public static class BaseApi
     {
         if (!Address.IsValid(address))
         {
-            throw new Exception("invalid address");
+            return 0UL;
         }
 
         return storeManager.GetBalance(address);
@@ -385,7 +385,7 @@ public static class BaseApi
     {
         if (!Address.IsValid(address))
         {
-            throw new Exception("invalid address");
+            return [];
         }
 
         return storeManager.GetTransactionsForAddress(address).Select(tx => new TransactionDtoEx(tx));
@@ -395,7 +395,7 @@ public static class BaseApi
     {
         if (!Address.IsValid(address))
         {
-            throw new Exception("invalid address");
+            return [];
         }
 
         return storeManager.GetTokens(address);

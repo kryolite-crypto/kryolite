@@ -321,10 +321,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             return;
         }
 
-        _logger.LogInformation("Connecting to {hostname}", node.Uri.ToHostname());
-
         var channel = WebsocketChannel.ForAddress(node.Uri, stoppingToken);
-
         var (identity, error) = await channel.GetPublicKey();
 
         if (identity is null)
@@ -349,6 +346,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         {
             return;
         }
+
+        _logger.LogInformation("Connecting to {hostname}", node.Uri.ToHostname());
 
         var authrequest = CreateAuthRequest();
 
