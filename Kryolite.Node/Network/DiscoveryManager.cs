@@ -116,7 +116,7 @@ public class DiscoveryManager : BackgroundService
                 continue;
             }
 
-            _nodeTable.AddNode(authResponse.PublicKey, uri);
+            _nodeTable.AddNode(authResponse.PublicKey, uri, authResponse.Version);
         }
     }
 
@@ -172,7 +172,7 @@ public class DiscoveryManager : BackgroundService
 
         Parallel.ForEach(distinct, nodeDto =>
         {
-            _nodeTable.AddNode(nodeDto.PublicKey, new Uri(nodeDto.Url));
+            _nodeTable.AddNode(nodeDto.PublicKey, new Uri(nodeDto.Url), nodeDto.Version);
         });
     }
 }

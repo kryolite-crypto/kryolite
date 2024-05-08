@@ -52,7 +52,7 @@ public class NodeBroadcast : IBroadcast
         if (exists is null)
         {
             var uri = new Uri(Uri);
-            nodeTable.AddNode(AuthRequest.PublicKey, uri);
+            nodeTable.AddNode(AuthRequest.PublicKey, uri, AuthRequest.Version);
 
             // Rebroadcast
             BroadcastManager.Broadcast(this);

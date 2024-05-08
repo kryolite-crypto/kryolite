@@ -36,8 +36,7 @@ public class NodeService : INodeService, IWebsocketService<NodeService>
     {
         return new NodeListResponse(_nodeTable
             .GetActiveNodes()
-            .Select(x => new NodeDto(x.PublicKey, x.Uri
-            .ToString(), x.FirstSeen, x.LastSeen))
+            .Select(x => new NodeDto(x.PublicKey, x.Uri.ToString(), x.FirstSeen, x.LastSeen, x.Version))
             .ToList()
         );
     }

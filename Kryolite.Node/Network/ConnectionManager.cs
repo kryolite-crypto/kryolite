@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Reflection;
 using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
@@ -364,7 +365,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         using var scope = _sp.CreateScope();
 
         var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-        var authRequest = new AuthRequest(_nodeKey, _publicAddr, _port);
+        var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
+        var authRequest = new AuthRequest(_nodeKey, _publicAddr, _port, version);
 
         authRequest.Sign(keyRepo.GetPrivateKey());
 
@@ -381,18 +383,18 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         return _clientFactory.CreateClient(connection.Channel);
     }
 
-    public Task StartListening(Uri uri, PublicKey publicKey, WebsocketChannel channel)
+    public Task StartListening(Uri uri, PublicKey publicKey, WebsocketChannel channel, string version)
     {
         if (_connectedNodes.ContainsKey(publicKey))
         {
             return Task.CompletedTask;
         }
 
-        var node = new Node(publicKey, uri);
+        var node = new Node(publicKey, uri, version);
         var connection = new NodeConnection(channel, node);
 
         _connectedNodes.TryAdd(publicKey, connection);
-        _nodeTable.AddNode(publicKey, uri);
+        _nodeTable.AddNode(publicKey, uri, version);
 
         connection.Node = _nodeTable.GetNode(publicKey)!;
 

@@ -1,3 +1,4 @@
+using System.Text;
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using NSec.Cryptography;
@@ -8,19 +9,22 @@ public class AuthResponse : ISerializable
 {
     public Shared.PublicKey PublicKey;
     public long Nonce;
+    public string Version;
     public Signature Signature;
 
     public AuthResponse()
     {
         PublicKey = new();
         Signature = new();
+        Version = string.Empty;
     }
 
-    public AuthResponse(Shared.PublicKey publicKey, long nonce)
+    public AuthResponse(Shared.PublicKey publicKey, long nonce, string version)
     {
         PublicKey = publicKey;
         Nonce = nonce;
         Signature = Signature.NULL_SIGNATURE;
+        Version = version;
     }
 
     public void Sign(PrivateKey privateKey)
@@ -47,13 +51,15 @@ public class AuthResponse : ISerializable
     public int GetLength() =>
         Serializer.SizeOf(PublicKey) +
         Serializer.SizeOf(Nonce) +
-        Serializer.SizeOf(Signature);
+        Serializer.SizeOf(Signature) +
+        Serializer.SizeOf(Version);
 
     public void Serialize(ref Serializer serializer)
     {
         serializer.Write(PublicKey);
         serializer.Write(Nonce);
         serializer.Write(Signature);
+        serializer.Write(Version);
     }
 
     public void Deserialize(ref Serializer serializer)
@@ -61,6 +67,7 @@ public class AuthResponse : ISerializable
         serializer.Read(ref PublicKey);
         serializer.Read(ref Nonce);
         serializer.Read(ref Signature);
+        serializer.Read(ref Version);
     }
 
     private byte[] GetBytes()
@@ -68,6 +75,7 @@ public class AuthResponse : ISerializable
         var stream = new MemoryStream();
         stream.Write(PublicKey);
         stream.Write(BitConverter.GetBytes(Nonce));
+        stream.Write(Encoding.UTF8.GetBytes(Version));
         return stream.ToArray();
     }
 }

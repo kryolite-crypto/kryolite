@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Reflection;
 using Kryolite.ByteSerializer;
 using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
@@ -47,7 +48,7 @@ public static class WebsocketApi
                         var nodeTable2 = scope2.ServiceProvider.GetRequiredService<NodeTable>();
                         var peerList = new NodeListResponse(nodeTable2
                             .GetActiveNodes()
-                            .Select(x => new NodeDto(x.PublicKey, x.Uri.ToString(), x.FirstSeen, x.LastSeen))
+                            .Select(x => new NodeDto(x.PublicKey, x.Uri.ToString(), x.FirstSeen, x.LastSeen, x.Version))
                             .ToList()
                         );
 
@@ -97,7 +98,7 @@ public static class WebsocketApi
 
         BroadcastManager.Broadcast(new NodeBroadcast(authRequest, uri.ToString()));
 
-        await connectionManager.StartListening(uri, authRequest.PublicKey, channel);
+        await connectionManager.StartListening(uri, authRequest.PublicKey, channel, authRequest.Version);
     }
 
     private static bool Authorize(HttpContext ctx, AuthRequest authRequest, IServiceProvider sp, [NotNullWhen(true)] out Uri? uri, [NotNullWhen(true)] out PublicKey? publicKey)
@@ -155,7 +156,8 @@ public static class WebsocketApi
         using var scope = sp.CreateScope();
 
         var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
-        var authResponse = new AuthResponse(keyRepo.GetPublicKey(), Random.Shared.NextInt64());
+        var version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? string.Empty;
+        var authResponse = new AuthResponse(keyRepo.GetPublicKey(), Random.Shared.NextInt64(), version);
 
         authResponse.Sign(keyRepo.GetPrivateKey());
 

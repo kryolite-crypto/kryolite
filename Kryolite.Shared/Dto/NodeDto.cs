@@ -8,19 +8,22 @@ public class NodeDto : ISerializable
     public string Url;
     public DateTimeOffset FirstSeen;
     public DateTimeOffset LastSeen;
+    public string Version;
 
     public NodeDto()
     {
         PublicKey = new();
         Url = string.Empty;
+        Version = string.Empty;
     }
 
-    public NodeDto(PublicKey publicKey, string url, DateTime firstSeen, DateTime lastSeen)
+    public NodeDto(PublicKey publicKey, string url, DateTime firstSeen, DateTime lastSeen, string version)
     {
         PublicKey = publicKey;
         Url = url;
         FirstSeen = firstSeen;
         LastSeen = lastSeen;
+        Version = version;
     }
 
     public byte GetSerializerId()

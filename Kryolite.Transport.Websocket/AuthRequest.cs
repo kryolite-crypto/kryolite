@@ -13,6 +13,7 @@ public partial class AuthRequest : ISerializable
     public int Port;
     public string NetworkName;
     public int ApiLevel;
+    public string Version;
     public Signature Signature;
 
     public AuthRequest()
@@ -20,9 +21,10 @@ public partial class AuthRequest : ISerializable
         PublicKey = new();
         NetworkName = "";
         Signature = new();
+        Version = string.Empty;
     }
 
-    public AuthRequest(Shared.PublicKey publicKey, Uri? publicUri, int port)
+    public AuthRequest(Shared.PublicKey publicKey, Uri? publicUri, int port, string version)
     {
         PublicKey = publicKey;
         PublicUri = publicUri?.ToString();
@@ -31,6 +33,7 @@ public partial class AuthRequest : ISerializable
         Signature = Signature.NULL_SIGNATURE;
         NetworkName = Constant.NETWORK_NAME;
         ApiLevel = Constant.API_LEVEL;
+        Version = version;
     }
 
     public void Sign(PrivateKey privateKey)
@@ -67,6 +70,7 @@ public partial class AuthRequest : ISerializable
         stream.Write(BitConverter.GetBytes(Port));
         stream.Write(Encoding.UTF8.GetBytes(NetworkName!));
         stream.Write(BitConverter.GetBytes(ApiLevel));
+        stream.Write(Encoding.UTF8.GetBytes(Version));
         return stream.ToArray();
     }
 
@@ -82,7 +86,8 @@ public partial class AuthRequest : ISerializable
         Serializer.SizeOf(Port) +
         Serializer.SizeOf(NetworkName) +
         Serializer.SizeOf(ApiLevel) +
-        Serializer.SizeOf(Signature);
+        Serializer.SizeOf(Signature) +
+        Serializer.SizeOf(Version);
 
     public void Serialize(ref Serializer serializer)
     {
@@ -93,6 +98,7 @@ public partial class AuthRequest : ISerializable
         serializer.Write(NetworkName);
         serializer.Write(ApiLevel);
         serializer.Write(Signature);
+        serializer.Write(Version);
     }
 
     public void Deserialize(ref Serializer serializer)
@@ -104,5 +110,6 @@ public partial class AuthRequest : ISerializable
         serializer.Read(ref NetworkName);
         serializer.Read(ref ApiLevel);
         serializer.Read(ref Signature);
+        serializer.Read(ref Version);
     }
 }

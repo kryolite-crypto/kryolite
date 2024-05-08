@@ -10,7 +10,7 @@ public interface IConnectionManager
     event EventHandler<NodeConnection>? NodeDisconnected;
 
     List<NodeConnection> GetConnectedNodes();
-    Task StartListening(Uri uri, PublicKey publicKey, WebsocketChannel channel);
+    Task StartListening(Uri uri, PublicKey publicKey, WebsocketChannel channel, string version);
 
     INodeService CreateClient(NodeConnection connection);
 }

@@ -69,7 +69,7 @@ public class NodeTable
         return _nodes.Where(x => x.LastSeen < DateTime.UtcNow.AddHours(-24)).ToList();
     }
 
-    public void AddNode(PublicKey key, Uri uri)
+    public void AddNode(PublicKey key, Uri uri, string version)
     {
         if (key == _serverKey)
         {
@@ -82,7 +82,7 @@ public class NodeTable
 
         if (node is null)
         {
-            node = new Node(key, uri);
+            node = new Node(key, uri, version);
             _nodes.Add(node);
 
             NodeAdded?.Invoke(this, node);
@@ -90,6 +90,7 @@ public class NodeTable
 
         node.Uri = uri;
         node.LastSeen = DateTime.Now;
+        node.Version = version;
     }
 
     public void MarkNodeDead(PublicKey key)
@@ -153,15 +154,17 @@ public class Node
     public DateTime LastSeen { get; set; }
     public NodeStatus Status { get; set; }
     public Uri Uri { get; set; }
+    public string Version { get; set; }
     
     public int FailedConnections = 0;
     public bool IsSyncInProgress { get; set; }
     public bool IsForked { get; set; }
 
-    public Node(PublicKey publicKey, Uri uri)
+    public Node(PublicKey publicKey, Uri uri, string version)
     {
         PublicKey = publicKey;
         Uri = uri;
+        Version = version;
     }
 }
 
