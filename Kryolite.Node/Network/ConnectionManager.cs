@@ -27,7 +27,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     private readonly NodeTable _nodeTable;
     private readonly ConcurrentDictionary<PublicKey, NodeConnection> _connectedNodes = new();
     private readonly ILogger<ConnectionManager> _logger;
-    private readonly TimeSpan _timeout;
     private readonly IServiceProvider _sp;
     private readonly IClientFactory _clientFactory;
 
@@ -44,8 +43,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         var keyRepository = sp.GetRequiredService<IKeyRepository>();
 
         _nodeKey = keyRepository.GetPublicKey();
-        
-        _timeout = TimeSpan.FromSeconds(config.GetValue<int>("timeout"));
+
         _publicAddr = config.GetValue<Uri?>("publicaddr");
         _port = config.GetValue<int>("port");
     }
@@ -375,7 +373,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
     public List<NodeConnection> GetConnectedNodes()
     {
-        return _connectedNodes.Values.ToList();
+        return [.. _connectedNodes.Values];
     }
 
     public INodeService CreateClient(NodeConnection connection)

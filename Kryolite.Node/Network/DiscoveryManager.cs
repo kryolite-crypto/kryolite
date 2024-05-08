@@ -101,13 +101,6 @@ public class DiscoveryManager : BackgroundService
             }
 
             using var channel = WebsocketChannel.ForAddress(uri, stoppingToken);
-            var (result, reason) = await channel.Ping();
-
-            if (!result)
-            {
-                _logger.LogInformation("Failed to download nodes from seed {hostname}: {reason}", url, reason);
-                continue;
-            }
 
             var (authResponse, error) = await channel.GetPublicKey();
 
@@ -124,8 +117,6 @@ public class DiscoveryManager : BackgroundService
             }
 
             _nodeTable.AddNode(authResponse.PublicKey, uri);
-
-            await channel.Disconnect(stoppingToken);
         }
     }
 

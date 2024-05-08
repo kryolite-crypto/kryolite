@@ -258,6 +258,7 @@ public class WebsocketChannel : IDisposable
 
         try
         {
+            _cts.Cancel();
             return _ws?.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token) ?? Task.CompletedTask;
         }
         catch (OperationCanceledException)
