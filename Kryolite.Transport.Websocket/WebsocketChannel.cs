@@ -33,7 +33,7 @@ public class WebsocketChannel : IDisposable
 
     private static readonly HttpClient _httpClient = new();
 
-    public DateTime ConnectedSince { get; private set;}
+    public DateTime ConnectedSince { get; set; }
     public long BytesSent { get; private set; }
     public long BytesReceived { get; private set; }
     public long MessagesSent { get; private set; }
@@ -149,7 +149,6 @@ public class WebsocketChannel : IDisposable
             ws.ConnectAsync(uriBuilder.Uri, _cts.Token).Wait(TimeSpan.FromSeconds(30), _cts.Token);
 
             _ws = ws;
-            ConnectedSince = DateTime.UtcNow;
 
             _ = Receive(_cts.Token);
 

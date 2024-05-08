@@ -67,19 +67,21 @@ public class ViewBroadcast : IBroadcast
         {
             logger.LogDebug("Weight: {weight}", Weight);
             logger.LogDebug("Chainstate: {weight}", chainState.Weight);
+            
             if (Weight > chainState.Weight)
             {
                 logger.LogDebug("[{hostname}] Has more weight. Request sync", connection.Node.Uri.ToHostname());
                 SyncManager.AddToQueue(connection);
             }
-            else if (Weight < chainState.Weight)
+            
+            /*else if (Weight < chainState.Weight)
             {
                 var keyRepo = scope.ServiceProvider.GetRequiredService<IKeyRepository>();
                 var pubKey = keyRepo.GetPublicKey();
 
                 logger.LogDebug("[{hostname}] Has lower weight. Broadcast our current view", connection.Node.Uri.ToHostname());
                 client.SuggestView(new SyncRequest(pubKey, chainState.ViewHash, chainState.Weight));
-            }
+            }*/
 
             return Task.CompletedTask;
         }

@@ -337,7 +337,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             node.PublicKey = identity.PublicKey;
         }
 
-        _nodeTable.MarkNodeAlive(node.PublicKey);
+        node.Status = NodeStatus.ALIVE;
 
         if (_connectedNodes.ContainsKey(node.PublicKey))
         {
@@ -436,6 +436,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             }
 
             NodeConnected?.Invoke(this, connection);
+            connection.Channel.ConnectedSince = DateTime.UtcNow;
 
             await foreach (var batch in connection.Channel.Broadcasts.Reader.ReadAllAsync(connection.Channel.ConnectionToken))
             {
