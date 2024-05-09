@@ -813,4 +813,8 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Delete("ChainState", height.ToKey(), CurrentTransaction);
     }
 
+    public void Compact()
+    {
+        Storage.Compact();
+    }
 }

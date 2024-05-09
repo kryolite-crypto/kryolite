@@ -43,6 +43,7 @@ public interface IStorage
 
     ITransaction BeginTransaction();
     RocksDb.RocksDb Open(string storePath);
+    public void Compact();
     void Close();
     Checkpoint CreateCheckpoint();
 }

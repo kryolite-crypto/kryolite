@@ -17,6 +17,7 @@ internal class RocksDBStorage : IStorage, IDisposable
         StorePath = Path.Combine(dataDir, "store");
 
         Database = Open(StorePath);
+        Database.Compact();
 
         var versionPath = Path.Join(dataDir, $"store.version.{Constant.STORE_VERSION}");
 
@@ -30,6 +31,7 @@ internal class RocksDBStorage : IStorage, IDisposable
     {
         StorePath = storePath;
         Database = Open(storePath);
+        Database.Compact();
     }
 
     public RocksDb.RocksDb Open(string storePath)
@@ -630,6 +632,11 @@ internal class RocksDBStorage : IStorage, IDisposable
         checkpoint.Save(stagingDirectory);
 
         return checkpoint;
+    }
+
+    public void Compact()
+    {
+        Database.Compact();
     }
 
     public void Dispose()
