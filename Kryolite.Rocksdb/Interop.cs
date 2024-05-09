@@ -146,4 +146,10 @@ internal static class Interop
 
     [DllImport("rocksdb", EntryPoint = "rocksdb_flush")]
     public static extern void rocksdb_flush(nint handle, nint opts);
+
+    [DllImport("rocksdb", EntryPoint = "rocksdb_options_set_db_write_buffer_size")]
+    public static extern void rocksdb_options_set_db_write_buffer_size(nint handle, nuint opts);
+
+    [DllImport("rocksdb", EntryPoint = "rocksdb_options_set_write_buffer_size")]
+    public static extern void rocksdb_options_set_write_buffer_size(nint handle, nuint opts);
 }

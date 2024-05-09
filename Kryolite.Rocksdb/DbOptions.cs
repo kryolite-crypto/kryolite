@@ -36,6 +36,18 @@ public class DbOptions : IDisposable
         return this;
     }
 
+    public DbOptions SetDbWriteBufferSize(uint value)
+    {
+        Interop.rocksdb_options_set_db_write_buffer_size(_handle, value);
+        return this;
+    }
+
+    public DbOptions SetWriteBufferSize(uint value)
+    {
+        Interop.rocksdb_options_set_write_buffer_size(_handle, value);
+        return this;
+    }
+
     public void Dispose()
     {
         Interop.rocksdb_options_destroy(_handle);

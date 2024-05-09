@@ -273,6 +273,12 @@ public class WebsocketChannel : IDisposable
     public void Dispose()
     {
         _duplex.Writer.Complete();
+
+        if (!_cts.IsCancellationRequested)
+        {
+            _cts.Cancel();
+        }
+
         _cts.Dispose();
         _ws?.Dispose();
     }
@@ -355,6 +361,10 @@ public class WebsocketChannel : IDisposable
                 MessagesReceived++;
                 BytesReceived += length;
             }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex);
         }
         finally
         {

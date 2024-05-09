@@ -11,7 +11,7 @@ HEALTH=OK
 
 if [[ $STATE != $STATE2 ]]; then
     HEALTH=DIVERGED
-    notify-send "Watchman" "Testnet chains have diverged"
+    #notify-send "Watchman" "Testnet chains have diverged"
 fi
 
 echo "<txt>[Height : "$(($HEIGHT))"] [Weight : "$(($WEIGHT / 1000000))M"] [Blocks : "$(($BLOCKS))"] ["$(echo $HEALTH)"]</txt>"

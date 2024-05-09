@@ -5,7 +5,7 @@ using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node.Storage;
 
-internal class RocksDBStorage : IStorage
+internal class RocksDBStorage : IStorage, IDisposable
 {
     private RocksDb.RocksDb Database { get; set; }
     private ulong CurrentKey = 0;
@@ -630,5 +630,10 @@ internal class RocksDBStorage : IStorage
         checkpoint.Save(stagingDirectory);
 
         return checkpoint;
+    }
+
+    public void Dispose()
+    {
+        Database.Dispose();
     }
 }

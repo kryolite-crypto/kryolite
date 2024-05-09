@@ -25,7 +25,6 @@ internal class RocksDBTransaction : ITransaction
         Batch.Put("Key", [], BitConverter.GetBytes(Store.GetCurrentKey()));
 
         Connection.Write(Batch);
-        Connection.Flush(opts);
     }
 
     public void Rollback()
