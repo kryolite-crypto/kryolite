@@ -203,6 +203,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     /// </summary>
     private async Task DoExpiredNodeCleanup(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Performing expired node cleanup");
+
         var expiringNodes = _nodeTable.GetExpiringNodes();
 
         foreach (var node in expiringNodes)
@@ -229,6 +231,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     /// </summary>
     private async Task AdjustConnectionsToClosestNodes(CancellationToken stoppingToken)
     {
+        _logger.LogInformation("Adjusting node connections");
+
         var closestNodes = _nodeTable.GetClosestNodes(_nodeKey);
 
         // Connect to new nodes
@@ -250,9 +254,14 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             }
         }
 
-        // Remove connections to nodes not in closestNodes anymore
+        // Remove outgoing connections to nodes not in closestNodes anymore
         foreach (var connection in _connectedNodes.Values)
         {
+            if (!connection.Channel.IsOutgoing)
+            {
+                continue;
+            }
+
             try
             {
                 if (!closestNodes.Any(x => x.PublicKey == connection.Node.PublicKey))

@@ -13,6 +13,7 @@ namespace Kryolite.Transport.Websocket;
 public class WebsocketChannel : IDisposable
 {
     public bool IsConnected => _ws?.State == WebSocketState.Open;
+    public bool IsOutgoing => _ws is ClientWebSocket;
 
     public Channel<ArraySegment<byte>> Broadcasts => _duplex;
     public CancellationToken ConnectionToken => _cts.Token;
@@ -257,6 +258,7 @@ public class WebsocketChannel : IDisposable
 
         try
         {
+            Console.WriteLine("Disconnecting socket");
             _cts.Cancel();
             return _ws?.CloseAsync(WebSocketCloseStatus.NormalClosure, null, token) ?? Task.CompletedTask;
         }
@@ -272,6 +274,7 @@ public class WebsocketChannel : IDisposable
 
     public void Dispose()
     {
+        Console.WriteLine("Disposing socket");
         _duplex.Writer.Complete();
 
         if (!_cts.IsCancellationRequested)
@@ -310,6 +313,7 @@ public class WebsocketChannel : IDisposable
 
                 if (result.MessageType == WebSocketMessageType.Close)
                 {
+                    Console.WriteLine("Close received");
                     await Disconnect(token);
                     break;
                 }
@@ -361,6 +365,10 @@ public class WebsocketChannel : IDisposable
                 MessagesReceived++;
                 BytesReceived += length;
             }
+        }
+        catch (OperationCanceledException)
+        {
+            // Disconnected
         }
         catch (Exception ex)
         {

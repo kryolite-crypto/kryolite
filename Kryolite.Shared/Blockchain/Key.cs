@@ -87,7 +87,6 @@ public sealed class PrivateKey : ISerializable
     public const int PRIVATE_KEY_SZ = 32;
 }
 
-[SkipLocalsInit]
 public sealed class PublicKey : ISerializable
 {
     public byte[] Buffer;
@@ -128,7 +127,7 @@ public sealed class PublicKey : ISerializable
             return b is null;
         }
 
-        return a.Equals(b);
+        return Enumerable.SequenceEqual(a.Buffer, b?.Buffer ?? []);
     }
 
     public static bool operator !=(PublicKey? a, PublicKey? b)
