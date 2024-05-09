@@ -479,6 +479,7 @@ public class StoreManager : TransactionManager, IStoreManager
         if (newChain.Weight <= chainState?.Weight)
         {
             Logger.LogInformation("Discarding staging due to lower weight");
+            Repository.DeleteStore(storeName);
             return false;
         }
 

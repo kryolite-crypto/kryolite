@@ -82,4 +82,5 @@ public interface IStoreRepository
     void AddDueTransaction(Transaction tx);
     long GetLastHeightContainingBlock();
     void Compact();
+    void DeleteStore(string storeName);
 }

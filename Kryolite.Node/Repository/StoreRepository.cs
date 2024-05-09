@@ -657,6 +657,14 @@ public class StoreRepository : IStoreRepository, IDisposable
         Storage.Open(activeStore);
     }
 
+    public void DeleteStore(string storeName)
+    {
+        var dataDir = Configuration?.GetValue<string>("data-dir") ?? Path.Join(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".kryolite");
+        var stagingStore = Path.Combine(dataDir, $"store.{storeName}");
+
+        Directory.Delete(stagingStore, true);
+    }
+
     public List<Transaction> GetVotesForAddress(Address address, int count)
     {
         Span<byte> key = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];

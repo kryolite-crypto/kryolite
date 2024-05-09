@@ -370,6 +370,10 @@ public class WebsocketChannel : IDisposable
         {
             // Disconnected
         }
+        catch (WebSocketException)
+        {
+            // Disconnected
+        }
         catch (Exception ex)
         {
             Console.WriteLine(ex);
