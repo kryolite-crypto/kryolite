@@ -275,6 +275,14 @@ public partial class RocksDb : IDisposable
         Interop.rocksdb_flush(_handle, opts.Handle);
     }
 
+    public unsafe void Compact()
+    {
+        foreach (var col in _columns)
+        {
+            Interop.rocksdb_compact_range_cf(_handle, col.Value.Handle, null, 0, null, 0);
+        }
+    }
+
     public void Dispose()
     {
         foreach (var col in _columns)
