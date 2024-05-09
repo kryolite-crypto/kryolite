@@ -89,7 +89,7 @@ public static class WebsocketApi
         var ws = await ctx.WebSockets.AcceptWebSocketAsync();
         var lifetime = sp.GetRequiredService<IHostApplicationLifetime>();
 
-        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping, cancellationToken);
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(lifetime.ApplicationStopping);
 
         var channel = new WebsocketChannel(uri, ws, cts.Token);
 
