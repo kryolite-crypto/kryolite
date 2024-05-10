@@ -62,8 +62,8 @@ public class NodeTable
 
         var selfIx = nodes.IndexOf(self);
 
-        // Rearrange nodes so that self is first and nodes before self are last
-        return Enumerable.Concat(nodes[selfIx..], nodes[..selfIx]).ToList();
+        // Rearrange nodes so that nodes after self are first and nodes before self are last
+        return Enumerable.Concat(nodes[(selfIx+1)..], nodes[..selfIx]).ToList();
     }
 
     public List<Node> GetInactiveNodes()

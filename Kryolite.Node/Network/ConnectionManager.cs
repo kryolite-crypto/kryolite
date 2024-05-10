@@ -144,10 +144,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         {
             _logger.LogInformation(ex, "");
         }
-        finally
-        {
-            _timer.Dispose();
-        }
     }
 
     /// <summary>
@@ -241,7 +237,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
         for (var i = 0; i < Constant.MAX_PEERS; i++)
         {
-            var target = i * Constant.MAX_PEERS + 1;
+            var target = i * Constant.MAX_PEERS;
             var node = sortedNodes[target % sortedNodes.Count];
 
             // Add to valid connections list and connect if not already connected
