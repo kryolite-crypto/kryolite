@@ -11,7 +11,7 @@ public class Checkpoint : IDisposable
 
     public void Save(string path)
     {
-        Interop.rocksdb_checkpoint_create(_handle, path, 0, out nint errorptr);
+        Interop.rocksdb_checkpoint_create(_handle, path, 1024 * 1024, out nint errorptr);
 
         if (errorptr != 0)
         {

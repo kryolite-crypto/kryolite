@@ -244,11 +244,6 @@ public abstract class TransactionManager
 
             dbtx.Commit();
 
-            if (view.IsMilestone())
-            {
-                Repository.Compact();
-            }
-
             if (broadcast)
             {
                 Broadcast(view);
