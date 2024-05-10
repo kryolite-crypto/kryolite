@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
@@ -31,7 +32,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     private readonly IServiceProvider _sp;
     private readonly IClientFactory _clientFactory;
 
-    private readonly PeriodicTimer _timer = new(TimeSpan.FromMinutes(1));
+    private readonly PeriodicTimer _timer = new(TimeSpan.FromMinutes(5));
 
     public ConnectionManager(NodeTable nodeTable, IClientFactory clientFactory, IServiceProvider sp, IConfiguration config, ILogger<ConnectionManager> logger)
     {
@@ -92,7 +93,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 _logger.LogInformation("Connected to {node}", node.Uri.ToHostname());
                 
                 _connectedNodes[node.PublicKey] = connection;
-                _timer.Period = TimeSpan.FromSeconds(60);
+                _timer.Period = TimeSpan.FromMinutes(5);
             }
             catch (Exception ex)
             {
@@ -131,7 +132,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
                 await DoPeriodicConnectivityTest(stoppingToken);
                 await DoExpiredNodeCleanup(stoppingToken);
-                await AdjustConnectionsToClosestNodes(stoppingToken);
+                await BalanceConnections(stoppingToken);
             }
         }
         catch (OperationCanceledException ex)
@@ -158,6 +159,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     {
         try
         {
+            _logger.LogInformation("Update inactive node status");
+
             var expiringNodes = _nodeTable.GetInactiveNodes();
 
             await Parallel.ForEachAsync(expiringNodes, stoppingToken, async (node, ct) =>
@@ -203,7 +206,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     /// </summary>
     private async Task DoExpiredNodeCleanup(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Performing expired node cleanup");
+        _logger.LogInformation("Cleanup expired nodes");
 
         var expiringNodes = _nodeTable.GetExpiringNodes();
 
@@ -227,52 +230,43 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     }
 
     /// <summary>
-    /// Get closest nodes and connect to them, disconnecting from outside nodes
+    /// Balance connections
     /// </summary>
-    private async Task AdjustConnectionsToClosestNodes(CancellationToken stoppingToken)
+    private async Task BalanceConnections(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Adjusting node connections");
+        _logger.LogInformation("Balancing connections between nodes");
 
-        var closestNodes = _nodeTable.GetClosestNodes(_nodeKey);
+        var sortedNodes = _nodeTable.GetSortedNodes();
+        var validConnections = new HashSet<Node>(8);
 
-        // Connect to new nodes
-        foreach (var node in closestNodes)
+        for (var i = 0; i < Constant.MAX_PEERS; i++)
         {
-            try
-            {
-                if (_connectedNodes.ContainsKey(node.PublicKey))
-                {
-                    continue;
-                }
+            var target = i * Constant.MAX_PEERS + 1;
+            var node = sortedNodes[target % sortedNodes.Count];
 
-                await ConnectTo(node, stoppingToken);
-            }
-            catch (Exception ex)
+            // Add to valid connections list and connect if not already connected
+            if (validConnections.Add(node) && !_connectedNodes.ContainsKey(node.PublicKey))
             {
-                _logger.LogInformation(ex.Message);
-                _logger.LogDebug(string.Empty, ex);
+                await ConnectTo(node, stoppingToken);
             }
         }
 
-        // Remove outgoing connections to nodes not in closestNodes anymore
+        // Remove outgoing connections that we did not try to connect in previous foreach loop
         foreach (var connection in _connectedNodes.Values)
         {
+            if (_connectedNodes.Count < Constant.MAX_PEERS)
+            {
+                break;
+            }
+
             if (!connection.Channel.IsOutgoing)
             {
                 continue;
             }
 
-            try
+            if (!validConnections.Contains(connection.Node))
             {
-                if (!closestNodes.Any(x => x.PublicKey == connection.Node.PublicKey))
-                {
-                    await connection.Channel.Disconnect(stoppingToken);
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogInformation(ex.Message);
-                _logger.LogDebug(string.Empty, ex);
+                await connection.Channel.Disconnect(stoppingToken);
             }
         }
     }

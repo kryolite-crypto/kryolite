@@ -13,8 +13,10 @@ public class NodeTable
 
     private static ReaderWriterLockSlim _rwlock = new(LockRecursionPolicy.SupportsRecursion);
 
-    private List<Node> _nodes = new();
     private PublicKey _serverKey;
+    private List<Node> _nodes = new();
+
+    private const int BUCKET_MAX_NODES = 4;
 
     public NodeTable(IKeyRepository keyRepo)
     {
@@ -45,16 +47,23 @@ public class NodeTable
         return _nodes.Where(x => x.Status == NodeStatus.ALIVE).ToList();
     }
 
-    public List<Node> GetClosestNodes(PublicKey publicKey)
+    public List<Node> GetSortedNodes()
     {
-        using var _ = _rwlock.EnterReadLockEx();
-        
-        var value = new BigInteger(publicKey);
-        return _nodes
+        using var _ = _rwlock.EnterWriteLockEx();
+
+        var self = new Node(_serverKey, new Uri("http://localhost/"), string.Empty);
+
+        // Concatenate local server as temporary node to have a spot in the buckets
+        var nodes = _nodes
             .Where(x => x.Status == NodeStatus.ALIVE)
-            .OrderBy(x => BigInteger.Max(new BigInteger(x.PublicKey), value) - BigInteger.Min(new BigInteger(x.PublicKey), value))
-            .Take(Constant.MAX_PEERS)
+            .Concat([self])
+            .OrderBy(x => new BigInteger(x.PublicKey))
             .ToList();
+
+        var selfIx = nodes.IndexOf(self);
+
+        // Rearrange nodes so that self is first and nodes before self are last
+        return Enumerable.Concat(nodes[selfIx..], nodes[..selfIx]).ToList();
     }
 
     public List<Node> GetInactiveNodes()
@@ -82,9 +91,7 @@ public class NodeTable
 
         if (node is null)
         {
-            node = new Node(key, uri, version);
-            _nodes.Add(node);
-
+            _nodes.Add(node = new Node(key, uri, version));
             NodeAdded?.Invoke(this, node);
         }
 
@@ -127,11 +134,8 @@ public class NodeTable
     {
         using var _ = _rwlock.EnterWriteLockEx();
 
-        if (node.Status != NodeStatus.ALIVE)
-        {
-            _nodes.Remove(node);
-            NodeRemoved?.Invoke(this, node);
-        }
+        _nodes.Remove(node);
+        NodeRemoved?.Invoke(this, node);
     }
 
     public Node? GetNode(PublicKey key)
