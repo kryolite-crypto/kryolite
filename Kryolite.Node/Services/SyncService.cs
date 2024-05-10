@@ -53,6 +53,12 @@ public class SyncManager : BackgroundService
 
     private void Synchronize(NodeConnection connection)
     {
+        if (connection.Node.IsForked)
+        {
+            _logger.LogInformation("[{node}] Skipping synchronization due to forked chain", connection.Node.Uri.ToHostname());
+            return;
+        }
+
         connection.Node.IsSyncInProgress = true;
         var sw = Stopwatch.StartNew();
 
@@ -63,13 +69,13 @@ public class SyncManager : BackgroundService
             var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
             var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
 
-            _logger.LogInformation("[{node}] Initializing staging context", connection.Node.Uri.ToHostname());
-
             ChainState? newState = null;
             IStateCache? stateCache = null;
             List<EventBase>? events = null;
 
             var client = connMan.CreateClient(connection);
+
+            _logger.LogInformation("[{node}] Initializing staging context", connection.Node.Uri.ToHostname());
 
             using (var checkpoint = storeManager.CreateCheckpoint())
             using (var staging = StagingManager.Open("staging", configuration))

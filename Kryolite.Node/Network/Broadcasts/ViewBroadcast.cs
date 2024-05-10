@@ -35,7 +35,9 @@ public class ViewBroadcast : IBroadcast
         var connManager = scope.ServiceProvider.GetRequiredService<IConnectionManager>();
         var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TransactionBroadcast>>();
-
+        
+        logger.LogDebug("Received ViewBroadcast from {hostname}", connection.Node.Uri.ToHostname());
+        
         if (connection.Node.IsSyncInProgress)
         {
             logger.LogDebug("Ignoring ViewBroadcast, sync in progress");
@@ -49,8 +51,6 @@ public class ViewBroadcast : IBroadcast
         }
 
         connection.Node.IsForked = false;
-
-        logger.LogDebug("Received ViewBroadcast from {hostname}", connection.Node.Uri.ToHostname());
 
         var chainState = storeManager.GetChainState();
 
