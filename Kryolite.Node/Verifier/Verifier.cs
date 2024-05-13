@@ -227,7 +227,7 @@ public class Verifier : IVerifier
 
         if (vote.Stake != stake)
         {
-            Logger.LogInformation($"Vote verification failed (reason = vote stake not equals to validator stake)");
+            Logger.LogInformation($"Vote verification failed (reason = vote stake not equal to validator stake, vote = {vote.Stake}, validator = {validator.Stake})");
             return false;
         }
 

@@ -215,6 +215,9 @@ public abstract class TransactionManager
             Repository.Add(view);
             Repository.SaveState(chainState);
 
+            // Commit before voting for GetStake to get updated stake value
+            dbtx.Commit();
+
             var pubKey = KeyRepository.GetPublicKey();
             var address = pubKey.ToAddress();
             var shouldVote = castVote && view.IsMilestone() && Repository.IsValidator(address);
@@ -241,8 +244,6 @@ public abstract class TransactionManager
                 vote.Sign(KeyRepository.GetPrivateKey());
                 AddVoteInternal(vote, true);
             }
-
-            dbtx.Commit();
 
             if (broadcast)
             {
