@@ -508,7 +508,7 @@ public class KryoVM : IDisposable
                 ExecutionResult = ExecutionResult.SCHEDULED
             };
 
-            Console.WriteLine($"schedule {method} at {DateTimeOffset.FromUnixTimeMilliseconds(timestamp)}");
+            Context.Logger.LogInformation("Schedule {method} at {time} for contract {address}", method, DateTimeOffset.FromUnixTimeMilliseconds(timestamp), Context.Contract.Address);
 
             Context.ScheduledCalls.Add(transaction);
             Context.MethodParams.Clear();

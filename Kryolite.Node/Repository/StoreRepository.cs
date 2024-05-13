@@ -571,19 +571,16 @@ public class StoreRepository : IStoreRepository, IDisposable
     {
         var ts = timestamp.ToKey();
 
-        Span<byte> key = stackalloc byte[sizeof(long) * 2]; // timestamp + id
-        key.Fill(255);
-        ts.CopyTo(key);
-
-        var lowerBound = new byte[sizeof(long) * 2];
-        ts.CopyTo(lowerBound, 0);
+        Span<byte> upperBound = stackalloc byte[sizeof(long) * 2]; // timestamp + id
+        upperBound.Fill(255);
+        ts.CopyTo(upperBound);
 
         using var opts = new ReadOptions();
-        opts.IterateLowerBound(lowerBound);
+        opts.IterateUpperBound(upperBound.ToArray());
 
         using var iterator = Storage.GetIterator("ixScheduledTransaction", opts);
 
-        iterator.SeekForPrev(key);
+        iterator.SeekToFirst();
 
         var results = new List<Transaction>();
 
@@ -597,7 +594,7 @@ public class StoreRepository : IStoreRepository, IDisposable
                 Storage.Delete("ixScheduledTransaction", iterator.Key(), CurrentTransaction);
             }
 
-            iterator.Prev();
+            iterator.Next();
 
             if (tx is not null)
             {

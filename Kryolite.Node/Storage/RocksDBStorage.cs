@@ -64,7 +64,7 @@ internal class RocksDBStorage : IStorage, IDisposable
             ("ixTokenLedger", Address.ADDRESS_SZ + sizeof(long), opts),
             ("ixTransactionId", SHA256Hash.HASH_SZ, opts),
             ("ixTransactionAddress", Address.ADDRESS_SZ + sizeof(long), opts),
-            ("ixScheduledTransaction", Address.ADDRESS_SZ + sizeof(long), opts)
+            ("ixScheduledTransaction", sizeof(long) + sizeof(long), opts)
         };
 
         Database = new RocksDb.RocksDb(StorePath, options, columns);

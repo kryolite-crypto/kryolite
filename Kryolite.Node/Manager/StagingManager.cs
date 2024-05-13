@@ -53,7 +53,7 @@ public class StagingManager : TransactionManager, IDisposable
             "info" => LogLevel.Information,
             "debug" => LogLevel.Debug,
             "trace" => LogLevel.Trace,
-            _ => LogLevel.Warning // only enable warning logs in staging by default
+            _ => LogLevel.Information // only enable warning logs in staging by default
         };
 
         var loggerFactory = LoggerFactory.Create(builder =>
