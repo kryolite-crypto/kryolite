@@ -98,7 +98,7 @@ internal class Program
 
                 if (wallet.Balance != other?.Balance)
                 {
-                    Console.WriteLine($"Balance mismatch on wallet {wallet.Address}");
+                    Console.WriteLine($"Balance mismatch on wallet {wallet.Address}, {wallet.Balance} != {other?.Balance}");
                 }
             }
 

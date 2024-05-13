@@ -307,6 +307,7 @@ public class StagingManager : TransactionManager, IDisposable
             foreach (var effect in tx.Effects)
             {
                 transfer.From(effect.To, effect.Value, out _, out _);
+                transfer.To(effect.Contract, effect.Value, out _);
                 RollbackToken(effect, tokens);
             }
 

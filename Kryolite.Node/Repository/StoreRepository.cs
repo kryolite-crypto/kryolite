@@ -586,7 +586,6 @@ public class StoreRepository : IStoreRepository, IDisposable
         iterator.SeekForPrev(key);
 
         var results = new List<Transaction>();
-        var toRemove = new List<byte>();
 
         while (iterator.Valid())
         {

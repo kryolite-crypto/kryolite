@@ -192,6 +192,7 @@ public class SyncManager : BackgroundService
 
         if (!pResult.IsCompleted)
         {
+            _logger.LogInformation("Failed to verify blocks");
             return (true, true);
         }
 
@@ -205,6 +206,7 @@ public class SyncManager : BackgroundService
 
         if (!pResult.IsCompleted)
         {
+            _logger.LogInformation("Failed to verify votes");
             return (true, true);
         }
 
@@ -214,21 +216,25 @@ public class SyncManager : BackgroundService
         {
             if (!staging.LoadBlocks(response.Blocks))
             {
+                _logger.LogInformation("Failed to load blocks");
                 return (true, true);
             }
             
             if (!staging.LoadVotes(response.Votes))
             {
+                _logger.LogInformation("Failed to load votes");
                 return (true, true);
             }
 
             if (!staging.LoadTransactions(response.Transactions))
             {
+                _logger.LogInformation("Failed to load transactions");
                 return (true, true);
             }
 
             if (!staging.LoadView(response.View!))
             {
+                _logger.LogInformation("Failed to load view");
                 return (true, true);
             }
         }

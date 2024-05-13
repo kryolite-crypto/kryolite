@@ -33,7 +33,7 @@ public class Executor
 
         if (dueTransactions.Count != 0)
         {
-            Logger.LogDebug("Found {count} due transactions to execute", dueTransactions.Count);
+            Logger.LogInformation("Found {count} due transactions to execute", dueTransactions.Count);
         }
 
         view.ScheduledTransactions.AddRange(dueHashes);
@@ -86,9 +86,13 @@ public class Executor
                     {
                         tx.ExecutionResult = ContractExecutor.Execute(tx, view);
 
-                        // Refund unspent gas fee
-                        var unspentFee = tx.MaxFee - tx.SpentFee;
-                        Context.Transfer.To(tx.From!, unspentFee, out _);
+                        // TODO: We need to handle gas fees for scheduled calls
+                        if (tx.TransactionType != TransactionType.CONTRACT_SCHEDULED_SELF_CALL)
+                        {
+                            // Refund unspent gas fee
+                            var unspentFee = tx.MaxFee - tx.SpentFee;
+                            Context.Transfer.To(tx.From!, unspentFee, out _);
+                        }
                     }
 
                     if (tx.ExecutionResult != ExecutionResult.SUCCESS)
