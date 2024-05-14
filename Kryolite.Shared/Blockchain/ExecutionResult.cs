@@ -25,7 +25,9 @@ public enum ExecutionResult
     DUPLICATE_CONTRACT,
     STALE,
     ORPHAN,
-    SCHEDULED
+    SCHEDULED,
+    FAILED_TO_LOCK,
+    FAILED_TO_UNLOCK
 }
 
 public static class ExecutionResultSerializer

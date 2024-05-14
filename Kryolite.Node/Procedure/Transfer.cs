@@ -67,4 +67,48 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
 
         wallet.Pending = checked(wallet.Pending + value);
     }
+
+    public bool Unlock(Address address, out ExecutionResult executionResult)
+    {
+        if (!Ledger.TryGetWallet(address, Repository, out var wallet))
+        {
+            executionResult = ExecutionResult.FAILED_TO_UNLOCK;
+            return true;
+        }
+
+        if (wallet.Locked && Validators.TryGetValidator(address, Repository, out var validator))
+        {
+            wallet.Balance = validator.Stake;
+            wallet.Locked = false;
+            validator.Stake = 0;
+
+            executionResult = ExecutionResult.SUCCESS;
+            return true;
+        }
+
+        executionResult = ExecutionResult.UNKNOWN;
+        return false;
+    }
+
+    public bool Lock(Address address, out ExecutionResult executionResult)
+    {
+        if (!Ledger.TryGetWallet(address, Repository, out var wallet))
+        {
+            executionResult = ExecutionResult.FAILED_TO_LOCK;
+            return true;
+        }
+
+        if (wallet.Locked && Validators.TryGetValidator(address, Repository, out var validator))
+        {
+            validator.Stake = wallet.Balance;
+            wallet.Balance = 0;
+            wallet.Locked = true;
+
+            executionResult = ExecutionResult.SUCCESS;
+            return true;
+        }
+
+        executionResult = ExecutionResult.UNKNOWN;
+        return false;
+    }
 }

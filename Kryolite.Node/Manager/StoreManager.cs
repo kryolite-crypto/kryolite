@@ -308,10 +308,10 @@ public class StoreManager : TransactionManager, IStoreManager
             Data = Serializer.Serialize(payload)
         };
 
-        return CallContractMethod(tx, out gasFee);
+        return CallContractMethod(tx, false, out gasFee);
     }
 
-    public string? CallContractMethod(Transaction tx, out ulong gasFee)
+    public string? CallContractMethod(Transaction tx, bool simulateTransfer, out ulong gasFee)
     {
         using var _ = rwlock.EnterReadLockEx();
 
@@ -319,8 +319,10 @@ public class StoreManager : TransactionManager, IStoreManager
         var snapshot = Repository.GetLatestSnapshot(tx.To) ?? throw new Exception(ExecutionResult.CONTRACT_SNAPSHOT_MISSING.ToString());
         var balance = GetBalance(tx.To);
 
-        // Tx value would be transferred to contract balance before execution
-        balance += tx.Value;
+        if (simulateTransfer)
+        {
+            balance += tx.Value;
+        }
 
         var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
 
@@ -577,7 +579,7 @@ public class StoreManager : TransactionManager, IStoreManager
             return (ulong)tx.CalculateFee();
         }
 
-        CallContractMethod(tx, out var gasFee);
+        CallContractMethod(tx, true, out var gasFee);
 
         // Add 50% extra as the smart contract execution might vary.
         // Might not be enough in all cases...

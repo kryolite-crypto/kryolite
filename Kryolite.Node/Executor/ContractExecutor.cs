@@ -72,7 +72,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
 
             Logger.LogDebug("Executing contract {contractName}:{methodName}", contract.Name, call.Method);
             var ret = vm.CallMethod(methodName, [.. methodParams], out _);
-            Logger.LogDebug("Contract result = {result}", ret);
+            Logger.LogDebug("Contract result = {result}, fuel burned = {fuel}", ret, fuelStart - vm.Fuel);
 
             tx.SpentFee += (uint)(fuelStart - vm.Fuel);
 
@@ -114,7 +114,8 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 if (!Context.Transfer.From(contract.Address, effect.Value, out var executionResult, out _))
                 {
                     // TODO: if this fails, we should rollback previous effects or else they will be only partially added
-                    return executionResult;
+                    Logger.LogInformation("Failed to take funds from contract");
+                    return ExecutionResult.CONTRACT_EXECUTION_FAILED;
                 }
 
                 // Add funds to recipient

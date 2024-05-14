@@ -248,8 +248,14 @@ public class Verifier : IVerifier
             TransactionType.CONTRACT => VerifyContract(tx),
             TransactionType.REGISTER_VALIDATOR => VerifyValidatorRegisteration(tx),
             TransactionType.DEREGISTER_VALIDATOR => VerifyValidatorDeRegisteration(tx),
-            _ => throw new ArgumentException($"Invalid transaction type {tx.TransactionType} for {tx.CalculateHash()}"),
+            _ => ReportInvalidTransactionType(tx)
         };
+    }
+
+    private bool ReportInvalidTransactionType(Transaction tx)
+    {
+        Logger.LogInformation($"Invalid TransactionType = {tx.TransactionType}");
+        return false;
     }
 
     private bool VerifyPayment(Transaction tx)

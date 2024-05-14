@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
@@ -53,7 +54,7 @@ public class StagingManager : TransactionManager, IDisposable
             "info" => LogLevel.Information,
             "debug" => LogLevel.Debug,
             "trace" => LogLevel.Trace,
-            _ => LogLevel.Information // only enable warning logs in staging by default
+            _ => LogLevel.Warning // only enable warning logs in staging by default
         };
 
         var loggerFactory = LoggerFactory.Create(builder =>
@@ -91,15 +92,24 @@ public class StagingManager : TransactionManager, IDisposable
             {
                 state.Stop();
             }
-
-            lock (_lock)
-            {
-                if (!AddTransactionInternal(tx, false))
-                {
-                    state.Stop();
-                }
-            }
         });
+
+        if (!result.IsCompleted)
+        {
+            return false;
+        }
+
+        var span = CollectionsMarshal.AsSpan(transactions);
+
+        foreach (var txDto in span)
+        {
+            var tx = new Transaction(txDto);
+
+            if (!AddTransactionInternal(tx, false))
+            {
+                return false;
+            }
+        }
 
         return result.IsCompleted;
     }
@@ -238,7 +248,7 @@ public class StagingManager : TransactionManager, IDisposable
             {
                 if (tx.ExecutionResult == ExecutionResult.SUCCESS)
                 {
-                    RollbackTransaction(view, tx, transfer, ledgers, contracts, tokens, validators);
+                    RollbackTransaction(view, tx, ref transfer, contracts, tokens, validators);
                 }
             }
 
@@ -249,7 +259,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in transactions)
             {
-                RollbackTransaction(view, tx, transfer, ledgers, contracts, tokens, validators);
+                RollbackTransaction(view, tx, ref transfer, contracts, tokens, validators);
             }
 
             var scheduled = Repository.GetTransactions(view.ScheduledTransactions);
@@ -260,7 +270,7 @@ public class StagingManager : TransactionManager, IDisposable
             foreach (var tx in scheduled)
             {
                 tx.ExecutionResult = ExecutionResult.SCHEDULED;
-                RollbackTransaction(view, tx, transfer, ledgers, contracts, tokens, validators);
+                RollbackTransaction(view, tx, ref transfer, contracts, tokens, validators);
             }
 
             Repository.DeleteBlocks(view.Blocks);
@@ -283,7 +293,7 @@ public class StagingManager : TransactionManager, IDisposable
         StateCache.SetChainState(Repository.GetChainState() ?? new ChainState());
     }
 
-    private void RollbackTransaction(View view, Transaction tx, Transfer transfer, WalletCache ledgers, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, ValidatorCache validators)
+    private void RollbackTransaction(View view, Transaction tx, ref Transfer transfer, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, ValidatorCache validators)
     {
         if (tx.ExecutionResult != ExecutionResult.SUCCESS)
         {
@@ -295,11 +305,6 @@ public class StagingManager : TransactionManager, IDisposable
         var to = tx.To ?? Address.NULL_ADDRESS;
         var isScheduled = tx.ExecutionResult == ExecutionResult.SCHEDULED;
         var isDue = tx.Timestamp <= view.Timestamp;
-
-        if (!ledgers.TryGetWallet(from, Repository, out var sender))
-        {
-            sender = new Ledger();
-        }
 
         if (to.IsContract() && contracts.TryGetContract(to, Repository, out var _))
         {
@@ -319,12 +324,18 @@ public class StagingManager : TransactionManager, IDisposable
             case TransactionType.BLOCK_REWARD:
             case TransactionType.STAKE_REWARD:
             case TransactionType.DEV_REWARD:
-                transfer.From(to, tx.Value, out _, out _);
+                if (!transfer.From(to, tx.Value, out var res2, out var ledger2))
+                {
+                    throw new Exception($"Negative balance after rollback: From = {to}, Balance = {ledger2?.Balance}, Value = {tx.Value}, Result = {res2}");
+                }
                 break;
             case TransactionType.PAYMENT:
                 if (isDue)
                 {
-                    transfer.From(to, tx.Value, out _, out _);
+                    if (!transfer.From(to, tx.Value, out var res, out var ledger))
+                    {
+                        throw new Exception($"Negative balance after rollback: From = {to}, Balance = {ledger?.Balance}, Value = {tx.Value}, Result = {res}");
+                    }
                 }
 
                 // If this was scheduled execution, add the transaction back to scheduled index
@@ -332,49 +343,43 @@ public class StagingManager : TransactionManager, IDisposable
                 {
                     Repository.AddDueTransaction(tx);
                 }
-
-                // Don't refund the scheduled execution to sender, only the base transactions
-                if (!isScheduled)
+                else
                 {
                     var total = tx.Value + tx.SpentFee;
                     transfer.To(from, total, out _);
                 }
+
                 break;
             case TransactionType.CONTRACT:
                 if (isDue)
                 {
                     transfer.From(to, tx.Value, out _, out _);
 
-                    // If this was scheduled execution, add the transaction back to scheduled index
-                    if (isScheduled)
-                    {
-                        Repository.AddDueTransaction(tx);
-                    }
+                    Repository.DeleteContractSnapshot(to, view.Id);
+                    Repository.DeleteContractCode(to);
+                    Repository.DeleteContract(to);
+
+                    contracts.Remove(to);
                 }
 
-                // Don't refund the scheduled execution to sender, only the base transactions
-                if (!isScheduled)
+                // If this was scheduled execution, add the transaction back to scheduled index
+                if (isScheduled)
+                {
+                    Repository.AddDueTransaction(tx);
+                }
+                else
                 {
                     var total = tx.Value + tx.SpentFee;
                     transfer.To(from, total, out _);
                 }
 
-                Repository.DeleteContractSnapshot(to, view.Id);
-                Repository.DeleteContractCode(to);
-                Repository.DeleteContract(to);
-
-                contracts.Remove(to);
                 break;
             case TransactionType.REGISTER_VALIDATOR:
                 {
-                    if (!validators.TryGetValidator(from, Repository, out var validator))
+                    if (!transfer.Unlock(from, out _))
                     {
-                        throw new Exception("missing validator entry");
+                        throw new Exception("Failed to rollback REGISTER_VALIDATOR");
                     }
-
-                    sender.Balance = validator.Stake;
-                    sender.Locked = false;
-                    validator.Stake = 0;
 
                     Events.Add(new ValidatorDisable(from));
                 }
@@ -382,14 +387,10 @@ public class StagingManager : TransactionManager, IDisposable
                 break;
             case TransactionType.DEREGISTER_VALIDATOR:
                 {
-                    if (!validators.TryGetValidator(from, Repository, out var validator))
+                    if (!transfer.Lock(from, out _))
                     {
-                        throw new Exception("missing validator entry");
+                        throw new Exception("Failed to rollback DEREGISTER_VALIDATOR");
                     }
-
-                    validator.Stake = sender.Balance;
-                    sender.Balance = 0;
-                    sender.Locked = true;
 
                     Events.Add(new ValidatorEnable(from));
                 }
