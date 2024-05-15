@@ -1,4 +1,4 @@
-using System.Security.Cryptography;
+﻿using System.Security.Cryptography;
 using Kryolite.Shared;
 using System.CommandLine;
 using System.Diagnostics;
@@ -185,6 +185,7 @@ public class Program
                         catch (Exception ex)
                         {
                             Console.WriteLine("{0} thread {1}: {2}", DateTime.Now, tid, ex.Message);
+                            Console.WriteLine(ex.InnerException);
                         }
                     }
                 }).UnsafeStart();
