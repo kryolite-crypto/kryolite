@@ -7,8 +7,7 @@
                 mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
                 x:Class="Kryolite.Wallet.MiningTab"
                 x:DataType="vm:MiningTabModel"
-                xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
-                xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia">
+                xmlns:AvaloniaEdit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit">
   <UserControl.Styles>
     <Style Selector="vm|GroupBox">
       <Setter Property="Background" Value="{DynamicResource ThemeAccentBrush}" />
@@ -84,7 +83,7 @@
                           TextChanged="ScrollToBottom"
                           IsVisible="True"
                           />
-          <lvc:CartesianChart Height="180" Series="{Binding Series}" XAxes="{Binding XAxes}" YAxes="{Binding YAxes}" IsVisible="False"></lvc:CartesianChart>
+          <!--lvc:CartesianChart Height="180" Series="{Binding Series}" XAxes="{Binding XAxes}" YAxes="{Binding YAxes}" IsVisible="False"></lvc:CartesianChart-->
           </StackPanel>
         </Border>
         <!--StackPanel Orientation="Horizontal">

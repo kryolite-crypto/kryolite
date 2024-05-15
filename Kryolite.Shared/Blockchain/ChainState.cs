@@ -36,7 +36,8 @@ public sealed class ChainState : EventBase, ISerializable
         Serializer.SizeOf(TotalTransactions) +
         Serializer.SizeOf(BlockReward) +
         Serializer.SizeOf(Weight) +
-        Serializer.SizeOf(TotalWork);
+        Serializer.SizeOf(TotalWork) + 
+        Serializer.SizeOf(CollectedFees);
 
     public void Serialize(ref Serializer serializer)
     {
@@ -49,6 +50,7 @@ public sealed class ChainState : EventBase, ISerializable
         serializer.Write(BlockReward);
         serializer.Write(Weight);
         serializer.Write(TotalWork);
+        serializer.Write(CollectedFees);
     }
 
     public void Deserialize(ref Serializer serializer)
@@ -62,5 +64,6 @@ public sealed class ChainState : EventBase, ISerializable
         serializer.Read(ref BlockReward);
         serializer.Read(ref Weight);
         serializer.Read(ref TotalWork);
+        serializer.Read(ref CollectedFees);
     }
 }

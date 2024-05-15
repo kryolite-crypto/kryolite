@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
@@ -166,6 +167,11 @@ public class StagingManager : TransactionManager, IDisposable
         return Repository.GetView(id);
     }
 
+    public Transaction? GetTransaction(SHA256Hash id)
+    {
+        return Repository.GetTransaction(id);
+    }
+
     public override void Broadcast(Transaction tx)
     {
 
@@ -295,18 +301,23 @@ public class StagingManager : TransactionManager, IDisposable
 
     private void RollbackTransaction(View view, Transaction tx, ref Transfer transfer, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, ValidatorCache validators)
     {
+        Repository.Delete(tx);
+
+        if (tx.To.IsContract())
+        {
+            Repository.DeleteContractSnapshot(tx.To, view.Id);
+        }
+
         if (tx.ExecutionResult != ExecutionResult.SUCCESS)
         {
             // failed contract execution has already refunded this tx
             return;
         }
 
-        var from = tx.From ?? Address.NULL_ADDRESS;
-        var to = tx.To ?? Address.NULL_ADDRESS;
         var isScheduled = tx.ExecutionResult == ExecutionResult.SCHEDULED;
         var isDue = tx.Timestamp <= view.Timestamp;
 
-        if (to.IsContract() && contracts.TryGetContract(to, Repository, out var _))
+        if (tx.To.IsContract())
         {
             // Note: effects need to be rolled back before transaction
             foreach (var effect in tx.Effects)
@@ -315,8 +326,6 @@ public class StagingManager : TransactionManager, IDisposable
                 transfer.To(effect.Contract, effect.Value, out _);
                 RollbackToken(effect, tokens);
             }
-
-            Repository.DeleteContractSnapshot(to, view.Id);
         }
 
         switch (tx.TransactionType)
@@ -324,17 +333,17 @@ public class StagingManager : TransactionManager, IDisposable
             case TransactionType.BLOCK_REWARD:
             case TransactionType.STAKE_REWARD:
             case TransactionType.DEV_REWARD:
-                if (!transfer.From(to, tx.Value, out var res2, out var ledger2))
+                if (!transfer.From(tx.To, tx.Value, out var res2, out var ledger2))
                 {
-                    throw new Exception($"Negative balance after rollback: From = {to}, Balance = {ledger2?.Balance}, Value = {tx.Value}, Result = {res2}");
+                    throw new Exception($"Negative balance after rollback: From = {tx.To}, Balance = {ledger2?.Balance}, Value = {tx.Value}, Result = {res2}");
                 }
                 break;
             case TransactionType.PAYMENT:
                 if (isDue)
                 {
-                    if (!transfer.From(to, tx.Value, out var res, out var ledger))
+                    if (!transfer.From(tx.To, tx.Value, out var res, out var ledger))
                     {
-                        throw new Exception($"Negative balance after rollback: From = {to}, Balance = {ledger?.Balance}, Value = {tx.Value}, Result = {res}");
+                        throw new Exception($"Negative balance after rollback: From = {tx.To}, Balance = {ledger?.Balance}, Value = {tx.Value}, Result = {res}");
                     }
                 }
 
@@ -346,20 +355,28 @@ public class StagingManager : TransactionManager, IDisposable
                 else
                 {
                     var total = tx.Value + tx.SpentFee;
-                    transfer.To(from, total, out _);
+                    transfer.To(tx.From, total, out _);
                 }
 
                 break;
             case TransactionType.CONTRACT:
                 if (isDue)
                 {
-                    transfer.From(to, tx.Value, out _, out _);
+                    var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
 
-                    Repository.DeleteContractSnapshot(to, view.Id);
-                    Repository.DeleteContractCode(to);
-                    Repository.DeleteContract(to);
+                    if (payload?.Payload is not NewContract newContract)
+                    {
+                        break;
+                    }
 
-                    contracts.Remove(to);
+                    var contract = Contract.ToAddress(tx.From!, newContract.Code);
+
+                    transfer.From(contract, tx.Value, out _, out _);
+
+                    Repository.DeleteContractCode(contract);
+                    Repository.DeleteContract(contract);
+
+                    contracts.Remove(contract);
                 }
 
                 // If this was scheduled execution, add the transaction back to scheduled index
@@ -370,34 +387,32 @@ public class StagingManager : TransactionManager, IDisposable
                 else
                 {
                     var total = tx.Value + tx.SpentFee;
-                    transfer.To(from, total, out _);
+                    transfer.To(tx.From, total, out _);
                 }
 
                 break;
             case TransactionType.REGISTER_VALIDATOR:
                 {
-                    if (!transfer.Unlock(from, out _))
+                    if (!transfer.Unlock(tx.From, out _))
                     {
                         throw new Exception("Failed to rollback REGISTER_VALIDATOR");
                     }
 
-                    Events.Add(new ValidatorDisable(from));
+                    Events.Add(new ValidatorDisable(tx.From));
                 }
 
                 break;
             case TransactionType.DEREGISTER_VALIDATOR:
                 {
-                    if (!transfer.Lock(from, out _))
+                    if (!transfer.Lock(tx.From, out _))
                     {
                         throw new Exception("Failed to rollback DEREGISTER_VALIDATOR");
                     }
 
-                    Events.Add(new ValidatorEnable(from));
+                    Events.Add(new ValidatorEnable(tx.From));
                 }
                 break;
         }
-
-        Repository.Delete(tx);
     }
 
     private void RollbackToken(Effect effect, Dictionary<(Address, SHA256Hash), Token> tokens)

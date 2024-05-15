@@ -16,12 +16,12 @@ using Kryolite.EventBus;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Algorithm;
-using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using NSec.Cryptography;
 
 namespace Kryolite.Wallet;
 
@@ -32,7 +32,7 @@ public partial class MiningTab : UserControl
     private TextEditor? _logBox;
     private CancellationTokenSource _tokenSource = new ();
     private CancellationTokenSource _stoppingSource = new ();
-    private Queue<(DateTime Timestamp, long Hashes)> _snapshots = new (30);
+    private Queue<(TimeSpan Timestamp, long Hashes)> _snapshots = new (30);
     private readonly MiningTabModel _model = new();
     private readonly System.Timers.Timer _snapshotTimer;
 
@@ -101,12 +101,14 @@ public partial class MiningTab : UserControl
             AutoReset = true
         };
 
+        var sw = Stopwatch.StartNew();
+
         _snapshotTimer.Elapsed += (sender, e) =>
         {
-            _snapshots.Enqueue((DateTime.Now, _hashes));
+            _snapshots.Enqueue((sw.Elapsed, _hashes));
 
             var snapshot = _snapshots.Count >= 30 ? _snapshots.Dequeue() : _snapshots.Peek();
-            var elapsed = DateTime.Now - snapshot.Timestamp;
+            var elapsed = sw.Elapsed - snapshot.Timestamp;
 
             if (elapsed.TotalSeconds == 0)
             {
@@ -208,20 +210,25 @@ public partial class MiningTab : UserControl
         for (var i = 0; i < _threadCount; i++)
         {
             var thread = new Thread(() => {
+                var algo = PasswordBasedKeyDerivationAlgorithm.Argon2id(new ()
+                {
+                    DegreeOfParallelism = 1,
+                    MemorySize = 8 * 1024,
+                    NumberOfPasses = 1
+                });
+
                 try
                 {
-                    var buf = new Span<byte>(new byte[32]);
+                    Span<byte> buf = stackalloc byte[32];
+                    Span<byte> concat = stackalloc byte[64];
 
-                    var concat = new Concat
-                    {
-                        Buffer = new byte[64]
-                    };
-
-                    var nonce = new Span<byte>(concat.Buffer, 32, 32);
+                    var nonce = concat[32..];
                     var stoppingToken = _stoppingSource.Token;
                     var start = DateTime.Now;
 
                     _blockhashes = 0;
+
+                    Span<byte> salt = new byte[32];
 
                     while (!stoppingToken.IsCancellationRequested)
                     {
@@ -229,19 +236,19 @@ public partial class MiningTab : UserControl
                         var blocktemplate = LoadBlocktemplate();
                         var target = blocktemplate.Difficulty.ToTarget();
 
-                        Array.Copy((byte[])blocktemplate.Nonce, 0, concat.Buffer, 0, 32);
+                        blocktemplate.Nonce.Buffer.CopyTo(concat);
 
                         while (!token.IsCancellationRequested)
                         {
                             Random.Shared.NextBytes(nonce);
 
-                            Argon2.Hash(concat.Buffer, buf);
+                            Argon2.Hash(concat, buf);
 
                             var result = new BigInteger(buf, true, true);
 
                             if (result.CompareTo(target) <= 0)
                             {
-                                blocktemplate.Solution = concat.Buffer[32..];
+                                blocktemplate.Solution = nonce;
 
                                 using var scope = Program.ServiceCollection.CreateScope();
                                 var storeManager = scope.ServiceProvider.GetRequiredService<IStoreManager>();
@@ -268,7 +275,6 @@ public partial class MiningTab : UserControl
 
                             Interlocked.Increment(ref _hashes);
                             Interlocked.Increment(ref _blockhashes);
-
                         }
                     }
                 }
@@ -278,7 +284,7 @@ public partial class MiningTab : UserControl
                 }
             });
 
-            thread.UnsafeStart();
+            thread.Start();
         }
 
         WriteLog("Mining started");

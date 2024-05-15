@@ -5,6 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Shared.Dto;
 using Microsoft.AspNetCore.Builder;
+using Kryolite.Shared;
 
 namespace Kryolite.Daemon;
 

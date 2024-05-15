@@ -1,4 +1,5 @@
-﻿using Kryolite.ByteSerializer;
+﻿using System.Numerics;
+using Kryolite.ByteSerializer;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
@@ -426,7 +427,7 @@ internal class RocksDBStorage : IStorage, IDisposable
         var keySize = Database.KeySize(ixName);
         var key = keyPrefix.ToArray();
         Array.Resize(ref key, keySize);
-        Array.Fill(key, (byte)255, keyPrefix.Length, keySize - keyPrefix.Length);
+        Array.Fill(key, byte.MaxValue, keyPrefix.Length, keySize - keyPrefix.Length);
 
         var lowerBound = keyPrefix.ToArray();
         Array.Resize(ref lowerBound, keySize);
