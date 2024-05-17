@@ -172,6 +172,11 @@ public class StagingManager : TransactionManager, IDisposable
         return Repository.GetTransaction(id);
     }
 
+    public List<Validator> GetValidators()
+    {
+        return Repository.GetValidators();
+    }
+
     public override void Broadcast(Transaction tx)
     {
 
@@ -254,7 +259,7 @@ public class StagingManager : TransactionManager, IDisposable
             {
                 if (tx.ExecutionResult == ExecutionResult.SUCCESS)
                 {
-                    RollbackTransaction(view, tx, ref transfer, contracts, tokens, validators);
+                    RollbackTransaction(view, tx, ref transfer, contracts, tokens, false);
                 }
             }
 
@@ -265,7 +270,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in transactions)
             {
-                RollbackTransaction(view, tx, ref transfer, contracts, tokens, validators);
+                RollbackTransaction(view, tx, ref transfer, contracts, tokens, false);
             }
 
             var scheduled = Repository.GetTransactions(view.ScheduledTransactions);
@@ -275,8 +280,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in scheduled)
             {
-                tx.ExecutionResult = ExecutionResult.SCHEDULED;
-                RollbackTransaction(view, tx, ref transfer, contracts, tokens, validators);
+                RollbackTransaction(view, tx, ref transfer, contracts, tokens, true);
             }
 
             Repository.DeleteBlocks(view.Blocks);
@@ -299,7 +303,7 @@ public class StagingManager : TransactionManager, IDisposable
         StateCache.SetChainState(Repository.GetChainState() ?? new ChainState());
     }
 
-    private void RollbackTransaction(View view, Transaction tx, ref Transfer transfer, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, ValidatorCache validators)
+    private void RollbackTransaction(View view, Transaction tx, ref Transfer transfer, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, bool isScheduled)
     {
         Repository.Delete(tx);
 
@@ -314,7 +318,6 @@ public class StagingManager : TransactionManager, IDisposable
             return;
         }
 
-        var isScheduled = tx.ExecutionResult == ExecutionResult.SCHEDULED;
         var isDue = tx.Timestamp <= view.Timestamp;
 
         if (tx.To.IsContract())
@@ -347,15 +350,15 @@ public class StagingManager : TransactionManager, IDisposable
                     }
                 }
 
-                // If this was scheduled execution, add the transaction back to scheduled index
                 if (isScheduled)
                 {
+                    // If this was scheduled execution, add the transaction back to scheduled index
                     Repository.AddDueTransaction(tx);
                 }
                 else
                 {
                     var total = tx.Value + tx.SpentFee;
-                    transfer.To(tx.From, total, out _);
+                    transfer.To(tx.From, total, out ledger2);
                 }
 
                 break;

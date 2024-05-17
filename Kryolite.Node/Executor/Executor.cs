@@ -70,7 +70,7 @@ public class Executor
                 case TransactionType.CONTRACT_SCHEDULED_SELF_CALL:
                     if (tx.Timestamp > view.Timestamp)
                     {
-                        Logger.LogDebug("Added scheduled transaction ({hash}), to execute at {timestamp}", tx.CalculateHash(), DateTimeOffset.FromUnixTimeMilliseconds(tx.Timestamp));
+                        Logger.LogInformation("Added scheduled transaction ({hash}), to execute at {timestamp}", tx.CalculateHash(), DateTimeOffset.FromUnixTimeMilliseconds(tx.Timestamp));
                         tx.ExecutionResult = ExecutionResult.SCHEDULED;
                         continue;
                     }

@@ -49,6 +49,24 @@ internal class Program
         {
             staging.RollbackTo(0);
 
+            foreach (var ledger2 in staging.Repository.GetRichList(1000))
+            {
+                if (ledger2.Balance != 0)
+                {
+                    Console.WriteLine($"Ledger balance not reset after rollback: {ledger2.Address}: {ledger2.Balance}");
+                    //return;
+                }
+            }
+
+            foreach (var validator in staging.GetValidators())
+            {
+                if (validator.Stake != 0)
+                {
+                    Console.WriteLine($"Validator balance not reset after rollback: {validator.NodeAddress}: {validator.Stake}");
+                    //return;
+                }
+            }
+
             for (var i = 1; i <= height; i++)
             {
                 var view = storeManager.GetView(i);
