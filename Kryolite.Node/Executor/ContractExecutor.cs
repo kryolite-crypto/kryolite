@@ -2,6 +2,7 @@ using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Text.Json;
 
 namespace Kryolite.Node.Executor;
@@ -60,9 +61,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
 
             var vmContext = new VMContext(view, contract, tx, Context.GetRand(), Logger, contractLedger.Balance);
 
-            var code = Context.GetRepository().GetContractCode(contract.Address);
-
-            using var vm = KryoVM.LoadFromSnapshot(code, contract.CurrentSnapshot)
+            var vm = KryoVM.LoadFromSnapshot(tx.To, Context.GetRepository(), contract.CurrentSnapshot)
                 .WithContext(vmContext);
 
             var fuelStart = tx.MaxFee - tx.SpentFee;

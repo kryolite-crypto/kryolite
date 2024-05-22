@@ -154,13 +154,36 @@ public class SyncManager : BackgroundService
 
     private long FindCommonHeight(StagingManager stagingManager, Network.Node node, INodeService client)
     {
+        // First do a shallow search
+        var queryHashes = GetHashes(stagingManager, 1, 4, 2);
+        var commonHeight = client.FindCommonHeight(new HashList(queryHashes));
+
+        // If not found, search deeper
+        if (commonHeight == 0)
+        {
+            queryHashes = GetHashes(stagingManager, 2, 10, 5);
+
+            if (queryHashes.Count > 0)
+            {
+                commonHeight = client.FindCommonHeight(new HashList(queryHashes));
+            }
+        }
+
+        _logger.LogInformation("[{node}] Found common height at {commonHeight}", node.Uri.ToHostname(), commonHeight);
+
+        return commonHeight;
+    }
+
+    private List<SHA256Hash> GetHashes(StagingManager stagingManager, long start, long count, long power)
+    {
         var height = stagingManager.GetChainState()?.Id ?? 0;
 
-        var queryHashes = new List<SHA256Hash>(15);
+        var end = start + count;
+        var queryHashes = new List<SHA256Hash>((int)count);
 
-        for (var i = 14; i >= 0; i--)
+        for (var i = start; i <= end; i++)
         {
-            var qHeight = Math.Min(1, i * 5);
+            var qHeight = (long)Math.Pow(i, power);
             var view = stagingManager.GetView(Math.Max(height - qHeight, 1));
 
             if (view is null || qHeight <= 0)
@@ -171,11 +194,7 @@ public class SyncManager : BackgroundService
             queryHashes.Add(view.GetHash());
         }
 
-        var commonHeight = client.FindCommonHeight(new HashList(queryHashes));
-
-        _logger.LogInformation("[{node}] Found common height at {commonHeight}", node.Uri.ToHostname(), commonHeight);
-
-        return commonHeight;
+        return queryHashes;
     }
 
     private (bool Completed, bool BrokenChain) DownloadViewRange(INodeService client, long height, StagingManager staging)

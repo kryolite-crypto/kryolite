@@ -18,23 +18,18 @@ public class RegisterValidatorExecutor
 
     public ExecutionResult Execute(Transaction tx)
     {
-        if (!Context.TryGetValidator(tx.From!, out var validator))
+        var ledger = Context.GetOrNewWallet(tx.From);
+        
+        // Return pending balance to wallet to be locked
+        ledger.Balance = checked(ledger.Balance + ledger.Pending);
+        ledger.Pending = checked(ledger.Pending - ledger.Pending);
+
+        if (Context.Transfer.Lock(tx.From, tx.To, out var executionResult))
         {
-            validator = new Validator { NodeAddress = tx.From! };
-            Context.AddValidator(validator);
+            Context.AddEvent(new ValidatorEnable(tx.From));
         }
 
-        var ledger = Context.GetOrNewWallet(validator.NodeAddress);
-
-        validator.RewardAddress = tx.To;
-        validator.Stake = ledger.Pending;
-
-        ledger.Balance = 0;
-        ledger.Pending = 0;
-        ledger.Locked = true;
-
-        Context.AddEvent(new ValidatorEnable(tx.From!));
-        return ExecutionResult.SUCCESS;
+        return executionResult;
     }
 
     public void Rollback(Transaction tx)

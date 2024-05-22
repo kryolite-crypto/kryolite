@@ -73,7 +73,7 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
         if (!Ledger.TryGetWallet(address, Repository, out var wallet))
         {
             executionResult = ExecutionResult.FAILED_TO_UNLOCK;
-            return true;
+            return false;
         }
 
         if (wallet.Locked && Validators.TryGetValidator(address, Repository, out var validator))
@@ -90,17 +90,28 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
         return false;
     }
 
-    public bool Lock(Address address, out ExecutionResult executionResult)
+    public bool Lock(Address address, Address rewardAddress, out ExecutionResult executionResult)
     {
         if (!Ledger.TryGetWallet(address, Repository, out var wallet))
         {
             executionResult = ExecutionResult.FAILED_TO_LOCK;
-            return true;
+            return false;
         }
 
-        if (wallet.Locked && Validators.TryGetValidator(address, Repository, out var validator))
+        if (!wallet.Locked)
         {
+            if (!Validators.TryGetValidator(address, Repository, out var validator))
+            {
+                validator = new Validator
+                {
+                    NodeAddress = address
+                };
+
+                Validators.Add(address, validator);
+            }
+
             validator.Stake = wallet.Balance;
+            validator.RewardAddress = rewardAddress;
             wallet.Balance = 0;
             wallet.Locked = true;
 

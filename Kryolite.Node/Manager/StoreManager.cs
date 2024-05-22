@@ -344,9 +344,8 @@ public class StoreManager : TransactionManager, IStoreManager
         }
 
         var vmContext = new VMContext(Repository.GetLastView()!, contract, tx, Random.Shared, Logger, balance);
-        var code = Repository.GetContractCode(contract.Address);
 
-        using var vm = KryoVM.LoadFromSnapshot(code, snapshot)
+        var vm = KryoVM.LoadFromSnapshot(tx.To, Repository, snapshot)
             .WithContext(vmContext);
 
         vm.Fuel = uint.MaxValue;

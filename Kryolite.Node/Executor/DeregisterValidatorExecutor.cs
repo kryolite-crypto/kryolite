@@ -17,21 +17,12 @@ public class DeregisterValidatorExecutor
 
     public ExecutionResult Execute(Transaction tx)
     {
-        if (!Context.TryGetValidator(tx.From!, out var validator))
+        if (Context.Transfer.Unlock(tx.From, out var executionResult))
         {
-            return ExecutionResult.UNKNOWN;
+            Context.AddEvent(new ValidatorDisable(tx.From));
         }
 
-        var ledger = Context.GetOrNewWallet(validator.NodeAddress);
-
-        ledger.Balance = validator.Stake;
-        ledger.Pending = checked(ledger.Pending - validator.Stake);
-        ledger.Locked = false;
-
-        validator.Stake = 0;
-
-        Context.AddEvent(new ValidatorDisable(tx.From!));
-        return ExecutionResult.SUCCESS;
+        return executionResult;
     }
 
     public void Rollback(Transaction tx)

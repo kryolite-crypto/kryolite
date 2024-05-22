@@ -221,7 +221,7 @@ public class Verifier : IVerifier
 
         if (stake < Constant.MIN_STAKE)
         {
-            Logger.LogInformation($"Vote verification failed (reason = stake too low)");
+            Logger.LogInformation($"Vote verification failed (reason = stake too low, vote = {vote.Stake}, validator = {validator.Stake}, address = {validator.NodeAddress}))");
             return false;
         }
 

@@ -55,14 +55,14 @@ public class StagingManager : TransactionManager, IDisposable
             "info" => LogLevel.Information,
             "debug" => LogLevel.Debug,
             "trace" => LogLevel.Trace,
-            _ => LogLevel.Warning // only enable warning logs in staging by default
+            _ => LogLevel.Error // only enable warning logs in staging by default
         };
 
         var loggerFactory = LoggerFactory.Create(builder =>
         {
             builder
                 .SetMinimumLevel(loglevel)
-                .AddConsole();
+                .AddSimpleConsole();
         });
 
         var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
@@ -108,6 +108,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             if (!AddTransactionInternal(tx, false))
             {
+                Logger.LogInformation($"Failed to apply transaction {tx.ExecutionResult} (from = {tx.From}, to = {tx.To}, value = {tx.Value})");
                 return false;
             }
         }
@@ -396,9 +397,9 @@ public class StagingManager : TransactionManager, IDisposable
                 break;
             case TransactionType.REGISTER_VALIDATOR:
                 {
-                    if (!transfer.Unlock(tx.From, out _))
+                    if (!transfer.Unlock(tx.From, out var result))
                     {
-                        throw new Exception("Failed to rollback REGISTER_VALIDATOR");
+                        throw new Exception($"Failed to rollback REGISTER_VALIDATOR ({result})");
                     }
 
                     Events.Add(new ValidatorDisable(tx.From));
@@ -407,9 +408,9 @@ public class StagingManager : TransactionManager, IDisposable
                 break;
             case TransactionType.DEREGISTER_VALIDATOR:
                 {
-                    if (!transfer.Lock(tx.From, out _))
+                    if (!transfer.Lock(tx.From, tx.To, out var result2))
                     {
-                        throw new Exception("Failed to rollback DEREGISTER_VALIDATOR");
+                        throw new Exception($"Failed to rollback DEREGISTER_VALIDATOR ({result2})");
                     }
 
                     Events.Add(new ValidatorEnable(tx.From));

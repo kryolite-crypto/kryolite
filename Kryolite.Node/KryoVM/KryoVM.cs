@@ -1,7 +1,10 @@
 using Kryolite.ByteSerializer;
+using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Security.Cryptography;
 using System.Text;
 using Wasmtime;
@@ -16,6 +19,11 @@ public class KryoVM : IDisposable
     private Linker Linker { get; set; }
     private Store Store { get; set; }
     private Instance Instance { get; set; }
+
+    private static readonly MemoryCache _vmCache = new(new MemoryCacheOptions
+    {
+        SizeLimit = 25 * 1024 * 1024 // TODO: Make configurable, currently sets the size to 25 Mb
+    });
 
     public ulong Fuel
     {
@@ -65,11 +73,32 @@ public class KryoVM : IDisposable
         return new KryoVM(code);
     }
 
-    public static KryoVM LoadFromSnapshot(ReadOnlySpan<byte> code, ReadOnlySpan<byte> snapshot)
+    public static KryoVM LoadFromSnapshot(Address address, IStoreRepository repository, ReadOnlySpan<byte> snapshot)
     {
-        var vm = new KryoVM(code);
+        // Get cached vm or create new cached entry
+        if (_vmCache.TryGetValue<KryoVM>(address, out var vm) && vm is not null)
+        {
+            return vm;
+        }
 
-        var memory = vm.Instance.GetMemory("memory") ?? throw new Exception("vm memory initialization failed");
+        var del = new PostEvictionDelegate((key, value, reason, state) =>
+        {
+            ((KryoVM?)value)?.Dispose();
+        });
+
+        var code = repository.GetContractCode(address) ?? throw new Exception("cotnract code not found from db");
+
+        var opts = new MemoryCacheEntryOptions
+        {
+            SlidingExpiration = TimeSpan.FromMinutes(10),
+            Size = code.Length + snapshot.Length,
+        };
+
+        opts.RegisterPostEvictionCallback(del);
+
+        vm = _vmCache.Set(address, new KryoVM(code), opts);
+
+        var memory = vm!.Instance.GetMemory("memory") ?? throw new Exception("vm memory initialization failed");
         var data = snapshot.Decompress();
         var size = data.Length;
 
@@ -495,6 +524,16 @@ public class KryoVM : IDisposable
                     Params = [.. Context!.MethodParams]
                 }
             };
+
+            var date = DateTimeOffset.FromUnixTimeMilliseconds(timestamp);
+            var now = DateTimeOffset.FromUnixTimeMilliseconds(Context!.View.Timestamp);
+
+            // TODO: temporary fix to allow weekly schedule on same day
+            if (date.Date == now.Date)
+            {
+                timestamp = date.AddDays(7)
+                    .ToUnixTimeMilliseconds();
+            }
 
             var transaction = new Transaction
             {
