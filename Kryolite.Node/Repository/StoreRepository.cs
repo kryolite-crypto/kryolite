@@ -39,7 +39,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public bool TransactionExists(SHA256Hash transactionId)
     {
-        return Storage.Exists("Transaction", transactionId.Buffer);
+        return Storage.Exists("ixTransactionId", transactionId.Buffer);
     }
 
     public View? GetView(long height)

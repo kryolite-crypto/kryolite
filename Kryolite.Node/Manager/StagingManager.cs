@@ -359,7 +359,7 @@ public class StagingManager : TransactionManager, IDisposable
                 else
                 {
                     var total = tx.Value + tx.SpentFee;
-                    transfer.To(tx.From, total, out ledger2);
+                    transfer.To(tx.From, total, out _);
                 }
 
                 break;

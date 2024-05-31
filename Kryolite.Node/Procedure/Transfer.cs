@@ -76,6 +76,11 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
             return false;
         }
 
+        if (address == "kryo:ac973k3jdykh8gc3fir3xz3ptzzckbn6v4dnza68")
+        {
+            Console.WriteLine($"Unlock");
+        }
+
         if (wallet.Locked && Validators.TryGetValidator(address, Repository, out var validator))
         {
             wallet.Balance = validator.Stake;
@@ -96,6 +101,11 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
         {
             executionResult = ExecutionResult.FAILED_TO_LOCK;
             return false;
+        }
+
+        if (address == "kryo:ac973k3jdykh8gc3fir3xz3ptzzckbn6v4dnza68")
+        {
+            Console.WriteLine($"Lock");
         }
 
         if (!wallet.Locked)

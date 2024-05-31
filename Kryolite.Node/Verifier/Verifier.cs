@@ -177,7 +177,13 @@ public class Verifier : IVerifier
         {
             if (!StateCache.GetTransactions().ContainsKey(tx))
             {
-                Logger.LogInformation($"{view.GetHash()} verification failed (reson = tx not found)");
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = tx not found ({tx}))");
+                return false;
+            }
+
+            if (Store.TransactionExists(tx))
+            {
+                Logger.LogInformation($"{view.GetHash()} verification failed (reson = tx already persisted ({tx}))");
                 return false;
             }
         }

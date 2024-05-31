@@ -34,6 +34,7 @@ public class KryoVM : IDisposable
     private KryoVM(ReadOnlySpan<byte> bytes)
     {
         Engine = new Engine(new Config()
+            .WithCraneliftNaNCanonicalization(true)
             .WithFuelConsumption(true));
 
         var errors = Module.Validate(Engine, bytes);
@@ -86,7 +87,7 @@ public class KryoVM : IDisposable
             ((KryoVM?)value)?.Dispose();
         });
 
-        var code = repository.GetContractCode(address) ?? throw new Exception("cotnract code not found from db");
+        var code = repository.GetContractCode(address) ?? throw new Exception("contract code not found from db");
 
         var opts = new MemoryCacheEntryOptions
         {

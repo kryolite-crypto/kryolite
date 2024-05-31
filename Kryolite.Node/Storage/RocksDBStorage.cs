@@ -467,6 +467,8 @@ internal class RocksDBStorage : IStorage, IDisposable
             return null;
         }
 
+        Address addr = iterator.Key()[..Address.ADDRESS_SZ];
+
         return iterator.Value();
     }
 

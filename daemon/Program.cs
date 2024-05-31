@@ -81,6 +81,24 @@ internal class Program
                 var votes = storeManager.GetVotes(view.Votes);
                 var transactions = storeManager.GetTransactions(view.Transactions);
 
+                if (blocks.Count != view.Blocks.Count)
+                {
+                    Console.WriteLine($"Height {view.Id} is missing {view.Blocks.Count - blocks.Count} blocks");
+                    return;
+                }
+
+                if (votes.Count != view.Votes.Count)
+                {
+                    Console.WriteLine($"Height {view.Id} is missing {view.Votes.Count - votes.Count} votes");
+                    return;
+                }
+
+                if (transactions.Count != view.Transactions.Count)
+                {
+                    Console.WriteLine($"Height {view.Id} is missing {view.Transactions.Count - transactions.Count} transactions");
+                    return;
+                }
+
                 if (!staging.LoadBlocks(blocks))
                 {
                     Console.WriteLine($"Failed to apply blocks at {i}");
@@ -131,7 +149,7 @@ internal class Program
 
                 if (validator.Stake != other?.Stake)
                 {
-                    Console.WriteLine($"Stake mismatch on validator {validator.NodeAddress}");
+                    Console.WriteLine($"Stake mismatch on validator {validator.NodeAddress}, {validator.Stake} != {other?.Stake}");
                 }
 
                 if (validator.RewardAddress != other!.RewardAddress)
