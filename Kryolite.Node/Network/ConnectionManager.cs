@@ -32,6 +32,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     private readonly IServiceProvider _sp;
     private readonly IClientFactory _clientFactory;
 
+    private readonly ReaderWriterLockSlim _rwlock = new();
     private readonly PeriodicTimer _timer = new(TimeSpan.FromMinutes(5));
 
     public ConnectionManager(NodeTable nodeTable, IClientFactory clientFactory, IServiceProvider sp, IConfiguration config, ILogger<ConnectionManager> logger)
@@ -233,6 +234,12 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         _logger.LogInformation("Balancing connections between nodes");
 
         var sortedNodes = _nodeTable.GetSortedNodes();
+
+        if (sortedNodes.Count == 0)
+        {
+            return;
+        }
+
         var validConnections = new HashSet<Node>(8);
 
         for (var i = 0; i < Constant.MAX_PEERS; i++)
@@ -248,21 +255,21 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         }
 
         // Remove outgoing connections that we did not try to connect in previous foreach loop
-        foreach (var connection in _connectedNodes.Values)
+        foreach (var connection in _connectedNodes)
         {
             if (_connectedNodes.Count < Constant.MAX_PEERS)
             {
                 break;
             }
 
-            if (!connection.Channel.IsOutgoing)
+            if (!connection.Value.Channel.IsOutgoing)
             {
                 continue;
             }
 
-            if (!validConnections.Contains(connection.Node))
+            if (!validConnections.Contains(connection.Value.Node))
             {
-                await connection.Channel.Disconnect(stoppingToken);
+                await connection.Value.Channel.Disconnect(stoppingToken);
             }
         }
     }
@@ -308,27 +315,29 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     /// Connect to node
     /// </summary>
     /// <param name="node"></param>
-    private async Task ConnectTo(Node node, CancellationToken stoppingToken)
+    private Task ConnectTo(Node node, CancellationToken stoppingToken)
     {
+        using var _lock = _rwlock.EnterWriteLockEx();
+
         if (_connectedNodes.ContainsKey(node.PublicKey))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         var channel = WebsocketChannel.ForAddress(node.Uri, stoppingToken);
-        var (identity, error) = await channel.GetPublicKey();
+        var (identity, error) = channel.GetPublicKey().GetAwaiter().GetResult();
 
         if (identity is null)
         {
             _logger.LogInformation("{hostname}: {error}", node.Uri.ToHostname(), error);
             node.Status = NodeStatus.DEAD;
-            return;
+            return Task.CompletedTask;
         }
 
         if (!identity.Verify())
         {
             _logger.LogInformation("Signature verification for {hostname} failed", node.Uri.ToHostname());
-            return;
+            return Task.CompletedTask;
         }
 
         if (identity.PublicKey != node.PublicKey)
@@ -340,7 +349,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
         if (_connectedNodes.ContainsKey(node.PublicKey))
         {
-            return;
+            return Task.CompletedTask;
         }
 
         _logger.LogInformation("Connecting to {hostname}", node.Uri.ToHostname());
@@ -350,13 +359,17 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         if (!channel.Connect(authrequest, out var error2))
         {
             _logger.LogInformation("Connecting to {hostname} failed: {error}", node.Uri.ToHostname(), error2);
-            return;
+            return Task.CompletedTask;
         }
 
         var connection = new NodeConnection(channel, node);
+        var tcs = new TaskCompletionSource();
 
         // Let the connection task run in background
-        _ = ConnectionTask(connection);
+        _ = ConnectionTask(connection, tcs);
+
+        // Return task that will wait for connection handshake and auth to pass
+        return tcs.Task;
     }
 
     private AuthRequest CreateAuthRequest()
@@ -374,6 +387,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
     public List<NodeConnection> GetConnectedNodes()
     {
+        using var _ = _rwlock.EnterReadLockEx();
         return [.. _connectedNodes.Values];
     }
 
@@ -384,20 +398,28 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
     public Task StartListening(Uri uri, PublicKey publicKey, WebsocketChannel channel, string version)
     {
+        using var _ = _rwlock.EnterWriteLockEx();
+
         if (_connectedNodes.ContainsKey(publicKey))
         {
             return Task.CompletedTask;
         }
 
-        var node = new Node(publicKey, uri, version);
-        var connection = new NodeConnection(channel, node);
-
-        _connectedNodes.TryAdd(publicKey, connection);
         _nodeTable.AddNode(publicKey, uri, version);
 
-        connection.Node = _nodeTable.GetNode(publicKey)!;
+        var node = _nodeTable.GetNode(publicKey)!;
+        node.Status = NodeStatus.ALIVE;
 
-        return ConnectionTask(connection);
+        var connection = new NodeConnection(channel, node);
+        var tcs = new TaskCompletionSource();
+
+        // Let the connection task run in background
+        var task = ConnectionTask(connection, tcs);
+
+        // Wait for connection handshake and auth to pass
+        tcs.Task.GetAwaiter().GetResult();
+
+        return task;
     }
 
     /// <summary>
@@ -405,7 +427,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     /// </summary>
     /// <param name="node"></param>
     /// <returns></returns>
-    private async Task ConnectionTask(NodeConnection connection)
+    private async Task ConnectionTask(NodeConnection connection, TaskCompletionSource tcs)
     {
         _connectedNodes.TryAdd(connection.Node.PublicKey, connection);
 
@@ -436,6 +458,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
             NodeConnected?.Invoke(this, connection);
             connection.Channel.ConnectedSince = DateTime.UtcNow;
+
+            tcs.TrySetResult();
 
             await foreach (var batch in connection.Channel.Broadcasts.Reader.ReadAllAsync(connection.Channel.ConnectionToken))
             {
@@ -503,6 +527,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
             connection.Channel.Dispose();
             _connectedNodes.TryRemove(node.PublicKey, out _);
             NodeDisconnected?.Invoke(this, connection);
+            tcs.TrySetResult();
         }
     }
 }
