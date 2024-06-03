@@ -500,7 +500,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
         }
         finally
         {
-            node.Status = NodeStatus.DEAD;
             connection.Channel.Dispose();
             _connectedNodes.TryRemove(node.PublicKey, out _);
             NodeDisconnected?.Invoke(this, connection);
