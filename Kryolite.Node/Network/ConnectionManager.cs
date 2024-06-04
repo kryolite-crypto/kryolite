@@ -32,7 +32,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
     private readonly IServiceProvider _sp;
     private readonly IClientFactory _clientFactory;
 
-    private readonly ReaderWriterLockSlim _rwlock = new();
+    private readonly ReaderWriterLockSlim _rwlock = new(LockRecursionPolicy.SupportsRecursion);
     private readonly PeriodicTimer _timer = new(TimeSpan.FromMinutes(5));
 
     public ConnectionManager(NodeTable nodeTable, IClientFactory clientFactory, IServiceProvider sp, IConfiguration config, ILogger<ConnectionManager> logger)

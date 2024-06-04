@@ -92,7 +92,7 @@ public class NodeTable
         if (node is null)
         {
             _nodes.Add(node = new Node(key, uri, version));
-            NodeAdded?.Invoke(this, node);
+            Task.Run(() => NodeAdded?.Invoke(this, node));
         }
 
         node.Uri = uri;
@@ -125,7 +125,7 @@ public class NodeTable
 
             if (broadcast)
             {
-                NodeAlive?.Invoke(this, node);
+                Task.Run(() => NodeAlive?.Invoke(this, node));
             }
         }
     }
@@ -135,7 +135,7 @@ public class NodeTable
         using var _ = _rwlock.EnterWriteLockEx();
 
         _nodes.Remove(node);
-        NodeRemoved?.Invoke(this, node);
+        Task.Run(() => NodeRemoved?.Invoke(this, node));
     }
 
     public Node? GetNode(PublicKey key)
