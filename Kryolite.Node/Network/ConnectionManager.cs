@@ -504,6 +504,8 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                     _logger.LogInformation("{node} sent malformed broadcast: {message}", node.Uri, ex.Message);
                 }
             }
+
+            _logger.LogInformation("Node {node} disconnected", connection.Node.Uri.ToHostname());
         }
         catch (OperationCanceledException ocex)
         {

@@ -49,7 +49,7 @@ public class NodeTable
 
     public List<Node> GetSortedNodes()
     {
-        using var _ = _rwlock.EnterWriteLockEx();
+        using var _ = _rwlock.EnterReadLockEx();
 
         var self = new Node(_serverKey, new Uri("http://localhost/"), string.Empty);
 

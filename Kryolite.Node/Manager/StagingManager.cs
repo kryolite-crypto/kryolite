@@ -258,10 +258,7 @@ public class StagingManager : TransactionManager, IDisposable
 
             foreach (var tx in rewards)
             {
-                if (tx.ExecutionResult == ExecutionResult.SUCCESS)
-                {
-                    RollbackTransaction(view, tx, ref transfer, contracts, tokens, false);
-                }
+                RollbackTransaction(view, tx, ref transfer, contracts, tokens, false);
             }
 
             var transactions = Repository.GetTransactions(view.Transactions);
