@@ -214,6 +214,12 @@ public class StoreManager : TransactionManager, IStoreManager
         return Repository.GetChainState()!;
     }
 
+    public ChainState? GetChainState(long height)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetChainState(height);
+    }
+
     public Difficulty GetCurrentDifficulty()
     {
         using var _ = rwlock.EnterReadLockEx();

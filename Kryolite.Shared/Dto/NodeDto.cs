@@ -1,6 +1,19 @@
+using System.Numerics;
 using Kryolite.ByteSerializer;
 
 namespace Kryolite.Shared.Dto;
+
+public class NodeDtoEx
+{
+    public required PublicKey PublicKey { get; set; }
+    public required string Url { get; set; }
+    public DateTimeOffset FirstSeen { get; set; }
+    public DateTimeOffset LastSeen  { get; set; }
+    public required string Version  { get; set; }
+    public long? Height { get; set; }
+    public BigInteger? Weight { get; set; }
+    public SHA256Hash? LastHash { get; set; }
+}
 
 public class NodeDto : ISerializable
 {

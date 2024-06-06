@@ -30,7 +30,6 @@ namespace Kryolite.Shared;
 [JsonSerializable(typeof(BlockDto))]
 [JsonSerializable(typeof(ViewDto))]
 [JsonSerializable(typeof(VoteDto))]
-[JsonSerializable(typeof(VoteDto))]
 [JsonSerializable(typeof(Transaction))]
 [JsonSerializable(typeof(TransactionDto))]
 [JsonSerializable(typeof(TransactionDtoEx))]
@@ -44,6 +43,7 @@ namespace Kryolite.Shared;
 [JsonSerializable(typeof(List<Effect>))]
 [JsonSerializable(typeof(IEnumerable<string>))]
 [JsonSerializable(typeof(IEnumerable<NodeDto>))]
+[JsonSerializable(typeof(IEnumerable<NodeDtoEx>))]
 [JsonSerializable(typeof(IEnumerable<TransactionDtoEx>))]
 [JsonSerializable(typeof(IEnumerable<WalletBalanceDto>))]
 [JsonSerializable(typeof(BigInteger))]
@@ -54,6 +54,7 @@ namespace Kryolite.Shared;
 [JsonSerializable(typeof(Difficulty))]
 [JsonSerializable(typeof(ExecutionResult))]
 [JsonSerializable(typeof(TransactionType))]
+[JsonSerializable(typeof(HistoryData))]
 public partial class SharedSourceGenerationContext : JsonSerializerContext
 {
 }

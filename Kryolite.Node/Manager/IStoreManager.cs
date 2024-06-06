@@ -38,6 +38,7 @@ public interface IStoreManager
     long GetCurrentHeight();
     Difficulty GetCurrentDifficulty();
     ChainState GetChainState();
+    ChainState? GetChainState(long height);
     ulong GetBalance(Address address);
     void ResetChain();
     Contract? GetContract(Address address);

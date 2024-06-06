@@ -1,4 +1,7 @@
+using System.Collections.Concurrent;
+using System.Numerics;
 using System.Text.Json;
+using System.Text.Json.Serialization.Metadata;
 using Kryolite.Node.Network;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -21,6 +24,7 @@ public static class BaseApi
         builder.MapGet("chainstate", GetCurrentChainState);
         builder.MapGet("contract/{address}", GetSmartContract);
         builder.MapGet("contract/{address}/tokens", GetSmartContractTokens);
+        builder.MapGet("data/history", GetHistoryData);
         builder.MapGet("ledger/{address}", GetWalletForAddress);
         builder.MapGet("ledger/{address}/balance", GetBalanceForAddress);
         builder.MapGet("ledger/{address}/transactions", GetTransactionsForAddress);
@@ -423,9 +427,140 @@ public static class BaseApi
         return new ChainStateDto(chainState);
     }
 
-    private static Task<IEnumerable<NodeDto>> GetKnownNodes(NodeTable nodeTable) => Task.Run(() =>
+    private static HttpClient _httpClient = new()
     {
-        return nodeTable.GetAllNodes().Select(x => new NodeDto(x.PublicKey, x.Uri.ToHostname(), x.FirstSeen, x.LastSeen, x.Version));
+        Timeout = TimeSpan.FromMilliseconds(500)
+    };
+
+    private static async Task<IEnumerable<NodeDtoEx>> GetKnownNodes(NodeTable nodeTable)
+    {
+        var nodes = nodeTable.GetAllNodes();
+        var results = new ConcurrentBag<NodeDtoEx>();
+
+        await Parallel.ForEachAsync(nodes, async (node, token) =>
+        {
+            var hostname = node.Uri.ToHostname();
+            ChainStateDto? chainState = null;
+
+            try
+            {
+                var result = await _httpClient.GetAsync($"{hostname}/chainstate");
+
+                if (result.IsSuccessStatusCode)
+                {
+                    chainState = JsonSerializer.Deserialize(await result.Content.ReadAsStringAsync(), SharedSourceGenerationContext.Default.ChainStateDto);
+                }
+            }
+            catch (Exception)
+            {
+
+            }
+
+            var nodeDto = new NodeDtoEx
+            {
+                PublicKey = node.PublicKey,
+                Url = hostname,
+                FirstSeen = node.FirstSeen,
+                LastSeen = node.LastSeen,
+                Version = node.Version,
+                Height = chainState?.Id,
+                Weight = chainState?.Weight,
+                LastHash = chainState?.LastHash
+            };
+
+            results.Add(nodeDto);
+        });
+
+        return results.AsEnumerable();
+    }
+
+    private static Task<HistoryData> GetHistoryData(IStoreManager storeManager) => Task.Run(() =>
+    {
+        const int lookback = 120;
+
+        var endState = storeManager.GetChainState();
+        var startHeight = Math.Max(0, endState.Id - lookback);
+        var startState = storeManager.GetChainState(startHeight);
+
+        var startView = storeManager.GetView(startHeight - 1);
+        var prevTimestamp = startView?.Timestamp ?? 0;
+        var prevWeight = startState?.Weight ?? BigInteger.Zero;
+
+        var data = new HistoryData();
+        data.Difficulty.EnsureCapacity(lookback);
+        data.Weight.EnsureCapacity(lookback);
+        data.TxPerSecond.EnsureCapacity(lookback);
+
+        for (var i = startHeight; i <= endState.Id; i++)
+        {
+            var state = storeManager.GetChainState(i);
+
+            if (state is null)
+            {
+                break;
+            }
+
+            var view = storeManager.GetView(i);
+
+            if (view is null)
+            {
+                break;
+            }
+
+            var diff = double.Parse(state.CurrentDifficulty.ToString()!);
+            var weight = (double)state.Weight;
+            var totalWork = (double)state.TotalWork;
+            var weightPerView = (double)(state.Weight - prevWeight);
+            var tps = 0d;
+            var totalTransactions = state.TotalTransactions;
+
+            if (view.Transactions.Count > 0)
+            {
+                var delta = (view.Timestamp - prevTimestamp) / 1000d;
+                tps = view.Transactions.Count / delta;
+            }
+
+            data.Difficulty.Add(new TimeData
+            {
+                X = i,
+                Y = diff
+            });
+
+            data.Weight.Add(new TimeData
+            {
+                X = i,
+                Y = weight
+            });
+
+            data.TxPerSecond.Add(new TimeData
+            {
+                X = i,
+                Y = tps
+            });
+            
+            data.TotalWork.Add(new TimeData
+            {
+                X = i,
+                Y = totalWork
+            });
+
+            data.WeightPerView.Add(new TimeData
+            {
+                X = i,
+                Y = weightPerView
+            });
+
+            data.TotalTransactions.Add(new TimeData
+            {
+                X = i,
+                Y = totalTransactions
+            });
+
+            prevTimestamp = view.Timestamp;
+            prevWeight = state.Weight;
+        }
+
+        return data;
     });
 
     private static Task<ulong> EstimateTransactionFee(IStoreManager storeManager, TransactionDto tx) => Task.Run(() =>

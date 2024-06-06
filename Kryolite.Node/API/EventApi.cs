@@ -32,7 +32,7 @@ public static class EventApi
         using var subId = eventBus.Subscribe<ChainState>(async state =>
         {
             await ctx.Response.WriteAsync($"data: ", token);
-            await JsonSerializer.SerializeAsync(ctx.Response.Body, state, SharedSourceGenerationContext.Default.ChainState, token);
+            await JsonSerializer.SerializeAsync(ctx.Response.Body, new ChainStateDto(state), SharedSourceGenerationContext.Default.ChainStateDto, token);
             await ctx.Response.WriteAsync($"\n\n", token);
             await ctx.Response.Body.FlushAsync(token);
         });
