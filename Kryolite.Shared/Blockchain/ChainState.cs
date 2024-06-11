@@ -16,6 +16,8 @@ public sealed class ChainState : EventBase, ISerializable
     public ulong CollectedFees;
     public BigInteger Weight;
     public BigInteger TotalWork;
+    public ulong TotalActiveStake;
+    public long LastFinalizedHeight;
 
     public ChainState()
     {
@@ -37,7 +39,9 @@ public sealed class ChainState : EventBase, ISerializable
         Serializer.SizeOf(BlockReward) +
         Serializer.SizeOf(Weight) +
         Serializer.SizeOf(TotalWork) + 
-        Serializer.SizeOf(CollectedFees);
+        Serializer.SizeOf(CollectedFees) +
+        Serializer.SizeOf(TotalActiveStake) +
+        Serializer.SizeOf(LastFinalizedHeight);
 
     public void Serialize(ref Serializer serializer)
     {
@@ -51,6 +55,8 @@ public sealed class ChainState : EventBase, ISerializable
         serializer.Write(Weight);
         serializer.Write(TotalWork);
         serializer.Write(CollectedFees);
+        serializer.Write(TotalActiveStake);
+        serializer.Write(LastFinalizedHeight);
     }
 
     public void Deserialize(ref Serializer serializer)
@@ -65,5 +71,7 @@ public sealed class ChainState : EventBase, ISerializable
         serializer.Read(ref Weight);
         serializer.Read(ref TotalWork);
         serializer.Read(ref CollectedFees);
+        serializer.Read(ref TotalActiveStake);
+        serializer.Read(ref LastFinalizedHeight);
     }
 }

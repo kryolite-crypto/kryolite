@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 
@@ -8,6 +9,11 @@ public sealed class Validator : EventBase, ISerializable
     public Address NodeAddress;
     public Address RewardAddress;
     public ulong Stake;
+    public bool Active;
+    public long LastActiveHeight;
+
+    [JsonIgnore]
+    public bool Changed = false;
 
     public Validator()
     {
@@ -23,18 +29,17 @@ public sealed class Validator : EventBase, ISerializable
     public int GetLength() =>
         Serializer.SizeOf(NodeAddress) +
         Serializer.SizeOf(RewardAddress) +
-        Serializer.SizeOf(Stake);
-
-    public Validator Create<Validator>() where Validator : new()
-    {
-        return new Validator();
-    }
+        Serializer.SizeOf(Stake) +
+        Serializer.SizeOf(Active) +
+        Serializer.SizeOf(LastActiveHeight);
 
     public void Serialize(ref Serializer serializer)
     {
         serializer.Write(NodeAddress);
         serializer.Write(RewardAddress);
         serializer.Write(Stake);
+        serializer.Write(Active);
+        serializer.Write(LastActiveHeight);
     }
 
     public void Deserialize(ref Serializer serializer)
@@ -42,5 +47,7 @@ public sealed class Validator : EventBase, ISerializable
         serializer.Read(ref NodeAddress);
         serializer.Read(ref RewardAddress);
         serializer.Read(ref Stake);
+        serializer.Read(ref Active);
+        serializer.Read(ref LastActiveHeight);
     }
 }

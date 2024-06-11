@@ -37,5 +37,4 @@ public interface IExecutorContext
 
     ValidatorCache Validators { get; }
     WalletCache Ledger { get; }
-    Transfer Transfer { get; }
 }

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 
@@ -9,6 +10,9 @@ public sealed class Ledger : EventBase, ISerializable
     public ulong Balance;
     public bool Locked;
     public ulong Pending;
+    
+    [JsonIgnore]
+    public bool Changed = false;
 
     public Ledger()
     {
@@ -30,11 +34,6 @@ public sealed class Ledger : EventBase, ISerializable
         Serializer.SizeOf(Balance) +
         Serializer.SizeOf(Locked) +
         Serializer.SizeOf(Pending);
-
-    public Ledger Create<Ledger>() where Ledger : new()
-    {
-        return new Ledger();
-    }
 
     public void Serialize(ref Serializer serializer)
     {

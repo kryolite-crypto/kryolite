@@ -1,3 +1,4 @@
+using Kryolite.Node.Procedure;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
@@ -53,6 +54,8 @@ public class Executor
 
         Context.SetRand(seed);
 
+        var transfer = new Transfer(Context.GetRepository(), Context.Ledger, Context.Validators, chainState);
+
         foreach (var tx in transactions)
         {
             switch (tx.TransactionType)
@@ -80,33 +83,33 @@ public class Executor
                         tx.SpentFee = (uint)tx.CalculateFee();
                     }
 
-                    tx.ExecutionResult = TransactionExecutor.Execute(tx);
+                    tx.ExecutionResult = TransactionExecutor.Execute(tx, ref transfer);
 
                     if (tx.To.IsContract())
                     {
-                        tx.ExecutionResult = ContractExecutor.Execute(tx, view);
+                        tx.ExecutionResult = ContractExecutor.Execute(tx, view, ref transfer);
 
                         // TODO: We need to handle gas fees for scheduled calls
                         if (tx.TransactionType != TransactionType.CONTRACT_SCHEDULED_SELF_CALL)
                         {
                             // Refund unspent gas fee
                             var unspentFee = tx.MaxFee - tx.SpentFee;
-                            Context.Transfer.To(tx.From!, unspentFee, out _);
+                            transfer.To(tx.From!, unspentFee, out _);
                         }
                     }
 
                     if (tx.ExecutionResult != ExecutionResult.SUCCESS)
                     {
                         // should only end up here if Contract execution succeeds but refuses to complete transaction
-                        TransactionExecutor.Rollback(tx);
+                        TransactionExecutor.Rollback(tx, ref transfer);
                     }
 
                     break;
                 case TransactionType.REGISTER_VALIDATOR:
-                    tx.ExecutionResult = ValidatorRegExecutor.Execute(tx);
+                    tx.ExecutionResult = ValidatorRegExecutor.Execute(tx, ref transfer);
                     break;
                 case TransactionType.DEREGISTER_VALIDATOR:
-                    tx.ExecutionResult = ValidatorDeregExecutor.Execute(tx);
+                    tx.ExecutionResult = ValidatorDeregExecutor.Execute(tx, ref transfer);
                     break;
                 case TransactionType.CONTRACT:
                     if (tx.Timestamp > view.Timestamp)

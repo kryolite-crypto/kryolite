@@ -146,7 +146,7 @@ public static class Extensions
 
         if (!validators.TryGetValue(address, out validator))
         {
-            validator = repository.GetStake(address);
+            validator = repository.GetValidator(address);
 
             if (validator is null)
             {

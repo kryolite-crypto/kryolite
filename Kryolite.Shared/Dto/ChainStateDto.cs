@@ -14,9 +14,11 @@ public partial class ChainStateDto
     public string CurrentDifficulty { get; set; }
     public long Votes { get; set; }
     public long Transactions { get; set; }
+    public ulong TotalActiveStake { get; set; }
+    public long LastFinalizedHeight { get; set; }
 
     [JsonConstructor]
-    public ChainStateDto(long id, BigInteger weight, BigInteger totalWork, long blocks, SHA256Hash lastHash, string currentDifficulty, long votes, long transactions)
+    public ChainStateDto(long id, BigInteger weight, BigInteger totalWork, long blocks, SHA256Hash lastHash, string currentDifficulty, long votes, long transactions, ulong totalActiveStake, long lastFinalizedHeight)
     {
         Id = id;
         Weight = weight;
@@ -26,6 +28,8 @@ public partial class ChainStateDto
         CurrentDifficulty = currentDifficulty;
         Votes = votes;
         Transactions = transactions;
+        TotalActiveStake = totalActiveStake;
+        LastFinalizedHeight = lastFinalizedHeight;
     }
 
     public ChainStateDto(ChainState chainState)
@@ -38,5 +42,7 @@ public partial class ChainStateDto
         CurrentDifficulty = chainState.CurrentDifficulty.ToString();
         Votes = chainState.TotalVotes;
         Transactions = chainState.TotalTransactions;
+        TotalActiveStake = chainState.TotalActiveStake;
+        LastFinalizedHeight = chainState.LastFinalizedHeight;
     }
 }

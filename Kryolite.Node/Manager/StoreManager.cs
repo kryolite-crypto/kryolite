@@ -249,7 +249,7 @@ public class StoreManager : TransactionManager, IStoreManager
     public Validator? GetStake(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-        return Repository.GetStake(address);
+        return Repository.GetValidator(address);
     }
 
     public void ResetChain()
@@ -261,8 +261,25 @@ public class StoreManager : TransactionManager, IStoreManager
     public Contract? GetContract(Address address)
     {
         using var _ = rwlock.EnterReadLockEx();
-
         return Repository.GetContract(address);
+    }
+
+    public byte[]? GetContractCode(Address address)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetContractCode(address);
+    }
+
+    public byte[]? GetContractSnapshot(Address address)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetLatestSnapshot(address);
+    }
+
+    public List<Contract> GetContracts()
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.GetContracts();
     }
 
     public List<Ledger> GetRichList(int count)

@@ -44,8 +44,8 @@ public class ContractInstallerExecutor
 
         vm.Initialize();
 
-        ctx.AddContract(contract);
-        ctx.AddContractCode(contract.Address, newContract.Code);
+        ctx.AddContract(contract, view.Id);
+        ctx.AddContractCode(contract.Address, view.Id, newContract.Code);
         ctx.AddContractSnapshot(contract.Address, Context.GetHeight(), vm.TakeSnapshot());
 
         foreach (var sched in vmContext.ScheduledCalls)

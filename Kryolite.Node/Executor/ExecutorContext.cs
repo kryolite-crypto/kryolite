@@ -20,7 +20,6 @@ public class ExecutorContext : IExecutorContext
 
     public ValidatorCache Validators { get; private set; }
     public WalletCache Ledger { get; private set; }
-    public Transfer Transfer => new Transfer(Repository, Ledger, Validators);
 
     public ExecutorContext(IStoreRepository repository, WalletCache wallets, ValidatorCache validators, View view, ulong totalStake, long height)
     {
@@ -167,6 +166,24 @@ public class ExecutorContext : IExecutorContext
 
     public void Save()
     {
+        foreach (var ledger in Ledger.Values)
+        {
+            if (ledger.Changed)
+            {
+                Repository.UpdateWallet(Height, ledger);
+                ledger.Changed = false;
+            }
+        }
+
+        foreach (var validator in Validators.Values)
+        {
+            if (validator.Changed)
+            {
+                Repository.SetValidator(Height, validator);
+                validator.Changed = false;
+            }
+        }
+
         foreach (var contract in Contracts)
         {
             if (contract.Value.CurrentSnapshot is null)
@@ -177,13 +194,9 @@ public class ExecutorContext : IExecutorContext
             Repository.AddContractSnapshot(contract.Value.Address, Height, contract.Value.CurrentSnapshot);
         }
 
-        Repository.UpdateWallets(Ledger.Values);
-        Repository.UpdateContracts(Contracts.Values);
-        Repository.UpdateTokens(Tokens.Values);
-
-        foreach (var validator in Validators.Values)
+        foreach (var token in Tokens.Values)
         {
-            Repository.SetStake(validator.NodeAddress, validator);
+            Repository.SetToken(token, Height);
         }
     }
 
@@ -196,7 +209,7 @@ public class ExecutorContext : IExecutorContext
     {
         if (!Validators.ContainsKey(address))
         {
-            var stake = Repository.GetStake(address);
+            var stake = Repository.GetValidator(address);
 
             if (stake is null)
             {

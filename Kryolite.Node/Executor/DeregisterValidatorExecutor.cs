@@ -1,4 +1,5 @@
 using Kryolite.Node.Blockchain;
+using Kryolite.Node.Procedure;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 
@@ -15,9 +16,9 @@ public class DeregisterValidatorExecutor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public ExecutionResult Execute(Transaction tx)
+    public ExecutionResult Execute(Transaction tx, ref Transfer transfer)
     {
-        if (Context.Transfer.Unlock(tx.From, out var executionResult))
+        if (transfer.Unlock(tx.From, out var executionResult))
         {
             Context.AddEvent(new ValidatorDisable(tx.From));
         }

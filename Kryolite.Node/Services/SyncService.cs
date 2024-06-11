@@ -81,7 +81,16 @@ public class SyncManager : BackgroundService
             using (var staging = StagingManager.Open("staging", configuration))
             {
                 var commonHeight = FindCommonHeight(staging, connection.Node, client);
-                var stagingHeight = staging.GetChainState()?.Id;
+                var stagingState = staging.GetChainState();
+
+                if (commonHeight < stagingState?.LastFinalizedHeight)
+                {
+                    var hash = staging.GetView(commonHeight);
+                    _logger.LogInformation("[{node}] found common height at {height} but unable to rollback finalized view at height {finalizedHeight}.", connection.Node.Uri.ToHostname(), commonHeight, stagingState?.LastFinalizedHeight);
+                    return;
+                }
+
+                var stagingHeight = stagingState?.Id;
 
                 if (stagingHeight > commonHeight)
                 {
