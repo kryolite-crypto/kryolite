@@ -6,6 +6,7 @@ using Kryolite.Node.Executor;
 using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Storage;
+using Kryolite.Node.Storage.Key;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
@@ -55,7 +56,7 @@ public class StagingManager : TransactionManager, IDisposable
             "info" => LogLevel.Information,
             "debug" => LogLevel.Debug,
             "trace" => LogLevel.Trace,
-            _ => LogLevel.Error // only enable warning logs in staging by default
+            _ => LogLevel.Warning // only enable warning logs in staging by default
         };
 
         var loggerFactory = LoggerFactory.Create(builder =>
@@ -238,7 +239,6 @@ public class StagingManager : TransactionManager, IDisposable
         var contracts = new Dictionary<Address, Contract>();
         var tokens = new Dictionary<(Address, SHA256Hash), Token>();
         var validators = new ValidatorCache();
-        var transfer = new Transfer(Repository, ledgers, validators);
 
         for (var i = height; i > targetHeight; i--)
         {
@@ -253,198 +253,72 @@ public class StagingManager : TransactionManager, IDisposable
 
             var rewards = Repository.GetTransactions(view.Rewards);
 
-            // Rollback in reverse order
-            rewards.Reverse();
-
             foreach (var tx in rewards)
             {
-                RollbackTransaction(view, tx, ref transfer, contracts, tokens, false);
+                RollbackTransaction(view, tx, false);
             }
 
             var transactions = Repository.GetTransactions(view.Transactions);
 
-            // Rollback in reverse order
-            transactions.Reverse();
-
             foreach (var tx in transactions)
             {
-                RollbackTransaction(view, tx, ref transfer, contracts, tokens, false);
+                RollbackTransaction(view, tx, false);
             }
 
             var scheduled = Repository.GetTransactions(view.ScheduledTransactions);
 
-            // Rollback in reverse order
-            scheduled.Reverse();
-
             foreach (var tx in scheduled)
             {
-                RollbackTransaction(view, tx, ref transfer, contracts, tokens, true);
+                RollbackTransaction(view, tx, true);
             }
 
             Repository.DeleteBlocks(view.Blocks);
             Repository.DeleteVotes(view.Votes);
             Repository.Delete(view);
-            Repository.DeleteState(i);
         }
 
-        Repository.UpdateWallets(ledgers.Values);
-        Repository.UpdateContracts(contracts.Values);
-        Repository.UpdateTokens(tokens.Values);
-
-        foreach (var validator in validators.Values)
-        {
-            Repository.SetStake(validator.NodeAddress, validator);
-        }
+        Repository.DeleteFromIndexAfterHeight(ChainStateKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(LedgerKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(ContractKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(ContractCodeKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(ContractSnapshotKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(TokenKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(ValidatorKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(TokenIdKey.KeyName, targetHeight);
+        Repository.DeleteFromIndexAfterHeight(TokenLedgerKey.KeyName, targetHeight);
 
         dbtx.Commit();
 
         StateCache.SetChainState(Repository.GetChainState() ?? new ChainState());
     }
 
-    private void RollbackTransaction(View view, Transaction tx, ref Transfer transfer, Dictionary<Address, Contract> contracts, Dictionary<(Address, SHA256Hash), Token> tokens, bool isScheduled)
+    private void RollbackTransaction(View view, Transaction tx, bool isScheduled)
     {
         Repository.Delete(tx);
 
-        if (tx.To.IsContract())
+        if (isScheduled)
         {
-            Repository.DeleteContractSnapshot(tx.To, view.Id);
-        }
-
-        if (tx.ExecutionResult != ExecutionResult.SUCCESS)
-        {
-            // failed contract execution has already refunded this tx
-            return;
+            // If this was scheduled execution, add the transaction back to scheduled index
+            Repository.AddDueTransaction(tx);
         }
 
         var isDue = tx.Timestamp <= view.Timestamp;
 
-        if (tx.To.IsContract())
+        if (!isDue)
         {
-            // Note: effects need to be rolled back before transaction
-            foreach (var effect in tx.Effects)
-            {
-                transfer.From(effect.To, effect.Value, out _, out _);
-                transfer.To(effect.Contract, effect.Value, out _);
-                RollbackToken(effect, tokens);
-            }
+            return;
         }
 
         switch (tx.TransactionType)
         {
-            case TransactionType.BLOCK_REWARD:
-            case TransactionType.STAKE_REWARD:
-            case TransactionType.DEV_REWARD:
-                if (!transfer.From(tx.To, tx.Value, out var res2, out var ledger2))
-                {
-                    throw new Exception($"Negative balance after rollback: From = {tx.To}, Balance = {ledger2?.Balance}, Value = {tx.Value}, Result = {res2}");
-                }
-                break;
-            case TransactionType.PAYMENT:
-                if (isDue)
-                {
-                    if (!transfer.From(tx.To, tx.Value, out var res, out var ledger))
-                    {
-                        throw new Exception($"Negative balance after rollback: From = {tx.To}, Balance = {ledger?.Balance}, Value = {tx.Value}, Result = {res}");
-                    }
-                }
-
-                if (isScheduled)
-                {
-                    // If this was scheduled execution, add the transaction back to scheduled index
-                    Repository.AddDueTransaction(tx);
-                }
-                else
-                {
-                    var total = tx.Value + tx.SpentFee;
-                    transfer.To(tx.From, total, out _);
-                }
-
-                break;
-            case TransactionType.CONTRACT:
-                if (isDue)
-                {
-                    var payload = Serializer.Deserialize<TransactionPayload>(tx.Data);
-
-                    if (payload?.Payload is not NewContract newContract)
-                    {
-                        break;
-                    }
-
-                    var contract = Contract.ToAddress(tx.From!, newContract.Code);
-
-                    transfer.From(contract, tx.Value, out _, out _);
-
-                    Repository.DeleteContractCode(contract);
-                    Repository.DeleteContract(contract);
-
-                    contracts.Remove(contract);
-                }
-
-                // If this was scheduled execution, add the transaction back to scheduled index
-                if (isScheduled)
-                {
-                    Repository.AddDueTransaction(tx);
-                }
-                else
-                {
-                    var total = tx.Value + tx.SpentFee;
-                    transfer.To(tx.From, total, out _);
-                }
-
-                break;
             case TransactionType.REGISTER_VALIDATOR:
-                {
-                    if (!transfer.Unlock(tx.From, out var result))
-                    {
-                        throw new Exception($"Failed to rollback REGISTER_VALIDATOR ({result})");
-                    }
-
-                    Events.Add(new ValidatorDisable(tx.From));
-                }
-
+                Events.Add(new ValidatorDisable(tx.From));
                 break;
+
             case TransactionType.DEREGISTER_VALIDATOR:
-                {
-                    if (!transfer.Lock(tx.From, tx.To, out var result2))
-                    {
-                        throw new Exception($"Failed to rollback DEREGISTER_VALIDATOR ({result2})");
-                    }
-
-                    Events.Add(new ValidatorEnable(tx.From));
-                }
+                Events.Add(new ValidatorEnable(tx.From));
                 break;
         }
-    }
-
-    private void RollbackToken(Effect effect, Dictionary<(Address, SHA256Hash), Token> tokens)
-    {
-        if (effect.TokenId is null)
-        {
-            return;
-        }
-
-        if (!tokens.TryGetToken(effect.Contract, effect.TokenId, Repository, out var token))
-        {
-            return;
-        }
-
-        // revert token consume
-        if (effect.ConsumeToken)
-        {
-            token.IsConsumed = false;
-            return;
-        }
-
-        // if effect originates from contract it was minted
-        if (effect.From == effect.Contract)
-        {
-            Repository.DeleteToken(token);
-            tokens.Remove((token.Contract, token.TokenId));
-            return;
-        }
-
-        // this is a transfer, update owner
-        token.Ledger = effect.From;
     }
 
     public ITransaction BeginTransaction()

@@ -5,7 +5,7 @@ using Kryolite.Shared.Blockchain;
 
 namespace Kryolite.Node.Procedure;
 
-public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Ledger, ValidatorCache Validators)
+public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Ledger, ValidatorCache Validators, ChainState ChainState)
 {
     public void To(Address address, ulong value, out Ledger wallet)
     {
@@ -18,10 +18,13 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
         if (wallet.Locked && Validators.TryGetValidator(address, Repository, out var validator))
         {
             validator.Stake = checked(validator.Stake + value);
+            validator.Changed = true;
+            ChainState.TotalActiveStake = checked(ChainState.TotalActiveStake + value);
             return;
         }
 
         wallet.Balance = checked(wallet.Balance + value);
+        wallet.Changed = true;
     }
 
     public bool From(Address address, ulong value, out ExecutionResult executionResult, [NotNullWhen(true)] out Ledger? wallet)
@@ -41,6 +44,8 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
             }
 
             validator.Stake = checked(validator.Stake - value);
+            validator.Changed = true;
+            ChainState.TotalActiveStake = checked(ChainState.TotalActiveStake - value);
         }
         else
         {
@@ -51,6 +56,7 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
             }
 
             wallet.Balance = checked(wallet.Balance - value);
+            wallet.Changed = true;
         }
 
         executionResult = ExecutionResult.PENDING;
@@ -76,16 +82,14 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
             return false;
         }
 
-        if (address == "kryo:ac973k3jdykh8gc3fir3xz3ptzzckbn6v4dnza68")
-        {
-            Console.WriteLine($"Unlock");
-        }
-
         if (wallet.Locked && Validators.TryGetValidator(address, Repository, out var validator))
         {
             wallet.Balance = validator.Stake;
             wallet.Locked = false;
+            wallet.Changed = true;
+
             validator.Stake = 0;
+            validator.Changed = true;
 
             executionResult = ExecutionResult.SUCCESS;
             return true;
@@ -103,11 +107,6 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
             return false;
         }
 
-        if (address == "kryo:ac973k3jdykh8gc3fir3xz3ptzzckbn6v4dnza68")
-        {
-            Console.WriteLine($"Lock");
-        }
-
         if (!wallet.Locked)
         {
             if (!Validators.TryGetValidator(address, Repository, out var validator))
@@ -122,8 +121,11 @@ public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Led
 
             validator.Stake = wallet.Balance;
             validator.RewardAddress = rewardAddress;
+            validator.Changed = true;
+
             wallet.Balance = 0;
             wallet.Locked = true;
+            wallet.Changed = true;
 
             executionResult = ExecutionResult.SUCCESS;
             return true;

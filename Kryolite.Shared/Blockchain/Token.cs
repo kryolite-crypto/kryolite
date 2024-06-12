@@ -5,7 +5,7 @@ namespace Kryolite.Shared;
 
 public sealed class Token : ISerializable
 {
-    public ulong Id;
+    public long Id;
     public SHA256Hash TokenId;
     public bool IsConsumed;
     public Address Ledger;

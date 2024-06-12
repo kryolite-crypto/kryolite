@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Shared.Dto;
 using Microsoft.AspNetCore.Builder;
 using Kryolite.Shared;
+using Kryolite.Node.Storage.Key;
 
 namespace Kryolite.Daemon;
 
@@ -42,29 +43,31 @@ internal class Program
 
         var height = storeManager.GetChainState().Id;
 
-        Console.WriteLine($"Starting forced rollback - rebuild from height {0} to {height}");
+        Console.WriteLine($"Starting rollback - rebuild from height {0} to {height}");
 
         using (var checkpoint = storeManager.CreateCheckpoint())
         using (var staging = StagingManager.Open("staging", configuration))
         {
             staging.RollbackTo(0);
 
+            Console.WriteLine("Rollback completed");
+            Console.WriteLine("Starting rebuild");
+
             foreach (var ledger2 in staging.Repository.GetRichList(1000))
             {
                 if (ledger2.Balance != 0)
                 {
                     Console.WriteLine($"Ledger balance not reset after rollback: {ledger2.Address}: {ledger2.Balance}");
-                    //return;
+                    return;
                 }
             }
 
-            foreach (var validator in staging.GetValidators())
+            var vals = staging.GetValidators();
+
+            if (vals.Count != Constant.SEED_VALIDATORS.Length)
             {
-                if (validator.Stake != 0)
-                {
-                    Console.WriteLine($"Validator balance not reset after rollback: {validator.NodeAddress}: {validator.Stake}");
-                    //return;
-                }
+                Console.WriteLine($"{vals.Count} validators exists after rollback");
+                return;
             }
 
             for (var i = 1; i <= height; i++)
@@ -124,7 +127,7 @@ internal class Program
                 }
             }
 
-            Console.WriteLine("Forced rollback rebuild done");
+            Console.WriteLine("Rebuild completed");
             Console.WriteLine("Verifying ledger");
 
             var ledger = storeManager.GetRichList(1000);
@@ -145,7 +148,7 @@ internal class Program
 
             foreach (var validator in validators)
             {
-                var other = staging.Repository.GetStake(validator.NodeAddress);
+                var other = staging.Repository.GetValidator(validator.NodeAddress);
 
                 if (validator.Stake != other?.Stake)
                 {
@@ -155,6 +158,46 @@ internal class Program
                 if (validator.RewardAddress != other!.RewardAddress)
                 {
                     Console.WriteLine($"RewardAddress mismatch on validator {validator.NodeAddress}");
+                }
+            }
+
+            Console.WriteLine("Verifying contracts");
+
+            var contracts = storeManager.GetContracts();
+
+            foreach (var contract in contracts)
+            {
+                var other = staging.Repository.GetContract(contract.Address);
+
+                if (contract.Name != other?.Name)
+                {
+                    Console.WriteLine($"Contract name mismatch, {contract.Name} != {other?.Name}");
+                }
+
+                if (contract.Address != other?.Address!)
+                {
+                    Console.WriteLine($"Contract addres mismatch, {contract.Address} != {other?.Address}");
+                }
+
+                if (contract.Owner != other?.Owner!)
+                {
+                    Console.WriteLine($"Contract owner mismatch, {contract.Owner} != {other?.Owner}");
+                }
+
+                var code1 = storeManager.GetContractCode(contract.Address);
+                var code2 = staging.Repository.GetContractCode(contract.Address);
+
+                if (!Enumerable.SequenceEqual(code1!, code2!))
+                {
+                    Console.WriteLine($"Contract code mismatch, {contract.Address}");
+                }
+
+                var ss1 = storeManager.GetContractSnapshot(contract.Address);
+                var ss2 = staging.Repository.GetLatestSnapshot(contract.Address);
+
+                if (!Enumerable.SequenceEqual(ss1!, ss2!))
+                {
+                    Console.WriteLine($"Contract snapshot mismatch, {contract.Address}");
                 }
             }
 

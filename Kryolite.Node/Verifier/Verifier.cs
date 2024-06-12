@@ -122,7 +122,7 @@ public class Verifier : IVerifier
         }
 
         var address = view.PublicKey.ToAddress();
-        var validator = Store.GetStake(address);
+        var validator = Store.GetValidator(address);
 
         if (validator is null)
         {
@@ -208,7 +208,7 @@ public class Verifier : IVerifier
         }
 
         var address = vote.PublicKey.ToAddress();
-        var validator = Store.GetStake(address);
+        var validator = Store.GetValidator(address);
 
         if (validator is null)
         {

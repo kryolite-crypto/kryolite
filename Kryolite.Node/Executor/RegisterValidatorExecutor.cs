@@ -1,4 +1,5 @@
 using Kryolite.Node.Blockchain;
+using Kryolite.Node.Procedure;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
@@ -16,15 +17,15 @@ public class RegisterValidatorExecutor
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public ExecutionResult Execute(Transaction tx)
+    public ExecutionResult Execute(Transaction tx, ref Transfer transfer)
     {
         var ledger = Context.GetOrNewWallet(tx.From);
         
         // Return pending balance to wallet to be locked
         ledger.Balance = checked(ledger.Balance + ledger.Pending);
-        ledger.Pending = checked(ledger.Pending - ledger.Pending);
+        ledger.Pending = 0;
 
-        if (Context.Transfer.Lock(tx.From, tx.To, out var executionResult))
+        if (transfer.Lock(tx.From, tx.To, out var executionResult))
         {
             Context.AddEvent(new ValidatorEnable(tx.From));
         }

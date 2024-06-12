@@ -42,6 +42,9 @@ public interface IStoreManager
     ulong GetBalance(Address address);
     void ResetChain();
     Contract? GetContract(Address address);
+    byte[]? GetContractCode(Address address);
+    byte[]? GetContractSnapshot(Address address);
+    List<Contract> GetContracts();
     List<Ledger> GetRichList(int count);
     List<Transaction> GetTransactionsForAddress(Address address);
     List<Transaction> GetTransactionsAtHeight(long height);

@@ -1,0 +1,18 @@
+using System.Runtime.CompilerServices;
+using Kryolite.Shared;
+
+namespace Kryolite.Node.Storage.Key;
+
+[InlineArray(KeySize)]
+public struct VoteKey
+{
+    private byte _start;
+
+    public VoteKey(SHA256Hash blockhash)
+    {
+        blockhash.Buffer.CopyTo(this);
+    }
+
+    public const string KeyName = "Vote";
+    public const int KeySize = 32;
+}

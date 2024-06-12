@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 using Kryolite.ByteSerializer;
+using Kryolite.Node.Storage.Key;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
@@ -10,7 +11,7 @@ internal class RocksDBStorage : IStorage, IDisposable
 {
     private RocksDb.RocksDb Database { get; set; }
     private ulong CurrentKey = 0;
-    private string StorePath;
+    private readonly string StorePath;
 
     public RocksDBStorage(IConfiguration configuration)
     {
@@ -49,23 +50,23 @@ internal class RocksDBStorage : IStorage, IDisposable
         {
             ("default", 0, opts),
             ("Key", 0, opts),
-            ("Block", SHA256Hash.HASH_SZ, opts),
-            ("View", sizeof(long), opts),
-            ("Vote", SHA256Hash.HASH_SZ, opts),
-            ("ChainState", sizeof(long), opts),
-            ("Ledger", Address.ADDRESS_SZ, opts),
-            ("Transaction", sizeof(long), opts),
-            ("Contract", Address.ADDRESS_SZ, opts),
-            ("ContractCode", Address.ADDRESS_SZ, opts),
-            ("ContractSnapshot", Address.ADDRESS_SZ + sizeof(long), opts),
-            ("Token", sizeof(long), opts),
-            ("Validator", Address.ADDRESS_SZ, opts),
-            ("ixViewHash", SHA256Hash.HASH_SZ, opts),
-            ("ixTokenId", Address.ADDRESS_SZ + SHA256Hash.HASH_SZ, opts),
-            ("ixTokenLedger", Address.ADDRESS_SZ + sizeof(long), opts),
-            ("ixTransactionId", SHA256Hash.HASH_SZ, opts),
-            ("ixTransactionAddress", Address.ADDRESS_SZ + sizeof(long), opts),
-            ("ixScheduledTransaction", sizeof(long) + sizeof(long), opts)
+            (BlockKey.KeyName, BlockKey.KeySize, opts),
+            (ViewKey.KeyName, ViewKey.KeySize, opts),
+            (VoteKey.KeyName, VoteKey.KeySize, opts),
+            (ChainStateKey.KeyName, ChainStateKey.KeySize, opts),
+            (LedgerKey.KeyName, LedgerKey.KeySize, opts),
+            (TransactionKey.KeyName, TransactionKey.KeySize, opts),
+            (ContractKey.KeyName, ContractKey.KeySize, opts),
+            (ContractCodeKey.KeyName, ContractCodeKey.KeySize, opts),
+            (ContractSnapshotKey.KeyName, ContractSnapshotKey.KeySize, opts),
+            (TokenKey.KeyName, TokenKey.KeySize, opts),
+            (ValidatorKey.KeyName, ValidatorKey.KeySize, opts),
+            (ViewHashKey.KeyName, ViewHashKey.KeySize, opts),
+            (TokenIdKey.KeyName, TokenIdKey.KeySize, opts),
+            (TokenLedgerKey.KeyName, TokenLedgerKey.KeySize, opts),
+            (TransactionIdKey.KeyName, TransactionIdKey.KeySize, opts),
+            (TransactionAddressKey.KeyName, TransactionAddressKey.KeySize, opts),
+            (ScheduledTransactionKey.KeyName, ScheduledTransactionKey.KeySize, opts)
         };
 
         Database = new RocksDb.RocksDb(StorePath, options, columns);
@@ -85,12 +86,12 @@ internal class RocksDBStorage : IStorage, IDisposable
         return new RocksDBTransaction(Database, this);
     }
 
-    public bool Exists(string ixName, byte[] key)
+    public bool Exists(string ixName, ReadOnlySpan<byte> key)
     {
         return Database.HasKey(ixName, key);
     }
 
-    public byte[]? Get(string ixName, byte[] key)
+    public byte[]? Get(string ixName, ReadOnlySpan<byte> key)
     {
         var bytes = Database.Get(ixName, key);
 
@@ -102,7 +103,7 @@ internal class RocksDBStorage : IStorage, IDisposable
         return bytes;
     }
 
-    public T? Get<T>(string ixName, byte[] key) where T : ISerializable, new()
+    public T? Get<T>(string ixName, ReadOnlySpan<byte> key) where T : ISerializable, new()
     {
         byte[] result = Database.Get(ixName, key);
 
@@ -142,7 +143,7 @@ internal class RocksDBStorage : IStorage, IDisposable
         return items;
     }
 
-    public void Put(string ixName, ReadOnlySpan<byte> key, byte[] bytes, ITransaction? transaction = null)
+    public void Put(string ixName, ReadOnlySpan<byte> key, ReadOnlySpan<byte> bytes, ITransaction? transaction = null)
     {
         if (transaction is not null)
         {
@@ -601,23 +602,23 @@ internal class RocksDBStorage : IStorage, IDisposable
     public void Reset()
     {
         Database.RecreateColumnFamily("Key");
-        Database.RecreateColumnFamily("Block");
-        Database.RecreateColumnFamily("View");
-        Database.RecreateColumnFamily("Vote");
-        Database.RecreateColumnFamily("ChainState");
-        Database.RecreateColumnFamily("Ledger");
-        Database.RecreateColumnFamily("Transaction");
-        Database.RecreateColumnFamily("Contract");
-        Database.RecreateColumnFamily("ContractCode");
-        Database.RecreateColumnFamily("ContractSnapshot");
-        Database.RecreateColumnFamily("Token");
-        Database.RecreateColumnFamily("Validator");
-        Database.RecreateColumnFamily("ixViewHash");
-        Database.RecreateColumnFamily("ixTokenId");
-        Database.RecreateColumnFamily("ixTokenLedger");
-        Database.RecreateColumnFamily("ixTransactionNum");
-        Database.RecreateColumnFamily("ixTransactionAddress");
-        Database.RecreateColumnFamily("ixScheduledTransaction");
+        Database.RecreateColumnFamily(BlockKey.KeyName);
+        Database.RecreateColumnFamily(ViewKey.KeyName);
+        Database.RecreateColumnFamily(VoteKey.KeyName);
+        Database.RecreateColumnFamily(ChainStateKey.KeyName);
+        Database.RecreateColumnFamily(LedgerKey.KeyName);
+        Database.RecreateColumnFamily(TransactionKey.KeyName);
+        Database.RecreateColumnFamily(ContractKey.KeyName);
+        Database.RecreateColumnFamily(ContractCodeKey.KeyName);
+        Database.RecreateColumnFamily(ContractSnapshotKey.KeyName);
+        Database.RecreateColumnFamily(TokenKey.KeyName);
+        Database.RecreateColumnFamily(ValidatorKey.KeyName);
+        Database.RecreateColumnFamily(ViewHashKey.KeyName);
+        Database.RecreateColumnFamily(TokenIdKey.KeyName);
+        Database.RecreateColumnFamily(TokenLedgerKey.KeyName);
+        Database.RecreateColumnFamily(TransactionIdKey.KeyName);
+        Database.RecreateColumnFamily(TransactionAddressKey.KeyName);
+        Database.RecreateColumnFamily(ScheduledTransactionKey.KeyName);
     }
 
     public Checkpoint CreateCheckpoint()

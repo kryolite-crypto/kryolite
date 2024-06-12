@@ -1,12 +1,12 @@
 using Kryolite.ByteSerializer;
 using Kryolite.Node.Storage;
+using Kryolite.Node.Storage.Key;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Configuration;
 using System.Buffers;
 using System.Data;
-using System.Runtime.InteropServices;
 
 namespace Kryolite.Node.Repository;
 
@@ -24,112 +24,118 @@ public class StoreRepository : IStoreRepository, IDisposable
     public StoreRepository(string storePath)
     {
         var storage = new RocksDBStorage(storePath);
-        Storage = storage ?? throw new ArgumentNullException(nameof(storage));
+        Storage = storage ?? throw new ArgumentNullException(nameof(storePath));
     }
 
     public bool BlockExists(SHA256Hash blockhash)
     {
-        return Storage.Exists("Block", blockhash.Buffer);
+        var key = new BlockKey(blockhash);
+        return Storage.Exists(BlockKey.KeyName, key);
     }
 
     public bool VoteExists(SHA256Hash votehash)
     {
-        return Storage.Exists("Vote", votehash.Buffer);
+        var key = new VoteKey(votehash);
+        return Storage.Exists(VoteKey.KeyName, key);
     }
 
     public bool TransactionExists(SHA256Hash transactionId)
     {
-        return Storage.Exists("ixTransactionId", transactionId.Buffer);
+        var key = new TransactionIdKey(transactionId);
+        return Storage.Exists(TransactionIdKey.KeyName, key);
     }
 
     public View? GetView(long height)
     {
-        return Storage.Get<View>("View", height.ToKey());
+        var key = new ViewKey(height);
+        return Storage.Get<View>(ViewKey.KeyName, key);
     }
 
     public View? GetView(SHA256Hash viewHash)
     {
-        var id = Storage.Get("ixViewHash", (byte[])viewHash);
+        var hashKey = new ViewHashKey(viewHash);
+        var id = Storage.Get(ViewHashKey.KeyName, hashKey);
 
         if (id is null)
         {
             return null;
         }
 
-        return Storage.Get<View>("View", id);
+        return Storage.Get<View>(ViewKey.KeyName, id);
     }
 
     public Block? GetBlock(SHA256Hash blockhash)
     {
-        return Storage.Get<Block>("Block", blockhash.Buffer);
+        var key = new BlockKey(blockhash);
+        return Storage.Get<Block>(BlockKey.KeyName, key);
     }
 
     public Vote? GetVote(SHA256Hash votehash)
     {
-        return Storage.Get<Vote>("Vote", votehash.Buffer);
+        var key = new VoteKey(votehash);
+        return Storage.Get<Vote>(VoteKey.KeyName, key);
     }
 
     public Transaction? GetTransaction(SHA256Hash transactionId)
     {
-        var key = Storage.Get("ixTransactionId", transactionId.Buffer);
+        var key = new TransactionIdKey(transactionId);
+        var txKey = Storage.Get(TransactionIdKey.KeyName, key);
 
-        if (key is null)
+        if (txKey is null)
         {
             return null;
         }
 
-        return Storage.Get<Transaction>("Transaction", key);
+        return Storage.Get<Transaction>(TransactionKey.KeyName, txKey);
     }
 
     public void Add(Block block)
     {
-        Storage.Put("Block", block.GetHash(), Serializer.Serialize<Block>(block), CurrentTransaction);
+        var key = new BlockKey(block.GetHash());
+        Storage.Put(BlockKey.KeyName, key, Serializer.Serialize(block), CurrentTransaction);
     }
 
     public void Add(View view)
     {
-        var key = view.Id.ToKey();
-        Storage.Put("View", key, Serializer.Serialize<View>(view), CurrentTransaction);
-        Storage.Put("ixViewHash", view.GetHash(), key, CurrentTransaction);
+        var key = new ViewKey(view.Id);
+        Storage.Put(ViewKey.KeyName, key, Serializer.Serialize(view), CurrentTransaction);
+
+        var hashKey = new ViewHashKey(view.GetHash());
+        Storage.Put(ViewHashKey.KeyName, hashKey, key, CurrentTransaction);
     }
 
     public void Add(Vote vote)
     {
-        Storage.Put("Vote", vote.GetHash(), Serializer.Serialize<Vote>(vote), CurrentTransaction);
+        var key = new VoteKey(vote.GetHash());
+        Storage.Put(VoteKey.KeyName, key, Serializer.Serialize(vote), CurrentTransaction);
     }
 
     public void Add(Transaction tx)
     {
-        Span<byte> keyBuf = stackalloc byte[34];
-        var transactionId = tx.CalculateHash();
-
         if (tx.Id == 0)
         {
             tx.Id = (long)Storage.NextKey();
         }
 
-        var id = tx.Id.ToKey();
-
         // Transaction
-        Storage.Put("Transaction", id, Serializer.Serialize<Transaction>(tx), CurrentTransaction);
+        var key = new TransactionKey(tx.Id);
+        Storage.Put(TransactionKey.KeyName, key, Serializer.Serialize(tx), CurrentTransaction);
 
         //ixTransactionId index
-        Storage.Put("ixTransactionId", transactionId.Buffer, id, CurrentTransaction);
+        var txId = new TransactionIdKey(tx.CalculateHash());
+        Storage.Put(TransactionIdKey.KeyName, txId, key, CurrentTransaction);
 
         // Address index
-        var addrKey = keyBuf[..34];
-        id.CopyTo(addrKey[Address.ADDRESS_SZ..]);
-
         if (tx.PublicKey is not null)
         {
-            tx.From!.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
+            var addrKey = new TransactionAddressKey(tx.From, key);
+            Storage.Put(TransactionAddressKey.KeyName, addrKey, key, CurrentTransaction);
         }
 
         if (tx.To is not null)
         {
-            tx.To.Buffer.CopyTo(addrKey);
-            Storage.Put("ixTransactionAddress", addrKey, id, CurrentTransaction);
+            var addrKey = new TransactionAddressKey(tx.To, key);
+            Storage.Put(TransactionAddressKey.KeyName, addrKey, key, CurrentTransaction);
         }
 
         if (tx.ExecutionResult == ExecutionResult.SCHEDULED)
@@ -164,12 +170,12 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Block> GetBlocks(List<SHA256Hash> blockhashes)
     {
-        return Storage.GetMany<Block>("Block", blockhashes.Select(x => x.Buffer).ToArray());
+        return Storage.GetMany<Block>(BlockKey.KeyName, blockhashes.Select(x => x.Buffer).ToArray());
     }
 
     public List<Vote> GetVotes(List<SHA256Hash> votehashes)
     {
-        return Storage.GetMany<Vote>("Vote", votehashes.Select(x => x.Buffer).ToArray());
+        return Storage.GetMany<Vote>(VoteKey.KeyName, votehashes.Select(x => x.Buffer).ToArray());
     }
 
     public List<Transaction> GetTransactions(List<SHA256Hash> transactionIds)
@@ -179,30 +185,25 @@ public class StoreRepository : IStoreRepository, IDisposable
             return new();
         }
 
-        var keys = Storage.GetMany("ixTransactionId", transactionIds.Select(x => x.Buffer).ToArray());
-        return Storage.GetMany<Transaction>("Transaction", keys);
+        var keys = Storage.GetMany(TransactionIdKey.KeyName, transactionIds.Select(x => x.Buffer).ToArray());
+        return Storage.GetMany<Transaction>(TransactionKey.KeyName, keys);
     }
 
     public View? GetViewAt(long height)
     {
-        var heightBytes = BitConverter.GetBytes(height);
-        Array.Reverse(heightBytes);
-
-        return Storage.Get<View>("View", heightBytes);
+        var key = new ViewKey(height);
+        return Storage.Get<View>(ViewKey.KeyName, key);
     }
 
     public View? GetLastView()
     {
-        var chainState = Storage.FindLast<ChainState>("ChainState");
-
-        var heightBytes = chainState?.Id ?? 0;
-        return Storage.Get<View>("View", heightBytes.ToKey());
+        return Storage.FindLast<View>(ViewKey.KeyName);
     }
 
     public long GetLastHeightContainingBlock()
     {
         using var opts = new ReadOptions();
-        using var iterator = Storage.GetIterator("View", opts);
+        using var iterator = Storage.GetIterator(ViewKey.KeyName, opts);
 
         iterator.SeekToLast();
 
@@ -224,7 +225,8 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetTransactionsAtHeight(long height)
     {
-        var view = Storage.Get<View>("View", height.ToKey());
+        var key = new ViewKey(height);
+        var view = Storage.Get<View>(ViewKey.KeyName, key);
 
         if (view is null)
         {
@@ -235,14 +237,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
         if (view.Transactions.Count > 0)
         {
-            var keys = Storage.GetMany("ixTransactionId", view.Transactions.Select(x => x.Buffer).ToArray());
-            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", keys));
+            var keys = Storage.GetMany(TransactionIdKey.KeyName, view.Transactions.Select(x => x.Buffer).ToArray());
+            transactions.AddRange(Storage.GetMany<Transaction>(TransactionKey.KeyName, keys));
         }
 
         if (view.Rewards.Count > 0)
         {
-            var keys = Storage.GetMany("ixTransactionId", view.Rewards.Select(x => x.Buffer).ToArray());
-            transactions.AddRange(Storage.GetMany<Transaction>("Transaction", keys));
+            var keys = Storage.GetMany(TransactionIdKey.KeyName, view.Rewards.Select(x => x.Buffer).ToArray());
+            transactions.AddRange(Storage.GetMany<Transaction>(TransactionKey.KeyName, keys));
         }
 
         return transactions;
@@ -250,7 +252,8 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Vote> GetVotesAtHeight(long height)
     {
-        var view = Storage.Get<View>("View", height.ToKey());
+        var key = new ViewKey(height);
+        var view = Storage.Get<View>(ViewKey.KeyName, key);
 
         if (view is null || view.Votes.Count == 0)
         {
@@ -258,27 +261,29 @@ public class StoreRepository : IStoreRepository, IDisposable
         }
 
         var keys = view.Votes.Select(x => x.Buffer).ToArray();
-        return Storage.GetMany<Vote>("Vote", keys);
+        return Storage.GetMany<Vote>(VoteKey.KeyName, keys);
     }
 
     public ChainState? GetChainState()
     {
-        return Storage.FindLast<ChainState>("ChainState");
+        return Storage.FindLast<ChainState>(ChainStateKey.KeyName);
     }
 
     public ChainState? GetChainState(long height)
     {
-        return Storage.Get<ChainState>("ChainState", height.ToKey());
+        var key = new ChainStateKey(height);
+        return Storage.Get<ChainState>(ChainStateKey.KeyName, key);
     }
 
     public void SaveState(ChainState chainState)
     {
-        Storage.Put("ChainState", chainState.Id.ToKey(), chainState, CurrentTransaction);
+        var key = new ChainStateKey(chainState.Id);
+        Storage.Put(ChainStateKey.KeyName, key, chainState, CurrentTransaction);
     }
 
     public List<Transaction> GetLastNTransctions(int count)
     {
-        return Storage.FindLast<Transaction>("Transaction", count);
+        return Storage.FindLast<Transaction>(TransactionKey.KeyName, count);
     }
 
     public List<Transaction> GetLastNTransctions(Address address, int count)
@@ -290,174 +295,132 @@ public class StoreRepository : IStoreRepository, IDisposable
             return new();
         }
 
-        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+        return Storage.GetMany<Transaction>(TransactionKey.KeyName, ids.ToArray());
     }
 
     public Ledger? GetWallet(Address address)
     {
-        return Storage.Get<Ledger>("Ledger", address.Buffer);
+        return Storage.FindLast<Ledger>(LedgerKey.KeyName, address);
     }
 
-    public void UpdateWallet(Ledger ledger)
+    public void UpdateWallet(long height, Ledger ledger)
     {
-        Storage.Put<Ledger>("Ledger", ledger.Address.Buffer, ledger, CurrentTransaction);
+        var key = new LedgerKey(height, ledger.Address);
+        Storage.Put(LedgerKey.KeyName, key, ledger, CurrentTransaction);
     }
 
-    public void UpdateWallets(IEnumerable<Ledger> ledgers)
-    {
-        foreach (var ledger in ledgers)
-        {
-            UpdateWallet(ledger);
-        }
-    }
-
-    public void UpdateWallets(params Ledger[] ledgers)
+    public void UpdateWallets(long height, IEnumerable<Ledger> ledgers)
     {
         foreach (var ledger in ledgers)
         {
-            UpdateWallet(ledger);
+            UpdateWallet(height, ledger);
         }
+    }
+
+    public void DeleteWallet(long height, Address address)
+    {
+        var key = new LedgerKey(height, address);
+        Storage.Delete(LedgerKey.KeyName, key, CurrentTransaction);
     }
 
     public Contract? GetContract(Address address)
     {
-        return Storage.Get<Contract>("Contract", (byte[])address);
+        return Storage.FindLast<Contract>(ContractKey.KeyName, address);
     }
 
     public byte[]? GetContractCode(Address address)
     {
-        return Storage.Get("ContractCode", (byte[])address);
+        return Storage.FindLast(ContractCodeKey.KeyName, address);
     }
 
     public byte[]? GetLatestSnapshot(Address address)
     {
-        return Storage.FindLast("ContractSnapshot", address);
+        return Storage.FindLast(ContractSnapshotKey.KeyName, address);
     }
 
     public List<Ledger> GetRichList(int count)
     {
-        var ledger = Storage.GetAll<Ledger>("Ledger");
+        var results = new Dictionary<Address, Ledger>(count);
 
-        return ledger.OrderByDescending(x => x.Balance)
+        using var opts = new ReadOptions();
+        using var iterator = Storage.GetIterator(LedgerKey.KeyName, opts);
+
+        iterator.SeekToLast();
+
+        while (iterator.Valid())
+        {
+            var addr = (Address)iterator.Key().AsSpan()[..Address.ADDRESS_SZ];
+
+            if (!results.ContainsKey(addr))
+            {
+                var ledger = Serializer.Deserialize<Ledger>(iterator.Value()) ?? throw new Exception("failed to deserialize validator");
+                results.Add(addr, ledger);
+            }
+
+            iterator.Prev();
+        }
+
+        return results.Values
+            .OrderByDescending(x => x.Balance)
             .Take(count)
             .ToList();
     }
 
-    public void AddContract(Contract contract)
+    public void AddContract(Contract contract, long height)
     {
-        Storage.Put<Contract>("Contract", contract.Address.Buffer, contract, CurrentTransaction);
+        var key = new ContractKey(contract.Address, height);
+        Storage.Put(ContractKey.KeyName, key, contract, CurrentTransaction);
     }
 
-    public void AddContractCode(Address contract, byte[] code)
+    public void AddContractCode(Address contract, long height, byte[] code)
     {
-        Storage.Put("ContractCode", contract.Buffer, code, CurrentTransaction);
+        var key = new ContractCodeKey(contract, height);
+        Storage.Put(ContractCodeKey.KeyName, key, code, CurrentTransaction);
     }
 
     public void AddContractSnapshot(Address contract, long height, byte[] snapshot)
     {
-        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
-        contract.Buffer.CopyTo(keyBuf);
-        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
-
-        Storage.Put("ContractSnapshot", keyBuf, snapshot, CurrentTransaction);
+        var key = new ContractSnapshotKey(contract, height);
+        Storage.Put(ContractSnapshotKey.KeyName, key, snapshot, CurrentTransaction);
     }
 
-    public void UpdateContract(Contract contract)
+    public void SetToken(Token token, long height)
     {
-        AddContract(contract);
-    }
-
-    public void UpdateContracts(IEnumerable<Contract> contracts)
-    {
-        foreach (var contract in contracts)
-        {
-            AddContract(contract);
-        }
-    }
-
-    public void AddToken(Token token)
-    {
-        Span<byte> keyBuf = stackalloc byte[58];
-
         if (token.Id == 0)
         {
-            token.Id = Storage.NextKey(CurrentTransaction);
+            token.Id = (long)Storage.NextKey(CurrentTransaction);
         }
 
-        var id = token.Id.ToKey();
-        Storage.Put("Token", id, Serializer.Serialize(token), CurrentTransaction);
+        var key = new TokenKey(token.Id, height);
+        Storage.Put(TokenKey.KeyName, key, Serializer.Serialize(token), CurrentTransaction);
 
         // ContractAddress_TokenId
-        var tokenIx = keyBuf[..58];
-        token.Contract.Buffer.CopyTo(tokenIx);
-        token.TokenId.Buffer.CopyTo(tokenIx[Address.ADDRESS_SZ..]);
-
-        Storage.Put("ixTokenId", tokenIx, id, CurrentTransaction);
+        var tokenIx = new TokenIdKey(token.Contract, token.TokenId, height);
+        Storage.Put(TokenIdKey.KeyName, tokenIx, key, CurrentTransaction);
 
         // LedgerAddress_Key
-        var ledgerIx = keyBuf[..34];
-        token.Ledger.Buffer.CopyTo(ledgerIx);
-        id.CopyTo(ledgerIx[Address.ADDRESS_SZ..]);
-
-        Storage.Put("ixTokenLedger", ledgerIx, id, CurrentTransaction);
+        var ledgerIx = new TokenLedgerKey(token.Ledger, token.Id, height);
+        Storage.Put(TokenLedgerKey.KeyName, ledgerIx, key, CurrentTransaction);
     }
 
-    public void UpdateToken(Token token)
+    public void DeleteToken(Token token, long height)
     {
-        if (token.Id != 0)
-        {
-            Span<byte> keyBuf = stackalloc byte[34];
-            var id = BitConverter.GetBytes(token.Id);
-
-            var oldToken = Storage.Get<Token>("Token", id);
-
-            if (oldToken is not null)
-            {
-                // LedgerAddress_Key
-                token.Ledger.Buffer.CopyTo(keyBuf);
-                id.CopyTo(keyBuf[Address.ADDRESS_SZ..]);
-
-                Storage.Delete("ixTokenLedger", keyBuf, CurrentTransaction);
-            }
-        }
-
-        AddToken(token);
-    }
-
-    public void UpdateTokens(IEnumerable<Token> tokens)
-    {
-        foreach (var token in tokens)
-        {
-            UpdateToken(token);
-        }
-    }
-
-    public void DeleteToken(Token token)
-    {
-        Span<byte> keyBuf = stackalloc byte[84];
-
-        var id = BitConverter.GetBytes(token.Id);
-        Storage.Delete("Token", id, CurrentTransaction);
+        var key = new TokenKey(token.Id, height);
+        Storage.Delete(TokenKey.KeyName, key, CurrentTransaction);
 
         // ContractAddress_TokenId
-        var tokenIx = keyBuf.Slice(0, 58);
-        token.Contract.Buffer.AsSpan().CopyTo(tokenIx);
-        token.TokenId.Buffer.AsSpan().CopyTo(tokenIx.Slice(Address.ADDRESS_SZ));
-
-        Storage.Delete("ixTokenId", tokenIx, CurrentTransaction);
+        var tokenIx = new TokenIdKey(token.Contract, token.TokenId, height);
+        Storage.Delete(TokenIdKey.KeyName, tokenIx, CurrentTransaction);
 
         // LedgerAddress_Key
-        var ledgerIx = keyBuf.Slice(0, 34);
-        token.Ledger.Buffer.AsSpan().CopyTo(ledgerIx);
-        id.CopyTo(ledgerIx.Slice(Address.ADDRESS_SZ));
-
-        Storage.Delete("ixTokenLedger", ledgerIx, CurrentTransaction);
+        var ledgerIx = new TokenLedgerKey(token.Ledger, token.Id, height);
+        Storage.Delete(TokenLedgerKey.KeyName, ledgerIx, CurrentTransaction);
     }
 
     public List<Transaction> GetTransactions(Address address)
     {
-        var ids = Storage.FindLast("ixTransactionAddress", address, -1);
-        return Storage.GetMany<Transaction>("Transaction", ids.ToArray());
+        var ids = Storage.FindLast(TransactionAddressKey.KeyName, address, -1);
+        return Storage.GetMany<Transaction>(TransactionKey.KeyName, ids.ToArray());
     }
 
     public Token? GetToken(Address contract, SHA256Hash tokenId)
@@ -468,26 +431,90 @@ public class StoreRepository : IStoreRepository, IDisposable
         contract.Buffer.CopyTo(id, 0);
         tokenId.Buffer.CopyTo(id, Address.ADDRESS_SZ);
 
-        var key = Storage.Get("ixTokenId", id);
+        var key = Storage.FindLast(TokenIdKey.KeyName, id);
 
         if (key is null)
         {
             return null;
         }
 
-        return Storage.Get<Token>("Token", key);
+        return Storage.Get<Token>(TokenKey.KeyName, key);
     }
 
     public List<Token> GetTokens(Address ledger)
     {
-        var keys = Storage.FindAll("ixTokenLedger", ledger.Buffer);
-        return Storage.GetMany<Token>("Token", [.. keys]);
+        var tokens = new Dictionary<long, Token>();
+
+        var start = new TokenLedgerKey(ledger, 0, 0);
+        ((Span<byte>)start)[Address.ADDRESS_SZ..].Fill(byte.MaxValue);
+
+        var lowerBound = new TokenLedgerKey(ledger, 0, 0);
+        ((Span<byte>)lowerBound)[Address.ADDRESS_SZ..].Clear();
+
+        using var opts = new ReadOptions();
+        // TODO: Span overload
+        opts.IterateLowerBound(((Span<byte>)lowerBound).ToArray());
+        
+        using var iterator = Storage.GetIterator(TokenLedgerKey.KeyName, opts);
+
+        iterator.SeekForPrev(start);
+
+        while (iterator.Valid())
+        {
+            var span = iterator.Key().AsSpan();
+
+            var bytes = span.Slice(Address.ADDRESS_SZ, sizeof(long));
+            var id = BitConverter.ToInt64(bytes);
+
+            if (!tokens.ContainsKey(id))
+            {
+                var token = Storage.FindLast<Token>(TokenKey.KeyName, bytes) ?? throw new Exception("invalid index entry to token");
+                tokens.Add(id, token);
+            }
+
+            iterator.Prev();
+        }
+
+        return tokens.Values
+            .ToList();
     }
 
     public List<Token> GetContractTokens(Address contractAddress)
     {
-        var keys = Storage.FindAll("ixTokenId", contractAddress.Buffer);
-        return Storage.GetMany<Token>("Token", [.. keys]);
+        var tokens = new Dictionary<long, Token>();
+
+        var start = new TokenIdKey(contractAddress, SHA256Hash.NULL_HASH, 0);
+        ((Span<byte>)start)[Address.ADDRESS_SZ..].Fill(byte.MaxValue);
+
+        var lowerBound = new TokenIdKey(contractAddress, SHA256Hash.NULL_HASH, 0);
+        ((Span<byte>)lowerBound)[Address.ADDRESS_SZ..].Clear();
+
+        using var opts = new ReadOptions();
+        // TODO: Span overload
+        opts.IterateLowerBound(((Span<byte>)lowerBound).ToArray());
+        
+        using var iterator = Storage.GetIterator(TokenIdKey.KeyName, opts);
+
+        iterator.SeekForPrev(start);
+
+        while (iterator.Valid())
+        {
+            var span = iterator.Key().AsSpan();
+
+            var bytes = span.Slice(Address.ADDRESS_SZ, sizeof(long));
+            var id = BitConverter.ToInt64(bytes);
+
+            if (!tokens.ContainsKey(id))
+            {
+                var token = Storage.FindLast<Token>(TokenKey.KeyName, bytes) ?? throw new Exception("invalid index entry to token");
+                tokens.Add(id, token);
+            }
+
+            iterator.Prev();
+        }
+
+        return tokens.Values
+            .ToList();
     }
 
     public long? GetTimestamp(SHA256Hash transactionId)
@@ -502,43 +529,45 @@ public class StoreRepository : IStoreRepository, IDisposable
             return true;
         }
 
-        var stake = Storage.Get<Validator>("Validator", address.Buffer);
+        var validator = GetValidator(address);
 
-        if (stake == null)
+        if (validator is null)
         {
             return false;
         }
 
-        return stake.Stake >= Constant.MIN_STAKE;
+        return validator.Stake >= Constant.MIN_STAKE;
     }
 
-    public Validator? GetStake(Address address)
+    public Validator? GetValidator(Address address)
     {
-        return Storage.Get<Validator>("Validator", address.Buffer);
+        return Storage.FindLast<Validator>(ValidatorKey.KeyName, address);
     }
 
-    public void SetStake(Address address, Validator stake)
+    public void SetValidator(long height, Validator validator)
     {
-        Storage.Put("Validator", address.Buffer, stake, CurrentTransaction);
+        var key = new ValidatorKey(height, validator.NodeAddress);
+        Storage.Put(ValidatorKey.KeyName, key, validator, CurrentTransaction);
     }
 
-    public void DeleteStake(Address address)
+    public void DeleteValidator(long height, Address address)
     {
-        Storage.Delete("Validator", address.Buffer, CurrentTransaction);
+        var key = new ValidatorKey(height, address);
+        Storage.Delete(ValidatorKey.KeyName, key, CurrentTransaction);
     }
 
     public List<Validator> GetValidators()
     {
-        var validators = new Dictionary<Address, Validator>();
+        var validators = new ValidatorCache();
 
         using var opts = new ReadOptions();
-        using var iterator = Storage.GetIterator("Validator", opts);
+        using var iterator = Storage.GetIterator(ValidatorKey.KeyName, opts);
 
         iterator.SeekToLast();
 
         while (iterator.Valid())
         {
-            var addr = (Address)iterator.Key().AsSpan().Slice(0, Address.ADDRESS_SZ);
+            var addr = (Address)iterator.Key().AsSpan()[..Address.ADDRESS_SZ];
 
             if (!validators.ContainsKey(addr))
             {
@@ -554,17 +583,37 @@ public class StoreRepository : IStoreRepository, IDisposable
             .ToList();
     }
 
+    public List<Contract> GetContracts()
+    {
+        var contracts = new Dictionary<Address, Contract>();
+
+        using var opts = new ReadOptions();
+        using var iterator = Storage.GetIterator(ContractKey.KeyName, opts);
+
+        iterator.SeekToLast();
+
+        while (iterator.Valid())
+        {
+            var addr = (Address)iterator.Key().AsSpan()[..Address.ADDRESS_SZ];
+
+            if (!contracts.ContainsKey(addr))
+            {
+                var contract = Serializer.Deserialize<Contract>(iterator.Value()) ?? throw new Exception("failed to deserialize contract");
+                contracts.Add(addr, contract);
+            }
+
+            iterator.Prev();
+        }
+
+        return contracts.Values
+            .ToList();
+    }
+
     public void AddDueTransaction(Transaction tx)
     {
-        var id = tx.Id.ToKey();
-        var ts = tx.Timestamp.ToKey();
-
-        Span<byte> tsKey = stackalloc byte[(sizeof(long) * 2)]; // timestamp + id
-
-        ts.CopyTo(tsKey);
-        id.CopyTo(tsKey[sizeof(long)..]);
-
-        Storage.Put("ixScheduledTransaction", tsKey, id, CurrentTransaction);
+        var txKey = new TransactionKey(tx.Id);
+        var key = new ScheduledTransactionKey(tx.Timestamp, tx.Id);
+        Storage.Put(ScheduledTransactionKey.KeyName, key, txKey, CurrentTransaction);
     }
 
     public List<Transaction> GetDueTransactions(long timestamp, bool delete)
@@ -578,7 +627,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         using var opts = new ReadOptions();
         opts.IterateUpperBound(upperBound.ToArray());
 
-        using var iterator = Storage.GetIterator("ixScheduledTransaction", opts);
+        using var iterator = Storage.GetIterator(ScheduledTransactionKey.KeyName, opts);
 
         iterator.SeekToFirst();
 
@@ -587,11 +636,11 @@ public class StoreRepository : IStoreRepository, IDisposable
         while (iterator.Valid())
         {
             var id = iterator.Value();
-            var tx = Storage.Get<Transaction>("Transaction", id);
+            var tx = Storage.Get<Transaction>(TransactionKey.KeyName, id);
 
             if (delete)
             {
-                Storage.Delete("ixScheduledTransaction", iterator.Key(), CurrentTransaction);
+                Storage.Delete(ScheduledTransactionKey.KeyName, iterator.Key(), CurrentTransaction);
             }
 
             iterator.Next();
@@ -607,7 +656,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Transaction> GetTransactions(int pageNum, int pageSize)
     {
-        return Storage.GetRange<Transaction>("Transaction", pageNum, pageSize);
+        return Storage.GetRange<Transaction>(TransactionKey.KeyName, pageNum, pageSize);
     }
 
     private ITransaction? _currentTransaction;
@@ -673,7 +722,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         using var opts = new ReadOptions();
         opts.IterateLowerBound(lowerBound);
 
-        using var iterator = Storage.GetIterator("ixTransactionAddress", opts);
+        using var iterator = Storage.GetIterator(TransactionAddressKey.KeyName, opts);
 
         iterator.SeekForPrev(key);
 
@@ -682,7 +731,7 @@ public class StoreRepository : IStoreRepository, IDisposable
         while (iterator.Valid())
         {
             var id = iterator.Value();
-            var tx = Storage.Get<Transaction>("Transaction", id);
+            var tx = Storage.Get<Transaction>(TransactionKey.KeyName, id);
 
             iterator.Prev();
 
@@ -724,12 +773,14 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void DeleteBlock(SHA256Hash blockhash)
     {
-        Storage.Delete("Block", blockhash, CurrentTransaction);
+        var key = new BlockKey(blockhash);
+        Storage.Delete(BlockKey.KeyName, key, CurrentTransaction);
     }
 
     public void DeleteVote(SHA256Hash votehash)
     {
-        Storage.Delete("Vote", votehash, CurrentTransaction);
+        var key = new VoteKey(votehash);
+        Storage.Delete(VoteKey.KeyName, key, CurrentTransaction);
     }
 
     public void DeleteBlocks(List<SHA256Hash> blockhashes)
@@ -750,71 +801,124 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public void Delete(View view)
     {
-        var key = view.Id.ToKey();
-        Storage.Delete("View", key, CurrentTransaction);
-        Storage.Delete("ixViewHash", view.GetHash(), CurrentTransaction);
+        var key = new ViewKey(view.Id);
+        Storage.Delete(ViewKey.KeyName, key, CurrentTransaction);
+
+        var hashKey = new ViewHashKey(view.GetHash());
+        Storage.Delete(ViewHashKey.KeyName, hashKey, CurrentTransaction);
     }
 
     public void Delete(Transaction tx)
     {
-        Span<byte> keyBuf = stackalloc byte[34];
-        var transactionId = tx.CalculateHash();
-
-        var id = tx.Id.ToKey();
-
         // Transaction
-        Storage.Delete("Transaction", id, CurrentTransaction);
+        var key = new TransactionKey(tx.Id);
+        Storage.Delete(TransactionKey.KeyName, key, CurrentTransaction);
 
         // transactionId
-        Storage.Delete("ixTransactionId", transactionId.Buffer, CurrentTransaction);
+        var txId = new TransactionIdKey(tx.CalculateHash());
+        Storage.Delete(TransactionIdKey.KeyName, txId, CurrentTransaction);
 
         // Address index
-        var addrKey = keyBuf[..34];
-        id.CopyTo(addrKey[Address.ADDRESS_SZ..]);
-
         if (tx.PublicKey is not null)
         {
-            tx.From!.Buffer.CopyTo(addrKey);
-            Storage.Delete("ixTransactionAddress", addrKey, CurrentTransaction);
+            var addrKey = new TransactionAddressKey(tx.From, key);
+            Storage.Delete(TransactionAddressKey.KeyName, addrKey, CurrentTransaction);
         }
 
         if (tx.To is not null)
         {
-            tx.To.Buffer.CopyTo(addrKey);
-            Storage.Delete("ixTransactionAddress", addrKey, CurrentTransaction);
+            var addrKey = new TransactionAddressKey(tx.To, key);
+            Storage.Delete(TransactionAddressKey.KeyName, addrKey, CurrentTransaction);
         }
 
-        var ts = tx.Timestamp.ToKey();
-        Span<byte> tsKey = stackalloc byte[(sizeof(long) * 2)]; // timestamp + id
-
-        ts.CopyTo(tsKey);
-        id.CopyTo(tsKey[sizeof(long)..]);
-
-        Storage.Delete("ixScheduledTransaction", tsKey, CurrentTransaction);
+        var tsKey = new ScheduledTransactionKey(tx.Timestamp, tx.Id);
+        Storage.Delete(ScheduledTransactionKey.KeyName, tsKey, CurrentTransaction);
     }
 
-    public void DeleteContract(Address contract)
+    public void DeleteContract(Address contract, long height)
     {
-        Storage.Delete("Contract", contract.Buffer, CurrentTransaction);
+        var key = new ContractKey(contract, height);
+        Storage.Delete(ContractKey.KeyName, key, CurrentTransaction);
     }
 
-    public void DeleteContractCode(Address contract)
+    public void DeleteContractCode(Address contract, long height)
     {
-        Storage.Delete("ContractCode", contract.Buffer, CurrentTransaction);
+        var key = new ContractCodeKey(contract, height);
+        Storage.Delete(ContractCodeKey.KeyName, key, CurrentTransaction);
     }
 
     public void DeleteContractSnapshot(Address contract, long height)
     {
-        Span<byte> keyBuf = stackalloc byte[Address.ADDRESS_SZ + sizeof(long)];
-        contract.Buffer.CopyTo(keyBuf);
-        height.ToKey().CopyTo(keyBuf.Slice(Address.ADDRESS_SZ));
-
-        Storage.Delete("ContractSnapshot", keyBuf, CurrentTransaction);
+        var key = new ContractSnapshotKey(contract, height);
+        Storage.Delete(ContractSnapshotKey.KeyName, key, CurrentTransaction);
     }
 
     public void DeleteState(long height)
     {
-        Storage.Delete("ChainState", height.ToKey(), CurrentTransaction);
+        var key = new ChainStateKey(height);
+        Storage.Delete(ChainStateKey.KeyName, key, CurrentTransaction);
+    }
+
+    public void DeleteFromIndexAfterHeight(string ixName, long targetHeight)
+    {
+        using var opts = new ReadOptions();
+        using var iterator = Storage.GetIterator(ixName, opts);
+
+        iterator.SeekToLast();
+
+        while (iterator.Valid())
+        {
+            var key = iterator.Key();
+            
+            var heightBytes = key.AsSpan()[^8..].ToArray();
+            Array.Reverse(heightBytes);
+
+            var height = BitConverter.ToInt64(heightBytes);
+
+            if (height > targetHeight)
+            {
+                Storage.Delete(ixName, key, CurrentTransaction);
+            }
+
+            iterator.Prev();
+        }
+    }
+
+    public void DeleteNonLatestFromIndexBeforeHeight(string ixName, long targetHeight)
+    {
+        using var opts = new ReadOptions();
+        using var iterator = Storage.GetIterator(ixName, opts);
+
+        iterator.SeekToLast();
+
+        var prev = Span<byte>.Empty;
+
+        while (iterator.Valid())
+        {
+            var key = iterator.Key();
+            var span = key.AsSpan();
+            
+            var heightBytes = span[^8..].ToArray();
+            Array.Reverse(heightBytes);
+
+            var height = BitConverter.ToInt64(heightBytes);
+
+            if (height < targetHeight)
+            {
+                var baseKey = key.AsSpan()[..^8];
+
+                if (prev.SequenceEqual(baseKey))
+                {
+                    Storage.Delete(ixName, key, CurrentTransaction);
+                }
+                else
+                {
+                    prev = baseKey;
+                }
+            }
+
+            iterator.Prev();
+        }
     }
 
     public void Compact()

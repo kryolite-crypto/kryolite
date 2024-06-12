@@ -9,15 +9,15 @@ public interface IStorage
     ulong GetCurrentKey();
     ulong NextKey(ITransaction? transaction = null);
 
-    bool Exists(string ixName, byte[] key);
+    bool Exists(string ixName, ReadOnlySpan<byte> key);
 
-    byte[]? Get(string ixName, byte[] key);
-    T? Get<T>(string ixName, byte[] key) where T : ISerializable, new();
+    byte[]? Get(string ixName, ReadOnlySpan<byte> key);
+    T? Get<T>(string ixName, ReadOnlySpan<byte> key) where T : ISerializable, new();
 
     byte[][] GetMany(string ixName, byte[][] keys);
     List<T> GetMany<T>(string ixName, byte[][] keys) where T : ISerializable, new();
 
-    void Put(string ixName, ReadOnlySpan<byte> key, byte[] bytes, ITransaction? transaction = null);
+    void Put(string ixName, ReadOnlySpan<byte> key, ReadOnlySpan<byte> bytes, ITransaction? transaction = null);
     void Put<T>(string ixName, ReadOnlySpan<byte> key, T entity, ITransaction? transaction = null) where T : ISerializable, new();
     void Delete(string ixName, ReadOnlySpan<byte> key, ITransaction? transaction = null);
 

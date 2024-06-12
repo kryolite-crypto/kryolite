@@ -5,6 +5,7 @@ using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
+using Kryolite.Node.Storage.Key;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
@@ -57,7 +58,7 @@ public abstract class TransactionManager
                     RewardAddress = Address.NULL_ADDRESS
                 };
 
-                Repository.SetStake(validator, stake);
+                Repository.SetValidator(0, stake);
             }
 
             StateCache.SetChainState(chainState);
@@ -150,8 +151,13 @@ public abstract class TransactionManager
                 }
 
                 var stakeAddress = vote.PublicKey.ToAddress();
-                var stake = Repository.GetStake(stakeAddress) ?? throw new Exception($"not validator ({stakeAddress})");
-                var stakeAmount = stake.Stake;
+                
+                if (!StateCache.GetValidators().TryGetValidator(stakeAddress, Repository, out var validator))
+                {
+                    throw new Exception($"not validator ({stakeAddress})");
+                }
+
+                var stakeAmount = validator.Stake;
                 var isSeedValidator = Constant.SEED_VALIDATORS.Contains(stakeAddress);
 
                 if (isSeedValidator)
@@ -160,11 +166,22 @@ public abstract class TransactionManager
                     seedStake = checked(seedStake + stakeAmount);
                 }
 
+                if (!validator.Active)
+                {
+                    // Reactivate the validator
+                    chainState.TotalActiveStake = checked(chainState.TotalActiveStake + stakeAmount);
+                    validator.Active = true;
+                }
+
+                validator.LastActiveHeight = height;
+                validator.Changed = true;
+
                 totalStake = checked(totalStake + stakeAmount);
 
                 votes.Add(vote);
             }
 
+            // Remove transactions that were applied in this view
             foreach (var txId in view.Transactions)
             {
                 if (!StateCache.GetTransactions().Remove(txId, out var tx))
@@ -192,11 +209,12 @@ public abstract class TransactionManager
 
             if (blocks.Count > 0)
             {
-                // there was blocks found, reset accumulated reward
+                // there were blocks found, reset accumulated reward
                 chainState.BlockReward = 0;
             }
 
             var work = chainState.CurrentDifficulty.ToWork();
+            var finalized = totalStake >= (chainState.TotalActiveStake * 0.66d);
 
             // Update chain state
             chainState.ViewHash = view.GetHash();
@@ -208,6 +226,11 @@ public abstract class TransactionManager
             chainState.TotalBlocks += blocks.Count;
             chainState.CurrentDifficulty = DifficultyScale.Scale(chainState, Repository);
             chainState.BlockReward += RewardCalculator.BlockReward(view.Id);
+            
+            if (finalized)
+            {
+                FinalizeView(chainState);
+            }
 
             Repository.AddRange(blocks);
             Repository.AddRange(votes);
@@ -224,7 +247,7 @@ public abstract class TransactionManager
 
             if (shouldVote)
             {
-                var validator = Repository.GetStake(address) ?? throw new Exception("failed to load stake for current node, corrupted Validator index?");
+                var validator = Repository.GetValidator(address) ?? throw new Exception("failed to load stake for current node, corrupted Validator index?");
 
                 var stake = validator.Stake;
 
@@ -257,6 +280,7 @@ public abstract class TransactionManager
 
             foreach (var ledger in StateCache.GetLedgers().Values)
             {
+                // Remove cached ledgers that do not have anything pending
                 if (ledger.Pending == 0)
                 {
                     StateCache.GetLedgers().Remove(ledger.Address);
@@ -303,6 +327,7 @@ public abstract class TransactionManager
         var blockCount = 0;
 
         var aggregatedVotes = new Dictionary<Address, AggregatedData>();
+        var voters = new HashSet<Address>();
 
         for (var i = epochStart; i < epochEnd; i += Constant.VOTE_INTERVAL)
         {
@@ -321,6 +346,7 @@ public abstract class TransactionManager
             foreach (var vote in votes)
             {
                 var address = vote.PublicKey.ToAddress();
+                voters.Add(address);
 
                 if (Constant.SEED_VALIDATORS.Contains(address))
                 {
@@ -358,6 +384,33 @@ public abstract class TransactionManager
             toExecute.Add(voteReward);
         }
 
+        chainState.TotalActiveStake = 0;
+
+        // Recalculate TotalActiveState based on voters during previous epoch
+        foreach (var validatorEntry in Repository.GetValidators())
+        {
+            // We might have cached value if the stake has been updated during this view
+            if (!StateCache.GetValidators().TryGetValidator(validatorEntry.NodeAddress, Repository, out var validator))
+            {
+                throw new Exception("failed to load validator through cache");
+            }
+
+            if (voters.Contains(validator.NodeAddress))
+            {
+                var stake = Constant.SEED_VALIDATORS.Contains(validator.NodeAddress) ? Constant.MIN_STAKE : validator.Stake;
+                chainState.TotalActiveStake = checked (chainState.TotalActiveStake + stake);
+            }
+            else
+            {
+                // If the validator was active but did not cast a single vote, then mark it inactive
+                if (validator.Active)
+                {
+                    validator.Active = false;
+                    validator.Changed = true;
+                }
+            }
+        }
+
         var devRewardBlock = RewardCalculator.DevRewardForBlock(view.Id) * (ulong)blockCount;
         var devRewardVal = RewardCalculator.DevRewardForValidator(view.Id) * (ulong)milestones;
 
@@ -372,6 +425,21 @@ public abstract class TransactionManager
         toExecute.Add(devFee);
 
         chainState.CollectedFees = 0;
+    }
+
+    private void FinalizeView(ChainState chainState)
+    {
+        var height = chainState.Id;
+        chainState.LastFinalizedHeight = height;
+
+        Repository.DeleteNonLatestFromIndexBeforeHeight(LedgerKey.KeyName, height);
+        Repository.DeleteNonLatestFromIndexBeforeHeight(ContractKey.KeyName, height);
+        Repository.DeleteNonLatestFromIndexBeforeHeight(ContractCodeKey.KeyName, height);
+        Repository.DeleteNonLatestFromIndexBeforeHeight(ContractSnapshotKey.KeyName, height);
+        Repository.DeleteNonLatestFromIndexBeforeHeight(TokenKey.KeyName, height);
+        Repository.DeleteNonLatestFromIndexBeforeHeight(ValidatorKey.KeyName, height);
+        Repository.DeleteNonLatestFromIndexBeforeHeight(TokenIdKey.KeyName, height);
+        Repository.DeleteNonLatestFromIndexBeforeHeight(TokenLedgerKey.KeyName, height);
     }
 
     protected bool AddBlockInternal(Block block, bool broadcast)
@@ -412,8 +480,7 @@ public abstract class TransactionManager
 
         try
         {
-            var transfer = new Transfer(Repository, StateCache.GetLedgers(), StateCache.GetValidators());
-
+            var transfer = new Transfer(Repository, StateCache.GetLedgers(), StateCache.GetValidators(), StateCache.GetCurrentState());
             var totalValue = tx.Value + (ulong)tx.MaxFee;
 
             if (!transfer.From(tx.From!, totalValue, out var executionResult, out var from))

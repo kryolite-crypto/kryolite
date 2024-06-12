@@ -1,4 +1,5 @@
 using Kryolite.ByteSerializer;
+using Kryolite.Node.Procedure;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
@@ -12,7 +13,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
     private IExecutorContext Context { get; } = context ?? throw new ArgumentNullException(nameof(context));
     private ILogger Logger { get; } = logger ?? throw new ArgumentNullException(nameof(logger));
 
-    public ExecutionResult Execute(Transaction tx, View view)
+    public ExecutionResult Execute(Transaction tx, View view, ref Transfer transfer)
     {
         try
         {
@@ -110,7 +111,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 }
 
                 // Take funds from contract
-                if (!Context.Transfer.From(contract.Address, effect.Value, out var executionResult, out _))
+                if (!transfer.From(contract.Address, effect.Value, out var executionResult, out _))
                 {
                     // TODO: if this fails, we should rollback previous effects or else they will be only partially added
                     Logger.LogInformation("Failed to take funds from contract");
@@ -118,7 +119,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 }
 
                 // Add funds to recipient
-                Context.Transfer.To(effect.To, effect.Value, out _);
+                transfer.To(effect.To, effect.Value, out _);
             }
 
             foreach (var sched in vmContext.ScheduledCalls)
