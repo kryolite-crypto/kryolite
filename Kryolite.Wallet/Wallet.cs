@@ -1,6 +1,7 @@
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using NBip32Fast;
+using NBip32Fast.Ed25519;
 
 namespace Kryolite.Wallet;
 
@@ -25,14 +26,14 @@ public class Wallet : ISerializable
 
     public static Wallet CreateFromSeed(ReadOnlySpan<byte> seed)
     {
-        return new Wallet(Derivation.Ed25519.GetMasterKeyFromSeed(seed));
+        return new Wallet(Ed25519HdKey.Instance.GetMasterKeyFromSeed(seed));
     }
 
     public static Wallet CreateFromRandomSeed()
     {
         var seed = new byte[32];
         Random.Shared.NextBytes(seed);
-        return new Wallet(Derivation.Ed25519.GetMasterKeyFromSeed(seed));
+        return new Wallet(Ed25519HdKey.Instance.GetMasterKeyFromSeed(seed));
     }
 
     public Account CreateAccount()
@@ -65,7 +66,7 @@ public class Wallet : ISerializable
         }
 
         var master = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(account.Id).Span);
-        return Derivation.Ed25519.Derive(master, new KeyPathElement(account.Id, true)).PrivateKey.ToArray();
+        return Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true)).PrivateKey.ToArray();
     }
 
     public PrivateKey? GetPrivateKey(Address address)
@@ -78,7 +79,7 @@ public class Wallet : ISerializable
         }
 
         var master = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(account.Id).Span);
-        return Derivation.Ed25519.Derive(master, new KeyPathElement(account.Id, true)).PrivateKey.ToArray();
+        return Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true)).PrivateKey.ToArray();
     }
 
     public byte GetSerializerId()
