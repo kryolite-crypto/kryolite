@@ -489,12 +489,14 @@ public abstract class TransactionManager
                 return false;
             }
 
-            transfer.Pending(tx.To, tx.Value, out var to);
-
             StateCache.Add(tx);
-
             Publish(from);
-            Publish(to);
+
+            if (tx.TransactionType != TransactionType.CONTRACT)
+            {
+                transfer.Pending(tx.To, tx.Value, out var to);
+                Publish(to);
+            }
 
             if (broadcast)
             {
