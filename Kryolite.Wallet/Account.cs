@@ -1,6 +1,7 @@
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using NBip32Fast;
+using NBip32Fast.Ed25519;
 
 namespace Kryolite.Wallet;
 
@@ -19,8 +20,8 @@ public class Account : ISerializable
 
     public Account(HdKey master, uint id)
     {
-        var key = Derivation.Ed25519.Derive(master, new KeyPathElement(id, true));
-        var pubKey = Derivation.Ed25519.GetPublic(key.PrivateKey);
+        var key = Ed25519HdKey.Instance.Derive(master, new KeyPathElement(id, true));
+        var pubKey = Ed25519HdKey.Instance.GetPublic(key.PrivateKey);
 
         Id = id;
         PublicKey = pubKey;
