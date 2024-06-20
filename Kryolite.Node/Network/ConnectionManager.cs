@@ -92,7 +92,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 var node = connection.Node;
 
                 _logger.LogInformation("Connected to {node}", node.Uri.ToHostname());
-                
+
                 _connectedNodes[node.PublicKey] = connection;
                 _timer.Period = TimeSpan.FromMinutes(5);
             }
@@ -387,7 +387,6 @@ public class ConnectionManager : BackgroundService, IConnectionManager
 
     public List<NodeConnection> GetConnectedNodes()
     {
-        using var _ = _rwlock.EnterReadLockEx();
         return [.. _connectedNodes.Values];
     }
 
@@ -469,7 +468,7 @@ public class ConnectionManager : BackgroundService, IConnectionManager
                 {
                     continue;
                 }
-                
+
                 try
                 {
                     var data = Serializer.Deserialize<BatchBroadcast>(batch);
@@ -542,7 +541,7 @@ public class NodeConnection(WebsocketChannel channel, Node node)
 
 public class AuthorizationException : Exception
 {
-    public AuthorizationException(string message) : base (message)
+    public AuthorizationException(string message) : base(message)
     {
 
     }

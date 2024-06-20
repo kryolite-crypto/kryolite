@@ -79,17 +79,19 @@ public partial class MainWindow : Window
 
         _connMan.NodeConnected += async (object? sender, NodeConnection connection) =>
         {
+            var count = _connMan.GetConnectedNodes().Count();
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                _model.ConnectedPeers = _connMan.GetConnectedNodes().Count();
+                _model.ConnectedPeers = count;
             });
         };
 
         _connMan.NodeDisconnected += async (object? sender, NodeConnection connection) =>
         {
+            var count = _connMan.GetConnectedNodes().Count();
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                _model.ConnectedPeers = _connMan.GetConnectedNodes().Count();
+                _model.ConnectedPeers = count;
             });
         };
 
