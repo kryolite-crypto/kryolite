@@ -429,7 +429,7 @@ public abstract class TransactionManager
 
     private void FinalizeView(ChainState chainState)
     {
-        var height = chainState.Id;
+        var height = chainState.Id - 1;
         chainState.LastFinalizedHeight = height;
 
         Repository.DeleteNonLatestFromIndexBeforeHeight(LedgerKey.KeyName, height);
