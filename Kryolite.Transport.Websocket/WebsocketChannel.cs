@@ -32,7 +32,10 @@ public class WebsocketChannel : IDisposable
     private static readonly byte[] _unaryRequest = [1];
     private static readonly byte[] _unaryReply = [2];
 
-    private static readonly HttpClient _httpClient = new();
+    private static readonly HttpClient _httpClient = new()
+    {
+        Timeout = TimeSpan.FromSeconds(15),
+    };
 
     public DateTime ConnectedSince { get; set; }
     public long BytesSent { get; private set; }

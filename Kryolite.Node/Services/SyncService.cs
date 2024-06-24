@@ -85,9 +85,19 @@ public class SyncManager : BackgroundService
 
                 if (commonHeight < stagingState?.LastFinalizedHeight)
                 {
-                    var hash = staging.GetView(commonHeight);
-                    _logger.LogInformation("[{node}] found common height at {height} but unable to rollback finalized view at height {finalizedHeight}.", connection.Node.Uri.ToHostname(), commonHeight, stagingState?.LastFinalizedHeight);
-                    return;
+                    var hash = staging.GetView(commonHeight)?.GetHash();
+
+                    if (hash is not null && configuration.GetValue<string>("unsafe-accept-chain-fork") == hash?.ToString())
+                    {
+                        commonHeight = 0;
+                    }
+                    else
+                    {
+                        _logger.LogInformation("[{node}] Unable to rollback finalized view at height {finalizedHeight}.", connection.Node.Uri.ToHostname(), stagingState?.LastFinalizedHeight);
+                        _logger.LogInformation("[{node}] To force sync chain from this node, start node with option '--unsafe-accept-chain-fork {}'.", connection.Node.Uri.ToHostname(), hash);
+                        connection.Node.IsForked = true;
+                        return;
+                    }
                 }
 
                 var stagingHeight = stagingState?.Id;

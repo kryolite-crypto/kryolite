@@ -18,6 +18,7 @@ public static class BaseApi
         builder.MapGet("blocktemplate", GetBlockTemplate);
         builder.MapGet("block/{hash}", GetBlock);
         builder.MapGet("chainstate", GetCurrentChainState);
+        builder.MapGet("chainstate/height/{height}", GetChainstateAtHeight);
         builder.MapGet("contract/{address}", GetSmartContract);
         builder.MapGet("contract/{address}/tokens", GetSmartContractTokens);
         builder.MapGet("data/history", GetHistoryData);
@@ -280,7 +281,18 @@ public static class BaseApi
 
     private static ChainStateDto GetCurrentChainState(IStoreManager storeManager)
     {
-        var chainState = storeManager.GetChainState() ?? throw new Exception("chainstate not found");
+        var chainState = storeManager.GetChainState();
+        return new ChainStateDto(chainState);
+    }
+
+    private static ChainStateDto? GetChainstateAtHeight(IStoreManager storeManager, long height)
+    {
+        var chainState = storeManager.GetChainState(height);
+
+        if (chainState is null)
+        {
+            return null;
+        }
 
         return new ChainStateDto(chainState);
     }
