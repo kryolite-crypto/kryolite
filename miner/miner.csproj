@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
+    <ProjectReference Include="..\Kryolite.Mdns\Kryolite.Mdns.csproj" />
   </ItemGroup>
 
   <ItemGroup>

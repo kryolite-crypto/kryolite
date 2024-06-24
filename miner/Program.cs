@@ -1,5 +1,4 @@
-﻿using System.Security.Cryptography;
-using Kryolite.Shared;
+﻿using Kryolite.Shared;
 using System.CommandLine;
 using System.Diagnostics;
 using System.CommandLine.Parsing;
@@ -9,6 +8,7 @@ using Kryolite.Shared.Dto;
 using System.Text;
 using System.Text.Json;
 using Kryolite.Shared.Algorithm;
+using Kryolite.Mdns;
 
 namespace Kryolite.Miner;
 
@@ -42,7 +42,14 @@ public class Program
 
         rootCmd.SetHandler(async (node, address, throttle, threads) =>
         {
-            var url = node ?? await ZeroConf.DiscoverNodeAsync(5) ?? string.Empty;
+            var url = node;
+
+            if (url is null)
+            {
+                using var mdns = new MdnsClient();
+                var nodes = await mdns.Query(Constant.MDNS_SERVICE_NAME);
+                url = nodes.FirstOrDefault();
+            }
 
             if (string.IsNullOrEmpty(url))
             {

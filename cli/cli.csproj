@@ -19,6 +19,7 @@
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
     <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
     <ProjectReference Include="..\Kryolite.Node\Kryolite.Node.csproj" />
+    <ProjectReference Include="..\Kryolite.Mdns\Kryolite.Mdns.csproj" />
   </ItemGroup>
 
   <ItemGroup>

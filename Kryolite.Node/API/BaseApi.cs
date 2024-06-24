@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Numerics;
 using System.Text.Json;
-using System.Text.Json.Serialization.Metadata;
 using Kryolite.Node.Network;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
@@ -9,9 +8,6 @@ using Kryolite.Shared.Dto;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using QuikGraph;
-using QuikGraph.Graphviz;
-using QuikGraph.Graphviz.Dot;
 
 namespace Kryolite.Node.API;
 
@@ -34,7 +30,6 @@ public static class BaseApi
         builder.MapGet("richlist", GetRichList);
         builder.MapGet("token/{contractAddress}/{tokenId}", GetTokenForTokenId);
         builder.MapGet("tx", GetTransactions);
-        builder.MapGet("tx/graph", GetTransactionGraph);
         builder.MapGet("tx/{hash}", GetTransactionForHash);
         builder.MapGet("tx/height/{height}", GetTransactionsAtHeight);
         builder.MapGet("validator", GetValidators);
@@ -226,143 +221,6 @@ public static class BaseApi
     private static Task<IEnumerable<TransactionDtoEx>> GetTransactions(IStoreManager storeManager, int pageNum = 0, int pageSize = 100) => Task.Run(() =>
     {
         return storeManager.GetTransactions(pageNum, pageSize).Select(tx => new TransactionDtoEx(tx));
-    });
-
-    private static Task<string> GetTransactionGraph(IStoreManager storeManager, long startHeight) => Task.Run(() =>
-    {
-        var currentHeight = storeManager.GetChainState().Id;
-
-        var types = new Dictionary<SHA256Hash, string>((int)(currentHeight - startHeight));
-        var graph = new AdjacencyGraph<SHA256Hash, Edge<SHA256Hash>>(true);
-
-        for (var i = startHeight; i <= currentHeight; i++)
-        {
-            var view = storeManager.GetView(i);
-
-            if (view is not null)
-            {
-                var viewHash = view.GetHash();
-
-                graph.AddVertex(viewHash);
-                types.TryAdd(viewHash, view.Id % 5 == 0 ? "milestone" : "view");
-
-                bool hasConnection = false;
-
-                var blocks = storeManager.GetBlocks(view.Blocks);
-
-                foreach (var block in blocks)
-                {
-                    var blockhash = block.GetHash();
-
-                    if (graph.ContainsVertex(block.LastHash))
-                    {
-                        graph.AddVertex(blockhash);
-                        graph.AddEdge(new Edge<SHA256Hash>(block.LastHash, blockhash));
-                        graph.AddEdge(new Edge<SHA256Hash>(blockhash, viewHash));
-                        types.TryAdd(blockhash, "block");
-
-                        hasConnection = true;
-                    }
-                }
-
-                var votes = storeManager.GetVotes(view.Votes);
-
-                foreach (var vote in votes)
-                {
-                    var votehash = vote.GetHash();
-
-                    if (graph.ContainsVertex(vote.ViewHash))
-                    {
-                        graph.AddVertex(votehash);
-                        graph.AddEdge(new Edge<SHA256Hash>(vote.ViewHash, votehash));
-                        graph.AddEdge(new Edge<SHA256Hash>(votehash, viewHash));
-                        types.TryAdd(votehash, "vote");
-
-                        hasConnection = true;
-                    }
-                }
-
-                var transactions = storeManager.GetTransactions(view.Transactions);
-
-                foreach (var tx in transactions)
-                {
-                    var txid = tx.CalculateHash();
-
-                    graph.AddVertex(txid);
-                    graph.AddEdge(new Edge<SHA256Hash>(viewHash, txid));
-                    types.TryAdd(txid, "tx");
-                }
-
-                if (!hasConnection && graph.ContainsVertex(view.LastHash))
-                {
-                    graph.AddEdge(new Edge<SHA256Hash>(view.LastHash, viewHash));
-                }
-            }
-        }
-
-        var darkslategray1 = new GraphvizColor(byte.MaxValue, 151, 255, 255);
-        var darkslategray3 = new GraphvizColor(byte.MaxValue, 121, 205, 205);
-        var deepskyblue = new GraphvizColor(byte.MaxValue, 0, 191, 255);
-        var deepskyblue2 = new GraphvizColor(byte.MaxValue, 0, 178, 238);
-        var deepskyblue3 = new GraphvizColor(byte.MaxValue, 0, 154, 205);
-        var darkslateblue = new GraphvizColor(byte.MaxValue, 48, 61, 139);
-        var goldenrod2 = new GraphvizColor(byte.MaxValue, 238, 180, 22);
-        var floralwhite = new GraphvizColor(byte.MaxValue, 255, 250, 240);
-
-        var dotString = graph.ToGraphviz(algorithm =>
-            {
-                algorithm.CommonVertexFormat.Shape = GraphvizVertexShape.Point;
-                algorithm.CommonVertexFormat.FontColor = GraphvizColor.White;
-                algorithm.CommonVertexFormat.Style = GraphvizVertexStyle.Filled;
-                algorithm.CommonVertexFormat.Size = new GraphvizSizeF(0.08f, 0.08f);
-                algorithm.CommonVertexFormat.FixedSize = true;
-
-                algorithm.CommonEdgeFormat.Length = 1;
-                algorithm.CommonEdgeFormat.PenWidth = 0.4;
-                algorithm.CommonEdgeFormat.StrokeColor = GraphvizColor.WhiteSmoke;
-                algorithm.CommonEdgeFormat.HeadArrow = new GraphvizArrow(GraphvizArrowShape.None);
-
-                algorithm.GraphFormat.BackgroundColor = new GraphvizColor(byte.MaxValue, 25, 25, 25);
-                algorithm.GraphFormat.RankDirection = GraphvizRankDirection.LR;
-
-                algorithm.FormatVertex += (sender, args) =>
-                {
-                    var stype = types[args.Vertex];
-
-                    args.VertexFormat.Url = $"https://testnet-1.kryolite.io/explorer/{stype}/{args.Vertex}";
-
-                    switch (stype)
-                    {
-                        case "milestone":
-                            args.VertexFormat.ToolTip = $"View";
-                            args.VertexFormat.FillColor = darkslategray1;
-                            args.VertexFormat.StrokeColor = darkslategray1;
-                            break;
-                        case "view":
-                            args.VertexFormat.ToolTip = $"View";
-                            args.VertexFormat.FillColor = darkslategray1;
-                            args.VertexFormat.StrokeColor = darkslategray1;
-                            break;
-                        case "block":
-                            args.VertexFormat.ToolTip = $"Block";
-                            args.VertexFormat.FillColor = goldenrod2;
-                            args.VertexFormat.StrokeColor = goldenrod2;
-                            break;
-                        case "vote":
-                            args.VertexFormat.ToolTip = $"Vote";
-                            args.VertexFormat.FillColor = deepskyblue;
-                            args.VertexFormat.StrokeColor = deepskyblue;
-                            break;
-                        case "tx":
-                            args.VertexFormat.ToolTip = $"Transaction";
-                            args.VertexFormat.FillColor = darkslateblue;
-                            args.VertexFormat.StrokeColor = darkslateblue;
-                            break;
-                    }
-                };
-            });
-
-        return dotString;
     });
 
     private static Task<Ledger?> GetWalletForAddress(IStoreManager storeManager, string address) => Task.Run(() =>

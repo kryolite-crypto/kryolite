@@ -1,7 +1,5 @@
-using System.Diagnostics.CodeAnalysis;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using QuikGraph;
 
 namespace Kryolite.Node.Blockchain;
 

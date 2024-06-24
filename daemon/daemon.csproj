@@ -28,7 +28,6 @@
 
   <ItemGroup>
     <TrimmerRootAssembly Include="SimpleBase" />
-    <TrimmerRootAssembly Include="Makaretu.Dns" />
   </ItemGroup>
 
   <ItemGroup>

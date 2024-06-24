@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using Kryolite.Cli;
+using Kryolite.Mdns;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 
@@ -32,11 +33,17 @@ public class Program
 
     public static async Task<HttpClient> CreateClient(string? node)
     {
-        node ??= await ZeroConf.DiscoverNodeAsync();
+        if (node is null)
+        {
+            using var mdns = new MdnsClient();
+
+            var nodes = await mdns.Query(Constant.MDNS_SERVICE_NAME);
+            node = nodes.FirstOrDefault();
+        }
 
         var client = new HttpClient()
         {
-            BaseAddress = new (node)
+            BaseAddress = new (node!)
         };
 
         return client;

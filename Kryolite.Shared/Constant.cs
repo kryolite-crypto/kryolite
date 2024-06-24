@@ -20,6 +20,7 @@ public static class Constant
     public const int EPOCH_LENGTH = 1440;
     public const int DIFFICULTY_LOOKBACK = 20;
     public const int EXPECTED_BLOCKS = 4;
+    public const string MDNS_SERVICE_NAME = "_rpc._kryolite._tcp.local.";
 
     public static readonly ImmutableArray<Address> SEED_VALIDATORS =
     [
