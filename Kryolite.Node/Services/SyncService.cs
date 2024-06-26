@@ -85,24 +85,20 @@ public class SyncManager : BackgroundService
 
                 if (commonHeight < stagingState?.LastFinalizedHeight)
                 {
-                    var hash = staging.GetView(commonHeight)?.GetHash();
-
-                    if (hash is not null && configuration.GetValue<string>("unsafe-accept-chain-fork") == hash?.ToString())
+                    if (configuration.GetValue<string>("unsafe-accept-chain-fork") == connection.Node.PublicKey.ToString())
                     {
                         commonHeight = 0;
                     }
                     else
                     {
                         _logger.LogInformation("[{node}] Unable to rollback finalized view at height {finalizedHeight}.", connection.Node.Uri.ToHostname(), stagingState?.LastFinalizedHeight);
-                        _logger.LogInformation("[{node}] To force sync chain from this node, start node with option '--unsafe-accept-chain-fork {}'.", connection.Node.Uri.ToHostname(), hash);
+                        _logger.LogInformation("[{node}] To force sync chain from this node, start node with option '--unsafe-accept-chain-fork {pubKey}'.", connection.Node.Uri.ToHostname(), connection.Node.PublicKey);
                         connection.Node.IsForked = true;
                         return;
                     }
                 }
 
-                var stagingHeight = stagingState?.Id;
-
-                if (stagingHeight > commonHeight)
+                if (stagingState?.Id > commonHeight)
                 {
                     staging.RollbackTo(commonHeight);
                 }
@@ -173,39 +169,26 @@ public class SyncManager : BackgroundService
 
     private long FindCommonHeight(StagingManager stagingManager, Network.Node node, INodeService client)
     {
-        // First do a shallow search
-        var queryHashes = GetHashes(stagingManager, 1, 4, 2);
-        var commonHeight = client.FindCommonHeight(new HashList(queryHashes));
-
-        // If not found, search deeper
-        if (commonHeight == 0)
+        var chainState = stagingManager.GetChainState()!;
+        var heights = new long[]
         {
-            queryHashes = GetHashes(stagingManager, 2, 10, 5);
+            chainState.Id,
+            chainState.Id - 1,
+            chainState.LastFinalizedHeight,
+        };
 
-            if (queryHashes.Count > 0)
+        var queryHashes = new List<SHA256Hash>();
+
+        foreach (var height in heights)
+        {
+            if (height < chainState.LastFinalizedHeight)
             {
-                commonHeight = client.FindCommonHeight(new HashList(queryHashes));
+                break;
             }
-        }
 
-        _logger.LogInformation("[{node}] Found common height at {commonHeight}", node.Uri.ToHostname(), commonHeight);
+            var view = stagingManager.GetView(height);
 
-        return commonHeight;
-    }
-
-    private List<SHA256Hash> GetHashes(StagingManager stagingManager, long start, long count, long power)
-    {
-        var height = stagingManager.GetChainState()?.Id ?? 0;
-
-        var end = start + count;
-        var queryHashes = new List<SHA256Hash>((int)count);
-
-        for (var i = start; i <= end; i++)
-        {
-            var qHeight = (long)Math.Pow(i, power);
-            var view = stagingManager.GetView(Math.Max(height - qHeight, 1));
-
-            if (view is null || qHeight <= 0)
+            if (view is null)
             {
                 break;
             }
@@ -213,7 +196,11 @@ public class SyncManager : BackgroundService
             queryHashes.Add(view.GetHash());
         }
 
-        return queryHashes;
+        var commonHeight = client.FindCommonHeight(new HashList(queryHashes));
+
+        _logger.LogInformation("[{node}] Found common height at {commonHeight}", node.Uri.ToHostname(), commonHeight);
+
+        return commonHeight;
     }
 
     private (bool Completed, bool BrokenChain) DownloadViewRange(INodeService client, long height, StagingManager staging)
@@ -247,8 +234,6 @@ public class SyncManager : BackgroundService
             _logger.LogInformation("Failed to verify votes");
             return (true, true);
         }
-
-        // Transactions are verified later in LoadTransactions method
 
         foreach (var response in views.Views)
         {

@@ -114,7 +114,7 @@ public class StagingManager : TransactionManager, IDisposable
             }
         }
 
-        return result.IsCompleted;
+        return true;
     }
 
     public bool LoadBlocks(List<Block> blocks)

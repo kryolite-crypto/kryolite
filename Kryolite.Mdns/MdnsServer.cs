@@ -68,7 +68,8 @@ public class MdnsServer : IDisposable
             {
                 if (sEx.ErrorCode == 125)
                 {
-                    Console.WriteLine("MdnsServer shutting down...");
+                    // Operation cancelled, do nothing
+                    Debug.WriteLine(sEx);
                 }
                 else
                 {
