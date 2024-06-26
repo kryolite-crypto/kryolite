@@ -2,9 +2,11 @@ using System.Net;
 
 namespace Kryolite.Mdns.Tests;
 
+#pragma warning disable xUnit1004 // Test methods should not be skipped
+
 public class MdnsServerTest
 {
-    [Fact]
+    [Fact (Skip = "Does not work inside Github runner")]
     public async Task MdnsServer_ShouldReply()
     {
         using var cts = new CancellationTokenSource();
@@ -19,3 +21,5 @@ public class MdnsServerTest
         Assert.Equal("http://127.0.0.1:11611", endpoints[0]);
     }
 }
+
+#pragma warning restore xUnit1004 // Test methods should not be skipped
