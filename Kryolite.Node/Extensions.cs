@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.Security.Cryptography;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 using Wasmtime;
 

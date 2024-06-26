@@ -2,7 +2,7 @@ using System.Security.Cryptography;
 using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 using Kryolite.Shared.Dto;
-using NSec.Cryptography;
+using Kryolite.Type;
 
 namespace Kryolite.Shared.Blockchain;
 
@@ -45,9 +45,9 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
 
     public void Sign(PrivateKey privateKey)
     {
-        var algorithm = new Ed25519();
+        var algorithm = new NSec.Cryptography.Ed25519();
 
-        using var key = Key.Import(algorithm, (ReadOnlySpan<byte>)privateKey, KeyBlobFormat.RawPrivateKey);
+        using var key = NSec.Cryptography.Key.Import(algorithm, (ReadOnlySpan<byte>)privateKey, NSec.Cryptography.KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
@@ -64,7 +64,7 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
 
     public bool Verify()
     {
-        var algorithm = new Ed25519();
+        var algorithm = new NSec.Cryptography.Ed25519();
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
@@ -76,7 +76,7 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Flush();
 
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, (ReadOnlySpan<byte>)PublicKey, KeyBlobFormat.RawPublicKey);
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, (ReadOnlySpan<byte>)PublicKey, NSec.Cryptography.KeyBlobFormat.RawPublicKey);
 
         return algorithm.Verify(key, stream.ToArray(), (ReadOnlySpan<byte>)Signature);
     }

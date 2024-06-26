@@ -1,6 +1,7 @@
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared;
 using Kryolite.Transport.Websocket;
+using Kryolite.Type;
 
 namespace Kryolite.Node.Network;
 

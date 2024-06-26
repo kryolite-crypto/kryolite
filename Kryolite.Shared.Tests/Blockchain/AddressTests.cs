@@ -1,5 +1,4 @@
-using System.Security.Cryptography;
-using System.Text;
+using Kryolite.Type;
 using Xunit;
 
 namespace Kryolite.Shared.Tests

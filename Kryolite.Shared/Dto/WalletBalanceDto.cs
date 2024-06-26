@@ -1,3 +1,5 @@
+using Kryolite.Type;
+
 namespace Kryolite.Shared.Dto;
 
 public partial class WalletBalanceDto(Address address, ulong balance)

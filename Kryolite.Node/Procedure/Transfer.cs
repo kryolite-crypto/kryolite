@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 
 namespace Kryolite.Node.Procedure;
 

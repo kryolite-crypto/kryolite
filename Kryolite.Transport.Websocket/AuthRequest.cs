@@ -1,13 +1,13 @@
 using System.Text;
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
-using NSec.Cryptography;
+using Kryolite.Type;
 
 namespace Kryolite.Transport.Websocket;
 
 public partial class AuthRequest : ISerializable
 {
-    public Shared.PublicKey PublicKey;
+    public PublicKey PublicKey;
     public long Timestamp;
     public string? PublicUri;
     public int Port;
@@ -24,7 +24,7 @@ public partial class AuthRequest : ISerializable
         Version = string.Empty;
     }
 
-    public AuthRequest(Shared.PublicKey publicKey, Uri? publicUri, int port, string version)
+    public AuthRequest(PublicKey publicKey, Uri? publicUri, int port, string version)
     {
         PublicKey = publicKey;
         PublicUri = publicUri?.ToString();
@@ -38,9 +38,9 @@ public partial class AuthRequest : ISerializable
 
     public void Sign(PrivateKey privateKey)
     {
-        var algorithm = new Ed25519();
+        var algorithm = new NSec.Cryptography.Ed25519();
         
-        using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
+        using var key = NSec.Cryptography.Key.Import(algorithm, privateKey, NSec.Cryptography.KeyBlobFormat.RawPrivateKey);
         Signature = algorithm.Sign(key, GetBytes());
     }
 
@@ -55,8 +55,8 @@ public partial class AuthRequest : ISerializable
             return false;
         }
         
-        var algorithm = new Ed25519();
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);        
+        var algorithm = new NSec.Cryptography.Ed25519();
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, NSec.Cryptography.KeyBlobFormat.RawPublicKey);        
 
         return algorithm.Verify(key, GetBytes(), Signature);
     }

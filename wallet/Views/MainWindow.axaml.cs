@@ -23,6 +23,7 @@ using Avalonia.Interactivity;
 using Microsoft.Extensions.Hosting;
 using Kryolite.ByteSerializer;
 using System.Text;
+using Kryolite.Type;
 
 namespace Kryolite.Wallet;
 

@@ -1,6 +1,7 @@
 ﻿using System.Security.Cryptography;
 using Kryolite.ByteSerializer;
 using Kryolite.Shared.Algorithm;
+using Kryolite.Type;
 
 namespace Kryolite.Shared.Blockchain;
 

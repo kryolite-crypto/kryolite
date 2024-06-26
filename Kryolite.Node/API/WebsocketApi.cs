@@ -6,6 +6,7 @@ using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using Kryolite.Transport.Websocket;
+using Kryolite.Type;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

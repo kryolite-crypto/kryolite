@@ -9,7 +9,7 @@ namespace Kryolite.Shared;
 
 public class BigIntegerConverter : JsonConverter<BigInteger>
 {
-    public override BigInteger Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    public override BigInteger Read(ref Utf8JsonReader reader, System.Type type, JsonSerializerOptions options)
     {
         return BigInteger.Parse(Encoding.UTF8.GetString(reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.ValueSpan.ToArray()));
     }

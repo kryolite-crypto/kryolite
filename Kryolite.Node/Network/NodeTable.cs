@@ -2,6 +2,7 @@ using System.Numerics;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Transport.Websocket;
+using Kryolite.Type;
 
 namespace Kryolite.Node.Network;
 

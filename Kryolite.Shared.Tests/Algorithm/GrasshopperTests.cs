@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Kryolite.Shared.Algorithm;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 using Xunit;
 
 namespace Kryolite.Shared.Tests;

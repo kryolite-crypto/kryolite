@@ -1,4 +1,5 @@
 using Kryolite.ByteSerializer;
+using Kryolite.Type;
 
 namespace Kryolite.Shared.Dto;
 

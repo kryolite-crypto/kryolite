@@ -4,6 +4,7 @@ using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
+using Kryolite.Type;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

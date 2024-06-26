@@ -7,6 +7,7 @@ using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using Kryolite.Type;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Crypto.RIPEMD;
 using Kryolite.ByteSerializer;
+using Kryolite.Type;
 
 namespace Kryolite.Shared;
 
@@ -51,7 +52,7 @@ public sealed class Contract : ISerializable
         addressBytes.Insert(0, (byte)AddressType.CONTRACT); // type / version
 
         var ripemdBytes = new List<byte>(addressBytes);
-        ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
+        ripemdBytes.InsertRange(0, Encoding.ASCII.GetBytes(Address.ADDR_PREFIX));
 
         var h1 = sha256.ComputeHash(ripemdBytes.ToArray());
         var h2 = sha256.ComputeHash(h1);

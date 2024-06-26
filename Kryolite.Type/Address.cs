@@ -3,13 +3,16 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Kryolite.ByteSerializer;
+using SimpleBase;
 
-namespace Kryolite.Shared;
+namespace Kryolite.Type;
 
 [SkipLocalsInit]
 public sealed class Address : ISerializable
 {
     public byte[] Buffer;
+
+    public const string ADDR_PREFIX = "kryo";
 
     public Address()
     {
@@ -26,12 +29,13 @@ public sealed class Address : ISerializable
 
     public bool IsContract() => Buffer[0] == (byte)AddressType.CONTRACT;
     public bool IsWallet() => Buffer[0] == (byte)AddressType.WALLET;
-    public override string ToString() => Constant.ADDR_PREFIX + Base32.Kryolite.Encode(Buffer);
+
+    public override string ToString() => ADDR_PREFIX + Base32.ZBase32.Encode(Buffer);
     public static explicit operator byte[] (Address address) => address.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
     public static implicit operator Address(byte[] buffer) => new (buffer);
     public static implicit operator Address(Span<byte> buffer) => new(buffer.ToArray());
-    public static implicit operator Address(string address) => new(Base32.Kryolite.Decode(address.Split(':').Last()));
+    public static implicit operator Address(string address) => new(Base32.ZBase32.Decode(address.Split(':').Last()));
 
     public override bool Equals(object? obj) 
     {
@@ -70,12 +74,12 @@ public sealed class Address : ISerializable
 
     public static bool IsValid(string address)
     {
-        if (!address.StartsWith(Constant.ADDR_PREFIX))
+        if (!address.StartsWith(ADDR_PREFIX))
         {
             return false;
         }
 
-        var bytes = Base32.Kryolite.Decode(address.Split(':').Last());
+        var bytes = Base32.ZBase32.Decode(address.Split(':').Last());
 
         if (bytes.Length != 25)
         {
@@ -84,7 +88,7 @@ public sealed class Address : ISerializable
 
         var checksum = bytes.TakeLast(4).ToArray();
         var addr = bytes.Take(21).ToList();
-        addr.InsertRange(0, Encoding.ASCII.GetBytes(Constant.ADDR_PREFIX));
+        addr.InsertRange(0, Encoding.ASCII.GetBytes(ADDR_PREFIX));
 
         var h1 = SHA256.HashData(addr.ToArray());
         var h2 = SHA256.HashData(h1);

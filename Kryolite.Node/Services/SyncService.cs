@@ -3,6 +3,7 @@ using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Network;
 using Kryolite.Shared;
+using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

@@ -1,2 +1,2 @@
-global using ValidatorCache = System.Collections.Generic.Dictionary<Kryolite.Shared.Address, Kryolite.Shared.Validator>;
-global using WalletCache = System.Collections.Generic.Dictionary<Kryolite.Shared.Address, Kryolite.Shared.Ledger>;
+global using ValidatorCache = System.Collections.Generic.Dictionary<Kryolite.Type.Address, Kryolite.Shared.Validator>;
+global using WalletCache = System.Collections.Generic.Dictionary<Kryolite.Type.Address, Kryolite.Shared.Ledger>;

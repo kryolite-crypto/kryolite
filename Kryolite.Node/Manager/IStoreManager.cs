@@ -4,6 +4,7 @@ using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using Kryolite.Type;
 
 namespace Kryolite.Node;
 

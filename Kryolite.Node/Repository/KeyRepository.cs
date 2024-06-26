@@ -1,5 +1,6 @@
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
+using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Node.Repository;

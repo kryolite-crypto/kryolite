@@ -1,4 +1,5 @@
 ﻿using Kryolite.Shared;
+using Kryolite.Type;
 using System;
 using System.Collections.Generic;
 using System.Data.SqlTypes;

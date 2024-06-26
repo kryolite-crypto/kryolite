@@ -5,6 +5,7 @@ using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using Kryolite.Type;
 using Kryolite.Wallet;
 using Microsoft.Extensions.Configuration;
 

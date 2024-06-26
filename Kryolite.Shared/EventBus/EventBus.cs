@@ -2,7 +2,7 @@
 
 public class EventBus : IEventBus
 {
-    private Dictionary<Type, List<ISubscription>> Subscriptions { get; }
+    private Dictionary<System.Type, List<ISubscription>> Subscriptions { get; }
 
     public EventBus()
     {

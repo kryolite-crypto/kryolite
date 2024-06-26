@@ -2,6 +2,7 @@ using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node;

@@ -1,5 +1,6 @@
 using Kryolite.EventBus;
 using Kryolite.Shared;
+using Kryolite.Type;
 
 namespace Kryolite.Node.Blockchain;
 

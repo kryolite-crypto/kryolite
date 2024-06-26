@@ -1,5 +1,6 @@
 ﻿using System.Text.Json.Serialization;
 using Kryolite.ByteSerializer;
+using Kryolite.Type;
 
 namespace Kryolite.Shared;
 

@@ -4,6 +4,7 @@ using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 
 namespace Kryolite.Node.Executor;
 

@@ -1,16 +1,21 @@
 using System.Runtime.CompilerServices;
 using Kryolite.ByteSerializer;
+using SimpleBase;
 
-namespace Kryolite.Shared;
+namespace Kryolite.Type;
 
 [SkipLocalsInit]
 public sealed class Signature : IComparable<Signature>, ISerializable
 {
-    public byte[] Buffer;
+    public byte[] Buffer => _buffer;
+
+    private byte[] _buffer;
+    private int _hashCode;
 
     public Signature()
     {
-        Buffer = new byte[SIGNATURE_SZ];
+        _buffer = new byte[SIGNATURE_SZ];
+        _hashCode = NULL_SIGNATURE.GetHashCode();
     }
 
     public Signature(byte[] buffer)
@@ -18,20 +23,16 @@ public sealed class Signature : IComparable<Signature>, ISerializable
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentOutOfRangeException.ThrowIfNotEqual(buffer.Length, SIGNATURE_SZ);
 
-        Buffer = buffer;
+        _buffer = buffer;
+        _hashCode = HashCodeHelper.CalculateHashCode(buffer);
     }
 
-    public override string ToString() => Base32.Kryolite.Encode(Buffer);
+    public override string ToString() => Base32.ZBase32.Encode(_buffer);
     public static explicit operator byte[] (Signature signature) => signature.Buffer;
     public static implicit operator Span<byte> (Signature signature) => signature.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Signature signature) => signature.Buffer;
     public static implicit operator Signature(byte[] buffer) => new(buffer);
-    public static implicit operator Signature(string signature) => new(Base32.Kryolite.Decode(signature));
-
-    public override bool Equals(object? obj) 
-    {
-        return obj is Signature c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
-    }
+    public static implicit operator Signature(string signature) => new(Base32.ZBase32.Decode(signature));
 
     public static bool operator ==(Signature a, Signature b)
     {
@@ -45,7 +46,7 @@ public sealed class Signature : IComparable<Signature>, ISerializable
             return b is null;
         }
 
-        return a.Equals(b);
+        return Enumerable.SequenceEqual(a.Buffer, b.Buffer);
     }
 
     public static bool operator !=(Signature a, Signature b)
@@ -53,19 +54,19 @@ public sealed class Signature : IComparable<Signature>, ISerializable
         return !(a == b);
     }
 
+    public override bool Equals(object? obj) 
+    {
+        return obj is Signature c && Enumerable.SequenceEqual(_buffer, c.Buffer);
+    }
+
     public override int GetHashCode()
     {
-        int hash = 17;
-        foreach (var b in Buffer)
-        {
-            hash = hash * 31 + b.GetHashCode();
-        }
-        return hash;
+        return _hashCode;
     }
 
     public int CompareTo(Signature? other)
     {
-        return MemoryExtensions.SequenceCompareTo((ReadOnlySpan<byte>)Buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? []));
+        return MemoryExtensions.SequenceCompareTo(_buffer, (ReadOnlySpan<byte>)(other?.Buffer ?? []));
     }
 
     public byte GetSerializerId()
@@ -85,14 +86,15 @@ public sealed class Signature : IComparable<Signature>, ISerializable
 
     public void Serialize(ref Serializer serializer)
     {
-        serializer.Write(Buffer, SIGNATURE_SZ);
+        serializer.Write(_buffer, SIGNATURE_SZ);
     }
 
     public void Deserialize(ref Serializer serializer)
     {
-        serializer.Read(ref Buffer, SIGNATURE_SZ);
+        serializer.Read(ref _buffer, SIGNATURE_SZ);
+        _hashCode = _buffer.GetHashCode();
     }
 
     public const int SIGNATURE_SZ = 64;
-    public static readonly Signature NULL_SIGNATURE = new();
+    public static readonly Signature NULL_SIGNATURE = new(new byte[SIGNATURE_SZ]);
 }

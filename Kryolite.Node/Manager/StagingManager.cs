@@ -10,6 +10,7 @@ using Kryolite.Node.Storage.Key;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
+using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 

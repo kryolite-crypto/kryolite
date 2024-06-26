@@ -1,5 +1,6 @@
 using Kryolite.Node.Network;
 using Kryolite.Shared;
+using Kryolite.Type;
 
 namespace Kryolite.Node.API;
 

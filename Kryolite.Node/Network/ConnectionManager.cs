@@ -7,6 +7,7 @@ using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;
 using Kryolite.Transport.Websocket;
+using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;

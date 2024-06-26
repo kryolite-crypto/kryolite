@@ -1,4 +1,4 @@
-namespace Kryolite.Shared.Blockchain;
+namespace Kryolite.Type;
 
 public sealed class Concat
 {

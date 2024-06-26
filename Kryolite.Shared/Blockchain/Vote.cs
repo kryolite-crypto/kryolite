@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using Kryolite.ByteSerializer;
-using NSec.Cryptography;
+using Kryolite.Type;
 
 namespace Kryolite.Shared.Blockchain;
 
@@ -38,9 +38,9 @@ public sealed class Vote : ISerializable
 
     public void Sign(PrivateKey privateKey)
     {
-        var algorithm = new Ed25519();
+        var algorithm = new NSec.Cryptography.Ed25519();
 
-        using var key = Key.Import(algorithm, privateKey, KeyBlobFormat.RawPrivateKey);
+        using var key = NSec.Cryptography.Key.Import(algorithm, privateKey, NSec.Cryptography.KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
 
         stream.Write(ViewHash);
@@ -54,7 +54,7 @@ public sealed class Vote : ISerializable
 
     public bool Verify()
     {
-        var algorithm = new Ed25519();
+        var algorithm = new NSec.Cryptography.Ed25519();
         using var stream = new MemoryStream();
 
         stream.Write(ViewHash);
@@ -63,7 +63,7 @@ public sealed class Vote : ISerializable
         stream.Write(RewardAddress.Buffer);
         stream.Flush();
 
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, KeyBlobFormat.RawPublicKey);
+        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, NSec.Cryptography.KeyBlobFormat.RawPublicKey);
         
         return algorithm.Verify(key, stream.ToArray(), Signature);
     }

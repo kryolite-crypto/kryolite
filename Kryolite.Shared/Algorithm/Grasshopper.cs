@@ -1,4 +1,5 @@
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 using System.Security.Cryptography;
 
 namespace Kryolite.Shared.Algorithm;

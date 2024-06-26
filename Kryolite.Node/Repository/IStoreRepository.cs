@@ -2,6 +2,7 @@
 using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 
 namespace Kryolite.Node.Repository;
 

@@ -3,6 +3,7 @@ using System.Text.Json;
 using Kryolite.EventBus;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
+using Kryolite.Type;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;

@@ -1,6 +1,7 @@
 using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Shared;
+using Kryolite.Type;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -69,6 +70,8 @@ public class VoteBroadcast : IBroadcast
 
     public void Deserialize(ref Serializer serializer)
     {
-        serializer.Read(ref Votehash.Buffer, SHA256Hash.HASH_SZ);
+        var buffer = new byte[SHA256Hash.HASH_SZ];
+        serializer.Read(ref buffer, SHA256Hash.HASH_SZ);
+        Votehash = new SHA256Hash(buffer);
     }
 }

@@ -1,5 +1,5 @@
 using System.Security.Cryptography;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 using NSec.Cryptography;
 
 namespace Kryolite.Shared.Algorithm;

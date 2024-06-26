@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
+using Kryolite.Type;
 
-namespace Kryolite.Shared;
+namespace Kryolite;
 
 public static class Constant
 {
@@ -12,7 +13,6 @@ public static class Constant
 
     public const int VIEW_INTERVAL = 60;
     public const byte STARTING_DIFFICULTY = 10;
-    public const string ADDR_PREFIX = "kryo:";
     public const int MIN_PEERS = 4;
     public const int MAX_PEERS = 12;
     public const long DECIMAL_MULTIPLIER = 1_000_000;

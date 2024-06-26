@@ -1,8 +1,8 @@
 ﻿using System.CommandLine;
-using Kryolite.Cli;
 using Kryolite.Mdns;
-using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
+
+namespace Kryolite.Cli;
 
 public class Program
 {

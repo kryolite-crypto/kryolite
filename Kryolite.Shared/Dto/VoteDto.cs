@@ -1,4 +1,5 @@
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 
 namespace Kryolite.Shared.Dto;
 

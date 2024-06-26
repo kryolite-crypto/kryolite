@@ -2,6 +2,7 @@
 using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using Kryolite.Transport.Websocket;
+using Kryolite.Type;
 
 namespace Kryolite.Grpc.NodeService;
 

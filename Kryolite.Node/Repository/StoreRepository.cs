@@ -4,6 +4,7 @@ using Kryolite.Node.Storage.Key;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
+using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 using System.Buffers;
 using System.Data;

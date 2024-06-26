@@ -4,6 +4,7 @@ using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
+using Kryolite.Type;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 

@@ -1,3 +1,5 @@
+using Kryolite.Type;
+
 namespace Kryolite.Shared.Dto;
 
 public partial class TransactionStatusDto(SHA256Hash transactionId, string status)

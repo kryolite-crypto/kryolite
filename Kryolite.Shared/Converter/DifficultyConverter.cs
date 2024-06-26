@@ -7,7 +7,7 @@ namespace Kryolite.Shared;
 
 public class DifficultyConverter : JsonConverter<Difficulty>
 {
-    public override Difficulty Read(ref Utf8JsonReader reader, Type type, JsonSerializerOptions options)
+    public override Difficulty Read(ref Utf8JsonReader reader, System.Type type, JsonSerializerOptions options)
     {
         return new Difficulty
         {

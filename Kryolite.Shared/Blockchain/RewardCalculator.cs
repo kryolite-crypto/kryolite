@@ -1,4 +1,4 @@
-using Kryolite.Shared;
+namespace Kryolite.Shared;
 
 public static class RewardCalculator
 {

@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using Kryolite.Shared;
+using Kryolite.Type;
 
 namespace Kryolite.Node.Storage.Key;
 

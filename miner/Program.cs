@@ -9,6 +9,7 @@ using System.Text;
 using System.Text.Json;
 using Kryolite.Shared.Algorithm;
 using Kryolite.Mdns;
+using Kryolite.Type;
 
 namespace Kryolite.Miner;
 
