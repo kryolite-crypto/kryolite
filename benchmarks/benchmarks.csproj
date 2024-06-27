@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
+    <ProjectReference Include="..\Kryolite.Encoding\Kryolite.Encoding.csproj" />
   </ItemGroup>
 
   <ItemGroup>

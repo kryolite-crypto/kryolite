@@ -12,7 +12,7 @@ public sealed class Address : ISerializable
 {
     public byte[] Buffer;
 
-    public const string ADDR_PREFIX = "kryo";
+    public const string ADDR_PREFIX = "kryo:";
 
     public Address()
     {

@@ -1,16 +1,12 @@
 ﻿using BenchmarkDotNet.Attributes;
-using SimpleBase;
-using System.Numerics;
 
 namespace Kryolite.Benchmarks;
 
 [MemoryDiagnoser]
 public class Encoding
 {
-    private const int N = 32;
+    private const int N = 37;
     private readonly byte[] data;
-
-    private static Base32 KryoliteBase = new Base32(new Base32Alphabet("abcdefghijkmnpqrstuvwxyz23456789"));
 
     public Encoding()
     {
@@ -19,11 +15,8 @@ public class Encoding
     }
 
     [Benchmark]
-    public string Base32Encode() => KryoliteBase.Encode(data);
+    public string Base58() => SimpleBase.Base58.Flickr.Encode(data);
 
     [Benchmark]
-    public string Base58Encode() => SimpleBase.Base58.Flickr.Encode(data);
-
-    [Benchmark]
-    public string HexEncode() => BitConverter.ToString(data);
+    public string Base32() => SimpleBase.Base32.ZBase32.Encode(data);
 }
