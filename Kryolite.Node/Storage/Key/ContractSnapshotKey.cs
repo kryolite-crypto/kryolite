@@ -16,5 +16,5 @@ public struct ContractSnapshotKey
     }
 
     public const string KeyName = "ContractSnapshot";
-    public const int KeySize = 33;
+    public const int KeySize = Address.ADDRESS_SZ + sizeof(long);
 }

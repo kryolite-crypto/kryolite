@@ -22,5 +22,5 @@ public struct TransactionAddressKey
     }
 
     public const string KeyName = "ixTransactionAddress";
-    public const int KeySize = 33;
+    public const int KeySize = Address.ADDRESS_SZ + sizeof(long);
 }

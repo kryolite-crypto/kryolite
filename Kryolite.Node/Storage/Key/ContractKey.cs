@@ -16,5 +16,5 @@ public struct ContractKey
     }
 
     public const string KeyName = "Contract";
-    public const int KeySize = 33;
+    public const int KeySize = Address.ADDRESS_SZ + sizeof(long);
 }

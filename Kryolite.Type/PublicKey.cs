@@ -1,7 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
-using System.Text;
-using Crypto.RIPEMD;
 using Kryolite.ByteSerializer;
 using SimpleBase;
 
@@ -30,11 +27,11 @@ public sealed class PublicKey : ISerializable
         _hashCode = HashCodeHelper.CalculateHashCode(buffer);
     }
 
-    public override string ToString() => Base32.ZBase32.Encode(_buffer);
+    public override string ToString() => Base32.Bech32.Encode(_buffer);
     public static explicit operator byte[] (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PublicKey publicKey) => publicKey.Buffer;
     public static implicit operator PublicKey(byte[] buffer) => new(buffer);
-    public static implicit operator PublicKey(string pubKey) => new(Base32.ZBase32.Decode(pubKey));
+    public static implicit operator PublicKey(string pubKey) => new(Base32.Bech32.Decode(pubKey));
 
     public static bool operator ==(PublicKey a, PublicKey b)
     {
@@ -68,18 +65,7 @@ public sealed class PublicKey : ISerializable
 
     public Address ToAddress()
     {
-        var shaHash = SHA256.HashData(_buffer);
-
-        using var ripemd = new RIPEMD160Managed();
-        var ripemdHash = ripemd.ComputeHash(shaHash);
-
-        byte[] addressBytes = [(byte)AddressType.WALLET, ..ripemdHash];
-        byte[] prefixConcat = [..Encoding.ASCII.GetBytes(Address.ADDR_PREFIX), ..addressBytes];
-
-        var h1 = SHA256.HashData(prefixConcat);
-        var h2 = SHA256.HashData(h1);
-
-        return (Address)(byte[])[..addressBytes, ..h2[0..4]];
+        return Address.Create(_buffer);
     }
 
     public byte GetSerializerId()

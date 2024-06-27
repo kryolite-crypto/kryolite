@@ -1,5 +1,4 @@
 using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using Kryolite.ByteSerializer;
@@ -10,13 +9,15 @@ namespace Kryolite.Type;
 [SkipLocalsInit]
 public sealed class Address : ISerializable
 {
-    public byte[] Buffer;
+    public byte[] Buffer => _buffer;
 
-    public const string ADDR_PREFIX = "kryo:";
+    private byte[] _buffer;
+    private int _hashCode;
 
     public Address()
     {
-        Buffer = new byte[ADDRESS_SZ];
+        _buffer = new byte[ADDRESS_SZ];
+        _hashCode = NULL_ADDRESS.GetHashCode();
     }
 
     public Address(byte[] buffer)
@@ -24,25 +25,21 @@ public sealed class Address : ISerializable
         ArgumentNullException.ThrowIfNull(buffer);
         ArgumentOutOfRangeException.ThrowIfNotEqual(buffer.Length, ADDRESS_SZ);
 
-        Buffer = buffer;
+        _buffer = buffer;
+        _hashCode = HashCodeHelper.CalculateHashCode(buffer);
     }
 
     public bool IsContract() => Buffer[0] == (byte)AddressType.CONTRACT;
     public bool IsWallet() => Buffer[0] == (byte)AddressType.WALLET;
 
-    public override string ToString() => ADDR_PREFIX + Base32.ZBase32.Encode(Buffer);
+    public override string ToString() => ADDR_PREFIX + Base32.Bech32.Encode(Buffer);
     public static explicit operator byte[] (Address address) => address.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Address address) => address.Buffer;
     public static implicit operator Address(byte[] buffer) => new (buffer);
     public static implicit operator Address(Span<byte> buffer) => new(buffer.ToArray());
-    public static implicit operator Address(string address) => new(Base32.ZBase32.Decode(address.Split(':').Last()));
+    public static implicit operator Address(string address) => new(Base32.Bech32.Decode(address.Split(':').Last()));
 
-    public override bool Equals(object? obj) 
-    {
-        return obj is Address c && Enumerable.SequenceEqual(this.Buffer, c.Buffer);
-    }
-
-    public static bool operator ==(Address? a, Address? b)
+    public static bool operator ==(Address a, Address b)
     {
         if (ReferenceEquals(a, b))
         {
@@ -54,7 +51,7 @@ public sealed class Address : ISerializable
             return b is null;
         }
 
-        return a.Equals(b);
+        return Enumerable.SequenceEqual(a.Buffer, b.Buffer);
     }
 
     public static bool operator !=(Address a, Address b)
@@ -62,14 +59,23 @@ public sealed class Address : ISerializable
         return !(a == b);
     }
 
+    public override bool Equals(object? obj) 
+    {
+        return obj is Address c && Enumerable.SequenceEqual(_buffer, c.Buffer);
+    }
     public override int GetHashCode()
     {
-        int hash = 17;
-        foreach (var b in Buffer)
-        {
-            hash = hash * 31 + b.GetHashCode();
-        }
-        return hash;
+        return _hashCode;
+    }
+
+    public static Address Create(PublicKey publicKey)
+    {
+        byte[] addressBytes = [(byte)AddressType.WALLET, ..publicKey.Buffer];
+        byte[] prefixConcat = [..Encoding.ASCII.GetBytes(ADDR_PREFIX), ..addressBytes];
+
+        var checksum = SHA256.HashData(prefixConcat);
+
+        return new Address([..addressBytes, ..checksum[0..2]]);
     }
 
     public static bool IsValid(string address)
@@ -79,21 +85,21 @@ public sealed class Address : ISerializable
             return false;
         }
 
-        var bytes = Base32.ZBase32.Decode(address.Split(':').Last());
+        var bytes = Base32.Bech32.Decode(address.Split(':').Last());
 
-        if (bytes.Length != 25)
+        if (bytes.Length != ADDRESS_SZ)
         {
             return false;
         }
 
-        var checksum = bytes.TakeLast(4).ToArray();
-        var addr = bytes.Take(21).ToList();
-        addr.InsertRange(0, Encoding.ASCII.GetBytes(ADDR_PREFIX));
+        var checksum = bytes[^2..];
 
-        var h1 = SHA256.HashData(addr.ToArray());
-        var h2 = SHA256.HashData(h1);
+        byte[] addressBytes = bytes[0..^2];
+        byte[] prefixConcat = [..Encoding.ASCII.GetBytes(ADDR_PREFIX), ..addressBytes];
 
-        return Enumerable.SequenceEqual(h2.Take(4).ToArray(), checksum);
+        var h1 = SHA256.HashData(prefixConcat);
+
+        return Enumerable.SequenceEqual(h1[0..2], checksum);
     }
 
     public byte GetSerializerId()
@@ -108,14 +114,17 @@ public sealed class Address : ISerializable
 
     public void Serialize(ref Serializer serializer)
     {
-        serializer.Write(Buffer, ADDRESS_SZ);
+        serializer.Write(_buffer, ADDRESS_SZ);
     }
 
     public void Deserialize(ref Serializer serializer)
     {
-        serializer.Read(ref Buffer, ADDRESS_SZ);
+        serializer.Read(ref _buffer, ADDRESS_SZ);
+        _hashCode = HashCodeHelper.CalculateHashCode(_buffer);
     }
 
-    public const int ADDRESS_SZ = 25;
-    public static readonly Address NULL_ADDRESS = new();
+    public const int ADDRESS_SZ = 35;
+    public const string ADDR_PREFIX = "kryo:";
+
+    public static readonly Address NULL_ADDRESS = new(new byte[ADDRESS_SZ]);
 }

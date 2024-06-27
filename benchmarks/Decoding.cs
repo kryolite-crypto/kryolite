@@ -18,12 +18,12 @@ public class Decoding
         data = new byte[N];
         new Random(42).NextBytes(data);
 
-        base32 = Base32.ZBase32.Encode(data);
+        base32 = Base32.Bech32.Encode(data);
         base58 = Base58.Flickr.Encode(data);
     }
 
     [Benchmark]
-    public byte[] Base32Decode() => Base32.ZBase32.Decode(base32);
+    public byte[] Base32Decode() => Base32.Bech32.Decode(base32);
 
     [Benchmark]
     public byte[] Base58Decode() => Base58.Flickr.Decode(base58);

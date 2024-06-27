@@ -27,11 +27,11 @@ public sealed class PrivateKey : ISerializable
         _hashCode = HashCodeHelper.CalculateHashCode(buffer);
     }
 
-    public override string ToString() => Base32.ZBase32.Encode(_buffer);
+    public override string ToString() => Base32.Bech32.Encode(_buffer);
     public static explicit operator byte[] (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator ReadOnlySpan<byte> (PrivateKey privateKey) => privateKey.Buffer;
     public static implicit operator PrivateKey(byte[] buffer) => new(buffer);
-    public static implicit operator PrivateKey(string privKey) => new(Base32.ZBase32.Decode(privKey));
+    public static implicit operator PrivateKey(string privKey) => new(Base32.Bech32.Decode(privKey));
 
     public static bool operator ==(PrivateKey a, PrivateKey b)
     {
@@ -81,18 +81,8 @@ public sealed class PrivateKey : ISerializable
     public void Deserialize(ref Serializer serializer)
     {
         serializer.Read(ref _buffer, PRIVATE_KEY_SZ);
-        _hashCode = _buffer.GetHashCode();
+        _hashCode = HashCodeHelper.CalculateHashCode(_buffer);
     }
 
     public const int PRIVATE_KEY_SZ = 32;
-}
-
-public static class HashCodeHelper
-{
-    public static int CalculateHashCode(ReadOnlySpan<byte> buffer)
-    {
-        var hashCode = new HashCode();
-        hashCode.AddBytes(buffer);
-        return hashCode.ToHashCode();
-    }
 }

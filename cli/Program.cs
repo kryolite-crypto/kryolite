@@ -1,5 +1,6 @@
 ﻿using System.CommandLine;
 using Kryolite.Mdns;
+using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 
 namespace Kryolite.Cli;

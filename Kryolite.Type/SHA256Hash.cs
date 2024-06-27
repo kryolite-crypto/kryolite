@@ -28,11 +28,11 @@ public sealed class SHA256Hash : IComparable<SHA256Hash>, ISerializable
         _hashCode = HashCodeHelper.CalculateHashCode(buffer);
     }
 
-    public override string ToString() => Base32.ZBase32.Encode(_buffer);
+    public override string ToString() => Base32.Bech32.Encode(_buffer);
     public static explicit operator byte[] (SHA256Hash hash) => hash.Buffer;
     public static implicit operator ReadOnlySpan<byte> (SHA256Hash hash) => hash.Buffer;
     public static implicit operator SHA256Hash(byte[] buffer) => new(buffer);
-    public static implicit operator SHA256Hash(string hash) => new(Base32.ZBase32.Decode(hash));
+    public static implicit operator SHA256Hash(string hash) => new(Base32.Bech32.Decode(hash));
     public static implicit operator SHA256Hash(Span<byte> buffer) => new(buffer.ToArray());
 
     public static bool operator ==(SHA256Hash a, SHA256Hash b)

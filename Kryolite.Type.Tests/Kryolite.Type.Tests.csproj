@@ -22,4 +22,8 @@
     </PackageReference>
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\Kryolite.Type\Kryolite.Type.csproj" />
+  </ItemGroup>
+
 </Project>

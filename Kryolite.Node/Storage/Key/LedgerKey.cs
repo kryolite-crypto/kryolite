@@ -16,5 +16,5 @@ public struct LedgerKey
     }
 
     public const string KeyName = "Ledger";
-    public const int KeySize = 33;
+    public const int KeySize = Address.ADDRESS_SZ + sizeof(long);
 }

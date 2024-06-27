@@ -27,12 +27,12 @@ public sealed class Signature : IComparable<Signature>, ISerializable
         _hashCode = HashCodeHelper.CalculateHashCode(buffer);
     }
 
-    public override string ToString() => Base32.ZBase32.Encode(_buffer);
+    public override string ToString() => Base32.Bech32.Encode(_buffer);
     public static explicit operator byte[] (Signature signature) => signature.Buffer;
     public static implicit operator Span<byte> (Signature signature) => signature.Buffer;
     public static implicit operator ReadOnlySpan<byte> (Signature signature) => signature.Buffer;
     public static implicit operator Signature(byte[] buffer) => new(buffer);
-    public static implicit operator Signature(string signature) => new(Base32.ZBase32.Decode(signature));
+    public static implicit operator Signature(string signature) => new(Base32.Bech32.Decode(signature));
 
     public static bool operator ==(Signature a, Signature b)
     {

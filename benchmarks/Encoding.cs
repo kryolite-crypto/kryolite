@@ -18,5 +18,5 @@ public class Encoding
     public string Base58() => SimpleBase.Base58.Flickr.Encode(data);
 
     [Benchmark]
-    public string Base32() => SimpleBase.Base32.ZBase32.Encode(data);
+    public string Base32() => SimpleBase.Base32.Bech32.Encode(data);
 }
