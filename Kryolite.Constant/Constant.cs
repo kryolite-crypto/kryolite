@@ -6,7 +6,7 @@ namespace Kryolite;
 public static class Constant
 {
     public const string STORE_VERSION = "9";
-    public const string CONFIG_VERSION = "3";
+    public const string CONFIG_VERSION = "4";
     public const string NETWORK_NAME = "TYTYRI-6";
     public const int API_LEVEL = 6;
     public const int MIN_API_LEVEL = 6;

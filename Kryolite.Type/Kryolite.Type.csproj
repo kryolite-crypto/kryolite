@@ -13,5 +13,6 @@
 
   <ItemGroup>
     <PackageReference Include="SimpleBase" Version="4.0.0" />
+    <PackageReference Include="Geralt" Version="3.0.1" />
   </ItemGroup>
 </Project>

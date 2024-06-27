@@ -1,3 +1,4 @@
+using Geralt;
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Kryolite.Type;
@@ -20,7 +21,7 @@ public class Wallet : ISerializable
 
     public Wallet(HdKey hdKey)
     {
-        PrivateKey = hdKey.PrivateKey.ToArray();
+        PrivateKey = new PrivateKey([..hdKey.PrivateKey, ..hdKey.ChainCode]);
         ChainCode = 0;
         Accounts = new();
     }
@@ -67,7 +68,8 @@ public class Wallet : ISerializable
         }
 
         var master = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(account.Id).Span);
-        return Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true)).PrivateKey.ToArray();
+        var hdKey = Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true));
+        return new PrivateKey([..hdKey.PrivateKey, ..account.PublicKey.Buffer]);
     }
 
     public PrivateKey? GetPrivateKey(Address address)
@@ -80,7 +82,8 @@ public class Wallet : ISerializable
         }
 
         var master = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(account.Id).Span);
-        return Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true)).PrivateKey.ToArray();
+        var hdKey = Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true));
+        return new PrivateKey([..hdKey.PrivateKey, ..account.PublicKey.Buffer]);
     }
 
     public byte GetSerializerId()

@@ -1,5 +1,7 @@
 ﻿using System.CommandLine;
+using System.Diagnostics;
 using Kryolite.Mdns;
+using Kryolite.Shared.Algorithm;
 using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 

@@ -1,4 +1,5 @@
 using System.Text;
+using Geralt;
 using Kryolite.ByteSerializer;
 using Kryolite.Shared;
 using Kryolite.Type;
@@ -29,18 +30,14 @@ public class AuthResponse : ISerializable
 
     public void Sign(PrivateKey privateKey)
     {
-        var algorithm = new NSec.Cryptography.Ed25519();
-        
-        using var key = NSec.Cryptography.Key.Import(algorithm, privateKey, NSec.Cryptography.KeyBlobFormat.RawPrivateKey);
-        Signature = algorithm.Sign(key, GetBytes());
+        var signature = new byte[Signature.SIGNATURE_SZ];
+        Ed25519.Sign(signature, GetBytes(), privateKey);
+        Signature = signature;
     }
 
     public bool Verify()
     {        
-        var algorithm = new NSec.Cryptography.Ed25519();
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, NSec.Cryptography.KeyBlobFormat.RawPublicKey);
-
-        return algorithm.Verify(key, GetBytes(), Signature);
+        return Ed25519.Verify(Signature, GetBytes(), PublicKey);
     }
 
     public byte GetSerializerId()

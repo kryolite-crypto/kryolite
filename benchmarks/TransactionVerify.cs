@@ -1,57 +1,33 @@
 ﻿using BenchmarkDotNet.Attributes;
+using Geralt;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using NSec.Cryptography;
+using Kryolite.Type;
 
 namespace Kryolite.Benchmarks;
 
 [MemoryDiagnoser]
 public class TransactionVerify
 {
-    /*private static Account wallet = Account.Create();
-
-    private Transaction tx;
-    private Ed25519 algorithm;
-    private NSec.Cryptography.PublicKey key;
-    private byte[] data;
-    private byte[] signature;
+    private readonly Transaction tx;
 
     public TransactionVerify()
     {
-        algorithm = new Ed25519();
+        var wallet = Wallet.Wallet.CreateFromRandomSeed();
+        var account = wallet.CreateAccount();
 
         tx = new Transaction
         {
             TransactionType = TransactionType.PAYMENT,
-            PublicKey = wallet.PublicKey,
-            To = wallet.PublicKey.ToAddress(),
+            PublicKey = account.PublicKey,
+            To = account.PublicKey.ToAddress(),
             Value = 1
         };
 
-        tx.Sign(wallet.PrivateKey);
-
-        key = NSec.Cryptography.PublicKey.Import(algorithm, wallet.PublicKey, KeyBlobFormat.RawPublicKey);
-
-        using var stream = new MemoryStream();
-
-        stream.WriteByte((byte)tx.TransactionType);
-        stream.Write(tx.PublicKey ?? throw new Exception("public key required when verifying signed transaction (malformed transaction?)"));
-
-        if (tx.To is not null)
-        {
-            stream.Write(tx.To);
-        }
-
-        stream.Write(BitConverter.GetBytes(tx.Value));
-        stream.Write(tx.Data);
-        stream.Write(BitConverter.GetBytes(tx.Timestamp));
-
-        stream.Flush();
-
-        data = stream.ToArray();
-        signature = tx.Signature?.Buffer ?? new byte[0];
+        var privKey = wallet.GetPrivateKey(account.PublicKey);
+        tx.Sign(privKey!);
     }
 
     [Benchmark]
-    public void Verify() => algorithm.Verify(key, data, signature ?? throw new Exception("trying to verify null signature"));*/
+    public bool Verify() => tx.Verify();
 }

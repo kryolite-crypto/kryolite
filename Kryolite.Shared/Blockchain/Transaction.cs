@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Geralt;
 using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
 using Kryolite.Shared.Dto;
@@ -45,9 +46,6 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
 
     public void Sign(PrivateKey privateKey)
     {
-        var algorithm = new NSec.Cryptography.Ed25519();
-
-        using var key = NSec.Cryptography.Key.Import(algorithm, (ReadOnlySpan<byte>)privateKey, NSec.Cryptography.KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
@@ -59,12 +57,13 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Flush();
 
-        Signature = (Signature)algorithm.Sign(key, stream.ToArray());
+        var signature = new byte[Signature.SIGNATURE_SZ];
+        Ed25519.Sign(signature, stream.ToArray(), privateKey);
+        Signature = signature;
     }
 
     public bool Verify()
     {
-        var algorithm = new NSec.Cryptography.Ed25519();
         using var stream = new MemoryStream();
 
         stream.WriteByte((byte)TransactionType);
@@ -76,9 +75,7 @@ public sealed class Transaction : EventBase, IComparable<Transaction>, ISerializ
         stream.Write(BitConverter.GetBytes(Timestamp));
         stream.Flush();
 
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, (ReadOnlySpan<byte>)PublicKey, NSec.Cryptography.KeyBlobFormat.RawPublicKey);
-
-        return algorithm.Verify(key, stream.ToArray(), (ReadOnlySpan<byte>)Signature);
+        return Ed25519.Verify(Signature, stream.ToArray(), PublicKey);
     }
 
     public SHA256Hash CalculateHash()

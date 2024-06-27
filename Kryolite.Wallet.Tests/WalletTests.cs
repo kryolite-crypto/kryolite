@@ -1,5 +1,5 @@
-using System.Numerics;
-using NSec.Cryptography;
+
+using Geralt;
 
 namespace Kryolite.Wallet.Tests;
 
@@ -79,20 +79,22 @@ public class WalletTests
         var account2 = wallet.CreateAccount();
 
         var data = new byte[32];
+        var signature1 = new byte[64];
+        var signature2 = new byte[64];
         
         Array.Fill<byte>(data, 42);
 
-        var key1 = Key.Import(Ed25519.Ed25519, wallet.GetPrivateKey(account1.PublicKey)!, KeyBlobFormat.RawPrivateKey);
-        var key2 = Key.Import(Ed25519.Ed25519, wallet.GetPrivateKey(account2.Address)!, KeyBlobFormat.RawPrivateKey);
-        var signature1 = Ed25519.Ed25519.Sign(key1, data);
-        var signature2 = Ed25519.Ed25519.Sign(key2, data);
+        var key1 = wallet.GetPrivateKey(account1.PublicKey)!;
+        var key2 = wallet.GetPrivateKey(account2.Address)!;
+        Ed25519.Sign(signature1, data, key1);
+        Ed25519.Sign(signature2, data, key2);
 
-        var pubKey1 = PublicKey.Import(Ed25519.Ed25519, account1.PublicKey, KeyBlobFormat.RawPublicKey);
-        var pubKey2 = PublicKey.Import(Ed25519.Ed25519, account2.PublicKey, KeyBlobFormat.RawPublicKey);
+        var pubKey1 = account1.PublicKey;
+        var pubKey2 = account2.PublicKey;
         
         // signatures should be valid
-        Assert.True(Ed25519.Ed25519.Verify(pubKey1, data, signature1));
-        Assert.True(Ed25519.Ed25519.Verify(pubKey2, data, signature2));
+        Assert.True(Ed25519.Verify(signature1, data, pubKey1));
+        Assert.True(Ed25519.Verify(signature2, data, pubKey2));
 
         // and they should be different
         Assert.NotEqual(signature1, signature2);

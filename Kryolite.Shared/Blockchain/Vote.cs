@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Geralt;
 using Kryolite.ByteSerializer;
 using Kryolite.Type;
 
@@ -38,9 +39,6 @@ public sealed class Vote : ISerializable
 
     public void Sign(PrivateKey privateKey)
     {
-        var algorithm = new NSec.Cryptography.Ed25519();
-
-        using var key = NSec.Cryptography.Key.Import(algorithm, privateKey, NSec.Cryptography.KeyBlobFormat.RawPrivateKey);
         using var stream = new MemoryStream();
 
         stream.Write(ViewHash);
@@ -49,12 +47,13 @@ public sealed class Vote : ISerializable
         stream.Write(RewardAddress.Buffer);
         stream.Flush();
 
-        Signature = algorithm.Sign(key, stream.ToArray());
+        var signature = new byte[Signature.SIGNATURE_SZ];
+        Ed25519.Sign(signature, stream.ToArray(), privateKey);
+        Signature = signature;
     }
 
     public bool Verify()
     {
-        var algorithm = new NSec.Cryptography.Ed25519();
         using var stream = new MemoryStream();
 
         stream.Write(ViewHash);
@@ -63,9 +62,7 @@ public sealed class Vote : ISerializable
         stream.Write(RewardAddress.Buffer);
         stream.Flush();
 
-        var key = NSec.Cryptography.PublicKey.Import(algorithm, PublicKey, NSec.Cryptography.KeyBlobFormat.RawPublicKey);
-        
-        return algorithm.Verify(key, stream.ToArray(), Signature);
+        return Ed25519.Verify(Signature, stream.ToArray(), PublicKey);
     }
 
     public byte GetSerializerId()

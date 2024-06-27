@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using System.Security.Cryptography;
+using Geralt;
 using Kryolite.ByteSerializer;
 using SimpleBase;
 
@@ -84,5 +86,5 @@ public sealed class PrivateKey : ISerializable
         _hashCode = HashCodeHelper.CalculateHashCode(_buffer);
     }
 
-    public const int PRIVATE_KEY_SZ = 32;
+    public const int PRIVATE_KEY_SZ = 64;
 }

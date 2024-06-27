@@ -216,7 +216,7 @@ public class SHA256HashTests
         var buffer = new byte[SHA256Hash.HASH_SZ];
         Random.Shared.NextBytes(buffer);
 
-        Span<byte> output = stackalloc byte[PrivateKey.PRIVATE_KEY_SZ];
+        Span<byte> output = stackalloc byte[SHA256Hash.HASH_SZ];
         ref var spanRef = ref MemoryMarshal.GetReference(output);
         var serializer = new Serializer(ref spanRef, output.Length);
 

@@ -2,8 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Numerics;
-using System.Runtime.CompilerServices;
-using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia.Controls;
@@ -21,7 +19,6 @@ using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using NSec.Cryptography;
 
 namespace Kryolite.Wallet;
 
@@ -210,13 +207,6 @@ public partial class MiningTab : UserControl
         for (var i = 0; i < _threadCount; i++)
         {
             var thread = new Thread(() => {
-                var algo = PasswordBasedKeyDerivationAlgorithm.Argon2id(new ()
-                {
-                    DegreeOfParallelism = 1,
-                    MemorySize = 8 * 1024,
-                    NumberOfPasses = 1
-                });
-
                 try
                 {
                     Span<byte> buf = stackalloc byte[32];

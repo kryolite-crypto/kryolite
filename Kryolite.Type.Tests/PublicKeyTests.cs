@@ -209,7 +209,7 @@ public class PublicKeyTests
         var buffer = new byte[PublicKey.PUB_KEY_SZ];
         Random.Shared.NextBytes(buffer);
 
-        Span<byte> output = stackalloc byte[PrivateKey.PRIVATE_KEY_SZ];
+        Span<byte> output = stackalloc byte[PublicKey.PUB_KEY_SZ];
         ref var spanRef = ref MemoryMarshal.GetReference(output);
         var serializer = new Serializer(ref spanRef, output.Length);
 

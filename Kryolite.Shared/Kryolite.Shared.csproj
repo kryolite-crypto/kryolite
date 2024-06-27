@@ -13,7 +13,7 @@
   <ItemGroup>
     <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
     <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
-    <PackageReference Include="NSec.Cryptography" Version="22.4.0" />
+    <PackageReference Include="Geralt" Version="3.0.1" />
   </ItemGroup>
 
   <ItemGroup>

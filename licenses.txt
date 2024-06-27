@@ -166,22 +166,6 @@ licenseUrl:https://www.nuget.org/packages/NBip32Fast/1.0.4/License
 license Type:MIT
 
 ####################################################################################################
-Package:NSec.Cryptography
-Version:22.4.0
-project URL:https://nsec.rocks/
-Description:Provides modern cryptographic algorithm implementations for .NET Core based on libsodium.
-
-Commonly Used Types:
-NSec.Cryptography.Aes256Gcm
-NSec.Cryptography.Blake2b
-NSec.Cryptography.Chacha20Poly1305
-NSec.Cryptography.Ed25519
-NSec.Cryptography.HkdfSha256
-NSec.Cryptography.X25519
-licenseUrl:https://licenses.nuget.org/MIT
-license Type:MIT
-
-####################################################################################################
 Package:Open.NAT.NET5
 Version:1.0.0
 project URL:https://github.com/RhubarbVR/Open.NAT
