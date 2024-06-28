@@ -8,7 +8,7 @@ public class SnakeCaseConverter : IValueConverter
 {
     public static readonly SnakeCaseConverter Instance = new();
 
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? Convert(object? value, System.Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is not string str)
         {
@@ -18,7 +18,7 @@ public class SnakeCaseConverter : IValueConverter
         return char.ToUpper(str[0]) + str.Substring(1).Replace('_', ' ');
     }
 
-    public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object ConvertBack(object? value, System.Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is not string str)
         {

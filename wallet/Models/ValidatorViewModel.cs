@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Kryolite.Shared;
+using Kryolite.Type;
 
 namespace Kryolite.Wallet;
 

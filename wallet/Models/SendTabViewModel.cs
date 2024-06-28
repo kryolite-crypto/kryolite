@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using Avalonia.Data;
 using Kryolite.Shared;
+using Kryolite.Type;
 
 namespace Kryolite.Wallet;
 

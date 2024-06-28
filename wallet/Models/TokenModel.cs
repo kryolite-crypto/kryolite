@@ -1,5 +1,6 @@
 ﻿using Avalonia.Media;
 using Kryolite.Shared;
+using Kryolite.Type;
 using System;
 using System.Collections.Generic;
 using System.Linq;

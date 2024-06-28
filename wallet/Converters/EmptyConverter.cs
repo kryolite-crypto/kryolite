@@ -9,7 +9,7 @@ public class EmptyConverter : IValueConverter
 {
     public static readonly EmptyConverter Instance = new();
 
-    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? Convert(object? value, System.Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is string str)
         {
@@ -23,7 +23,7 @@ public class EmptyConverter : IValueConverter
         return true;
     }
 
-    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, System.Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }

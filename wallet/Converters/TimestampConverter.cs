@@ -9,7 +9,7 @@ public class TimestampConverter : IValueConverter
 {
     public static readonly TimestampConverter Instance = new();
 
-    public object? Convert( object? value, Type targetType, object? parameter, CultureInfo culture )
+    public object? Convert( object? value, System.Type targetType, object? parameter, CultureInfo culture )
     {
         if (value is long v)
         {
@@ -23,7 +23,7 @@ public class TimestampConverter : IValueConverter
         return new BindingNotification(new InvalidCastException(), BindingErrorType.Error);
     }
 
-    public object ConvertBack( object? value, Type targetType, object? parameter, CultureInfo culture )
+    public object ConvertBack( object? value, System.Type targetType, object? parameter, CultureInfo culture )
     {
         throw new NotImplementedException();
     }

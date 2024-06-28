@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using Kryolite.Shared;
+using Kryolite.Type;
 
 namespace Kryolite.Wallet;
 

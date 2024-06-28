@@ -9,7 +9,7 @@ public class CurrencyConverter : IValueConverter
 {
     public static readonly CurrencyConverter Instance = new();
 
-    public object? Convert( object? value, Type targetType, object? parameter, CultureInfo culture )
+    public object? Convert( object? value, System.Type targetType, object? parameter, CultureInfo culture )
     {
         if (value is ulong uval)
         {
@@ -25,7 +25,7 @@ public class CurrencyConverter : IValueConverter
         return new BindingNotification(new InvalidCastException(), BindingErrorType.Error);
     }
 
-    public object ConvertBack( object? value, Type targetType, object? parameter, CultureInfo culture )
+    public object ConvertBack( object? value, System.Type targetType, object? parameter, CultureInfo culture )
     {
         return value!;
     }
