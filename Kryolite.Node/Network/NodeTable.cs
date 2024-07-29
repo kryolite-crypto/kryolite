@@ -1,4 +1,5 @@
 using System.Numerics;
+using Kryolite.Interface;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Transport.Websocket;

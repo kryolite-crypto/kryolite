@@ -16,7 +16,7 @@ public class KryoVM : IDisposable
 {
     private VMContext? Context { get; set; }
     private Engine Engine { get; set; }
-    private Module Module { get; set; }
+    private Wasmtime.Module Module { get; set; }
     private Linker Linker { get; set; }
     private Store Store { get; set; }
     private Instance Instance { get; set; }
@@ -38,14 +38,14 @@ public class KryoVM : IDisposable
             .WithCraneliftNaNCanonicalization(true)
             .WithFuelConsumption(true));
 
-        var errors = Module.Validate(Engine, bytes);
+        var errors = Wasmtime.Module.Validate(Engine, bytes);
 
         if (errors != null)
         {
             throw new Exception(errors);
         }
 
-        Module = Module.FromBytes(Engine, "kryolite", bytes);
+        Module = Wasmtime.Module.FromBytes(Engine, "kryolite", bytes);
         Linker = new Linker(Engine);
         Store = new Store(Engine);
 

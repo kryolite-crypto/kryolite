@@ -17,8 +17,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Kryolite.Serializer/Kryolite.ByteSerializer.csproj" />
+    <ProjectReference Include="..\Kryolite.Serializer/Kryolite.ByteSerializer.csproj" />
     <ProjectReference Include="..\Kryolite.Constant\Kryolite.Constant.csproj" />
     <ProjectReference Include="..\Kryolite.Type\Kryolite.Type.csproj" />
+    <ProjectReference Include="..\Kryolite.EventBus\Kryolite.EventBus.csproj" />
   </ItemGroup>
 </Project>

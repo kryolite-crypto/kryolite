@@ -24,6 +24,7 @@ using Microsoft.Extensions.Hosting;
 using Kryolite.ByteSerializer;
 using System.Text;
 using Kryolite.Type;
+using Kryolite.Interface;
 
 namespace Kryolite.Wallet;
 

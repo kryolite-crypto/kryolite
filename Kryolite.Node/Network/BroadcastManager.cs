@@ -2,6 +2,7 @@ using System.Threading.Channels;
 using System.Threading.Tasks.Dataflow;
 using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
+using Kryolite.Interface;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Type;

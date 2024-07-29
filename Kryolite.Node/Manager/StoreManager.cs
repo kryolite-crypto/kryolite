@@ -1,6 +1,6 @@
 using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
-using Kryolite.Node.Blockchain;
+using Kryolite.Interface;
 using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
 using Kryolite.RocksDb;
@@ -607,5 +607,11 @@ public class StoreManager : TransactionManager, IStoreManager
         // Add 50% extra as the smart contract execution might vary.
         // Might not be enough in all cases...
         return (ulong)(tx.CalculateFee() + Math.Ceiling(gasFee * 1.5d));
+    }
+
+    public bool IsValidator(Address address)
+    {
+        using var _ = rwlock.EnterReadLockEx();
+        return Repository.IsValidator(address);
     }
 }

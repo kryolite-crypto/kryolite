@@ -91,4 +91,14 @@ public sealed class PublicKey : ISerializable
 
     public const int PUB_KEY_SZ = 32;
     public static readonly PublicKey NULL_PUBLIC_KEY = new(new byte[PUB_KEY_SZ]);
+
+    public static PublicKey Random
+    {
+        get
+        {
+            var publicKey = new PublicKey();
+            System.Random.Shared.NextBytes(publicKey.Buffer);
+            return publicKey;
+        }
+    }
 }

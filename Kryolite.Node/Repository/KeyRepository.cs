@@ -1,5 +1,5 @@
 using Kryolite.ByteSerializer;
-using Kryolite.Shared;
+using Kryolite.Interface;
 using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 

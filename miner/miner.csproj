@@ -17,8 +17,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../Kryolite.Module.Mdns/Kryolite.Module.Mdns.csproj" />
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
-    <ProjectReference Include="..\Kryolite.Mdns\Kryolite.Mdns.csproj" />
   </ItemGroup>
 
   <ItemGroup>

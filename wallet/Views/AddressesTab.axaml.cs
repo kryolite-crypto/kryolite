@@ -3,6 +3,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Kryolite.Interface;
 using Kryolite.Node;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Unicode;
+using Kryolite.Interface;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Type;

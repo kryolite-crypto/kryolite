@@ -1,5 +1,6 @@
 using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
+using Kryolite.Interface;
 using Kryolite.Shared;
 using Kryolite.Type;
 using Microsoft.Extensions.DependencyInjection;

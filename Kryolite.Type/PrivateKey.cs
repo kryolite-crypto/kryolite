@@ -87,4 +87,14 @@ public sealed class PrivateKey : ISerializable
     }
 
     public const int PRIVATE_KEY_SZ = 64;
+
+    public static PrivateKey Random
+    {
+        get
+        {
+            var privateKey = new PrivateKey();
+            System.Random.Shared.NextBytes(privateKey.Buffer);
+            return privateKey;
+        }
+    }
 }

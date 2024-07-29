@@ -13,12 +13,15 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
-    <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
-    <ProjectReference Include="..\Kryolite.Upnp\Kryolite.Upnp.csproj" />
-    <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
-    <ProjectReference Include="..\Kryolite.Grpc.NodeService\Kryolite.Grpc.NodeService.csproj" />
-    <ProjectReference Include="..\Kryolite.Mdns\Kryolite.Mdns.csproj" />
+    <ProjectReference Include="../Kryolite.Module.Mdns/Kryolite.Module.Mdns.csproj" />
+    <ProjectReference Include="../Kryolite.Module.Upnp/Kryolite.Module.Upnp.csproj" />
+    <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
+    <ProjectReference Include="../Kryolite.Rocksdb/Kryolite.Rocksdb.csproj" />
+    <ProjectReference Include="../Kryolite.Wallet/Kryolite.Wallet.csproj" />
+    <ProjectReference Include="../Kryolite.Grpc.NodeService/Kryolite.Grpc.NodeService.csproj" />
+    <ProjectReference Include="../Kryolite.Interface/Kryolite.Interface.csproj" />
+    <ProjectReference Include="../Kryolite.EventBus/Kryolite.EventBus.csproj" />
+    <ProjectReference Include="../Kryolite.Module.Validator\Kryolite.Module.Validator.csproj" />
   </ItemGroup>
 
   <ItemGroup>

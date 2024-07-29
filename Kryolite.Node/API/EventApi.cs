@@ -1,6 +1,7 @@
 using System.Net;
 using System.Text.Json;
 using Kryolite.EventBus;
+using Kryolite.Interface;
 using Kryolite.Shared;
 using Kryolite.Shared.Dto;
 using Kryolite.Type;

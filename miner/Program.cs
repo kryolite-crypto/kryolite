@@ -3,13 +3,12 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.CommandLine.Parsing;
 using System.Collections.Concurrent;
-using Kryolite.Shared.Blockchain;
 using Kryolite.Shared.Dto;
 using System.Text;
 using System.Text.Json;
 using Kryolite.Shared.Algorithm;
-using Kryolite.Mdns;
 using Kryolite.Type;
+using Kryolite.Module.Mdns;
 
 namespace Kryolite.Miner;
 

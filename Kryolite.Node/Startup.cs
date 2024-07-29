@@ -3,6 +3,9 @@ using System.Reflection;
 using DnsClient;
 using Kryolite.EventBus;
 using Kryolite.Grpc.NodeService;
+using Kryolite.Interface;
+using Kryolite.Module.Upnp;
+using Kryolite.Module.Validator;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Network;
@@ -11,7 +14,6 @@ using Kryolite.Node.Services;
 using Kryolite.Node.Storage;
 using Kryolite.Shared;
 using Kryolite.Transport.Websocket;
-using Kryolite.Upnp;
 using Kryolite.Wallet;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -137,7 +139,6 @@ public static class Startup
                 .AddScoped<IWalletManager, WalletManager>()
                 .AddScoped<IVerifier, Verifier>()
                 .AddHostedService<BlockchainService>()
-                .AddHostedService<ValidatorService>()
                 .AddHostedService<MDnsService>()
                 .AddHostedService<SyncManager>()
                 .AddHostedService<PacketManager>()
@@ -147,7 +148,8 @@ public static class Startup
                 .AddSingleton<ILookupClient>(new LookupClient())
                 .AddSingleton<IEventBus, EventBus.EventBus>()
                 .AddKryoliteRpcService((channel, sp) => new CalleeNodeService(channel, sp))
-                .AddUpnpService()
+                .AddValidatorModule()
+                .AddUpnpModule()
                 .AddRouting()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
                     .AllowAnyOrigin()

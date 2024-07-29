@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
+    <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
+    <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+</Project>

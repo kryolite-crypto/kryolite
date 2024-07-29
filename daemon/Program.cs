@@ -7,6 +7,7 @@ using Kryolite.Shared.Dto;
 using Microsoft.AspNetCore.Builder;
 using Kryolite.Shared;
 using Kryolite.Node.Storage.Key;
+using Kryolite.Interface;
 
 namespace Kryolite.Daemon;
 

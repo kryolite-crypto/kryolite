@@ -1,4 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
+using Kryolite.Interface;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;

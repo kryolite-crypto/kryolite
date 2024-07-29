@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using AvaloniaEdit;
 using Kryolite.EventBus;
+using Kryolite.Interface;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Kryolite.Shared.Algorithm;

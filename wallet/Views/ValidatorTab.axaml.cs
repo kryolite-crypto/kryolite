@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Kryolite.EventBus;
+using Kryolite.Interface;
 using Kryolite.Node;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;

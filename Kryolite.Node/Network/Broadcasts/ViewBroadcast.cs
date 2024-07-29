@@ -1,6 +1,7 @@
 using System.Numerics;
 using Kryolite.ByteSerializer;
 using Kryolite.Grpc.NodeService;
+using Kryolite.Interface;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
 using Kryolite.Shared;

@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Kryolite.ByteSerializer;
+using Kryolite.Interface;
 using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;

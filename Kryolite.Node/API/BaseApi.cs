@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Numerics;
 using System.Text.Json;
+using Kryolite.Interface;
 using Kryolite.Node.Network;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;

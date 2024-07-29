@@ -99,4 +99,14 @@ public sealed class SHA256Hash : IComparable<SHA256Hash>, ISerializable
     public const int HASH_SZ = 32;
 
     public static readonly SHA256Hash NULL_HASH = new(new byte[HASH_SZ]);
+
+    public static SHA256Hash Random
+    {
+        get
+        {
+            var hash = new SHA256Hash();
+            System.Random.Shared.NextBytes(hash.Buffer);
+            return hash;
+        }
+    }
 }

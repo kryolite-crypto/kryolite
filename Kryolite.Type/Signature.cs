@@ -97,4 +97,14 @@ public sealed class Signature : IComparable<Signature>, ISerializable
 
     public const int SIGNATURE_SZ = 64;
     public static readonly Signature NULL_SIGNATURE = new(new byte[SIGNATURE_SZ]);
+
+    public static Signature Random
+    {
+        get
+        {
+            var signature = new Signature();
+            System.Random.Shared.NextBytes(signature.Buffer);
+            return signature;
+        }
+    }
 }

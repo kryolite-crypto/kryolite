@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Kryolite.EventBus;
+using Kryolite.Interface;
 using Kryolite.Node;
 using Microsoft.Extensions.DependencyInjection;
 using System;

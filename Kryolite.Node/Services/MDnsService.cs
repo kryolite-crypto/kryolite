@@ -1,5 +1,5 @@
 using System.Net;
-using Kryolite.Mdns;
+using Kryolite.Module.Mdns;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;

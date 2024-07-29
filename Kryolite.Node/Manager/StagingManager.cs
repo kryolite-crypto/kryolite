@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 using Kryolite.ByteSerializer;
 using Kryolite.EventBus;
+using Kryolite.Interface;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Procedure;

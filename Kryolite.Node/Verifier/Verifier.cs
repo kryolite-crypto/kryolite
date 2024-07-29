@@ -1,3 +1,4 @@
+using Kryolite.Interface;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;

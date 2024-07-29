@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Numerics;
 using Kryolite.EventBus;
-using Kryolite.Node.Blockchain;
+using Kryolite.Interface;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
