@@ -4,7 +4,6 @@ using System.Text.Json;
 using Kryolite.Node.Repository;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
 using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 
@@ -27,7 +26,7 @@ public static class ValidatorCmd
 
         var rewardAddressArg = new Argument<string>(name: "ADDRESS", description: "Address to receive stake rewards")
         {
-            
+
         };
 
         enableCmd.AddArgument(rewardAddressArg);

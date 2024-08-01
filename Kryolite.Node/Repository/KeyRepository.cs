@@ -7,7 +7,7 @@ namespace Kryolite.Node.Repository;
 
 public class KeyRepository : IKeyRepository
 {
-    private string StorePath { get; }
+    public string StorePath { get; }
 
     public KeyRepository(IConfiguration configuration)
     {
@@ -36,5 +36,37 @@ public class KeyRepository : IKeyRepository
         var bytes = File.ReadAllBytes(StorePath);
         var wallet = Serializer.Deserialize<Wallet.Wallet>(bytes) ?? throw new Exception("failed to deserialize node key");
         return wallet.GetPrivateKey(wallet.Accounts[0].PublicKey) ?? throw new Exception("node keys not initialized");
+    }
+
+    public bool Import(string path)
+    {
+        if (!Validate(path))
+        {
+            return false;
+        }
+
+        File.Copy(path, StorePath, true);
+
+        return true;
+    }
+
+    public void Export(string path)
+    {
+        File.Copy(StorePath, path);
+    }
+
+    public static bool Validate(string path)
+    {
+        try
+        {
+            var bytes = File.ReadAllBytes(path);
+            var wallet = Serializer.Deserialize<Wallet.Wallet>(bytes);
+
+            return wallet is not null;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
     }
 }

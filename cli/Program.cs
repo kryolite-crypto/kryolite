@@ -24,6 +24,7 @@ public class Program
             .Build();
 
         rootCmd.Add(ContractCmd.Build(nodeOption, config));
+        rootCmd.Add(NodeCmd.Build(config));
         rootCmd.Add(SendCmd.Build(nodeOption, config));
         rootCmd.Add(ValidatorCmd.Build(nodeOption, config));
         rootCmd.Add(WalletCmd.Build(config));
