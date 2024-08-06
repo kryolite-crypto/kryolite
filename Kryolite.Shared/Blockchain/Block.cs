@@ -61,7 +61,7 @@ public sealed class Block : ISerializable
         var basehash = GetBaseHash();
         var concat = new Concat
         {
-            Buffer = basehash.Buffer.Concat(Nonce.Buffer ?? []).ToArray()
+            Buffer = [..basehash.Buffer, ..Nonce.Buffer ?? []]
         };
 
         var hash = Argon2.Hash(concat);

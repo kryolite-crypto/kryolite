@@ -17,7 +17,7 @@ public sealed class PrivateKey : ISerializable
     public PrivateKey()
     {
         _buffer = new byte[PRIVATE_KEY_SZ];
-        _hashCode = HashCodeHelper.CalculateHashCode(_buffer);
+        _hashCode = NULL_PRIVATE_KEY.GetHashCode();
     }
 
     public PrivateKey(byte[] buffer)
@@ -88,13 +88,15 @@ public sealed class PrivateKey : ISerializable
 
     public const int PRIVATE_KEY_SZ = 64;
 
+    public static readonly PrivateKey NULL_PRIVATE_KEY = new(new byte[PRIVATE_KEY_SZ]);
+
     public static PrivateKey Random
     {
         get
         {
-            var privateKey = new PrivateKey();
-            System.Random.Shared.NextBytes(privateKey.Buffer);
-            return privateKey;
+            var buffer = new byte[PRIVATE_KEY_SZ];
+            System.Random.Shared.NextBytes(buffer);
+            return new PrivateKey(buffer);
         }
     }
 }

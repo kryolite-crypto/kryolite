@@ -3,6 +3,7 @@ using Kryolite.EventBus;
 using Kryolite.Interface;
 using Kryolite.Shared;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Module.Validator;
 
@@ -12,10 +13,12 @@ internal class Synchronizer : ISynchronizer
     private const long VIEW_INTERVAL_MIN_MS = VIEW_INTERVAL_MS / 2;
     
     private readonly IServiceProvider _serviceProvider;
+    private readonly ILogger<Synchronizer> _logger;
 
-    public Synchronizer(IServiceProvider serviceProvider)
+    public Synchronizer(IServiceProvider serviceProvider, ILogger<Synchronizer> logger)
     {
         _serviceProvider = serviceProvider;
+        _logger = logger;
     }
 
     public Task WaitForNextWindow(CancellationToken cancellationToken)
@@ -29,9 +32,17 @@ internal class Synchronizer : ISynchronizer
 
         var nextTimestamp = firstTimestamp + (VIEW_INTERVAL_MS * height);
         var minTimestamp = lastView.Timestamp + VIEW_INTERVAL_MIN_MS;
-        var delay = TimeSpan.FromMilliseconds(Math.Min(nextTimestamp, minTimestamp));
+        var delay = Math.Max(nextTimestamp, minTimestamp) - DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
-        return Task.Delay(delay, cancellationToken);
+        if (delay <= 0)
+        {
+            _logger.LogInformation("Next view is due now");
+            return Task.CompletedTask;
+        }
+
+        _logger.LogInformation("Next view is due in {delay}ms", delay);
+
+        return Task.Delay(TimeSpan.FromMilliseconds(delay), cancellationToken);
     }
 
     public async Task<bool> WaitForView(long height, CancellationToken cancellationToken)

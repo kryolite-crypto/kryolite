@@ -15,5 +15,5 @@ public struct VoteKey
     }
 
     public const string KeyName = "Vote";
-    public const int KeySize = 32;
+    public const int KeySize = SHA256Hash.HASH_SZ;
 }

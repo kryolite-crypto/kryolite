@@ -336,5 +336,8 @@ public class AddressTests
         address.Deserialize(ref serializer);
 
         Assert.Equal(input.ToArray(), address.Buffer);
+        
+        // Should update HashCode
+        Assert.NotEqual(address.GetHashCode(), Address.NULL_ADDRESS.GetHashCode());
     }
 }

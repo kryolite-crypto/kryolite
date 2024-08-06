@@ -92,7 +92,7 @@ public sealed class Signature : IComparable<Signature>, ISerializable
     public void Deserialize(ref Serializer serializer)
     {
         serializer.Read(ref _buffer, SIGNATURE_SZ);
-        _hashCode = _buffer.GetHashCode();
+        _hashCode = HashCodeHelper.CalculateHashCode(_buffer);
     }
 
     public const int SIGNATURE_SZ = 64;
@@ -102,9 +102,9 @@ public sealed class Signature : IComparable<Signature>, ISerializable
     {
         get
         {
-            var signature = new Signature();
-            System.Random.Shared.NextBytes(signature.Buffer);
-            return signature;
+            var buffer = new byte[SIGNATURE_SZ];
+            System.Random.Shared.NextBytes(buffer);
+            return new Signature(buffer);
         }
     }
 }

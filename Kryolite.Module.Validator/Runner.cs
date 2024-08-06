@@ -44,12 +44,16 @@ internal class Runner : IRunner
                     nextLeader.PublicKey = _nodeKey;
                 }
 
-                _logger.LogInformation("Next leader is {publicKey}", nextLeader.PublicKey.ToAddress());
-
                 if (nextLeader.PublicKey == _nodeKey)
                 {
+                    _logger.LogInformation("Preparing a view to publish as current leader");
+
                     var generator = scope.ServiceProvider.GetRequiredService<IGenerator>();
                     generator.GenerateView();
+                }
+                else
+                {
+                    _logger.LogInformation("Leader is {publicKey}. Waiting to receive view...", nextLeader.PublicKey.ToAddress());
                 }
 
                 if (!await synchronizer.WaitForView(nextLeader.Height, stoppingToken))

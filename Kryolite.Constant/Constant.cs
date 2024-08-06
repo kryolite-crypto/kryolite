@@ -24,13 +24,10 @@ public static class Constant
 
     public static readonly ImmutableArray<Address> SEED_VALIDATORS =
     [
-        //"kryo:adcun6jzg5df27gvueh8sc5mctt3wht8qidhx3xd",
-        //"kryo:aafj8hfvxa9fsrbpzh9sux3jvqh4zd3skbedzhsc",
-        //"kryo:abgb3hiv63mwsitjizvh53ph5drab5xcu28ngzxb" // TODO: remove
+        "kryo:qpmfzymf76x7cdzx4ctrevan09ktgql3pz3txnx4txx284zs69enrnse"
     ];
 
-    //public static readonly Address DEV_FEE_ADDRESS = "kryo:aae9j3trpd4np32ew5it9hzgg3hq645kfxbd8azr";
-    public static readonly Address DEV_FEE_ADDRESS = Address.NULL_ADDRESS;
+    public static readonly Address DEV_FEE_ADDRESS = "kryo:qz02wegqcncudpcvjturahr3vf9vyaaacl05fm59kzc5f3hu9d053ard";
 
     public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;
     public const ulong VALIDATOR_REWARD = 500 * DECIMAL_MULTIPLIER;

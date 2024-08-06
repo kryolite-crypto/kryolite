@@ -239,6 +239,9 @@ public class SHA256HashTests
         sha256Hash.Deserialize(ref serializer);
 
         Assert.Equal(input.ToArray(), sha256Hash.Buffer);
+
+        // Should update HashCode
+        Assert.NotEqual(sha256Hash.GetHashCode(), SHA256Hash.NULL_HASH.GetHashCode());
     }
 
     [Fact]

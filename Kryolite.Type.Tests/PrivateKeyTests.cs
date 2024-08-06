@@ -230,5 +230,8 @@ public class PrivateKeyTests
         privateKey.Deserialize(ref serializer);
 
         Assert.Equal(input.ToArray(), privateKey.Buffer);
+
+        // Should update HashCode
+        Assert.NotEqual(privateKey.GetHashCode(), PrivateKey.NULL_PRIVATE_KEY.GetHashCode());
     }
 }

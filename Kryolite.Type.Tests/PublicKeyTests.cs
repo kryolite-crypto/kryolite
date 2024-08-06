@@ -232,6 +232,9 @@ public class PublicKeyTests
         publicKey.Deserialize(ref serializer);
 
         Assert.Equal(input.ToArray(), publicKey.Buffer);
+
+        // Should update HashCode
+        Assert.NotEqual(publicKey.GetHashCode(), PublicKey.NULL_PUBLIC_KEY.GetHashCode());
     }
 
     [Fact]

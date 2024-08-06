@@ -88,7 +88,7 @@ public sealed class SHA256Hash : IComparable<SHA256Hash>, ISerializable
     public void Deserialize(ref Serializer serializer)
     {
         serializer.Read(ref _buffer, HASH_SZ);
-        _hashCode = _buffer.GetHashCode();
+        _hashCode = HashCodeHelper.CalculateHashCode(_buffer);
     }
 
     public BigInteger ToBigInteger()
@@ -104,9 +104,9 @@ public sealed class SHA256Hash : IComparable<SHA256Hash>, ISerializable
     {
         get
         {
-            var hash = new SHA256Hash();
-            System.Random.Shared.NextBytes(hash.Buffer);
-            return hash;
+            var buffer = new byte[HASH_SZ];
+            System.Random.Shared.NextBytes(buffer);
+            return new SHA256Hash(buffer);
         }
     }
 }

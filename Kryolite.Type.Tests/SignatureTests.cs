@@ -237,6 +237,9 @@ public class SignatureTests
         signature.Deserialize(ref serializer);
 
         Assert.Equal(input.ToArray(), signature.Buffer);
+
+        // Should update HashCode
+        Assert.NotEqual(signature.GetHashCode(), Signature.NULL_SIGNATURE.GetHashCode());
     }
 
     [Fact]

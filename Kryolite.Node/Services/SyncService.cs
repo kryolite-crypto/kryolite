@@ -244,7 +244,7 @@ public class SyncManager : BackgroundService
                 _logger.LogInformation("Failed to load blocks");
                 return (true, true);
             }
-            
+
             if (!staging.LoadVotes(response.Votes))
             {
                 _logger.LogInformation("Failed to load votes");

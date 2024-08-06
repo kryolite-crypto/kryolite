@@ -96,9 +96,9 @@ public sealed class PublicKey : ISerializable
     {
         get
         {
-            var publicKey = new PublicKey();
-            System.Random.Shared.NextBytes(publicKey.Buffer);
-            return publicKey;
+            var buffer = new byte[PUB_KEY_SZ];
+            System.Random.Shared.NextBytes(buffer);
+            return new PublicKey(buffer);
         }
     }
 }

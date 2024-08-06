@@ -219,8 +219,6 @@ public partial class MiningTab : UserControl
 
                     _blockhashes = 0;
 
-                    Span<byte> salt = new byte[32];
-
                     while (!stoppingToken.IsCancellationRequested)
                     {
                         var token = _tokenSource.Token;

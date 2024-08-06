@@ -11,17 +11,18 @@ public static class Argon2
 
     public static SHA256Hash Hash(Concat concat)
     {
-        Span<byte> hash = stackalloc byte[32];
-        
-        Hash(concat.Buffer, hash);
-
+        var hash = new byte[32];
+        Hash(concat, hash);
         return hash;
     }
 
     public static void Hash(ReadOnlySpan<byte> concat, Span<byte> hash)
     {
-        Span<byte> buffer = stackalloc byte[128];
-        Argon2id.ComputeHash(buffer, concat, ITERATIONS, MEMORY_SIZE);
-        SHA256.TryHashData(buffer, hash, out var _);
+        Span<byte> buffer = stackalloc byte[Argon2id.MaxHashSize];
+        Span<byte> salt = stackalloc byte[32];
+
+        SHA256.TryHashData(concat, salt, out _);
+        Argon2id.DeriveKey(buffer, concat, salt[0..16], ITERATIONS, MEMORY_SIZE);
+        SHA256.TryHashData(buffer, hash, out _);
     }
 }

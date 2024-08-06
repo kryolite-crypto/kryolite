@@ -128,7 +128,7 @@ public class Verifier : IVerifier
 
         if (validator is null)
         {
-            Logger.LogInformation($"View verification failed (reason = view generator not validator ({address}))");
+            Logger.LogInformation($"View verification failed (reason = view creator not validator ({address}))");
             return false;
         }
 
