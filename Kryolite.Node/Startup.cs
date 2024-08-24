@@ -283,6 +283,12 @@ seednode=
 ; connection timeout in seconds
 timeout=30
 
+; smart contract cache size (in MB)
+smartcontract.cache.size=50
+
+; smart contract cache expiration time (in minutes)
+smartcontract.cache.expiration=15
+
 ; logging level (default, trace, debug, info, warning, error, critical)
 loglevel="default"
 

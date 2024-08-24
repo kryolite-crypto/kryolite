@@ -60,6 +60,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.EventBus", "Kryoli
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.EventBus.Tests", "Kryolite.EventBus.Tests\Kryolite.EventBus.Tests.csproj", "{6E77E3D3-47B8-49BB-B2AA-FF6DDC48278B}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Module.SmartContract", "Kryolite.Module.SmartContract\Kryolite.Module.SmartContract.csproj", "{D38938D1-E22C-439F-BB99-D998B2EC8BFA}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -170,6 +172,10 @@ Global
 		{6E77E3D3-47B8-49BB-B2AA-FF6DDC48278B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6E77E3D3-47B8-49BB-B2AA-FF6DDC48278B}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6E77E3D3-47B8-49BB-B2AA-FF6DDC48278B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D38938D1-E22C-439F-BB99-D998B2EC8BFA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D38938D1-E22C-439F-BB99-D998B2EC8BFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D38938D1-E22C-439F-BB99-D998B2EC8BFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D38938D1-E22C-439F-BB99-D998B2EC8BFA}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
