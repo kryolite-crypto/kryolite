@@ -1,5 +1,5 @@
-using Kryolite.ByteSerializer;
-using Kryolite.Shared.Dto;
+using Kryolite.FastSerializer;
+using Kryolite.Model.Dto;
 
 namespace Kryolite.Transport.Websocket;
 

@@ -22,6 +22,7 @@
     <ProjectReference Include="../Kryolite.Interface/Kryolite.Interface.csproj" />
     <ProjectReference Include="../Kryolite.EventBus/Kryolite.EventBus.csproj" />
     <ProjectReference Include="../Kryolite.Module.Validator\Kryolite.Module.Validator.csproj" />
+    <ProjectReference Include="..\Kryolite.Module.SmartContract\Kryolite.Module.SmartContract.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
-using Kryolite.Shared.Algorithm;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Algorithm;
 using Kryolite.Type;
 using Xunit;
 

@@ -1,5 +1,5 @@
 using Kryolite.Node.Procedure;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;

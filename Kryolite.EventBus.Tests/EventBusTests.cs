@@ -73,6 +73,6 @@ public class EventBusTests
     }
 
     // Event classes for testing
-    public class TestEvent : EventBase { }
-    public class AnotherTestEvent : EventBase { }
+    public class TestEvent : IEvent { }
+    public class AnotherTestEvent : IEvent { }
 }

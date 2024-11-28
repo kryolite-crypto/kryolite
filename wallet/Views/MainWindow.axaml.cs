@@ -7,7 +7,6 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Collections.Generic;
 using Avalonia.Markup.Xaml;
-using Kryolite.Node;
 using Kryolite.Shared;
 using System.Collections.Concurrent;
 using Kryolite.EventBus;
@@ -15,16 +14,15 @@ using Avalonia;
 using System.IO;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
-using System.Web;
+using Kryolite.Model.Dto;
 using Kryolite.Node.Network;
 using Avalonia.Interactivity;
 using Microsoft.Extensions.Hosting;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using System.Text;
 using Kryolite.Type;
 using Kryolite.Interface;
+using Kryolite.Model;
 
 namespace Kryolite.Wallet;
 

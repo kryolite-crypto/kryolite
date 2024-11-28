@@ -38,7 +38,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Grpc.NodeService",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Transport.WebSocket", "Kryolite.Transport.Websocket\Kryolite.Transport.Websocket.csproj", "{933052D2-04A8-44F0-90F4-A3E9A71AA738}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.ByteSerializer", "Kryolite.Serializer\Kryolite.ByteSerializer.csproj", "{33832747-6FF2-46D8-B6D8-DAA494082048}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.FastSerializer", "Kryolite.FastSerializer\Kryolite.FastSerializer.csproj", "{33832747-6FF2-46D8-B6D8-DAA494082048}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Module.Mdns", "Kryolite.Module.Mdns\Kryolite.Module.Mdns.csproj", "{5197D062-A19D-47D6-82B9-A28794CF7B28}"
 EndProject
@@ -61,6 +61,10 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.EventBus.Tests", "Kryolite.EventBus.Tests\Kryolite.EventBus.Tests.csproj", "{6E77E3D3-47B8-49BB-B2AA-FF6DDC48278B}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Module.SmartContract", "Kryolite.Module.SmartContract\Kryolite.Module.SmartContract.csproj", "{D38938D1-E22C-439F-BB99-D998B2EC8BFA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Algorithm", "Kryolite.Algorithm\Kryolite.Algorithm.csproj", "{CDBDA0E0-E9B8-4893-9669-2CB1DCAC824B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Kryolite.Model", "Kryolite.Model\Kryolite.Model.csproj", "{E7FEF89B-C464-4523-8BE4-09F7B4268159}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -176,6 +180,14 @@ Global
 		{D38938D1-E22C-439F-BB99-D998B2EC8BFA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D38938D1-E22C-439F-BB99-D998B2EC8BFA}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{D38938D1-E22C-439F-BB99-D998B2EC8BFA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CDBDA0E0-E9B8-4893-9669-2CB1DCAC824B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CDBDA0E0-E9B8-4893-9669-2CB1DCAC824B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CDBDA0E0-E9B8-4893-9669-2CB1DCAC824B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CDBDA0E0-E9B8-4893-9669-2CB1DCAC824B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E7FEF89B-C464-4523-8BE4-09F7B4268159}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E7FEF89B-C464-4523-8BE4-09F7B4268159}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E7FEF89B-C464-4523-8BE4-09F7B4268159}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E7FEF89B-C464-4523-8BE4-09F7B4268159}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

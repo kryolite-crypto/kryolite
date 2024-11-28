@@ -1,6 +1,5 @@
 using Geralt;
-using Kryolite.ByteSerializer;
-using Kryolite.Shared;
+using Kryolite.FastSerializer;
 using Kryolite.Type;
 using NBip32Fast;
 using NBip32Fast.Ed25519;

@@ -1,7 +1,7 @@
 using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using SimpleBase;
 
 namespace Kryolite.Type;

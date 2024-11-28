@@ -1,5 +1,7 @@
 ﻿
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
+using Kryolite.Model;
+using Kryolite.Interface;
 using Kryolite.RocksDb;
 
 namespace Kryolite.Node.Storage;

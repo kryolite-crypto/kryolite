@@ -1,6 +1,6 @@
 using BenchmarkDotNet.Attributes;
 using Kryolite.Shared;
-using Kryolite.Shared.Algorithm;
+using Kryolite.Algorithm;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Type;
 

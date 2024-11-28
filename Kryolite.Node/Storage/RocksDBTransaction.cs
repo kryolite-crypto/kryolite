@@ -1,4 +1,5 @@
 ﻿using Kryolite.RocksDb;
+using Kryolite.Interface;
 
 namespace Kryolite.Node.Storage;
 

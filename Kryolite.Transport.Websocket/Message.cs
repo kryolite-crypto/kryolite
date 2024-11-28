@@ -1,4 +1,4 @@
-﻿using Kryolite.ByteSerializer;
+﻿using Kryolite.FastSerializer;
 
 namespace Kryolite.Transport.Websocket;
 

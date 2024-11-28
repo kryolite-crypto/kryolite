@@ -1,6 +1,5 @@
-﻿using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
+﻿using Kryolite.Model;
+using Kryolite.Model.Dto;
 using Kryolite.Transport.Websocket;
 using Kryolite.Type;
 

@@ -1,8 +1,8 @@
 using System.Numerics;
 using System.Text.Json.Serialization;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
 using Kryolite.Type;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 
 namespace Kryolite.Shared;
 

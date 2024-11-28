@@ -1,10 +1,11 @@
-﻿using Kryolite.EventBus;
+using Kryolite.EventBus;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Interface;
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Network;
 using Kryolite.Shared;
 using Kryolite.Type;
+using Kryolite.Model;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -73,7 +74,7 @@ public class SyncManager : BackgroundService
 
             ChainState? newState = null;
             IStateCache? stateCache = null;
-            List<EventBase>? events = null;
+            List<IEvent>? events = null;
 
             var client = connMan.CreateClient(connection);
 
@@ -112,12 +113,12 @@ public class SyncManager : BackgroundService
 
                 _logger.LogInformation("[{node}] Downloading and applying remote chain to staging context (this might take a while)", connection.Node.Uri.ToHostname());
 
-                while(true)
+                while (true)
                 {
                     _logger.LogInformation("[{node}] Downloading and applying batch {start} - {end}", connection.Node.Uri.ToHostname(), i, i + BATCH_SIZE);
                     (bool completed, brokenChain) = DownloadViewRange(client, i, staging);
 
-                    if(completed)
+                    if (completed)
                     {
                         break;
                     }

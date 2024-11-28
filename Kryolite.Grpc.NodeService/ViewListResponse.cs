@@ -1,7 +1,6 @@
-using Kryolite.ByteSerializer;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
+using Kryolite.FastSerializer;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 
 namespace Kryolite.Grpc.NodeService;
 

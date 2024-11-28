@@ -5,7 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.WebSockets;
 using System.Threading.Channels;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Shared;
 
 namespace Kryolite.Transport.Websocket;
@@ -289,10 +289,7 @@ public class WebsocketChannel : IDisposable
 
     private async Task Receive(CancellationToken token)
     {
-        if (_ws is null)
-        {
-            TransportException.Throw();
-        }
+        TransportException.ThrowIfNull(_ws);
 
         try
         {

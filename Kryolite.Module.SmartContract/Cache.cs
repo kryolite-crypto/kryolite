@@ -23,10 +23,10 @@ public class Cache : ICache
         });
     }
 
-    public bool TryGetValue(Address address, [NotNullWhen(true)]out VirtualMachine? vm)
+    public bool TryGetValue(Address address, [NotNullWhen(true)] out VirtualMachine? vm)
         => _vmCache.TryGetValue(address, out vm);
 
-    public void Set(Address address, VirtualMachine vm)
+    public VirtualMachine Set(Address address, VirtualMachine vm)
     {
         var opts = new MemoryCacheEntryOptions
         {
@@ -38,6 +38,6 @@ public class Cache : ICache
             (_, value, _, _) => ((VirtualMachine?)value)?.Dispose()
         ));
 
-        _vmCache.Set(address, vm, opts);
+        return _vmCache.Set(address, vm, opts);
     }
 }

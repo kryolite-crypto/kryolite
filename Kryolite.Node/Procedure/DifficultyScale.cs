@@ -1,6 +1,7 @@
 using System.Numerics;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
+using Kryolite.Model;
+using Kryolite.Interface;
 
 namespace Kryolite.Node.Procedure;
 

@@ -9,11 +9,8 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using Kryolite.EventBus;
 using Kryolite.Interface;
-using Kryolite.Node;
-using Kryolite.Node.Repository;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 using Kryolite.Type;
 using Microsoft.Extensions.DependencyInjection;
 

@@ -1,6 +1,4 @@
-namespace Kryolite.EventBus;
-
-public class EventBase
+public interface IEvent
 {
 
 }

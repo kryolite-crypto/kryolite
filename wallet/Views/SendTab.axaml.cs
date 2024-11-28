@@ -6,12 +6,10 @@ using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Interface;
-using Kryolite.Node;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 using Kryolite.Type;
 using Microsoft.Extensions.DependencyInjection;
 

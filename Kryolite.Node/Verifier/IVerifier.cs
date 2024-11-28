@@ -1,4 +1,4 @@
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 
 namespace Kryolite.Node;
 

@@ -1,6 +1,5 @@
 
-using Kryolite.ByteSerializer;
-using Kryolite.Shared;
+using Kryolite.FastSerializer;
 using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 using System.Data;

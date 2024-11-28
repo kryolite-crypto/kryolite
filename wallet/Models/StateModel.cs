@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using Kryolite.Model;
 using Kryolite.Shared;
 
 namespace Kryolite.Wallet;

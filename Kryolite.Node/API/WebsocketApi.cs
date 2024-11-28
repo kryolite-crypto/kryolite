@@ -1,11 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Interface;
 using Kryolite.Node.Network;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
-using Kryolite.Shared.Dto;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 using Kryolite.Transport.Websocket;
 using Kryolite.Type;
 using Microsoft.AspNetCore.Builder;

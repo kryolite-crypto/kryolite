@@ -112,7 +112,6 @@ public static class Startup
         app.UseRouting();
         app.UseCors();
         app.UseWebSockets();
-        app.UseKryoliteRpc();
 
         app.UseEndpoints(endpoints =>
         {

@@ -1,6 +1,6 @@
 using Kryolite.Node.Blockchain;
 using Kryolite.Node.Procedure;
-using Kryolite.Shared;
+using Kryolite.Model;
 using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
 

@@ -1,6 +1,6 @@
 using System.Text;
 using Geralt;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Shared;
 using Kryolite.Type;
 

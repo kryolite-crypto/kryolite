@@ -1,8 +1,7 @@
 using System.Text;
 using System.Text.Unicode;
 using Kryolite.Interface;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Kryolite.Type;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;

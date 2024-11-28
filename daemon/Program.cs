@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.DependencyInjection;
-using Kryolite.Shared.Dto;
+using Kryolite.Model.Dto;
 using Microsoft.AspNetCore.Builder;
 using Kryolite.Shared;
 using Kryolite.Node.Storage.Key;

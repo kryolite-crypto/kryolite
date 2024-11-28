@@ -1,19 +1,21 @@
-using Kryolite.ByteSerializer;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.FastSerializer;
+using Kryolite.Model;
+using Kryolite.Module.SmartContract;
 using Microsoft.Extensions.Logging;
 
 namespace Kryolite.Node.Executor;
 
 public class ContractInstallerExecutor
 {
-    private IExecutorContext Context { get; }
-    private ILogger Logger { get; }
+    private readonly IExecutorContext _context;
+    private readonly IVirtualMachineFactory _vmFactory;
+    private readonly ILogger _logger;
 
-    public ContractInstallerExecutor(IExecutorContext context, ILogger logger)
+    public ContractInstallerExecutor(IExecutorContext context, IVirtualMachineFactory vmFactory, ILogger logger)
     {
-        Context = context ?? throw new ArgumentNullException(nameof(context));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _context = context;
+        _vmFactory = vmFactory;
+        _logger = logger;
     }
 
     public ExecutionResult Execute(Transaction tx, View view)
@@ -27,7 +29,7 @@ public class ContractInstallerExecutor
 
         var contract = new Contract(tx.From!, newContract.Manifest, newContract.Code);
 
-        var ctx = Context.GetRepository();
+        var ctx = _context.GetRepository();
         var ctr = ctx.GetContract(contract.Address);
 
         if (ctr is not null)
@@ -35,22 +37,19 @@ public class ContractInstallerExecutor
             return ExecutionResult.DUPLICATE_CONTRACT;
         }
 
-        var vmContext = new VMContext(view, contract, tx, Context.GetRand(), Logger, 0);
-
-        using var vm = KryoVM.LoadFromCode(newContract.Code)
-            .WithContext(vmContext);
+        var vmContext = new Context(contract, tx, view, _context.GetRand(), 0);
+        var vm = _vmFactory.Create(vmContext, newContract.Code);
 
         vm.Fuel = 1_000_000;
-
         vm.Initialize();
 
         ctx.AddContract(contract, view.Id);
         ctx.AddContractCode(contract.Address, view.Id, newContract.Code);
-        ctx.AddContractSnapshot(contract.Address, Context.GetHeight(), vm.TakeSnapshot());
+        ctx.AddContractSnapshot(contract.Address, _context.GetHeight(), vm.TakeSnapshot());
 
         foreach (var sched in vmContext.ScheduledCalls)
         {
-            Context.GetRepository().Add(sched);
+            _context.GetRepository().Add(sched);
         }
 
         return ExecutionResult.SUCCESS;

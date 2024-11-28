@@ -1,6 +1,6 @@
 using Kryolite.Interface;
 using Kryolite.Module.Validator;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Kryolite.Type;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

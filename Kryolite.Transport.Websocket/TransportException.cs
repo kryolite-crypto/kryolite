@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Net.WebSockets;
 
 namespace Kryolite.Transport.Websocket;
 
@@ -18,6 +19,14 @@ public class TransportException : Exception
     public static void Throw()
     {
         throw new TransportException();
+    }
+
+    public static void ThrowIfNull([NotNull] WebSocket? socket)
+    {
+        if (socket is null)
+        {
+            throw new TransportException();
+        }
     }
 
     [DoesNotReturn]

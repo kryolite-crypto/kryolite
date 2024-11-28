@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Kryolite.Model;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 

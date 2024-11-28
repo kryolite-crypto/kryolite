@@ -1,6 +1,6 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using SimpleBase;
 
 namespace Kryolite.Type;

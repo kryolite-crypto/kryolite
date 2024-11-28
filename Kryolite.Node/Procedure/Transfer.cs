@@ -1,12 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Kryolite.Type;
+using Kryolite.Interface;
 
 namespace Kryolite.Node.Procedure;
 
-public readonly ref struct Transfer(IStoreRepository Repository, WalletCache Ledger, ValidatorCache Validators, ChainState ChainState)
+public readonly ref struct Transfer(IStoreRepository Repository, Dictionary<Address, Ledger> Ledger, Dictionary<Address, Validator> Validators, ChainState ChainState)
 {
     public void To(Address address, ulong value, out Ledger wallet)
     {
