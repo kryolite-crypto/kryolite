@@ -1,5 +1,4 @@
 using System.Numerics;
-using Kryolite.EventBus;
 using Kryolite.FastSerializer;
 using Kryolite.Type;
 

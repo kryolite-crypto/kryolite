@@ -1,7 +1,6 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -122,8 +121,7 @@ public partial class SendTab : UserControl
 
         if (string.IsNullOrEmpty(box.Text) && Model.Addresses.Count > 0)
         {
-            var mInfo = sender.GetType().GetMethod("OpeningDropDown", BindingFlags.NonPublic | BindingFlags.Instance);
-            mInfo?.Invoke(sender, [false]);
+            box.IsDropDownOpen = true;
         }
     }
 
@@ -136,8 +134,8 @@ public partial class SendTab : UserControl
             return;
         }
 
-        var mInfo = sender.GetType().GetMethod("ClosingDropDown", BindingFlags.NonPublic | BindingFlags.Instance);
-        mInfo?.Invoke(sender, [true]);
+        var box = (AutoCompleteBox)sender;
+        box.IsDropDownOpen = false;
 
         var addr = (Address)Model.Recipient;
 

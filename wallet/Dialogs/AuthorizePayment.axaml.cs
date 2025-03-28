@@ -37,7 +37,7 @@ public partial class AuthorizePaymentDialog : Window
             var bMethod = dialog.FindControl<TextBlock>("MethodName");
             var bParams = dialog.FindControl<ItemsRepeater>("MethodParams");
             var bValue = dialog.FindControl<TextBlock>("Value");
-            var bContract = dialog.FindControl<TextBlock>("Name");
+            var bContract = dialog.FindControl<TextBlock>("ContractName");
             var bAddress = dialog.FindControl<TextBlock>("Address");
             var bUrl = dialog.FindControl<TextBlock>("Url");
             var bWallets = dialog.FindControl<ComboBox>("Wallets");

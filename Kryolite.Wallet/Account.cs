@@ -18,13 +18,11 @@ public class Account : ISerializable
         PublicKey = new();
     }
 
-    public Account(HdKey master, uint id)
+    public Account(Bip32Key master, uint id)
     {
-        var key = Ed25519HdKey.Instance.Derive(master, new KeyPathElement(id, true));
-        var pubKey = Ed25519HdKey.Instance.GetPublic(key.PrivateKey);
-
         Id = id;
-        PublicKey = pubKey;
+        PublicKey = new();
+        Ed25519HdKey.Instance.GetPublic(master.Key, PublicKey.Buffer);
         Address = PublicKey.ToAddress();
     }
 

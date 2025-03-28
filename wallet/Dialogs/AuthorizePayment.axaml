@@ -53,7 +53,7 @@
                     </ItemsRepeater.ItemTemplate>
                 </ItemsRepeater>
                 <TextBlock Text="Contract" Margin="10, 20, 10, 0" />
-                <TextBlock x:Name="Name" FontWeight="Bold" Margin="10, 5, 10, 0" />
+                <TextBlock x:Name="ContractName" FontWeight="Bold" Margin="10, 5, 10, 0" />
                 <TextBlock x:Name="Address" FontWeight="Bold" Margin="10, 2, 10, 0" />
                 <TextBlock x:Name="Url" FontWeight="Bold" Margin="10, 2, 10, 0" />
                 <ComboBox x:Name="Wallets" Width="420" PlaceholderText="Select wallet" Margin="10">

@@ -5,6 +5,7 @@ using Kryolite.EventBus;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Interface;
 using Kryolite.Module.Upnp;
+using Kryolite.Module.SmartContract;
 using Kryolite.Module.Validator;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
@@ -150,6 +151,7 @@ public static class Startup
                 .AddValidatorModule()
                 .AddUpnpModule()
                 .AddRouting()
+                .AddSmartcontracts()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
                     .AllowAnyOrigin()
                     .AllowAnyMethod()

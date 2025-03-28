@@ -10,3 +10,4 @@ public class VoteDto(Vote vote)
     public Signature Signature { get; set; } = vote.Signature;
     public ulong Stake { get; set; } = vote.Stake;
 }
+

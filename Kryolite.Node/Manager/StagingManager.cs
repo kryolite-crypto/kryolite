@@ -10,6 +10,7 @@ using Kryolite.Module.SmartContract;
 using Microsoft.Extensions.Configuration;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Blockchain;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Node;
 
@@ -64,9 +65,12 @@ public class StagingManager : TransactionManager, IDisposable
                 .AddSimpleConsole();
         });
 
+        var services = new ServiceCollection();
+        services.AddScoped<IStoreRepository>((scope) => repository);
+
         var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
         var cache = new Cache(configuration);
-        var vmFactory = new VirtualMachineFactory(cache, repository, loggerFactory);
+        var vmFactory = new VirtualMachineFactory(cache, services.BuildServiceProvider(), loggerFactory);
         var manager = new StagingManager(repository, keyRepository, verifier, vmFactory, stateCache, loggerFactory);
 
         return manager;
@@ -101,9 +105,7 @@ public class StagingManager : TransactionManager, IDisposable
             return false;
         }
 
-        var span = CollectionsMarshal.AsSpan(transactions);
-
-        foreach (var txDto in span)
+        foreach (var txDto in transactions)
         {
             var tx = new Transaction(txDto);
 

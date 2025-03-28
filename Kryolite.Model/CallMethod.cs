@@ -33,6 +33,6 @@ public sealed class CallMethod : ITransactionPayload
     public void Deserialize(ref Serializer serializer)
     {
         serializer.Read(ref Method);
-        serializer.Read(ref Params);
+        serializer.Read(ref Params!);
     }
 }

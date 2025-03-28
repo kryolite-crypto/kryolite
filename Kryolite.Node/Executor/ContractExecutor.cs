@@ -55,14 +55,15 @@ public class ContractExecutor(IExecutorContext _context, IVirtualMachineFactory 
 
             var fuelStart = tx.MaxFee - tx.SpentFee;
 
-            vm.Fuel = fuelStart;
-            _logger.LogDebug("Set fuel to {fuel}", vm.Fuel);
+            vm.AddFuel(fuelStart);
+            _logger.LogDebug("Executing contract {contractName}:{methodName} (fuel = {fuel})", contract.Name, call.Method, fuelStart);
 
-            _logger.LogDebug("Executing contract {contractName}:{methodName}", contract.Name, call.Method);
             var ret = vm.CallMethod(methodName, call.Params, out _);
-            _logger.LogDebug("Contract result = {result}, fuel burned = {fuel}", ret, fuelStart - vm.Fuel);
+            var consumedFuel = vm.GetConsumedFuel();
 
-            tx.SpentFee += (uint)(fuelStart - vm.Fuel);
+            _logger.LogDebug("Contract result = {result}, fuel burned = {fuel}", ret, consumedFuel);
+
+            tx.SpentFee += (uint)(consumedFuel);
 
             if (ret != 0)
             {

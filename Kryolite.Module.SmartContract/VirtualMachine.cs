@@ -37,12 +37,6 @@ public class VirtualMachine : IDisposable
         .WithCraneliftNaNCanonicalization(true)
         .WithFuelConsumption(true);
 
-    public ulong Fuel
-    {
-        get => _store.Fuel;
-        set => _store.Fuel = value;
-    }
-
     public VirtualMachine(ReadOnlySpan<byte> code, IContext context, ILogger logger)
     {
         _engine = new(_config);
@@ -74,6 +68,16 @@ public class VirtualMachine : IDisposable
 
         var install = _instance.GetFunction("__install") ?? throw new Exception($"method not found [__install]");
         install.Invoke();
+    }
+
+    public void AddFuel(ulong fuel)
+    {
+        _store.AddFuel(fuel);
+    }
+
+    public ulong GetConsumedFuel()
+    {
+        return _store.GetConsumedFuel();
     }
 
     public VirtualMachine WithContext(IContext context)
@@ -174,7 +178,7 @@ public class VirtualMachine : IDisposable
             return 47;
         }
 
-        
+
         var exitCode = 0;
         var toFree = new List<(int, int)>();
 

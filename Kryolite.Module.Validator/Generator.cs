@@ -1,5 +1,4 @@
 using Kryolite.Interface;
-using Kryolite.Shared.Blockchain;
 using Kryolite.Type;
 using Kryolite.Model;
 

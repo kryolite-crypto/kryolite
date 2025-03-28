@@ -3,17 +3,18 @@
   <PropertyGroup>
     <AssemblyName>kryolite-miner</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-	  <Optimize>true</Optimize>
-	  <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	<Optimize>true</Optimize>
+	<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <PublishAot>true</PublishAot>
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
-    <SelfContained>true</SelfContained> 
+    <SelfContained>true</SelfContained>
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
     <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,11 +23,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="8.0.2" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.linux-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.win-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+    <PackageReference Include="System.CommandLine" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler" />
   </ItemGroup>
 
   <ItemGroup>

@@ -30,6 +30,6 @@ public static class Constant
     public static readonly Address DEV_FEE_ADDRESS = "kryo:qz02wegqcncudpcvjturahr3vf9vyaaacl05fm59kzc5f3hu9d053ard";
 
     public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;
-    public const ulong VALIDATOR_REWARD = 500 * DECIMAL_MULTIPLIER;
-    public const long BLOCK_REWARD = 100 * DECIMAL_MULTIPLIER;
+    public const ulong VALIDATOR_REWARD = 100 * DECIMAL_MULTIPLIER;
+    public const long BLOCK_REWARD = 50 * DECIMAL_MULTIPLIER;
 }

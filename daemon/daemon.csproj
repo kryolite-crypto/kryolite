@@ -3,7 +3,7 @@
   <PropertyGroup>
     <AssemblyName>kryolited</AssemblyName>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -15,15 +15,13 @@
     <SelfContained>true</SelfContained>
     <IlcOptimizationPreference>Speed</IlcOptimizationPreference>
     <IlcFoldIdenticalMethodBodies>true</IlcFoldIdenticalMethodBodies>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Kryolite.Node/Kryolite.Node.csproj" />
     <ProjectReference Include="../Kryolite.Shared/Kryolite.Shared.csproj" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="8.0.2" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.linux-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Linux'))" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.win-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('Windows'))" />
-    <PackageReference Include="Microsoft.DotNet.ILCompiler; runtime.osx-x64.Microsoft.DotNet.ILCompiler" Version="8.0.2" Condition="$([MSBuild]::IsOSPlatform('OSX'))" />
+    <PackageReference Include="Microsoft.DotNet.ILCompiler" />
   </ItemGroup>
 
   <ItemGroup>

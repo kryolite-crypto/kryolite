@@ -12,13 +12,13 @@ public ref partial struct Serializer(ref byte spanRef, int length)
 
     public static byte[] Serialize<T>(T instance) where T : ISerializable
     {
-        var length = instance.GetLength();
-        var array = new byte[length + 1];
+        var len = instance.GetLength();
+        var array = new byte[len + 1];
 
         array[0] = instance.GetSerializerId();
 
         ref var spanRef = ref MemoryMarshal.GetReference(array.AsSpan()[1..]);
-        var serializer = new Serializer(ref spanRef, length);
+        var serializer = new Serializer(ref spanRef, len);
         instance.Serialize(ref serializer);
         return array;
     }

@@ -40,7 +40,7 @@ public class ContractInstallerExecutor
         var vmContext = new Context(contract, tx, view, _context.GetRand(), 0);
         var vm = _vmFactory.Create(vmContext, newContract.Code);
 
-        vm.Fuel = 1_000_000;
+        vm.AddFuel(1_000_000);
         vm.Initialize();
 
         ctx.AddContract(contract, view.Id);

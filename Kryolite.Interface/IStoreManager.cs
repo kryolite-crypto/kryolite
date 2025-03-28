@@ -1,4 +1,3 @@
-using Kryolite.EventBus;
 using Kryolite.Model;
 using Kryolite.Model.Dto;
 using Kryolite.RocksDb;

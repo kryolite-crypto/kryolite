@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -10,6 +10,7 @@
     <EnableConfigurationBindingGenerator>true</EnableConfigurationBindingGenerator>
     <EnableRequestDelegateGenerator>true</EnableRequestDelegateGenerator>
     <InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);Microsoft.Extensions.Configuration.Binder.SourceGeneration;Microsoft.AspNetCore.Http.Generated</InterceptorsPreviewNamespaces>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
@@ -22,14 +23,14 @@
     <ProjectReference Include="../Kryolite.Interface/Kryolite.Interface.csproj" />
     <ProjectReference Include="../Kryolite.EventBus/Kryolite.EventBus.csproj" />
     <ProjectReference Include="../Kryolite.Module.Validator\Kryolite.Module.Validator.csproj" />
-    <ProjectReference Include="..\Kryolite.Module.SmartContract\Kryolite.Module.SmartContract.csproj" />
+    <ProjectReference Include="../Kryolite.Module.SmartContract/Kryolite.Module.SmartContract.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
-    <PackageReference Include="DnsClient" Version="1.7.0" />
-    <PackageReference Include="Open.NAT.NET5" Version="1.0.0" />
-    <PackageReference Include="Wasmtime" Version="19.0.1" />
+    <PackageReference Include="Crypto.RIPEMD" />
+    <PackageReference Include="DnsClient" />
+    <PackageReference Include="Open.NAT.NET5" />
+    <PackageReference Include="Wasmtime" />
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 </Project>

@@ -1,20 +1,21 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Optimize>true</Optimize>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NBip32Fast.Ed25519" Version="1.0.5" />
-    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
-    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="8.0.0" />
+    <PackageReference Include="BouncyCastle.Cryptography" />
+    <PackageReference Include="NBip32Fast.Ed25519" />
+    <PackageReference Include="Microsoft.Extensions.Configuration"/>
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
   </ItemGroup>
 
   <ItemGroup>
-    <!--ProjectReference Include="..\Kryolite.EventBus\Kryolite.EventBus.csproj" /-->
     <ProjectReference Include="..\Kryolite.Type\Kryolite.Type.csproj" />
     <ProjectReference Include="..\Kryolite.FastSerializer\Kryolite.FastSerializer.csproj" />
   </ItemGroup>

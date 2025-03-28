@@ -1,23 +1,23 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	  <Optimize>true</Optimize>
-	  <RootNamespace>Kryolite.Shared</RootNamespace>
+	<Optimize>true</Optimize>
+	<RootNamespace>Kryolite.Shared</RootNamespace>
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Crypto.RIPEMD" Version="1.0.3" />
-    <PackageReference Include="Microsoft.Extensions.Caching.Memory" Version="8.0.0" />
-    <PackageReference Include="Geralt" Version="3.0.1" />
+    <PackageReference Include="Crypto.RIPEMD" />
+    <PackageReference Include="Microsoft.Extensions.Caching.Memory" />
+    <PackageReference Include="Geralt" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="../Kryolite.Serializer/Kryolite.Serializer.csproj" />
     <ProjectReference Include="..\Kryolite.Constant\Kryolite.Constant.csproj" />
     <ProjectReference Include="..\Kryolite.Type\Kryolite.Type.csproj" />
     <ProjectReference Include="..\Kryolite.EventBus\Kryolite.EventBus.csproj" />

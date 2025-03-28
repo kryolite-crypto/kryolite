@@ -18,28 +18,39 @@ public class Wallet : ISerializable
         Accounts = new();
     }
 
-    public Wallet(HdKey hdKey)
+    public Wallet(Bip32Key key)
     {
-        PrivateKey = new PrivateKey([..hdKey.PrivateKey, ..hdKey.ChainCode]);
+        PrivateKey = new PrivateKey([.. key.Key, .. key.ChainCode]);
         ChainCode = 0;
         Accounts = new();
     }
 
     public static Wallet CreateFromSeed(ReadOnlySpan<byte> seed)
     {
-        return new Wallet(Ed25519HdKey.Instance.GetMasterKeyFromSeed(seed));
+        var key = new Bip32Key();
+        Ed25519HdKey.Instance.GetMasterKeyFromSeed(seed, ref key);
+        return new Wallet(key);
     }
 
     public static Wallet CreateFromRandomSeed()
     {
         var seed = new byte[32];
         Random.Shared.NextBytes(seed);
-        return new Wallet(Ed25519HdKey.Instance.GetMasterKeyFromSeed(seed));
+
+        var key = new Bip32Key();
+        Ed25519HdKey.Instance.GetMasterKeyFromSeed(seed, ref key);
+
+        return new Wallet(key);
     }
 
     public Account CreateAccount()
     {
-        var hdKey = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(ChainCode).Span);
+        Bip32Key hdKey;
+
+        var masterKey = RegenMasterKey();
+        var chainCode = KeyPathElement.Hard(ChainCode);
+
+        Ed25519HdKey.Instance.Derive(ref masterKey, ref chainCode, ref hdKey);
         var account = new Account(hdKey, ChainCode++);
 
         Accounts.Add(account);
@@ -66,9 +77,14 @@ public class Wallet : ISerializable
             return null;
         }
 
-        var master = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(account.Id).Span);
-        var hdKey = Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true));
-        return new PrivateKey([..hdKey.PrivateKey, ..account.PublicKey.Buffer]);
+        Bip32Key hdKey;
+
+        var masterKey = RegenMasterKey();
+        var chainCode = KeyPathElement.Hard(account.Id);
+
+        Ed25519HdKey.Instance.Derive(ref masterKey, ref chainCode, ref hdKey);
+
+        return new PrivateKey([.. hdKey.Key, .. account.PublicKey.Buffer]);
     }
 
     public PrivateKey? GetPrivateKey(Address address)
@@ -80,9 +96,14 @@ public class Wallet : ISerializable
             return null;
         }
 
-        var master = new HdKey(PrivateKey, KeyPathElement.SerializeUInt32(account.Id).Span);
-        var hdKey = Ed25519HdKey.Instance.Derive(master, new KeyPathElement(account.Id, true));
-        return new PrivateKey([..hdKey.PrivateKey, ..account.PublicKey.Buffer]);
+        Bip32Key hdKey;
+
+        var masterKey = RegenMasterKey();
+        var chainCode = KeyPathElement.Hard(account.Id);
+
+        Ed25519HdKey.Instance.Derive(ref masterKey, ref chainCode, ref hdKey);
+
+        return new PrivateKey([.. hdKey.Key, .. account.PublicKey.Buffer]);
     }
 
     public byte GetSerializerId()
@@ -107,5 +128,17 @@ public class Wallet : ISerializable
         serializer.Read(ref PrivateKey);
         serializer.Read(ref ChainCode);
         serializer.Read(ref Accounts, () => new Account());
+    }
+
+    private Bip32Key RegenMasterKey()
+    {
+        Bip32Key masterKey;
+
+        var chainCode = KeyPathElement.Hard(0u);
+
+        PrivateKey.Buffer.CopyTo(masterKey.Span);
+        chainCode.Serialize(masterKey.Span[32..]);
+
+        return masterKey;
     }
 }

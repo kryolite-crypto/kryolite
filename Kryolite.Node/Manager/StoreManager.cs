@@ -8,7 +8,6 @@ using Kryolite.Model.Dto;
 using Kryolite.Type;
 using Kryolite.Shared;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Module.SmartContract;
 
 namespace Kryolite.Node;
@@ -372,11 +371,11 @@ public class StoreManager : TransactionManager, IStoreManager
 
         // Restore latest snapshot
         vm.RestoreSnapshot(snapshot);
-        vm.Fuel = uint.MaxValue;
+        vm.AddFuel(uint.MaxValue);
 
         var ret = vm.CallMethod(methodName, call.Params ?? [], out var json);
 
-        gasFee = uint.MaxValue - vm.Fuel;
+        gasFee = vm.GetConsumedFuel();
 
         return json;
     }
