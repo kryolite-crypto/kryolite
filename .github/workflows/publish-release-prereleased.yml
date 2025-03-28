@@ -19,12 +19,12 @@ jobs:
         include:
           - runtime: linux-x64
             runner: ubuntu-22.04
-            image: ghcr.io/kryolite-crypto/kryolite/publish:v1
+            image: ghcr.io/kryolite-crypto/kryolite/publish:v2
             wallet_opts: -p:UseAppHost=true
             zip_type: tar.gz
           - runtime: linux-arm64
             runner: ubuntu-22.04
-            image: ghcr.io/kryolite-crypto/kryolite/publish:v1
+            image: ghcr.io/kryolite-crypto/kryolite/publish:v2
             cross_compile_opts: -p:SysRoot=/crossrootfs/arm64 -p:LinkerFlavor=lld -p:ObjCopyName=aarch64-linux-gnu-objcopy
             wallet_opts: -p:UseAppHost=true
             zip_type: tar.gz
@@ -45,7 +45,7 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 9.0.204
+          dotnet-version: 9.0.202
       - name: Publish daemon
         run: dotnet publish daemon -c Release -r ${{ matrix.runtime }} -o release/kryolite-${{ matrix.runtime }}-${{ github.ref_name }} ${{ matrix.cross_compile_opts }} -p:Version="${{github.ref_name}}" -p:InformationalVersion="${{github.ref_name}}"
       - name: Publish wallet

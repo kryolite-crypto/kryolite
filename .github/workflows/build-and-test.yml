@@ -5,21 +5,20 @@ name: Build and Test Kryolite
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/kryolite-crypto/kryolite/publish:v1
+      image: ghcr.io/kryolite-crypto/kryolite/publish:v2
     steps:
-    - uses: actions/checkout@v3
-    - name: Restore dependencies
-      run: dotnet restore
-    - name: Build
-      run: dotnet build --no-restore
-    - name: Test
-      run: dotnet test --no-build --verbosity normal
+      - uses: actions/checkout@v3
+      - name: Restore dependencies
+        run: dotnet restore
+      - name: Build
+        run: dotnet build --no-restore
+      - name: Test
+        run: dotnet test --no-build --verbosity normal
