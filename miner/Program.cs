@@ -3,10 +3,11 @@ using System.CommandLine;
 using System.Diagnostics;
 using System.CommandLine.Parsing;
 using System.Collections.Concurrent;
-using Kryolite.Shared.Dto;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 using System.Text;
 using System.Text.Json;
-using Kryolite.Shared.Algorithm;
+using Kryolite.Algorithm;
 using Kryolite.Type;
 using Kryolite.Module.Mdns;
 

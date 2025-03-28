@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Kryolite.Model.Dto;
 using Kryolite.Node;
 using Kryolite.Shared;
 using Microsoft.Extensions.Configuration;

@@ -1,4 +1,3 @@
-using Kryolite.Shared;
 using Kryolite.Type;
 
 namespace Kryolite.Interface;

@@ -1,4 +1,4 @@
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Shared;
 
 namespace Kryolite.Node.Network;

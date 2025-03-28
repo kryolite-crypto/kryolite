@@ -1,7 +1,7 @@
 ﻿
 using Kryolite.EventBus;
 using Kryolite.Interface;
-using Kryolite.Shared;
+using Kryolite.Model;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 

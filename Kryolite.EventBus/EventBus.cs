@@ -1,4 +1,4 @@
-﻿namespace Kryolite.EventBus;
+namespace Kryolite.EventBus;
 
 public class EventBus : IEventBus
 {
@@ -6,26 +6,25 @@ public class EventBus : IEventBus
 
     public EventBus()
     {
-        Subscriptions = new ();
+        Subscriptions = new();
     }
 
-    public Subscription<TEvent> Subscribe<TEvent>(Action<TEvent> action) where TEvent : EventBase
+    public ISubscription Subscribe<TEvent>(Action<TEvent> action) where TEvent : IEvent
     {
         var type = typeof(TEvent);
+        var sub = new Subscription<TEvent>(action, this);
 
         lock (_lock)
         {
-            var sub = new Subscription<TEvent>(action, this);
-
             if (!Subscriptions.ContainsKey(type))
             {
                 Subscriptions.Add(type, new List<ISubscription>());
             }
 
-            Subscriptions[typeof(TEvent)].Add(sub);
-
-            return sub;
+            Subscriptions[type].Add(sub);
         }
+
+        return sub;
     }
 
     public void Unsubscribe(Guid subscriptionId)
@@ -44,7 +43,7 @@ public class EventBus : IEventBus
         }
     }
 
-    public async Task Publish<TEvent>(TEvent ev) where TEvent : EventBase
+    public async Task Publish<TEvent>(TEvent ev) where TEvent : IEvent
     {
         var subs = new List<ISubscription>();
 
@@ -62,7 +61,7 @@ public class EventBus : IEventBus
         }
     }
 
-    public async Task Publish<TEvent>(List<TEvent> events) where TEvent : EventBase
+    public async Task Publish<TEvent>(List<TEvent> events) where TEvent : IEvent
     {
         foreach (var ev in events)
         {

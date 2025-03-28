@@ -1,7 +1,7 @@
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
 using Kryolite.Node.Repository;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Transport.Websocket;
 using Microsoft.Extensions.Hosting;
 using Kryolite.Interface;

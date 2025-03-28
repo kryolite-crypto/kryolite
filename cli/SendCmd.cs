@@ -1,13 +1,14 @@
 using System.CommandLine;
 using System.Text;
 using System.Text.Json;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
+using Kryolite.Model.Dto;
 using Kryolite.Type;
 using Kryolite.Wallet;
 using Microsoft.Extensions.Configuration;
+using Kryolite.Model;
 
 namespace Kryolite.Cli;
 
@@ -90,7 +91,7 @@ public static class SendCmd
                     Payload = new CallMethod
                     {
                         Method = contractMethod,
-                        Params = string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<string[]>(contractParams, SharedSourceGenerationContext.Default.StringArray)
+                        Params = (string.IsNullOrEmpty(contractParams) ? null : JsonSerializer.Deserialize<string[]>(contractParams, SharedSourceGenerationContext.Default.StringArray)) ?? []
                     }
                 };
             }

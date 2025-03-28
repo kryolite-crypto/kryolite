@@ -3,8 +3,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Security.Cryptography;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
+using Kryolite.Model;
 using Kryolite.Type;
+using Kryolite.Interface;
 using Microsoft.Extensions.Configuration;
 using Wasmtime;
 
@@ -52,11 +53,8 @@ public static class Extensions
 
     public static void WriteBuffer(this Memory memory, int address, byte[] buffer)
     {
-        foreach (var b in buffer) 
-        {
-            memory.WriteByte(address, b);
-            address++;
-        }
+        var span = memory.GetSpan(address, buffer.Length);
+        buffer.CopyTo(span);
     }
 
     public static string ToHostname(this Uri uri)
@@ -64,7 +62,7 @@ public static class Extensions
         return uri.ToString().TrimEnd('/');
     }
 
-    public static bool TryGetWallet(this WalletCache ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Ledger? wallet)
+    public static bool TryGetWallet(this Dictionary<Address, Ledger> ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Ledger? wallet)
     {
         wallet = null;
 
@@ -88,7 +86,7 @@ public static class Extensions
         return true;
     }
 
-   public static bool TryGetContract(this Dictionary<Address, Contract> ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Contract? contract)
+    public static bool TryGetContract(this Dictionary<Address, Contract> ledger, Address address, IStoreRepository repository, [NotNullWhen(true)] out Contract? contract)
     {
         contract = null;
 
@@ -136,7 +134,7 @@ public static class Extensions
         return true;
     }
 
-    public static bool TryGetValidator(this ValidatorCache validators, Address address, IStoreRepository repository, [NotNullWhen(true)] out Validator? validator)
+    public static bool TryGetValidator(this Dictionary<Address, Validator> validators, Address address, IStoreRepository repository, [NotNullWhen(true)] out Validator? validator)
     {
         validator = null;
 

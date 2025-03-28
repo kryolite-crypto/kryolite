@@ -1,7 +1,7 @@
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Interface;
-using Kryolite.Shared;
+using Kryolite.Model;
 using Kryolite.Type;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

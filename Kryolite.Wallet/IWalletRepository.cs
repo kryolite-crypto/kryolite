@@ -1,5 +1,4 @@
-﻿using Kryolite.Shared;
-using Kryolite.Type;
+﻿using Kryolite.Type;
 
 namespace Kryolite.Wallet;
 

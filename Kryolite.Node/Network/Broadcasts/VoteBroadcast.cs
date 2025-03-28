@@ -1,4 +1,4 @@
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Interface;
 using Kryolite.Shared;

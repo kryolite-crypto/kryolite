@@ -1,8 +1,6 @@
-using Kryolite.EventBus;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 using Kryolite.RocksDb;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
 using Kryolite.Type;
 
 namespace Kryolite.Interface;
@@ -56,7 +54,7 @@ public interface IStoreManager
     List<Token> GetContractTokens(Address contractAddress);
     Validator? GetStake(Address address);
     List<Validator> GetValidators();
-    bool LoadStagingChain(string storeName, ChainState newChain, IStateCache newState, List<EventBase> events);
+    bool LoadStagingChain(string storeName, ChainState newChain, IStateCache newState, List<IEvent> events);
     Checkpoint CreateCheckpoint();
     ulong GetEstimatedStakeReward(Address address, long milestoneId);
     long GetLastHeightContainingBlock();

@@ -1,4 +1,4 @@
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Transport.Websocket;
 using Kryolite.Type;
@@ -120,7 +120,7 @@ public sealed class CalleeNodeService(WebsocketChannel channel, IServiceProvider
         }
         catch (Exception ex)
         {
-            var logger = serviceProvider.GetRequiredService<ILogger<CalleeNodeService>>();
+            var logger = _sp.GetRequiredService<ILogger<CalleeNodeService>>();
             logger.LogError(ex, "");
             throw new Exception("", ex);
         }

@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using Geralt;
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Type;
 
 namespace Kryolite.Transport.Websocket;

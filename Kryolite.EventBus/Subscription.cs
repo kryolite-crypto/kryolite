@@ -1,11 +1,11 @@
 namespace Kryolite.EventBus;
 
-public class Subscription<TEvent> : IDisposable, ISubscription where TEvent : EventBase
+public class Subscription<TEvent> : IDisposable, ISubscription where TEvent : IEvent
 {
     public Guid SubscriptionId { get; }
 
     private Action<TEvent> Action { get; }
-    
+
     private readonly EventBus _eventBus;
 
     public Subscription(Action<TEvent> action, EventBus eventBus)
@@ -15,14 +15,9 @@ public class Subscription<TEvent> : IDisposable, ISubscription where TEvent : Ev
         _eventBus = eventBus;
     }
 
-    public void Publish(EventBase ev)
+    public void Publish(IEvent ev)
     {
-        if (ev is not TEvent eventBase)
-        {
-            throw new ArgumentException();
-        }
-
-        Action.Invoke(eventBase);
+        Action.Invoke((TEvent)ev);
     }
 
     public void Dispose()

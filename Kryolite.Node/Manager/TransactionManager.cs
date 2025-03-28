@@ -1,45 +1,45 @@
 using System.Diagnostics;
 using System.Numerics;
-using Kryolite.EventBus;
 using Kryolite.Interface;
 using Kryolite.Node.Executor;
 using Kryolite.Node.Procedure;
-using Kryolite.Node.Repository;
 using Kryolite.Node.Storage.Key;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Kryolite.Type;
+using Kryolite.Shared;
 using Microsoft.Extensions.Logging;
+using Kryolite.Module.SmartContract;
 
 namespace Kryolite.Node;
 
 public abstract class TransactionManager
 {
-    private IStoreRepository Repository { get; }
-    private IKeyRepository KeyRepository { get; }
-    private IStateCache StateCache { get; }
-    private ILogger Logger { get; }
+    private readonly IStoreRepository _repository;
+    private readonly IKeyRepository _keyRepository;
+    private readonly IVirtualMachineFactory _vmFactory;
+    private readonly IStateCache _stateCache;
+    private readonly ILogger _logger;
 
-    public TransactionManager(IStoreRepository repository, IKeyRepository keyRepository, IStateCache stateCache, ILogger logger)
+    public TransactionManager(IStoreRepository repository, IKeyRepository keyRepository, IVirtualMachineFactory vmFactory, IStateCache stateCache, ILogger logger)
     {
-        Repository = repository ?? throw new ArgumentNullException(nameof(repository));
-        KeyRepository = keyRepository ?? throw new ArgumentNullException(nameof(keyRepository));
-        StateCache = stateCache ?? throw new ArgumentNullException(nameof(stateCache));
-        Logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _repository = repository;
+        _keyRepository = keyRepository;
+        _vmFactory = vmFactory;
+        _stateCache = stateCache;
+        _logger = logger;
     }
 
     public abstract void Broadcast(View view);
     public abstract void Broadcast(Transaction tx);
     public abstract void Broadcast(Block block);
     public abstract void Broadcast(Vote vote);
-
-    public abstract void Publish(EventBase ev);
-    public abstract void Publish(List<EventBase> events);
+    public abstract void Publish(IEvent ev);
+    public abstract void Publish(List<IEvent> ev);
     public abstract string CHAIN_NAME { get; }
 
     public bool AddGenesis(View view)
     {
-        using var dbtx = Repository.BeginTransaction();
+        using var dbtx = _repository.BeginTransaction();
 
         try
         {
@@ -59,21 +59,21 @@ public abstract class TransactionManager
                     RewardAddress = Address.NULL_ADDRESS
                 };
 
-                Repository.SetValidator(0, stake);
+                _repository.SetValidator(0, stake);
             }
 
-            StateCache.SetChainState(chainState);
-            StateCache.SetView(view);
+            _stateCache.SetChainState(chainState);
+            _stateCache.SetView(view);
 
-            Repository.SaveState(chainState);
-            Repository.Add(view);
+            _repository.SaveState(chainState);
+            _repository.Add(view);
 
             dbtx.Commit();
             return true;
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "{CHAIN_NAME}AddGenesis error", CHAIN_NAME);
+            _logger.LogError(ex, "{CHAIN_NAME}AddGenesis error", CHAIN_NAME);
             dbtx.Rollback();
         }
 
@@ -83,7 +83,7 @@ public abstract class TransactionManager
     protected bool AddViewInternal(View view, bool broadcast, bool castVote)
     {
         var sw = Stopwatch.StartNew();
-        using var dbtx = Repository.BeginTransaction();
+        using var dbtx = _repository.BeginTransaction();
 
         try
         {
@@ -98,12 +98,12 @@ public abstract class TransactionManager
             var totalStake = 0UL;
             var seedStake = 0UL;
 
-            var chainState = StateCache.GetCurrentState();
+            var chainState = _stateCache.GetCurrentState();
             var blockRewards = new Dictionary<Address, ulong>();
 
             foreach (var blockhash in view.Blocks)
             {
-                if (!StateCache.GetBlocks().Remove(blockhash, out var block))
+                if (!_stateCache.GetBlocks().Remove(blockhash, out var block))
                 {
                     throw new Exception($"unknown reference to block ({blockhash})");
                 }
@@ -132,28 +132,28 @@ public abstract class TransactionManager
             }
 
             // Reset pending values for orphaned blocks
-            foreach (var entry in StateCache.GetBlocks())
+            foreach (var entry in _stateCache.GetBlocks())
             {
-                if (StateCache.GetLedgers().TryGetValue(entry.Value.To, out var ledger))
+                if (_stateCache.GetLedgers().TryGetValue(entry.Value.To, out var ledger))
                 {
                     ledger.Pending = checked(ledger.Pending - entry.Value.Value);
                 }
             }
 
-            StateCache.GetBlocks().Clear();
+            _stateCache.GetBlocks().Clear();
 
-            Logger.LogDebug("Pending votes: {voteCount}", StateCache.GetVotes().Count);
+            _logger.LogDebug("Pending votes: {voteCount}", _stateCache.GetVotes().Count);
 
             foreach (var votehash in view.Votes)
             {
-                if (!StateCache.GetVotes().TryGetValue(votehash, out var vote))
+                if (!_stateCache.GetVotes().TryGetValue(votehash, out var vote))
                 {
                     throw new Exception($"unknown reference to vote ({votehash})");
                 }
 
                 var stakeAddress = vote.PublicKey.ToAddress();
-                
-                if (!StateCache.GetValidators().TryGetValidator(stakeAddress, Repository, out var validator))
+
+                if (!_stateCache.GetValidators().TryGetValidator(stakeAddress, _repository, out var validator))
                 {
                     throw new Exception($"not validator ({stakeAddress})");
                 }
@@ -185,7 +185,7 @@ public abstract class TransactionManager
             // Remove transactions that were applied in this view
             foreach (var txId in view.Transactions)
             {
-                if (!StateCache.GetTransactions().Remove(txId, out var tx))
+                if (!_stateCache.GetTransactions().Remove(txId, out var tx))
                 {
                     throw new Exception($"unknown reference to transaction ({txId})");
                 }
@@ -195,7 +195,7 @@ public abstract class TransactionManager
 
             if (view.ShouldClearVotes())
             {
-                StateCache.GetVotes().Clear();
+                _stateCache.GetVotes().Clear();
             }
 
             if (view.IsEpoch())
@@ -203,8 +203,8 @@ public abstract class TransactionManager
                 HandleEpochChange(view, chainState, toExecute);
             }
 
-            var context = new ExecutorContext(Repository, StateCache.GetLedgers(), StateCache.GetValidators(), StateCache.GetCurrentView(), totalStake - seedStake, height);
-            var executor = new Executor.Executor(context, Logger);
+            var context = new ExecutorContext(_repository, _stateCache.GetLedgers(), _stateCache.GetValidators(), _stateCache.GetCurrentView(), totalStake - seedStake, height);
+            var executor = new Executor.Executor(context, _vmFactory, _logger);
 
             executor.Execute(toExecute, view, chainState);
 
@@ -225,30 +225,30 @@ public abstract class TransactionManager
             chainState.TotalVotes += votes.Count;
             chainState.TotalTransactions += toExecute.Count;
             chainState.TotalBlocks += blocks.Count;
-            chainState.CurrentDifficulty = DifficultyScale.Scale(chainState, Repository);
+            chainState.CurrentDifficulty = DifficultyScale.Scale(chainState, _repository);
             chainState.BlockReward += RewardCalculator.BlockReward(view.Id);
-            
+
             if (finalized)
             {
                 FinalizeView(chainState);
             }
 
-            Repository.AddRange(blocks);
-            Repository.AddRange(votes);
-            Repository.AddRange(toExecute);
-            Repository.Add(view);
-            Repository.SaveState(chainState);
+            _repository.AddRange(blocks);
+            _repository.AddRange(votes);
+            _repository.AddRange(toExecute);
+            _repository.Add(view);
+            _repository.SaveState(chainState);
 
             // Commit before voting for GetStake to get updated stake value
             dbtx.Commit();
 
-            var pubKey = KeyRepository.GetPublicKey();
+            var pubKey = _keyRepository.GetPublicKey();
             var address = pubKey.ToAddress();
-            var shouldVote = castVote && view.IsMilestone() && Repository.IsValidator(address);
+            var shouldVote = castVote && view.IsMilestone() && _repository.IsValidator(address);
 
             if (shouldVote)
             {
-                var validator = Repository.GetValidator(address) ?? throw new Exception("failed to load stake for current node, corrupted Validator index?");
+                var validator = _repository.GetValidator(address) ?? throw new Exception("failed to load stake for current node, corrupted Validator index?");
 
                 var stake = validator.Stake;
 
@@ -265,7 +265,7 @@ public abstract class TransactionManager
                     RewardAddress = validator.RewardAddress
                 };
 
-                vote.Sign(KeyRepository.GetPrivateKey());
+                vote.Sign(_keyRepository.GetPrivateKey());
                 AddVoteInternal(vote, true);
             }
 
@@ -275,23 +275,23 @@ public abstract class TransactionManager
             }
 
             Publish(chainState);
-            Publish(StateCache.GetLedgers().Values.Select(x => (EventBase)x).ToList());
-            Publish(StateCache.GetValidators().Values.Select(x => (EventBase)x).ToList());
+            Publish(_stateCache.GetLedgers().Values.Select(x => (IEvent)x).ToList());
+            Publish(_stateCache.GetValidators().Values.Select(x => (IEvent)x).ToList());
             Publish(context.GetEvents());
 
-            foreach (var ledger in StateCache.GetLedgers().Values)
+            foreach (var ledger in _stateCache.GetLedgers().Values)
             {
                 // Remove cached ledgers that do not have anything pending
                 if (ledger.Pending == 0)
                 {
-                    StateCache.GetLedgers().Remove(ledger.Address);
+                    _stateCache.GetLedgers().Remove(ledger.Address);
                 }
             }
 
-            StateCache.SetView(view);
+            _stateCache.SetView(view);
 
             sw.Stop();
-            Logger.LogInformation("{CHAIN_NAME}Added view #{height} in {duration}ms [Transactions = {txCount}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {nextDifficulty}]",
+            _logger.LogInformation("{CHAIN_NAME}Added view #{height} in {duration}ms [Transactions = {txCount}] [Blocks = {blockCount}] [Votes = {voteCount}] [Next difficulty = {nextDifficulty}]",
                 CHAIN_NAME,
                 height,
                 sw.Elapsed.TotalMilliseconds,
@@ -305,12 +305,12 @@ public abstract class TransactionManager
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "{CHAIN_NAME}AddView error", CHAIN_NAME);
+            _logger.LogError(ex, "{CHAIN_NAME}AddView error", CHAIN_NAME);
 
-            StateCache.Clear();
+            _stateCache.Clear();
 
-            StateCache.SetView(Repository.GetLastView()!);
-            StateCache.SetChainState(Repository.GetChainState()!);
+            _stateCache.SetView(_repository.GetLastView()!);
+            _stateCache.SetChainState(_repository.GetChainState()!);
 
             dbtx.Rollback();
         }
@@ -333,7 +333,7 @@ public abstract class TransactionManager
         for (var i = epochStart; i < epochEnd; i += Constant.VOTE_INTERVAL)
         {
             // +1 due to votes being registered on next view after epoch
-            var voteView = Repository.GetView(i + 1);
+            var voteView = _repository.GetView(i + 1);
 
             if (voteView is null)
             {
@@ -342,7 +342,7 @@ public abstract class TransactionManager
 
             blockCount += voteView.Blocks.Count;
 
-            var votes = Repository.GetVotes(voteView.Votes);
+            var votes = _repository.GetVotes(voteView.Votes);
 
             foreach (var vote in votes)
             {
@@ -388,10 +388,10 @@ public abstract class TransactionManager
         chainState.TotalActiveStake = 0;
 
         // Recalculate TotalActiveState based on voters during previous epoch
-        foreach (var validatorEntry in Repository.GetValidators())
+        foreach (var validatorEntry in _repository.GetValidators())
         {
             // We might have cached value if the stake has been updated during this view
-            if (!StateCache.GetValidators().TryGetValidator(validatorEntry.NodeAddress, Repository, out var validator))
+            if (!_stateCache.GetValidators().TryGetValidator(validatorEntry.NodeAddress, _repository, out var validator))
             {
                 throw new Exception("failed to load validator through cache");
             }
@@ -399,7 +399,7 @@ public abstract class TransactionManager
             if (voters.Contains(validator.NodeAddress))
             {
                 var stake = Constant.SEED_VALIDATORS.Contains(validator.NodeAddress) ? Constant.MIN_STAKE : validator.Stake;
-                chainState.TotalActiveStake = checked (chainState.TotalActiveStake + stake);
+                chainState.TotalActiveStake = checked(chainState.TotalActiveStake + stake);
             }
             else
             {
@@ -433,34 +433,34 @@ public abstract class TransactionManager
         var height = chainState.Id - 1;
         chainState.LastFinalizedHeight = height;
 
-        Repository.DeleteNonLatestFromIndexBeforeHeight(LedgerKey.KeyName, height);
-        Repository.DeleteNonLatestFromIndexBeforeHeight(ContractKey.KeyName, height);
-        Repository.DeleteNonLatestFromIndexBeforeHeight(ContractCodeKey.KeyName, height);
-        Repository.DeleteNonLatestFromIndexBeforeHeight(ContractSnapshotKey.KeyName, height);
-        Repository.DeleteNonLatestFromIndexBeforeHeight(TokenKey.KeyName, height);
-        Repository.DeleteNonLatestFromIndexBeforeHeight(ValidatorKey.KeyName, height);
-        Repository.DeleteNonLatestFromIndexBeforeHeight(TokenIdKey.KeyName, height);
-        Repository.DeleteNonLatestFromIndexBeforeHeight(TokenLedgerKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(LedgerKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(ContractKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(ContractCodeKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(ContractSnapshotKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(TokenKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(ValidatorKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(TokenIdKey.KeyName, height);
+        _repository.DeleteNonLatestFromIndexBeforeHeight(TokenLedgerKey.KeyName, height);
     }
 
     protected bool AddBlockInternal(Block block, bool broadcast)
     {
         var sw = Stopwatch.StartNew();
 
-        var chainState = StateCache.GetCurrentState();
+        var chainState = _stateCache.GetCurrentState();
 
         if (broadcast)
         {
             Broadcast(block);
         }
 
-        StateCache.Add(block);
+        _stateCache.Add(block);
 
         sw.Stop();
 
-        Logger.LogInformation("{CHAIN_NAME}Added block #{blockNumber} in {duration}ms [diff = {difficulty}]",
+        _logger.LogInformation("{CHAIN_NAME}Added block #{blockNumber} in {duration}ms [diff = {difficulty}]",
             CHAIN_NAME,
-            chainState.TotalBlocks + StateCache.GetBlocks().Count,
+            chainState.TotalBlocks + _stateCache.GetBlocks().Count,
             sw.Elapsed.TotalMilliseconds,
             block.Difficulty
         );
@@ -481,7 +481,7 @@ public abstract class TransactionManager
 
         try
         {
-            var transfer = new Transfer(Repository, StateCache.GetLedgers(), StateCache.GetValidators(), StateCache.GetCurrentState());
+            var transfer = new Transfer(_repository, _stateCache.GetLedgers(), _stateCache.GetValidators(), _stateCache.GetCurrentState());
             var totalValue = tx.Value + (ulong)tx.MaxFee;
 
             if (!transfer.From(tx.From!, totalValue, out var executionResult, out var from))
@@ -490,7 +490,8 @@ public abstract class TransactionManager
                 return false;
             }
 
-            StateCache.Add(tx);
+            _stateCache.Add(tx);
+
             Publish(from);
 
             if (tx.TransactionType != TransactionType.CONTRACT)
@@ -508,7 +509,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "{CHAIN_NAME}AddTransaction error", CHAIN_NAME);
+            _logger.LogError(ex, "{CHAIN_NAME}AddTransaction error", CHAIN_NAME);
         }
 
         return false;
@@ -518,7 +519,7 @@ public abstract class TransactionManager
     {
         try
         {
-            if (!StateCache.GetLedgers().TryGetWallet(tx.From!, Repository, out var from))
+            if (!_stateCache.GetLedgers().TryGetWallet(tx.From!, _repository, out var from))
             {
                 tx.ExecutionResult = ExecutionResult.UNKNOWN;
                 return false;
@@ -534,7 +535,7 @@ public abstract class TransactionManager
             from.Pending = from.Balance;
             from.Balance = 0;
 
-            StateCache.Add(tx);
+            _stateCache.Add(tx);
 
             Publish(from);
 
@@ -547,7 +548,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "{CHAIN_NAME}AddValidatorRegisteration error", CHAIN_NAME);
+            _logger.LogError(ex, "{CHAIN_NAME}AddValidatorRegisteration error", CHAIN_NAME);
         }
 
         return false;
@@ -557,13 +558,13 @@ public abstract class TransactionManager
     {
         try
         {
-            if (!StateCache.GetLedgers().TryGetWallet(tx.From!, Repository, out var from))
+            if (!_stateCache.GetLedgers().TryGetWallet(tx.From!, _repository, out var from))
             {
                 tx.ExecutionResult = ExecutionResult.UNKNOWN;
                 return false;
             }
 
-            if (!StateCache.GetValidators().TryGetValidator(tx.From!, Repository, out var validator))
+            if (!_stateCache.GetValidators().TryGetValidator(tx.From!, _repository, out var validator))
             {
                 tx.ExecutionResult = ExecutionResult.UNKNOWN;
                 return false;
@@ -572,7 +573,7 @@ public abstract class TransactionManager
             // Move stake to pending indicating it will be unlocked
             from.Pending = validator.Stake;
 
-            StateCache.Add(tx);
+            _stateCache.Add(tx);
 
             Publish(from);
 
@@ -585,7 +586,7 @@ public abstract class TransactionManager
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "{CHAIN_NAME}AddValidatorDeregisteration error", CHAIN_NAME);
+            _logger.LogError(ex, "{CHAIN_NAME}AddValidatorDeregisteration error", CHAIN_NAME);
         }
 
         return false;
@@ -595,20 +596,20 @@ public abstract class TransactionManager
     {
         try
         {
-            StateCache.Add(vote);
+            _stateCache.Add(vote);
 
             if (broadcast)
             {
                 Broadcast(vote);
             }
 
-            Logger.LogDebug("Added vote");
+            _logger.LogDebug("Added vote");
 
             return true;
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "{CHAIN_NAME}AddVote error.", CHAIN_NAME);
+            _logger.LogError(ex, "{CHAIN_NAME}AddVote error.", CHAIN_NAME);
         }
 
         return false;

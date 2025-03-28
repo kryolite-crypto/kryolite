@@ -1,7 +1,7 @@
 namespace Kryolite.EventBus;
 
-public interface ISubscription
+public interface ISubscription : IDisposable
 {
     public Guid SubscriptionId { get; }
-    void Publish(EventBase ev);
+    void Publish(IEvent ev);
 }

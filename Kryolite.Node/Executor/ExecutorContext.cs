@@ -2,8 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using Kryolite.EventBus;
 using Kryolite.Node.Procedure;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
+using Kryolite.Interface;
 using Kryolite.Type;
 
 namespace Kryolite.Node.Executor;
@@ -16,13 +16,13 @@ public class ExecutorContext : IExecutorContext
     private long Height { get; }
     private Dictionary<Address, Contract> Contracts { get; } = new();
     private Dictionary<(Address contract, SHA256Hash tokenId), Token> Tokens { get; } = new();
-    private List<EventBase> Events { get; } = new();
+    private List<IEvent> Events { get; } = new();
     private Random Rand { get; set; } = Random.Shared;
 
-    public ValidatorCache Validators { get; private set; }
-    public WalletCache Ledger { get; private set; }
+    public Dictionary<Address, Validator> Validators { get; private set; }
+    public Dictionary<Address, Ledger> Ledger { get; private set; }
 
-    public ExecutorContext(IStoreRepository repository, WalletCache wallets, ValidatorCache validators, View view, ulong totalStake, long height)
+    public ExecutorContext(IStoreRepository repository, Dictionary<Address, Ledger> wallets, Dictionary<Address, Validator> validators, View view, ulong totalStake, long height)
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Ledger = wallets ?? throw new ArgumentNullException(nameof(wallets));
@@ -145,17 +145,17 @@ public class ExecutorContext : IExecutorContext
         Tokens.TryAdd((token.Contract, token.TokenId), token);
     }
 
-    public List<EventBase> GetEvents()
+    public List<IEvent> GetEvents()
     {
         return Events;
     }
 
-    public void AddEvent(EventBase ev)
+    public void AddEvent(IEvent ev)
     {
         Events.Add(ev);
     }
 
-    public void AddEvents(List<EventBase> events)
+    public void AddEvents(List<IEvent> events)
     {
         Events.AddRange(events);
     }

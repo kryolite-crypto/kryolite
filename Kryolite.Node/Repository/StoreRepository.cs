@@ -1,10 +1,12 @@
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Node.Storage;
 using Kryolite.Node.Storage.Key;
 using Kryolite.RocksDb;
 using Kryolite.Shared;
 using Kryolite.Shared.Blockchain;
 using Kryolite.Type;
+using Kryolite.Interface;
+using Kryolite.Model;
 using Microsoft.Extensions.Configuration;
 using System.Buffers;
 using System.Data;
@@ -559,7 +561,7 @@ public class StoreRepository : IStoreRepository, IDisposable
 
     public List<Validator> GetValidators()
     {
-        var validators = new ValidatorCache();
+        var validators = new Dictionary<Address, Validator>();
 
         using var opts = new ReadOptions();
         using var iterator = Storage.GetIterator(ValidatorKey.KeyName, opts);

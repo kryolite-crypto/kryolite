@@ -1,8 +1,8 @@
 using Kryolite.Interface;
 using Kryolite.Node.Repository;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Kryolite.Type;
+using Kryolite.Shared;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Node.Blockchain;
@@ -13,8 +13,8 @@ public class StateCache : IStateCache
     private Dictionary<SHA256Hash, Vote> Votes = new();
     private Dictionary<SHA256Hash, Transaction> Transactions = new();
 
-    private WalletCache LedgerCache = new();
-    private ValidatorCache Validators = new();
+    private Dictionary<Address, Ledger> LedgerCache = new();
+    private Dictionary<Address, Validator> Validators = new();
     private View CurrentView;
     private ChainState ChainState;
 
@@ -86,12 +86,12 @@ public class StateCache : IStateCache
         return CurrentView;
     }
 
-    public WalletCache GetLedgers()
+    public Dictionary<Address, Ledger> GetLedgers()
     {
         return LedgerCache;
     }
 
-    public ValidatorCache GetValidators()
+    public Dictionary<Address, Validator> GetValidators()
     {
         return Validators;
     }

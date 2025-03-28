@@ -1,19 +1,16 @@
 using System.Runtime.InteropServices;
-using Kryolite.ByteSerializer;
-using Kryolite.EventBus;
 using Kryolite.Interface;
-using Kryolite.Node.Blockchain;
-using Kryolite.Node.Executor;
-using Kryolite.Node.Procedure;
-using Kryolite.Node.Repository;
-using Kryolite.Node.Storage;
 using Kryolite.Node.Storage.Key;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 using Kryolite.Type;
-using Microsoft.Extensions.Configuration;
+using Kryolite.Shared.Blockchain;
 using Microsoft.Extensions.Logging;
+using Kryolite.Module.SmartContract;
+using Microsoft.Extensions.Configuration;
+using Kryolite.Node.Repository;
+using Kryolite.Node.Blockchain;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Kryolite.Node;
 
@@ -23,13 +20,13 @@ public class StagingManager : TransactionManager, IDisposable
     public ILogger<StagingManager> Logger { get; }
     public IStateCache StateCache { get; }
     public IVerifier Verifier { get; set; }
-    public List<EventBase> Events { get; } = new();
+    public List<IEvent> Events { get; } = new();
 
     private ILoggerFactory _loggerFactory { get; set; }
 
     public override string CHAIN_NAME => "[STAGING] ";
 
-    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IStateCache stateCache, ILoggerFactory loggerFactory) : base(repository, keyRepository, stateCache, loggerFactory.CreateLogger("TransactionManager"))
+    private StagingManager(IStoreRepository repository, IKeyRepository keyRepository, IVerifier verifier, IVirtualMachineFactory vmFactory, IStateCache stateCache, ILoggerFactory loggerFactory) : base(repository, keyRepository, vmFactory, stateCache, loggerFactory.CreateLogger("TransactionManager"))
     {
         Repository = repository ?? throw new ArgumentNullException(nameof(repository));
         Verifier = verifier ?? throw new ArgumentNullException(nameof(verifier));
@@ -68,8 +65,13 @@ public class StagingManager : TransactionManager, IDisposable
                 .AddSimpleConsole();
         });
 
+        var services = new ServiceCollection();
+        services.AddScoped<IStoreRepository>((scope) => repository);
+
         var verifier = new Verifier(repository, stateCache, loggerFactory.CreateLogger<Verifier>());
-        var manager = new StagingManager(repository, keyRepository, verifier, stateCache, loggerFactory);
+        var cache = new Cache(configuration);
+        var vmFactory = new VirtualMachineFactory(cache, services.BuildServiceProvider(), loggerFactory);
+        var manager = new StagingManager(repository, keyRepository, verifier, vmFactory, stateCache, loggerFactory);
 
         return manager;
     }
@@ -103,9 +105,7 @@ public class StagingManager : TransactionManager, IDisposable
             return false;
         }
 
-        var span = CollectionsMarshal.AsSpan(transactions);
-
-        foreach (var txDto in span)
+        foreach (var txDto in transactions)
         {
             var tx = new Transaction(txDto);
 
@@ -201,12 +201,12 @@ public class StagingManager : TransactionManager, IDisposable
 
     }
 
-    public override void Publish(EventBase ev)
+    public override void Publish(IEvent ev)
     {
         Events.Add(ev);
     }
 
-    public override void Publish(List<EventBase> events)
+    public override void Publish(List<IEvent> events)
     {
         Events.AddRange(events);
     }
@@ -237,10 +237,10 @@ public class StagingManager : TransactionManager, IDisposable
         var height = GetHeight();
         using var dbtx = Repository.BeginTransaction();
 
-        var ledgers = new WalletCache();
+        var ledgers = new Dictionary<Address, Ledger>();
         var contracts = new Dictionary<Address, Contract>();
         var tokens = new Dictionary<(Address, SHA256Hash), Token>();
-        var validators = new ValidatorCache();
+        var validators = new Dictionary<Address, Validator>();
 
         for (var i = height; i > targetHeight; i--)
         {

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.CommandLine.Binding;
+using System.Diagnostics.CodeAnalysis;
 using Kryolite.Node.Repository;
 using Microsoft.Extensions.Configuration;
 
@@ -20,7 +21,7 @@ public static class NodeCmd
 public static class NodeIdentityCmd
 {
     // TODO: Make DI work for this
-    private static IConfiguration _configuration;
+    private static IConfiguration? _configuration;
 
     public static Command Build(IConfiguration configuration)
     {
@@ -74,7 +75,7 @@ public static class NodeIdentityCmd
 
     public static void ShowCommand(string output)
     {
-        var repository = new KeyRepository(_configuration);
+        var repository = new KeyRepository(_configuration!);
         var privateKey = repository.GetPrivateKey();
         var publicKey = repository.GetPublicKey();
 
@@ -106,7 +107,7 @@ public static class NodeIdentityCmd
         }
 
         var path = Path.GetFullPath(file);
-        var repository = new KeyRepository(_configuration);
+        var repository = new KeyRepository(_configuration!);
         repository.Import(path);
 
         Console.WriteLine($"Node keys imported from {path}");
@@ -120,7 +121,7 @@ public static class NodeIdentityCmd
         }
 
         var path = Path.GetFullPath(file);
-        var repository = new KeyRepository(_configuration);
+        var repository = new KeyRepository(_configuration!);
         repository.Export(path);
 
         Console.WriteLine($"Node keys exported to {path}");
@@ -134,7 +135,7 @@ public static class NodeIdentityCmd
             return;
         }
 
-        var repository = new KeyRepository(_configuration);
+        var repository = new KeyRepository(_configuration!);
         File.Delete(repository.StorePath);
 
         // Create and output freshly created keys

@@ -1,7 +1,7 @@
 using Kryolite.Node.Procedure;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Microsoft.Extensions.Logging;
+using Kryolite.Module.SmartContract;
 
 namespace Kryolite.Node.Executor;
 
@@ -15,13 +15,13 @@ public class Executor
     private IExecutorContext Context { get; }
     private ILogger Logger { get; set; }
 
-    public Executor(IExecutorContext context, ILogger logger)
+    public Executor(IExecutorContext context, IVirtualMachineFactory vmFactory, ILogger logger)
     {
-        ContractExecutor = new(context, logger);
+        ContractExecutor = new(context, vmFactory, logger);
         TransactionExecutor = new(context, logger);
         ValidatorRegExecutor = new(context, logger);
         ValidatorDeregExecutor = new(context, logger);
-        ContractInstallerExecutor = new(context, logger);
+        ContractInstallerExecutor = new(context, vmFactory, logger);
         Context = context ?? throw new ArgumentNullException(nameof(context));
         Logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }

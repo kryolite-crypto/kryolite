@@ -1,15 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <ItemGroup>
-    <ProjectReference Include="..\Kryolite.Shared\Kryolite.Shared.csproj" />
-    <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
-    <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
-  </ItemGroup>
-
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
   </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Kryolite.Rocksdb\Kryolite.Rocksdb.csproj" />
+    <ProjectReference Include="..\Kryolite.Wallet\Kryolite.Wallet.csproj" />
+    <ProjectReference Include="..\Kryolite.Model\Kryolite.Model.csproj" />
+  </ItemGroup>
 
 </Project>

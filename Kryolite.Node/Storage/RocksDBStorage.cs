@@ -1,4 +1,5 @@
-﻿using Kryolite.ByteSerializer;
+﻿using Kryolite.FastSerializer;
+using Kryolite.Interface;
 using Kryolite.Node.Storage.Key;
 using Kryolite.RocksDb;
 using Microsoft.Extensions.Configuration;

@@ -5,6 +5,7 @@ using Kryolite.EventBus;
 using Kryolite.Grpc.NodeService;
 using Kryolite.Interface;
 using Kryolite.Module.Upnp;
+using Kryolite.Module.SmartContract;
 using Kryolite.Module.Validator;
 using Kryolite.Node.API;
 using Kryolite.Node.Blockchain;
@@ -112,7 +113,6 @@ public static class Startup
         app.UseRouting();
         app.UseCors();
         app.UseWebSockets();
-        app.UseKryoliteRpc();
 
         app.UseEndpoints(endpoints =>
         {
@@ -151,6 +151,7 @@ public static class Startup
                 .AddValidatorModule()
                 .AddUpnpModule()
                 .AddRouting()
+                .AddSmartcontracts()
                 .AddCors(opts => opts.AddDefaultPolicy(policy => policy
                     .AllowAnyOrigin()
                     .AllowAnyMethod()
@@ -282,6 +283,12 @@ seednode=
 
 ; connection timeout in seconds
 timeout=30
+
+; smart contract cache size (in MB)
+smartcontract.cache.size=50
+
+; smart contract cache expiration time (in minutes)
+smartcontract.cache.expiration=15
 
 ; logging level (default, trace, debug, info, warning, error, critical)
 loglevel="default"

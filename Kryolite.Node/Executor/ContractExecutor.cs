@@ -1,34 +1,31 @@
-using Kryolite.ByteSerializer;
+using Kryolite.FastSerializer;
 using Kryolite.Node.Procedure;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Microsoft.Extensions.Logging;
 using System.Diagnostics;
 using System.Text.Json;
+using Kryolite.Module.SmartContract;
 
 namespace Kryolite.Node.Executor;
 
-public class ContractExecutor(IExecutorContext context, ILogger logger)
+public class ContractExecutor(IExecutorContext _context, IVirtualMachineFactory _vmFactory, ILogger _logger)
 {
-    private IExecutorContext Context { get; } = context ?? throw new ArgumentNullException(nameof(context));
-    private ILogger Logger { get; } = logger ?? throw new ArgumentNullException(nameof(logger));
-
     public ExecutionResult Execute(Transaction tx, View view, ref Transfer transfer)
     {
         try
         {
-            var contract = Context.GetContract(tx.To);
+            var contract = _context.GetContract(tx.To);
 
             if (contract is null)
             {
                 return ExecutionResult.INVALID_CONTRACT;
             }
 
-            var contractLedger = Context.GetOrNewWallet(tx.To);
+            var contractLedger = _context.GetOrNewWallet(tx.To);
 
             if (contract.CurrentSnapshot is null)
             {
-                contract.CurrentSnapshot = Context.GetRepository().GetLatestSnapshot(contract.Address);
+                contract.CurrentSnapshot = _context.GetRepository().GetLatestSnapshot(contract.Address);
 
                 if (contract.CurrentSnapshot is null)
                 {
@@ -53,28 +50,20 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 return ExecutionResult.INVALID_METHOD;
             }
 
-            var methodParams = new List<object>();
-
-            if (call.Params is not null)
-            {
-                methodParams.AddRange(call.Params);
-            }
-
-            var vmContext = new VMContext(view, contract, tx, Context.GetRand(), Logger, contractLedger.Balance);
-
-            var vm = KryoVM.LoadFromSnapshot(tx.To, Context.GetRepository(), contract.CurrentSnapshot)
-                .WithContext(vmContext);
+            var vmContext = new Context(contract, tx, view, _context.GetRand(), (long)contractLedger.Balance);
+            var vm = _vmFactory.Load(vmContext);
 
             var fuelStart = tx.MaxFee - tx.SpentFee;
 
-            vm.Fuel = fuelStart;
-            Logger.LogDebug("Set fuel to {fuel}", vm.Fuel);
+            vm.AddFuel(fuelStart);
+            _logger.LogDebug("Executing contract {contractName}:{methodName} (fuel = {fuel})", contract.Name, call.Method, fuelStart);
 
-            Logger.LogDebug("Executing contract {contractName}:{methodName}", contract.Name, call.Method);
-            var ret = vm.CallMethod(methodName, [.. methodParams], out _);
-            Logger.LogDebug("Contract result = {result}, fuel burned = {fuel}", ret, fuelStart - vm.Fuel);
+            var ret = vm.CallMethod(methodName, call.Params, out _);
+            var consumedFuel = vm.GetConsumedFuel();
 
-            tx.SpentFee += (uint)(fuelStart - vm.Fuel);
+            _logger.LogDebug("Contract result = {result}, fuel burned = {fuel}", ret, consumedFuel);
+
+            tx.SpentFee += (uint)(consumedFuel);
 
             if (ret != 0)
             {
@@ -84,12 +73,12 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
 
             foreach (var effect in tx.Effects)
             {
-                var wallet = Context.GetOrNewWallet(effect.To);
+                var wallet = _context.GetOrNewWallet(effect.To);
 
                 // Handle token effect
                 if (effect.TokenId is not null)
                 {
-                    var token = Context.GetToken(contract.Address, effect.TokenId);
+                    var token = _context.GetToken(contract.Address, effect.TokenId);
 
                     if (token is null)
                     {
@@ -103,7 +92,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                             Contract = contract.Address
                         };
 
-                        Context.AddToken(token);
+                        _context.AddToken(token);
                     }
 
                     token.Ledger = effect.To;
@@ -114,7 +103,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
                 if (!transfer.From(contract.Address, effect.Value, out var executionResult, out _))
                 {
                     // TODO: if this fails, we should rollback previous effects or else they will be only partially added
-                    Logger.LogInformation("Failed to take funds from contract");
+                    _logger.LogInformation("Failed to take funds from contract");
                     return ExecutionResult.CONTRACT_EXECUTION_FAILED;
                 }
 
@@ -124,10 +113,10 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
 
             foreach (var sched in vmContext.ScheduledCalls)
             {
-                Context.GetRepository().Add(sched);
+                _context.GetRepository().Add(sched);
             }
 
-            Context.AddEvents(vmContext.Events);
+            _context.AddEvents(vmContext.Events);
 
             contract.CurrentSnapshot = vm.TakeSnapshot();
 
@@ -135,7 +124,7 @@ public class ContractExecutor(IExecutorContext context, ILogger logger)
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Contract failed");
+            _logger.LogError(ex, "Contract failed");
             return ExecutionResult.CONTRACT_EXECUTION_FAILED;
         }
     }

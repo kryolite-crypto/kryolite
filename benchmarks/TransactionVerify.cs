@@ -1,7 +1,6 @@
 ﻿using BenchmarkDotNet.Attributes;
 using Geralt;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.Model;
 using Kryolite.Type;
 
 namespace Kryolite.Benchmarks;

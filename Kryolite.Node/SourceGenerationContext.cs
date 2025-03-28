@@ -1,5 +1,8 @@
 using System.Text.Json.Serialization;
 using Kryolite.Node.API;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
+using Kryolite.Module.SmartContract;
 using Kryolite.Shared;
 
 namespace Kryolite.Node;

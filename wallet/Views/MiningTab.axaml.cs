@@ -12,14 +12,13 @@ using Avalonia.Threading;
 using AvaloniaEdit;
 using Kryolite.EventBus;
 using Kryolite.Interface;
-using Kryolite.Node;
-using Kryolite.Shared;
-using Kryolite.Shared.Algorithm;
-using Kryolite.Shared.Dto;
+using Kryolite.Algorithm;
+using Kryolite.Model.Dto;
 using LiveChartsCore.Defaults;
 using LiveChartsCore.SkiaSharpView;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Kryolite.Model;
 
 namespace Kryolite.Wallet;
 

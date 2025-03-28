@@ -1,10 +1,24 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks.Dataflow;
-using Microsoft.Extensions.Caching.Memory;
 
 namespace Kryolite.Shared;
-    
+
 public static class Extensions
 {
+    [return: NotNullIfNotNull(nameof(value))]
+    public static TValue? GetOrAdd<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, TValue? value) where TKey : notnull
+    {
+        var val = CollectionsMarshal.GetValueRefOrAddDefault(dict, key, out var exists);
+
+        if (!exists)
+        {
+            val = value;
+        }
+
+        return val;
+    }
+
     public static void Buffer<T>(this BufferBlock<T> block, TimeSpan interval, Func<IList<T>, Task> action)
     {
         Task.Run(async () => 

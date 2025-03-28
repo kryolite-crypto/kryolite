@@ -1,7 +1,6 @@
 using BenchmarkDotNet.Attributes;
-using Kryolite.ByteSerializer;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
+using Kryolite.FastSerializer;
+using Kryolite.Model;
 
 namespace Kryolite.Benchmarks;
 

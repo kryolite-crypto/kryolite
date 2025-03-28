@@ -2,9 +2,8 @@ using Kryolite.Grpc.NodeService;
 using Kryolite.Interface;
 using Kryolite.Node.Repository;
 using Kryolite.Node.Services;
-using Kryolite.Shared;
-using Kryolite.Shared.Blockchain;
-using Kryolite.Shared.Dto;
+using Kryolite.Model;
+using Kryolite.Model.Dto;
 using Kryolite.Transport.Websocket;
 using Kryolite.Type;
 using Microsoft.AspNetCore.Http;
@@ -16,11 +15,11 @@ namespace Kryolite.Node.Network;
 public class NodeService : INodeService, IWebsocketService<NodeService>
 {
     private readonly NodeTable _nodeTable;
-    private readonly IServiceProvider _sp;
     private readonly ILogger<NodeService> _logger;
     private readonly CancellationTokenSource _cts = new();
     private readonly PublicKey _nodeKey;
 
+    protected readonly IServiceProvider _sp;
     protected WebsocketChannel _channel;
 
     public NodeService(WebsocketChannel channel, IServiceProvider serviceProvider)

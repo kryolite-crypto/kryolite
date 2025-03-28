@@ -6,7 +6,7 @@ namespace Kryolite;
 public static class Constant
 {
     public const string STORE_VERSION = "9";
-    public const string CONFIG_VERSION = "4";
+    public const string CONFIG_VERSION = "5";
     public const string NETWORK_NAME = "TYTYRI-6";
     public const int API_LEVEL = 6;
     public const int MIN_API_LEVEL = 6;
@@ -30,6 +30,6 @@ public static class Constant
     public static readonly Address DEV_FEE_ADDRESS = "kryo:qz02wegqcncudpcvjturahr3vf9vyaaacl05fm59kzc5f3hu9d053ard";
 
     public const long MIN_STAKE = 20_000 * DECIMAL_MULTIPLIER;
-    public const ulong VALIDATOR_REWARD = 500 * DECIMAL_MULTIPLIER;
-    public const long BLOCK_REWARD = 100 * DECIMAL_MULTIPLIER;
+    public const ulong VALIDATOR_REWARD = 100 * DECIMAL_MULTIPLIER;
+    public const long BLOCK_REWARD = 50 * DECIMAL_MULTIPLIER;
 }
